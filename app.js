@@ -73,6 +73,28 @@ const UNLOCKS = [
   { minutes: 360, label: "Cheese foam" }
 ];
 
+const PEARL_SIZE = 20;
+const GAME_CUP_W = 80;
+const GAME_CUP_H = 44;
+
+const game = {
+  active: false,
+  score: 0,
+  timeLeft: 60,
+  lastTime: null,
+  spawnTimer: 0,
+  spawnInterval: 1.2,
+  pearls: [],
+  cupX: 0,
+  cupSpeed: 220,
+  pearlSpeed: 110,
+  animId: null,
+  keysLeft: false,
+  keysRight: false,
+  touchStartX: 0,
+  touchStartCupX: 0
+};
+
 const state = {
   mode: "tasting",
   base: "classic",
@@ -95,7 +117,8 @@ const state = {
   breakTimerId: null,
   breakLastTick: null,
   breakMakerCycleId: null,
-  spillPending: false
+  spillPending: false,
+  bonusPearls: 0
 };
 
 const els = {
@@ -145,21 +168,33 @@ const els = {
   breakMinus: document.querySelector("#breakMinus"),
   breakPlus: document.querySelector("#breakPlus"),
   shopPearlCount: document.querySelector("#shopPearlCount"),
-  shopGrid: document.querySelector("#shopGrid")
+  shopGrid: document.querySelector("#shopGrid"),
+  pearlGame: document.querySelector("#pearlGame"),
+  gameArea: document.querySelector("#gameArea"),
+  gameCup: document.querySelector("#gameCup"),
+  gameScore: document.querySelector("#gameScore"),
+  gameTimer: document.querySelector("#gameTimer"),
+  gameResult: document.querySelector("#gameResult"),
+  gameResultText: document.querySelector("#gameResultText"),
+  playGameBtn: document.querySelector("#playGameBtn"),
+  quitGameBtn: document.querySelector("#quitGameBtn"),
+  gameCloseBtn: document.querySelector("#gameCloseBtn")
 };
 
 function loadState() {
   state.collection = JSON.parse(localStorage.getItem("bobaFocusCollection") || "[]");
   state.rewards   = JSON.parse(localStorage.getItem("bobaFocusRewards")    || "[]");
   state.owned     = JSON.parse(localStorage.getItem("bobaFocusOwned")      || "[]");
-  state.spent     = JSON.parse(localStorage.getItem("bobaFocusSpent")      || "0");
+  state.spent       = JSON.parse(localStorage.getItem("bobaFocusSpent")       || "0");
+  state.bonusPearls = JSON.parse(localStorage.getItem("bobaFocusBonusPearls") || "0");
 }
 
 function saveState() {
   localStorage.setItem("bobaFocusCollection", JSON.stringify(state.collection));
   localStorage.setItem("bobaFocusRewards",    JSON.stringify(state.rewards));
   localStorage.setItem("bobaFocusOwned",      JSON.stringify(state.owned));
-  localStorage.setItem("bobaFocusSpent",      JSON.stringify(state.spent));
+  localStorage.setItem("bobaFocusSpent",       JSON.stringify(state.spent));
+  localStorage.setItem("bobaFocusBonusPearls", JSON.stringify(state.bonusPearls));
 }
 
 function formatTime(seconds) {
@@ -196,7 +231,7 @@ function progress() {
 }
 
 function currentPearls() {
-  return state.collection.length * 6 + Math.floor(totalMinutes() / 25) - state.spent;
+  return state.collection.length * 6 + Math.floor(totalMinutes() / 25) + state.bonusPearls - state.spent;
 }
 
 function speechForState() {
@@ -434,6 +469,7 @@ function startPause() {
 }
 
 function resetSession() {
+  stopGame();
   clearTimeout(state.breakMakerCycleId);
   state.breakMakerCycleId = null;
   clearInterval(state.breakTimerId);
@@ -529,6 +565,7 @@ function tickBreak() {
 }
 
 function endBreak() {
+  stopGame();
   clearInterval(state.breakTimerId);
   state.breakTimerId = null;
   clearTimeout(state.breakMakerCycleId);
@@ -543,6 +580,7 @@ function endBreak() {
 }
 
 function skipBreak() {
+  stopGame();
   clearInterval(state.breakTimerId);
   state.breakTimerId = null;
   clearTimeout(state.breakMakerCycleId);
@@ -678,6 +716,113 @@ function switchArea(areaId) {
   els.drawerTitle.textContent = titles[areaId] || "Counter";
 }
 
+function stopGame() {
+  if (!game.active) return;
+  cancelAnimationFrame(game.animId);
+  game.active = false;
+  for (const p of game.pearls) p.el.remove();
+  game.pearls = [];
+  els.pearlGame.style.display = "none";
+}
+
+function spawnPearl() {
+  const x = Math.random() * (els.gameArea.offsetWidth - PEARL_SIZE);
+  const el = document.createElement("div");
+  el.className = "falling-pearl";
+  el.style.left = x + "px";
+  el.style.top = (-PEARL_SIZE) + "px";
+  els.gameArea.appendChild(el);
+  game.pearls.push({ el, x, y: -PEARL_SIZE });
+}
+
+function gameLoop(ts) {
+  if (!game.active) return;
+  if (game.lastTime === null) game.lastTime = ts;
+  const dt = Math.min((ts - game.lastTime) / 1000, 0.1);
+  game.lastTime = ts;
+
+  const areaW = els.gameArea.offsetWidth;
+  const areaH = els.gameArea.offsetHeight;
+  const cupTop = areaH - GAME_CUP_H - 10;
+
+  if (game.keysLeft)  game.cupX = Math.max(0, game.cupX - game.cupSpeed * dt);
+  if (game.keysRight) game.cupX = Math.min(areaW - GAME_CUP_W, game.cupX + game.cupSpeed * dt);
+  els.gameCup.style.left = Math.round(game.cupX) + "px";
+
+  const caught = [];
+  const missed = [];
+  for (const p of game.pearls) {
+    p.y += game.pearlSpeed * dt;
+    p.el.style.top = Math.round(p.y) + "px";
+    if (p.y + PEARL_SIZE >= cupTop) {
+      const cx = p.x + PEARL_SIZE / 2;
+      if (cx >= game.cupX && cx <= game.cupX + GAME_CUP_W) {
+        caught.push(p);
+      } else if (p.y > areaH) {
+        missed.push(p);
+      }
+    } else if (p.y > areaH) {
+      missed.push(p);
+    }
+  }
+
+  for (const p of caught) p.el.remove();
+  for (const p of missed) p.el.remove();
+  if (caught.length || missed.length) {
+    game.pearls = game.pearls.filter(p => !caught.includes(p) && !missed.includes(p));
+  }
+  if (caught.length) {
+    game.score += caught.length;
+    els.gameScore.textContent = "⬡ " + game.score;
+  }
+
+  game.spawnTimer += dt;
+  if (game.spawnTimer >= game.spawnInterval) {
+    game.spawnTimer -= game.spawnInterval;
+    spawnPearl();
+  }
+
+  game.timeLeft -= dt;
+  if (game.timeLeft <= 0) {
+    endPearlGame();
+    return;
+  }
+
+  const secs = Math.ceil(game.timeLeft);
+  els.gameTimer.textContent = Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
+  game.animId = requestAnimationFrame(gameLoop);
+}
+
+function startPearlGame() {
+  game.active = true;
+  game.score = 0;
+  game.timeLeft = 60;
+  game.lastTime = null;
+  game.spawnTimer = 0;
+  game.pearls = [];
+  game.keysLeft = false;
+  game.keysRight = false;
+  game.cupX = (els.gameArea.offsetWidth - GAME_CUP_W) / 2;
+  els.gameCup.style.left = Math.round(game.cupX) + "px";
+  els.gameScore.textContent = "⬡ 0";
+  els.gameTimer.textContent = "1:00";
+  els.gameResult.style.display = "none";
+  els.pearlGame.style.display = "flex";
+  game.animId = requestAnimationFrame(gameLoop);
+}
+
+function endPearlGame() {
+  cancelAnimationFrame(game.animId);
+  game.active = false;
+  for (const p of game.pearls) p.el.remove();
+  game.pearls = [];
+  state.bonusPearls += game.score;
+  saveState();
+  renderAll();
+  els.gameResultText.textContent = "You caught " + game.score + " pearl" + (game.score !== 1 ? "s" : "") + "! +" + game.score + " added to your stash.";
+  els.gameResult.style.display = "flex";
+}
+
 function spillSession() {
   els.focusMakerCharacter.dataset.state = "shocked";
   els.makerSpeech.textContent = "You left! Your drink spilled. No pearls this time.";
@@ -740,6 +885,32 @@ function wireEvents() {
   els.skipBreakRunningBtn.addEventListener("click", skipBreak);
   els.breakMinus.addEventListener("click", () => adjustBreakDuration(-300));
   els.breakPlus.addEventListener("click", () => adjustBreakDuration(300));
+
+  els.playGameBtn.addEventListener("click", startPearlGame);
+  els.quitGameBtn.addEventListener("click", stopGame);
+  els.gameCloseBtn.addEventListener("click", () => {
+    els.pearlGame.style.display = "none";
+  });
+  els.gameArea.addEventListener("touchstart", e => {
+    e.preventDefault();
+    game.touchStartX = e.touches[0].clientX;
+    game.touchStartCupX = game.cupX;
+  }, { passive: false });
+  els.gameArea.addEventListener("touchmove", e => {
+    e.preventDefault();
+    if (!game.active) return;
+    const dx = e.touches[0].clientX - game.touchStartX;
+    game.cupX = Math.max(0, Math.min(els.gameArea.offsetWidth - GAME_CUP_W, game.touchStartCupX + dx));
+    els.gameCup.style.left = Math.round(game.cupX) + "px";
+  }, { passive: false });
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft")  { e.preventDefault(); game.keysLeft = true; }
+    if (e.key === "ArrowRight") { e.preventDefault(); game.keysRight = true; }
+  });
+  document.addEventListener("keyup", e => {
+    if (e.key === "ArrowLeft")  game.keysLeft = false;
+    if (e.key === "ArrowRight") game.keysRight = false;
+  });
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && state.running && state.phase === "focus") {

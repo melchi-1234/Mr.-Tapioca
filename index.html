@@ -118,6 +118,22 @@
           <div class="floor-rug">
             <span></span>
           </div>
+
+          <div id="pearlGame" class="pearl-game" style="display:none">
+            <div class="game-hud">
+              <span id="gameScore" class="game-score">⬡ 0</span>
+              <span id="gameTimer" class="game-timer">1:00</span>
+              <button id="quitGameBtn" class="game-quit-btn">Quit</button>
+            </div>
+            <div id="gameArea" class="game-area">
+              <div id="gameCup" class="game-cup"></div>
+            </div>
+            <div id="gameResult" class="game-result" style="display:none">
+              <p class="eyebrow">Time's up!</p>
+              <h3 id="gameResultText">You caught 0 pearls!</h3>
+              <button id="gameCloseBtn" class="primary">Sweet!</button>
+            </div>
+          </div>
         </section>
 
         <section id="timerStrip" class="timer-strip" aria-label="Focus timer">
@@ -176,6 +192,7 @@
             <div class="progress-track" aria-hidden="true">
               <span id="breakProgressBar"></span>
             </div>
+            <button id="playGameBtn" class="primary game-launch-btn">Play: Catch the Pearls</button>
           </div>
 
         </section>

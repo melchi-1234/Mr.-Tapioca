@@ -1853,6 +1853,110 @@ dialog::backdrop {
   100% { transform: translateY(-3px) rotate(0deg) scale(1.03); }
 }
 
+.pearl-game {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  flex-direction: column;
+  background: linear-gradient(180deg, #e8e0f8 0%, #d4e8f8 100%);
+  border-radius: 19px;
+}
+
+.game-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  background: rgba(255, 255, 255, 0.65);
+  border-bottom: 2px solid rgba(180, 150, 230, 0.25);
+  flex-shrink: 0;
+}
+
+.game-score,
+.game-timer {
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.game-timer {
+  font-variant-numeric: tabular-nums;
+}
+
+.game-quit-btn {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 2px solid #3c2a2f;
+  border-radius: 10px;
+  background: #fffdf8;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.game-area {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.falling-pearl {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.6), transparent 50%),
+    #30232a;
+  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.game-cup {
+  position: absolute;
+  bottom: 10px;
+  width: 80px;
+  height: 44px;
+  border: 3px solid rgba(45, 36, 40, 0.88);
+  border-radius: 5px 5px 18px 18px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.game-cup::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  width: 9px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+}
+
+.game-result {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  background: rgba(232, 224, 248, 0.94);
+  text-align: center;
+}
+
+.game-result h3 {
+  margin: 0 0 10px;
+}
+
+.game-launch-btn {
+  width: 100%;
+  margin-top: 10px;
+  background: #b8a8d8;
+  color: #2d2428;
+  border-color: #8272aa;
+}
+
 @media (max-width: 480px) {
   .app-shell {
     padding: 0;
