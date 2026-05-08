@@ -5,18 +5,65 @@ const MODES = {
 };
 
 const BASES = {
-  classic: { label: "Classic Milk Tea", color: "#c98555" },
-  taro: { label: "Taro Milk Tea", color: "#b58bdc" },
-  matcha: { label: "Matcha Milk Tea", color: "#76a86a" },
-  strawberry: { label: "Strawberry Milk Tea", color: "#f07c93" }
+  classic:    { label: "Classic Milk Tea",   color: "#c98555" },
+  taro:       { label: "Taro Milk Tea",       color: "#b58bdc" },
+  matcha:     { label: "Matcha Milk Tea",     color: "#76a86a" },
+  strawberry: { label: "Strawberry Milk Tea", color: "#f07c93" },
+  brownsugar: { label: "Brown Sugar Tiger",   color: "#8b4513" },
+  ube:        { label: "Ube Dream",           color: "#6b3d9a" },
+  lavender:   { label: "Lavender Mist",       color: "#c4b5e8" }
 };
 
 const TOPPINGS = {
-  pearls: "Tapioca Pearls",
-  jelly: "Lychee Jelly",
+  pearls:  "Tapioca Pearls",
+  jelly:   "Lychee Jelly",
   pudding: "Egg Pudding",
-  foam: "Cheese Foam"
+  foam:    "Cheese Foam",
+  coconut: "Coconut Jelly"
 };
+
+const SHOP_CATEGORIES = ["Tea Base", "Topping", "Cup Sticker", "Mr. T Skin", "Apron", "Shop Theme"];
+
+const DEFAULTS = {
+  base: "classic", topping: "pearls", sticker: "Focus",
+  palStyle: "classic", apron: "mint", shopTheme: "cozy"
+};
+
+const SHOP_ITEMS = [
+  { id: "base-taro",       name: "Taro Milk Tea",      desc: "The classic purple",                  category: "Tea Base",    type: "base",      value: "taro",       price: 20, color: "#b58bdc" },
+  { id: "base-matcha",     name: "Matcha Milk Tea",     desc: "Earthy green",                        category: "Tea Base",    type: "base",      value: "matcha",     price: 20, color: "#76a86a" },
+  { id: "base-strawberry", name: "Strawberry Milk Tea", desc: "Sweet pink",                          category: "Tea Base",    type: "base",      value: "strawberry", price: 25, color: "#f07c93" },
+  { id: "base-brownsugar", name: "Brown Sugar Tiger",   desc: "Dark caramel swirl, the trendy one",  category: "Tea Base",    type: "base",      value: "brownsugar", price: 40, color: "#8b4513" },
+  { id: "base-ube",        name: "Ube Dream",           desc: "Deep jewel purple, very aesthetic",   category: "Tea Base",    type: "base",      value: "ube",        price: 40, color: "#6b3d9a" },
+  { id: "base-lavender",   name: "Lavender Mist",       desc: "Soft lilac, feels cottagecore",       category: "Tea Base",    type: "base",      value: "lavender",   price: 45, color: "#c4b5e8" },
+
+  { id: "topping-jelly",   name: "Lychee Jelly",        desc: "Wobbly pink bits",                    category: "Topping",     type: "topping",   value: "jelly",      price: 15, color: "#ee5b7f" },
+  { id: "topping-pudding", name: "Egg Pudding",          desc: "Soft golden cubes",                   category: "Topping",     type: "topping",   value: "pudding",    price: 15, color: "#f7cb59" },
+  { id: "topping-foam",    name: "Cheese Foam",          desc: "The fancy top-tier one",              category: "Topping",     type: "topping",   value: "foam",       price: 25, color: "#fff0c8" },
+  { id: "topping-coconut", name: "Coconut Jelly",        desc: "White, translucent, tropical",        category: "Topping",     type: "topping",   value: "coconut",    price: 30, color: "#e8f5e2" },
+
+  { id: "sticker-finals",  name: "Finals",               desc: "For the grind season",                category: "Cup Sticker", type: "sticker",   value: "Finals",     price: 10, color: "#fff3d4" },
+  { id: "sticker-library", name: "Library",              desc: "Main library character",              category: "Cup Sticker", type: "sticker",   value: "Library",    price: 10, color: "#d4eeff" },
+  { id: "sticker-thesis",  name: "Thesis Era",           desc: "For the real ones",                   category: "Cup Sticker", type: "sticker",   value: "Thesis Era", price: 15, color: "#ffd4ec" },
+  { id: "sticker-main",    name: "Main Character",       desc: "No explanation needed",               category: "Cup Sticker", type: "sticker",   value: "Main Char",  price: 15, color: "#ffe4d4" },
+  { id: "sticker-dnd",     name: "Do Not Disturb",       desc: "Actually leave me alone",             category: "Cup Sticker", type: "sticker",   value: "DND",        price: 15, color: "#f0d4ff" },
+  { id: "sticker-szn",     name: "Study Szn",            desc: "It's giving seasonal",                category: "Cup Sticker", type: "sticker",   value: "Study Szn",  price: 15, color: "#d4ffec" },
+
+  { id: "style-strawberry", name: "Strawberry",          desc: "Pink and sweet",                      category: "Mr. T Skin",  type: "palStyle",  value: "strawberry", price: 30, color: "#d96d86" },
+  { id: "style-barista",    name: "Barista",             desc: "Dark roast, mysterious",              category: "Mr. T Skin",  type: "palStyle",  value: "barista",    price: 55, color: "#4a2010" },
+  { id: "style-starry",     name: "Starry Night",        desc: "Galaxy sparkles, dreamy",             category: "Mr. T Skin",  type: "palStyle",  value: "starry",     price: 75, color: "#2d294f" },
+  { id: "style-royal",      name: "Royal",               desc: "Crown, purple, main character energy",category: "Mr. T Skin",  type: "palStyle",  value: "royal",      price: 95, color: "#46285c" },
+
+  { id: "apron-berry",     name: "Berry Apron",          desc: "Rosy pink",                           category: "Apron",       type: "apron",     value: "berry",      price: 25, color: "#e97991" },
+  { id: "apron-lavender",  name: "Lavender Apron",       desc: "Matches the break mode colors",       category: "Apron",       type: "apron",     value: "lavender",   price: 30, color: "#c4a8e0" },
+  { id: "apron-gold",      name: "Gold Apron",           desc: "Shiny, bougie",                       category: "Apron",       type: "apron",     value: "gold",       price: 35, color: "#e2ad46" },
+  { id: "apron-black",     name: "Black Apron",          desc: "Chef mode, sophisticated",            category: "Apron",       type: "apron",     value: "black",      price: 50, color: "#2d2428" },
+
+  { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Shop Theme",  type: "shopTheme", value: "night",      price: 65, color: "#36476b" },
+  { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Shop Theme",  type: "shopTheme", value: "sakura",     price: 65, color: "#ffdfe8" },
+  { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Shop Theme",  type: "shopTheme", value: "autumn",     price: 75, color: "#c4873a" },
+  { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Shop Theme",  type: "shopTheme", value: "rainy",      price: 80, color: "#7a9ab8" },
+];
 
 const UNLOCKS = [
   { minutes: 25, label: "Tapioca pearls" },
@@ -40,6 +87,8 @@ const state = {
   timerId: null,
   collection: [],
   rewards: [],
+  owned: [],
+  spent: 0,
   phase: "focus",
   breakDuration: 600,
   breakElapsed: 0,
@@ -93,17 +142,23 @@ const els = {
   skipBreakBtn: document.querySelector("#skipBreakBtn"),
   skipBreakRunningBtn: document.querySelector("#skipBreakRunningBtn"),
   breakMinus: document.querySelector("#breakMinus"),
-  breakPlus: document.querySelector("#breakPlus")
+  breakPlus: document.querySelector("#breakPlus"),
+  shopPearlCount: document.querySelector("#shopPearlCount"),
+  shopGrid: document.querySelector("#shopGrid")
 };
 
 function loadState() {
   state.collection = JSON.parse(localStorage.getItem("bobaFocusCollection") || "[]");
-  state.rewards = JSON.parse(localStorage.getItem("bobaFocusRewards") || "[]");
+  state.rewards   = JSON.parse(localStorage.getItem("bobaFocusRewards")    || "[]");
+  state.owned     = JSON.parse(localStorage.getItem("bobaFocusOwned")      || "[]");
+  state.spent     = JSON.parse(localStorage.getItem("bobaFocusSpent")      || "0");
 }
 
 function saveState() {
   localStorage.setItem("bobaFocusCollection", JSON.stringify(state.collection));
-  localStorage.setItem("bobaFocusRewards", JSON.stringify(state.rewards));
+  localStorage.setItem("bobaFocusRewards",    JSON.stringify(state.rewards));
+  localStorage.setItem("bobaFocusOwned",      JSON.stringify(state.owned));
+  localStorage.setItem("bobaFocusSpent",      JSON.stringify(state.spent));
 }
 
 function formatTime(seconds) {
@@ -140,7 +195,7 @@ function progress() {
 }
 
 function currentPearls() {
-  return state.collection.length * 6 + Math.floor(totalMinutes() / 25);
+  return state.collection.length * 6 + Math.floor(totalMinutes() / 25) - state.spent;
 }
 
 function speechForState() {
@@ -194,9 +249,11 @@ function updateUnlocks() {
 
 function updateStats() {
   const minutes = totalMinutes();
+  const pearls = currentPearls();
   els.totalTime.textContent = `${minutes} min`;
-  els.pearlCount.textContent = String(currentPearls());
+  els.pearlCount.textContent = String(pearls);
   els.completedCount.textContent = `${state.collection.length} ${state.collection.length === 1 ? "drink" : "drinks"}`;
+  els.shopPearlCount.textContent = `${pearls} pearls`;
 
   const days = new Set(state.collection.map((drink) => drink.dateKey));
   els.streakCount.textContent = String(days.size);
@@ -241,12 +298,93 @@ function renderRewards() {
     .join("");
 }
 
+function isOwned(itemId) {
+  return state.owned.includes(itemId);
+}
+
+function isEquipped(item) {
+  return state[item.type] === item.value;
+}
+
+function buyItem(itemId) {
+  const item = SHOP_ITEMS.find(i => i.id === itemId);
+  if (!item || isOwned(itemId) || currentPearls() < item.price) return;
+  state.owned.push(itemId);
+  state.spent += item.price;
+  saveState();
+  equipItem(itemId);
+}
+
+function equipItem(itemId) {
+  const item = SHOP_ITEMS.find(i => i.id === itemId);
+  if (!item) return;
+  state[item.type] = item.value;
+  renderAll();
+  els.makerSpeech.textContent = "Ooh, nice pick.";
+}
+
+function unequipItem(type) {
+  state[type] = DEFAULTS[type];
+  renderAll();
+}
+
+function renderShop() {
+  const pearls = currentPearls();
+  els.shopPearlCount.textContent = `${pearls} pearls`;
+
+  els.shopGrid.innerHTML = SHOP_CATEGORIES.map(cat => {
+    const cards = SHOP_ITEMS.filter(i => i.category === cat).map(item => {
+      const owned    = isOwned(item.id);
+      const equipped = isEquipped(item);
+      const canBuy   = pearls >= item.price;
+
+      const previewInner = item.type === "sticker"
+        ? `<span class="shop-sticker-preview">${item.value}</span>`
+        : "";
+
+      let action = "";
+      if (equipped) {
+        action = `
+          <span class="shop-equipped-badge">Equipped</span>
+          <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+      } else if (owned) {
+        action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
+      } else {
+        action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
+      }
+
+      return `
+        <article class="shop-card">
+          <div class="shop-preview" style="background:${item.color || "#f5f0ff"}">${previewInner}</div>
+          <div>
+            <strong>${item.name}</strong>
+            <small>${item.desc}</small>
+          </div>
+          <div class="shop-card-action">${action}</div>
+        </article>`;
+    }).join("");
+
+    return `<h4 class="shop-category-head">${cat}</h4>${cards}`;
+  }).join("");
+
+  els.shopGrid.querySelectorAll("[data-buy]").forEach(btn => {
+    btn.addEventListener("click", () => buyItem(btn.dataset.buy));
+  });
+  els.shopGrid.querySelectorAll("[data-equip]").forEach(btn => {
+    btn.addEventListener("click", () => equipItem(btn.dataset.equip));
+  });
+  els.shopGrid.querySelectorAll("[data-unequip]").forEach(btn => {
+    btn.addEventListener("click", () => unequipItem(btn.dataset.unequip));
+  });
+}
+
 function renderAll() {
   updateCup();
   updateUnlocks();
   updateStats();
   renderShelf();
   renderRewards();
+  renderShop();
 }
 
 function stopTicker() {
@@ -523,7 +661,8 @@ function switchArea(areaId) {
     counterPanel: "Counter",
     ingredientsPanel: "Mix",
     shelfPanel: "Shelf",
-    treatsPanel: "Treats"
+    treatsPanel: "Treats",
+    shopPanel: "Shop"
   };
 
   document.querySelectorAll(".area-panel").forEach((panel) => {
