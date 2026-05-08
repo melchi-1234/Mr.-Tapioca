@@ -676,6 +676,22 @@ function switchArea(areaId) {
   els.drawerTitle.textContent = titles[areaId] || "Counter";
 }
 
+function spillSession() {
+  stopTicker();
+  state.running = false;
+  state.lastTick = null;
+  els.focusMakerCharacter.dataset.state = "shocked";
+  els.makerSpeech.textContent = "You left! Your drink spilled. No pearls this time.";
+  els.liquid.style.setProperty("--fill", "0%");
+  els.focusCup.classList.add("spilling");
+  setTimeout(() => {
+    els.focusCup.classList.remove("spilling");
+    state.elapsed = 0;
+    renderAll();
+    els.makerSpeech.textContent = "Ready to try again? I'll make a fresh one.";
+  }, 1800);
+}
+
 function wireEvents() {
   els.startPauseBtn.addEventListener("click", startPause);
   els.resetBtn.addEventListener("click", resetSession);
@@ -725,6 +741,12 @@ function wireEvents() {
   els.skipBreakRunningBtn.addEventListener("click", skipBreak);
   els.breakMinus.addEventListener("click", () => adjustBreakDuration(-300));
   els.breakPlus.addEventListener("click", () => adjustBreakDuration(300));
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && state.running && state.phase === "focus") {
+      spillSession();
+    }
+  });
 }
 
 loadState();

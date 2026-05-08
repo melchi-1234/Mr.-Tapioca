@@ -831,6 +831,30 @@ h3 {
   transition: transform 0.6s ease, box-shadow 0.6s ease;
 }
 
+.maker-character[data-state="shocked"] {
+  animation: maker-shock 0.5s ease-out forwards;
+}
+
+.maker-character[data-state="shocked"] .eye {
+  width: 13px;
+  height: 14px;
+  box-shadow: inset 0 -2px 0 #21161a;
+}
+
+.maker-character[data-state="shocked"] .smile {
+  left: 28px;
+  top: 32px;
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 249, 240, 0.9);
+}
+
+.maker-character[data-state="shocked"] .blush {
+  opacity: 0;
+}
+
 .zzz {
   display: none;
   position: absolute;
@@ -912,6 +936,11 @@ h3 {
   border-radius: 7px 7px 28px 28px;
   background: rgba(255, 255, 255, 0.32);
   z-index: 2;
+}
+
+.cup.spilling {
+  transform-origin: bottom center;
+  animation: cup-spill 1.0s cubic-bezier(0.3, 0, 0.6, 0.8) forwards;
 }
 
 .liquid {
@@ -1806,6 +1835,22 @@ dialog::backdrop {
   0% { transform: translateY(0) rotate(-4deg); opacity: 0; }
   18% { opacity: 1; }
   100% { transform: translateY(-36px) rotate(10deg); opacity: 0; }
+}
+
+@keyframes cup-spill {
+  0% { transform: rotate(0deg); opacity: 1; }
+  20% { transform: rotate(12deg); }
+  75% { transform: rotate(88deg) translateX(10px); opacity: 1; }
+  90% { transform: rotate(90deg) translateX(12px); opacity: 0.5; }
+  100% { transform: rotate(90deg) translateX(12px); opacity: 0; }
+}
+
+@keyframes maker-shock {
+  0% { transform: translateY(0) rotate(-1deg); }
+  15% { transform: translateY(-8px) rotate(3deg) scale(1.06); }
+  35% { transform: translateY(-6px) rotate(-2deg) scale(1.04); }
+  55% { transform: translateY(-7px) rotate(2deg) scale(1.06); }
+  100% { transform: translateY(-3px) rotate(0deg) scale(1.03); }
 }
 
 @media (max-width: 480px) {
