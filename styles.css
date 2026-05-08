@@ -175,6 +175,28 @@ h3 {
     #bd7887;
 }
 
+.shop-scene.is-on-break {
+  background:
+    linear-gradient(#dbd2f0 0 28%, transparent 28%),
+    linear-gradient(#f4f0ff 0 56%, #b8a8d8 56% 57%, #cbbce8 57% 100%);
+}
+
+.shop-scene.is-on-break .ceiling-lights span {
+  background: #d4c4f0;
+  box-shadow: 0 0 12px rgba(180, 150, 230, 0.55);
+}
+
+.shop-scene.is-on-break .work-counter {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.15), transparent 36%),
+    #8272aa;
+}
+
+.shop-scene.is-on-break .shop-sign,
+.shop-scene.is-on-break .speech-bubble {
+  background: #f5f0ff;
+}
+
 .wall-pattern {
   position: absolute;
   inset: 0 0 42%;
@@ -721,6 +743,59 @@ h3 {
 
 .maker-character[data-state="mixing"] .arm.right {
   animation: stir-right 0.72s ease-in-out infinite;
+}
+
+.maker-character[data-state="drinking"] {
+  animation: maker-drink 2.8s ease-in-out infinite;
+}
+
+.maker-character[data-state="drinking"] .hand-cup {
+  animation: cup-to-face 2.8s ease-in-out infinite;
+}
+
+.maker-character[data-state="sleeping"] {
+  animation: maker-sleep 3.4s ease-in-out infinite;
+}
+
+.maker-character[data-state="sleeping"] .eye {
+  transform: scaleY(0.12);
+  box-shadow: inset 0 0 0 #21161a;
+  transition: transform 0.6s ease, box-shadow 0.6s ease;
+}
+
+.zzz {
+  display: none;
+  position: absolute;
+  font-style: italic;
+  font-weight: 950;
+  color: #b0a2d8;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.maker-character[data-state="sleeping"] .zzz {
+  display: block;
+}
+
+.zzz.z1 {
+  right: 10px;
+  top: 44px;
+  font-size: 0.88rem;
+  animation: zzz-float 2.6s ease-out infinite;
+}
+
+.zzz.z2 {
+  right: 2px;
+  top: 24px;
+  font-size: 1.1rem;
+  animation: zzz-float 2.6s ease-out 0.86s infinite;
+}
+
+.zzz.z3 {
+  right: -10px;
+  top: 6px;
+  font-size: 1.34rem;
+  animation: zzz-float 2.6s ease-out 1.72s infinite;
 }
 
 .hand-cup {
@@ -1271,6 +1346,55 @@ h3 {
   font-weight: 780;
 }
 
+.break-strip {
+  padding: 12px 18px 14px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(135deg, #f5f0ff 0%, #ffeef8 100%);
+}
+
+.break-adjust-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 8px 0 12px;
+}
+
+.break-time-display {
+  text-align: center;
+  min-width: 90px;
+}
+
+.break-time-display .current-drink {
+  margin-top: 2px;
+}
+
+.break-offer-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.adj-btn {
+  width: 42px;
+  height: 42px;
+  border: 2px solid #3c2a2f;
+  border-radius: 50%;
+  background: #fffdf8;
+  color: var(--ink);
+  font-size: 1.3rem;
+  font-weight: 950;
+  box-shadow: 3px 3px 0 rgba(45, 36, 40, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#breakProgressBar {
+  background: linear-gradient(90deg, #c4b5e8, #e8b5d8);
+}
+
 .tabbar {
   justify-content: space-around;
   gap: 7px;
@@ -1447,6 +1571,27 @@ dialog::backdrop {
 @keyframes glow {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
+}
+
+@keyframes maker-drink {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  40%, 60% { transform: translateY(-3px) rotate(3deg); }
+}
+
+@keyframes cup-to-face {
+  0%, 100% { transform: rotate(-14deg); }
+  40%, 60% { transform: rotate(-78deg) translate(-24px, -36px); }
+}
+
+@keyframes maker-sleep {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(5px) rotate(-5deg); }
+}
+
+@keyframes zzz-float {
+  0% { transform: translateY(0) rotate(-4deg); opacity: 0; }
+  18% { opacity: 1; }
+  100% { transform: translateY(-36px) rotate(10deg); opacity: 0; }
 }
 
 @media (max-width: 480px) {

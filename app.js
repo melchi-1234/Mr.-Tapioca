@@ -39,7 +39,13 @@ const state = {
   lastTick: null,
   timerId: null,
   collection: [],
-  rewards: []
+  rewards: [],
+  phase: "focus",
+  breakDuration: 600,
+  breakElapsed: 0,
+  breakTimerId: null,
+  breakLastTick: null,
+  breakMakerCycleId: null
 };
 
 const els = {
@@ -74,7 +80,20 @@ const els = {
   saveRewardBtn: document.querySelector("#saveRewardBtn"),
   previewRestrictionBtn: document.querySelector("#previewRestrictionBtn"),
   restrictionPreview: document.querySelector("#restrictionPreview"),
-  streakCount: document.querySelector("#streakCount")
+  streakCount: document.querySelector("#streakCount"),
+  timerStrip: document.querySelector("#timerStrip"),
+  breakStrip: document.querySelector("#breakStrip"),
+  breakOffer: document.querySelector("#breakOffer"),
+  breakRunningPanel: document.querySelector("#breakRunningPanel"),
+  breakDurationDisplay: document.querySelector("#breakDurationDisplay"),
+  breakTimerText: document.querySelector("#breakTimerText"),
+  breakProgressBar: document.querySelector("#breakProgressBar"),
+  breakProgressLabel: document.querySelector("#breakProgressLabel"),
+  startBreakBtn: document.querySelector("#startBreakBtn"),
+  skipBreakBtn: document.querySelector("#skipBreakBtn"),
+  skipBreakRunningBtn: document.querySelector("#skipBreakRunningBtn"),
+  breakMinus: document.querySelector("#breakMinus"),
+  breakPlus: document.querySelector("#breakPlus")
 };
 
 function loadState() {
@@ -276,10 +295,19 @@ function startPause() {
 }
 
 function resetSession() {
+  clearTimeout(state.breakMakerCycleId);
+  state.breakMakerCycleId = null;
+  clearInterval(state.breakTimerId);
+  state.breakTimerId = null;
   stopTicker();
   state.running = false;
   state.elapsed = 0;
   state.lastTick = null;
+  state.breakElapsed = 0;
+  state.phase = "focus";
+  els.shopScene.classList.remove("is-on-break");
+  els.focusMakerCharacter.dataset.state = "idle";
+  updatePhaseUI();
   updateCup();
 }
 
@@ -314,8 +342,6 @@ function completeSession() {
   saveState();
   renderAll();
   showReward(reward);
-  state.elapsed = 0;
-  updateCup();
 }
 
 function showReward(reward) {
@@ -326,6 +352,109 @@ function showReward(reward) {
   if (typeof els.rewardDialog.showModal === "function") {
     els.rewardDialog.showModal();
   }
+}
+
+function onRewardDialogClose() {
+  state.elapsed = 0;
+  updateCup();
+  startBreakOffer();
+}
+
+function startBreakOffer() {
+  state.phase = "break-offer";
+  els.shopScene.classList.add("is-on-break");
+  els.makerSpeech.textContent = "You crushed it. Take a breather.";
+  updatePhaseUI();
+}
+
+function startBreak() {
+  state.phase = "break";
+  state.breakElapsed = 0;
+  state.breakLastTick = Date.now();
+  state.breakTimerId = setInterval(tickBreak, 250);
+  scheduleMakerBreakCycle();
+  updatePhaseUI();
+}
+
+function tickBreak() {
+  const now = Date.now();
+  const delta = (now - state.breakLastTick) / 1000;
+  state.breakLastTick = now;
+  state.breakElapsed = Math.min(state.breakDuration, state.breakElapsed + delta);
+  updateBreakDisplay();
+
+  if (state.breakElapsed >= state.breakDuration) {
+    endBreak();
+  }
+}
+
+function endBreak() {
+  clearInterval(state.breakTimerId);
+  state.breakTimerId = null;
+  clearTimeout(state.breakMakerCycleId);
+  state.breakMakerCycleId = null;
+  state.breakElapsed = 0;
+  state.phase = "focus";
+  els.shopScene.classList.remove("is-on-break");
+  els.focusMakerCharacter.dataset.state = "idle";
+  updatePhaseUI();
+  renderAll();
+  els.makerSpeech.textContent = "Break over. Ready for another round?";
+}
+
+function skipBreak() {
+  clearInterval(state.breakTimerId);
+  state.breakTimerId = null;
+  clearTimeout(state.breakMakerCycleId);
+  state.breakMakerCycleId = null;
+  state.breakElapsed = 0;
+  state.phase = "focus";
+  els.shopScene.classList.remove("is-on-break");
+  els.focusMakerCharacter.dataset.state = "idle";
+  updatePhaseUI();
+  renderAll();
+}
+
+function adjustBreakDuration(delta) {
+  const min = 5 * 60;
+  const max = 20 * 60;
+  state.breakDuration = Math.min(max, Math.max(min, state.breakDuration + delta));
+  updateBreakDisplay();
+}
+
+function updateBreakDisplay() {
+  const remaining = state.breakDuration - state.breakElapsed;
+  const pct = Math.round((state.breakElapsed / state.breakDuration) * 100);
+  els.breakDurationDisplay.textContent = formatTime(state.breakDuration);
+  els.breakTimerText.textContent = formatTime(remaining);
+  els.breakProgressBar.style.width = `${pct}%`;
+  els.breakProgressLabel.textContent = `${pct}%`;
+}
+
+function updatePhaseUI() {
+  const isFocus = state.phase === "focus";
+  const isOffer = state.phase === "break-offer";
+  const isBreak = state.phase === "break";
+
+  els.timerStrip.classList.toggle("hidden", !isFocus);
+  els.breakStrip.classList.toggle("hidden", isFocus);
+  els.breakOffer.classList.toggle("hidden", !isOffer);
+  els.breakRunningPanel.classList.toggle("hidden", !isBreak);
+
+  updateBreakDisplay();
+}
+
+function scheduleMakerBreakCycle() {
+  const makerStates = ["drinking", "sleeping"];
+  let idx = 0;
+
+  function cycle() {
+    els.focusMakerCharacter.dataset.state = makerStates[idx % makerStates.length];
+    idx++;
+    state.breakMakerCycleId = setTimeout(cycle, 8000);
+  }
+
+  cycle();
 }
 
 function setMode(mode) {
@@ -450,6 +579,13 @@ function wireEvents() {
   els.saveRewardBtn.addEventListener("click", () => {
     switchArea("treatsPanel");
   });
+
+  els.rewardDialog.addEventListener("close", onRewardDialogClose);
+  els.startBreakBtn.addEventListener("click", startBreak);
+  els.skipBreakBtn.addEventListener("click", skipBreak);
+  els.skipBreakRunningBtn.addEventListener("click", skipBreak);
+  els.breakMinus.addEventListener("click", () => adjustBreakDuration(-300));
+  els.breakPlus.addEventListener("click", () => adjustBreakDuration(300));
 }
 
 loadState();

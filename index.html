@@ -79,6 +79,9 @@
             <div class="arm left"></div>
             <div class="arm right"></div>
             <div class="hand-cup"></div>
+            <span class="zzz z1">z</span>
+            <span class="zzz z2">z</span>
+            <span class="zzz z3">Z</span>
           </div>
 
           <div class="work-counter">
@@ -117,7 +120,7 @@
           </div>
         </section>
 
-        <section class="timer-strip" aria-label="Focus timer">
+        <section id="timerStrip" class="timer-strip" aria-label="Focus timer">
           <div class="status-line">
             <span id="sessionLabel">Tasting Cup</span>
             <span id="progressLabel">0%</span>
@@ -135,6 +138,46 @@
           <div class="progress-track" aria-hidden="true">
             <span id="progressBar"></span>
           </div>
+        </section>
+
+        <section id="breakStrip" class="break-strip hidden" aria-label="Break timer">
+
+          <div id="breakOffer">
+            <div class="status-line">
+              <span>Session complete</span>
+              <span class="eyebrow">nice work!</span>
+            </div>
+            <div class="break-adjust-row">
+              <button id="breakMinus" class="adj-btn" aria-label="Decrease break time">−</button>
+              <div class="break-time-display">
+                <div class="timer" id="breakDurationDisplay">10:00</div>
+                <p class="current-drink">break length</p>
+              </div>
+              <button id="breakPlus" class="adj-btn" aria-label="Increase break time">+</button>
+            </div>
+            <div class="break-offer-controls">
+              <button id="startBreakBtn" class="primary">Start Break</button>
+              <button id="skipBreakBtn" class="quiet">Skip</button>
+            </div>
+          </div>
+
+          <div id="breakRunningPanel" class="hidden">
+            <div class="status-line">
+              <span>Chill Mode</span>
+              <span id="breakProgressLabel">0%</span>
+            </div>
+            <div class="timer-row">
+              <div>
+                <div class="timer" id="breakTimerText">10:00</div>
+                <p class="current-drink">You earned it. Take a breath.</p>
+              </div>
+              <button id="skipBreakRunningBtn" class="quiet">End Break</button>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <span id="breakProgressBar"></span>
+            </div>
+          </div>
+
         </section>
 
         <section class="shop-drawer" aria-label="Shop section">
