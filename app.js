@@ -94,7 +94,8 @@ const state = {
   breakElapsed: 0,
   breakTimerId: null,
   breakLastTick: null,
-  breakMakerCycleId: null
+  breakMakerCycleId: null,
+  spillPending: false
 };
 
 const els = {
@@ -443,6 +444,7 @@ function resetSession() {
   state.lastTick = null;
   state.breakElapsed = 0;
   state.phase = "focus";
+  state.spillPending = false;
   els.shopScene.classList.remove("is-on-break");
   els.focusMakerCharacter.dataset.state = "idle";
   updatePhaseUI();
@@ -677,9 +679,6 @@ function switchArea(areaId) {
 }
 
 function spillSession() {
-  stopTicker();
-  state.running = false;
-  state.lastTick = null;
   els.focusMakerCharacter.dataset.state = "shocked";
   els.makerSpeech.textContent = "You left! Your drink spilled. No pearls this time.";
   els.liquid.style.setProperty("--fill", "0%");
@@ -744,6 +743,12 @@ function wireEvents() {
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && state.running && state.phase === "focus") {
+      stopTicker();
+      state.running = false;
+      state.lastTick = null;
+      state.spillPending = true;
+    } else if (document.visibilityState === "visible" && state.spillPending) {
+      state.spillPending = false;
       spillSession();
     }
   });
