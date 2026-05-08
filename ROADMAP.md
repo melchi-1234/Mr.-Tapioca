@@ -1,24 +1,32 @@
 # Mr. Tapioca Roadmap
 
-## Phase 1: Prove the loop
+## Prototype build order
 
-Goal: make the app feel fun before worrying about the App Store.
+These are the next features to build in the web prototype, in order.
 
-- Focus timer.
-- Filling boba drink.
-- Small drink equals 3 hours.
-- Large drink equals 6 hours.
-- Boba maker customization.
-- Mr. Tapioca, a cute tapioca maker character who prepares the drink.
-- One main shop UI with buttons that open Counter, Mix, Shelf, and Treats sections.
-- Animated details that make the shop feel alive.
-- Mock premium cosmetics for paid styles and shop themes.
-- Drink shelf.
-- Treat reward after finishing a drink.
+### Step 1: Break timer mode
+After you finish a focus session and your drink is complete, a short break timer kicks in before your next session starts. This gives you a proper rest period and makes the app feel like a full study routine, not just a one-shot timer.
+
+### Step 2: Tapioca currency shop
+You earn tapioca pearls as you study, and you can actually spend them in a shop to unlock customizations like new cup colors, apron styles, and shop decorations. Right now the pearl count goes up but does nothing — this step makes it a real in-game economy.
+
+### Step 3: Spill mechanic
+If you quit or abandon a focus session early, your boba drink dramatically spills and the session is lost. This is the core "consequence" that keeps you honest, like how your tree dies in Forest if you leave.
+
+### Step 4: Mini game — Catch the Pearls
+A simple break-time game where tapioca pearls fall from the top of the screen and you tap or move the cup to catch them. Earn bonus tapioca currency for good catches. Gives you something fun to do during your break without pulling you away from the app.
+
+### Step 5: Mini game — Boba Plinko
+A second break-time game where you drop a pearl down a Plinko-style board and it bounces into prize slots at the bottom. Each slot gives you a different tapioca reward. Adds variety to the break experience so it doesn't feel repetitive.
+
+### Step 6: Polish pass
+A full review of everything — smoother animations, tighter sounds, better transitions between states, and any small visual fixes that make the app feel finished and delightful rather than prototype-rough.
+
+---
 
 ## Phase 2: Turn the prototype into an iPhone app
 
-Goal: rebuild the proven experience in SwiftUI.
+Goal: rebuild the proven experience in SwiftUI (Apple's language for building iPhone apps).
 
 Needed tools:
 
@@ -45,7 +53,7 @@ Maker ideas:
 
 ## Phase 3: Add real focus restrictions
 
-Goal: make the app block selected distracting apps during a focus session.
+Goal: make the app actually block selected distracting apps during a focus session (this only works on a real iPhone, not a website).
 
 Likely Apple frameworks:
 
