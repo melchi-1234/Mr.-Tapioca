@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mr. Tapioca</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="phone-shell" aria-label="Study Sip Shop">
+        <header class="shop-hud">
+          <div>
+            <p class="eyebrow">Study Sip Shop</p>
+            <h1>Mr. Tapioca</h1>
+          </div>
+          <div class="hud-chips" aria-label="Shop stats">
+            <div class="hud-chip">
+              <span id="pearlCount">0</span>
+              <small>pearls</small>
+            </div>
+            <div class="hud-chip">
+              <span id="streakCount">0</span>
+              <small>streak</small>
+            </div>
+          </div>
+        </header>
+
+        <section id="shopScene" class="shop-scene" aria-label="Boba maker preparing the focus drink">
+          <div class="wall-pattern"></div>
+          <div class="ceiling-lights">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+
+          <div class="shop-sign">
+            <strong>Mr. Tapioca</strong>
+            <span>fresh focus tea</span>
+          </div>
+
+          <div class="window">
+            <span></span>
+          </div>
+
+          <div class="menu-board">
+            <strong>Menu</strong>
+            <span>milk tea</span>
+            <span>taro</span>
+            <span>matcha</span>
+          </div>
+
+          <div class="decor-shelf">
+            <span class="jar classic"></span>
+            <span class="jar taro"></span>
+            <span class="jar matcha"></span>
+            <span class="plant"></span>
+          </div>
+
+          <div id="makerSpeech" class="speech-bubble">Mr. Tapioca is ready to make your focus drink.</div>
+
+          <div id="focusMakerCharacter" class="maker-character" data-apron="mint" data-style="classic" data-state="idle">
+            <div class="pearl-gloss"></div>
+            <div class="pearl-sprinkle one"></div>
+            <div class="pearl-sprinkle two"></div>
+            <div class="pearl-sprinkle three"></div>
+            <div class="face">
+              <span class="eye left"></span>
+              <span class="eye right"></span>
+              <span class="smile"></span>
+              <span class="blush left"></span>
+              <span class="blush right"></span>
+            </div>
+            <div class="body">
+              <span class="apron"></span>
+            </div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="hand-cup"></div>
+          </div>
+
+          <div class="work-counter">
+            <div class="register"></div>
+            <div class="mixing-tools">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="cup-wrap">
+              <div class="steam">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="straw"></div>
+              <div id="focusCup" class="cup" data-topping="pearls">
+                <div id="liquid" class="liquid">
+                  <span class="foam-cap"></span>
+                  <span class="pearl p1"></span>
+                  <span class="pearl p2"></span>
+                  <span class="pearl p3"></span>
+                  <span class="pearl p4"></span>
+                  <span class="pearl p5"></span>
+                  <span class="pearl p6"></span>
+                </div>
+                <div id="focusSticker" class="cup-sticker">Focus</div>
+                <div class="cup-shine"></div>
+                <div class="fill-line"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="floor-rug">
+            <span></span>
+          </div>
+        </section>
+
+        <section class="timer-strip" aria-label="Focus timer">
+          <div class="status-line">
+            <span id="sessionLabel">Tasting Cup</span>
+            <span id="progressLabel">0%</span>
+          </div>
+          <div class="timer-row">
+            <div>
+              <div class="timer" id="timerText">00:30</div>
+              <p id="drinkName" class="current-drink">Classic Milk Tea + Tapioca Pearls</p>
+            </div>
+            <div class="controls" aria-label="Timer controls">
+              <button id="startPauseBtn" class="primary">Start</button>
+              <button id="resetBtn" class="quiet">Reset</button>
+            </div>
+          </div>
+          <div class="progress-track" aria-hidden="true">
+            <span id="progressBar"></span>
+          </div>
+        </section>
+
+        <section class="shop-drawer" aria-label="Shop section">
+          <div class="drawer-head">
+            <h2 id="drawerTitle">Counter</h2>
+            <span id="focusState" class="badge">Ready</span>
+          </div>
+
+          <section id="counterPanel" class="area-panel active" aria-label="Counter">
+            <div class="mode-row" role="group" aria-label="Drink size">
+              <button class="mode active" data-mode="tasting">Tasting<br><small>30 sec</small></button>
+              <button class="mode" data-mode="small">Small<br><small>3 hr</small></button>
+              <button class="mode" data-mode="large">Large<br><small>6 hr</small></button>
+            </div>
+
+            <div class="blocked-panel">
+              <div class="section-head compact">
+                <h3>Blocked Apps</h3>
+                <button id="previewRestrictionBtn" class="icon-btn" aria-label="Preview restricted app screen">!</button>
+              </div>
+              <div class="app-locks">
+                <label><input type="checkbox" checked> YouTube</label>
+                <label><input type="checkbox" checked> TikTok</label>
+                <label><input type="checkbox" checked> Instagram</label>
+                <label><input type="checkbox"> Games</label>
+              </div>
+            </div>
+
+            <div id="restrictionPreview" class="restriction-preview hidden" aria-live="polite">
+              <strong>Restricted</strong>
+              <p>You cannot use YouTube because it is restricted.</p>
+            </div>
+
+            <div class="unlock-panel">
+              <h3>Next Unlock</h3>
+              <p id="nextUnlock">Tapioca pearls at 25 focused minutes</p>
+            </div>
+          </section>
+
+          <section id="ingredientsPanel" class="area-panel" aria-label="Mix">
+            <div>
+              <h3>Tea Base</h3>
+              <div class="swatches" role="group" aria-label="Tea base">
+                <button class="swatch active" data-base="classic" style="--swatch:#c98555" aria-label="Classic milk tea"></button>
+                <button class="swatch" data-base="taro" style="--swatch:#b58bdc" aria-label="Taro milk tea"></button>
+                <button class="swatch" data-base="matcha" style="--swatch:#76a86a" aria-label="Matcha milk tea"></button>
+                <button class="swatch" data-base="strawberry" style="--swatch:#f07c93" aria-label="Strawberry milk tea"></button>
+              </div>
+            </div>
+
+            <div>
+              <h3>Mr. Tapioca Style</h3>
+              <div class="choice-row" role="group" aria-label="Mr. Tapioca style">
+                <button class="choice active" data-pal-style="classic">Classic</button>
+                <button class="choice" data-pal-style="strawberry">Strawberry</button>
+                <button class="choice premium-choice" data-pal-style="starry" data-premium-price="$1.99">Starry <span>$1.99</span></button>
+                <button class="choice premium-choice" data-pal-style="royal" data-premium-price="$2.99">Royal <span>$2.99</span></button>
+              </div>
+            </div>
+
+            <div>
+              <h3>Shop Theme</h3>
+              <div class="choice-row" role="group" aria-label="Shop theme">
+                <button class="choice active" data-shop-theme="cozy">Cozy</button>
+                <button class="choice premium-choice" data-shop-theme="night" data-premium-price="$1.99">Night Market <span>$1.99</span></button>
+                <button class="choice premium-choice" data-shop-theme="sakura" data-premium-price="$1.99">Sakura <span>$1.99</span></button>
+              </div>
+            </div>
+
+            <div>
+              <h3>Topping</h3>
+              <div class="choice-row" role="group" aria-label="Topping">
+                <button class="choice active" data-topping="pearls">Pearls</button>
+                <button class="choice" data-topping="jelly">Jelly</button>
+                <button class="choice" data-topping="pudding">Pudding</button>
+                <button class="choice" data-topping="foam">Foam</button>
+              </div>
+            </div>
+
+            <div>
+              <h3>Cup Sticker</h3>
+              <div class="choice-row" role="group" aria-label="Cup sticker">
+                <button class="choice active" data-sticker="Focus">Focus</button>
+                <button class="choice" data-sticker="Finals">Finals</button>
+                <button class="choice" data-sticker="Library">Library</button>
+              </div>
+            </div>
+
+            <div>
+              <h3>Maker Apron</h3>
+              <div class="choice-row" role="group" aria-label="Maker apron">
+                <button class="choice active" data-apron="mint">Mint</button>
+                <button class="choice" data-apron="berry">Berry</button>
+                <button class="choice" data-apron="gold">Gold</button>
+              </div>
+            </div>
+          </section>
+
+          <section id="shelfPanel" class="area-panel" aria-label="Shelf">
+            <div class="section-head compact">
+              <h3>Drink Shelf</h3>
+              <span id="totalTime" class="badge">0 min</span>
+            </div>
+            <div id="shelfGrid" class="shelf-grid" aria-live="polite"></div>
+          </section>
+
+          <section id="treatsPanel" class="area-panel" aria-label="Treats">
+            <div class="section-head compact">
+              <h3>Treat Jar</h3>
+              <span id="completedCount" class="badge">0 drinks</span>
+            </div>
+            <div id="rewardList" class="reward-list" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <nav class="tabbar" aria-label="Shop sections">
+          <button class="tab active" data-area="counterPanel">
+            <span class="tab-icon counter-icon"></span>
+            Counter
+          </button>
+          <button class="tab" data-area="ingredientsPanel">
+            <span class="tab-icon mix-icon"></span>
+            Mix
+          </button>
+          <button class="tab" data-area="shelfPanel">
+            <span class="tab-icon shelf-icon"></span>
+            Shelf
+          </button>
+          <button class="tab" data-area="treatsPanel">
+            <span class="tab-icon treat-icon"></span>
+            Treats
+          </button>
+        </nav>
+      </section>
+    </main>
+
+    <dialog id="rewardDialog">
+      <div class="reward-card">
+        <p class="eyebrow">Drink complete</p>
+        <h2 id="rewardTitle">You deserve to go get one in-person!</h2>
+        <p id="rewardCopy">Your focus session filled a fresh boba drink.</p>
+        <div id="partnerReward" class="partner"></div>
+        <form method="dialog" class="dialog-actions">
+          <button id="saveRewardBtn" class="primary" value="save">Save Reward</button>
+          <button class="quiet" value="close">Close</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="premiumDialog">
+      <div class="reward-card premium-card">
+        <p class="eyebrow">Premium cosmetic</p>
+        <h2 id="premiumTitle">Unlock this style later</h2>
+        <p id="premiumCopy">This is a prototype preview for a future in-app purchase cosmetic.</p>
+        <div class="partner">No real purchase happens in this prototype.</div>
+        <form method="dialog" class="dialog-actions">
+          <button class="primary" value="close">Got it</button>
+        </form>
+      </div>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
