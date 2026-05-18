@@ -130,6 +130,25 @@
               <button id="gameCloseBtn" class="primary">Sweet!</button>
             </div>
           </div>
+
+          <div id="plinkoGame" class="plinko-game" style="display:none">
+            <div class="game-hud">
+              <span id="plinkoPlaysLeft" class="game-score">5 drops left</span>
+              <button id="quitPlinkoBtn" class="game-quit-btn">Quit</button>
+            </div>
+            <canvas id="plinkoCanvas" class="plinko-canvas"></canvas>
+            <div class="plinko-controls">
+              <button id="plinkoDropBtn" class="primary">Drop Pearl</button>
+            </div>
+            <div id="plinkoResult" class="plinko-result" style="display:none">
+              <p class="eyebrow" id="plinkoResultEyebrow">Nice drop!</p>
+              <h3 id="plinkoResultText">+10 pearls!</h3>
+              <div class="plinko-result-actions">
+                <button id="plinkoAgainBtn" class="primary">Drop Again</button>
+                <button id="plinkoDoneBtn" class="quiet">Done</button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section id="timerStrip" class="timer-strip" aria-label="Focus timer">
@@ -185,6 +204,7 @@
               <span id="breakProgressBar"></span>
             </div>
             <button id="playGameBtn" class="primary game-launch-btn">Play: Catch the Pearls</button>
+            <button id="playPlinkoBtn" class="primary game-launch-btn">Play: Boba Plinko (5 left)</button>
           </div>
 
         </section>

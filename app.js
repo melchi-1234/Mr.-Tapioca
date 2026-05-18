@@ -74,6 +74,16 @@ const PEARL_SIZE = 20;
 const GAME_CUP_W = 80;
 const GAME_CUP_H = 44;
 
+const SLOT_REWARDS = [10, 5, 2, 1, 2, 5, 10];
+const PLINKO_MAX_PLAYS = 5;
+const PLINKO_ROWS = 6;
+
+const plinko = {
+  playsLeft: PLINKO_MAX_PLAYS,
+  dropping: false,
+  animId: null
+};
+
 const game = {
   active: false,
   score: 0,
@@ -171,7 +181,18 @@ const els = {
   gameResultText: document.querySelector("#gameResultText"),
   playGameBtn: document.querySelector("#playGameBtn"),
   quitGameBtn: document.querySelector("#quitGameBtn"),
-  gameCloseBtn: document.querySelector("#gameCloseBtn")
+  gameCloseBtn: document.querySelector("#gameCloseBtn"),
+  playPlinkoBtn: document.querySelector("#playPlinkoBtn"),
+  plinkoGame: document.querySelector("#plinkoGame"),
+  plinkoCanvas: document.querySelector("#plinkoCanvas"),
+  plinkoPlaysLeft: document.querySelector("#plinkoPlaysLeft"),
+  quitPlinkoBtn: document.querySelector("#quitPlinkoBtn"),
+  plinkoDropBtn: document.querySelector("#plinkoDropBtn"),
+  plinkoResult: document.querySelector("#plinkoResult"),
+  plinkoResultEyebrow: document.querySelector("#plinkoResultEyebrow"),
+  plinkoResultText: document.querySelector("#plinkoResultText"),
+  plinkoAgainBtn: document.querySelector("#plinkoAgainBtn"),
+  plinkoDoneBtn: document.querySelector("#plinkoDoneBtn")
 };
 
 function loadState() {
@@ -396,6 +417,7 @@ function startPause() {
 }
 
 function resetSession() {
+  closePlinko();
   stopGame();
   clearTimeout(state.breakMakerCycleId);
   state.breakMakerCycleId = null;
@@ -476,6 +498,8 @@ function startBreak() {
   state.breakLastTick = Date.now();
   state.breakTimerId = setInterval(tickBreak, 250);
   scheduleMakerBreakCycle();
+  plinko.playsLeft = PLINKO_MAX_PLAYS;
+  updatePlinkoBtnState();
   updatePhaseUI();
 }
 
@@ -492,6 +516,7 @@ function tickBreak() {
 }
 
 function endBreak() {
+  closePlinko();
   stopGame();
   clearInterval(state.breakTimerId);
   state.breakTimerId = null;
@@ -507,6 +532,7 @@ function endBreak() {
 }
 
 function skipBreak() {
+  closePlinko();
   stopGame();
   clearInterval(state.breakTimerId);
   state.breakTimerId = null;
@@ -760,6 +786,217 @@ function spillSession() {
   }, 1800);
 }
 
+function plinkoRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function getPlinkoGeo() {
+  const canvas = els.plinkoCanvas;
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+  const slotH = 46;
+  const topPad = 18;
+  const pegAreaH = H - topPad - slotH;
+  const rowSpacing = pegAreaH / PLINKO_ROWS;
+  const slotW = W / 7;
+  const pegR = 5;
+  return { W, H, slotH, topPad, pegAreaH, rowSpacing, slotW, pegR };
+}
+
+function drawPlinkoBoard(highlightSlot) {
+  const canvas = els.plinkoCanvas;
+  if (!canvas.offsetWidth || !canvas.offsetHeight) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const geo = getPlinkoGeo();
+  const { slotH, slotW, topPad, rowSpacing, pegR } = geo;
+  const slotY = H - slotH;
+
+  const BASE_COLORS = ["#f0bb4f", "#ef8aa0", "#d9f3ea", "#e8e0f8", "#d9f3ea", "#ef8aa0", "#f0bb4f"];
+  const HIT_COLORS  = ["#ffe048", "#ff6688", "#55e8c0", "#c4b5e8", "#55e8c0", "#ff6688", "#ffe048"];
+
+  for (let i = 0; i < 7; i++) {
+    const x = i * slotW;
+    const isHit = i === highlightSlot;
+    ctx.fillStyle = isHit ? HIT_COLORS[i] : BASE_COLORS[i];
+    plinkoRoundRect(ctx, x + 2, slotY + 4, slotW - 4, slotH - 6, 7);
+    ctx.fill();
+    if (isHit) {
+      ctx.strokeStyle = "#3c2a2f";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#2d2428";
+    ctx.font = "900 10.5px Inter, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`+${SLOT_REWARDS[i]}`, x + slotW / 2, slotY + slotH / 2);
+  }
+
+  ctx.strokeStyle = "rgba(45,36,40,0.15)";
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 7; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * slotW, slotY);
+    ctx.lineTo(i * slotW, H);
+    ctx.stroke();
+  }
+
+  for (let r = 0; r < PLINKO_ROWS; r++) {
+    for (let j = 0; j <= r + 1; j++) {
+      const px = geo.W / 2 + (j - (r + 1) / 2) * slotW;
+      const py = topPad + r * rowSpacing + rowSpacing / 2;
+      ctx.beginPath();
+      ctx.arc(px, py, pegR, 0, Math.PI * 2);
+      ctx.fillStyle = "#3c2a2f";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px - 1.5, py - 1.5, 2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fill();
+    }
+  }
+}
+
+function drawPlinkoPearl(x, y) {
+  const canvas = els.plinkoCanvas;
+  const ctx = canvas.getContext("2d");
+  const r = 8;
+  const grad = ctx.createRadialGradient(x - 2.5, y - 2.5, 1, x, y, r);
+  grad.addColorStop(0, "rgba(255,255,255,0.75)");
+  grad.addColorStop(0.45, "#5b3d46");
+  grad.addColorStop(1, "#1a0e14");
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+function buildPlinkoWaypoints(decisions, geo) {
+  const { W, slotW, topPad, rowSpacing, H, slotH } = geo;
+  const waypoints = [{ x: W / 2, y: topPad - 8 }];
+  let offset = 0;
+  for (let r = 0; r < PLINKO_ROWS; r++) {
+    offset += decisions[r] ? slotW / 2 : -slotW / 2;
+    waypoints.push({ x: W / 2 + offset, y: topPad + (r + 1) * rowSpacing });
+  }
+  waypoints.push({ x: W / 2 + offset, y: H - slotH / 2 });
+  return waypoints;
+}
+
+function updatePlinkoBtnState() {
+  const left = plinko.playsLeft;
+  if (left > 0) {
+    els.playPlinkoBtn.textContent = `Play: Boba Plinko (${left} left)`;
+    els.playPlinkoBtn.disabled = false;
+  } else {
+    els.playPlinkoBtn.textContent = "Boba Plinko (done for break)";
+    els.playPlinkoBtn.disabled = true;
+  }
+}
+
+function openPlinko() {
+  if (plinko.dropping) return;
+  if (plinko.animId) { cancelAnimationFrame(plinko.animId); plinko.animId = null; }
+  els.plinkoResult.style.display = "none";
+  els.plinkoDropBtn.disabled = plinko.playsLeft <= 0;
+  els.plinkoDropBtn.textContent = "Drop Pearl";
+  updatePlinkoHUD();
+  els.plinkoGame.style.display = "flex";
+  requestAnimationFrame(() => drawPlinkoBoard(-1));
+}
+
+function closePlinko() {
+  if (plinko.animId) { cancelAnimationFrame(plinko.animId); plinko.animId = null; }
+  plinko.dropping = false;
+  els.plinkoGame.style.display = "none";
+}
+
+function updatePlinkoHUD() {
+  const left = plinko.playsLeft;
+  els.plinkoPlaysLeft.textContent = `${left} drop${left !== 1 ? "s" : ""} left`;
+}
+
+function dropPearl() {
+  if (plinko.dropping || plinko.playsLeft <= 0) return;
+  plinko.dropping = true;
+  plinko.playsLeft--;
+  els.plinkoDropBtn.disabled = true;
+  els.plinkoResult.style.display = "none";
+  updatePlinkoHUD();
+  updatePlinkoBtnState();
+
+  const geo = getPlinkoGeo();
+  const decisions = Array.from({ length: PLINKO_ROWS }, () => Math.random() < 0.5);
+  const slotIndex = decisions.filter(Boolean).length;
+  const waypoints = buildPlinkoWaypoints(decisions, geo);
+
+  const SEG_MS = 170;
+  const totalMs = SEG_MS * (waypoints.length - 1);
+  const segCount = waypoints.length - 1;
+  const t0 = performance.now();
+
+  function frame(ts) {
+    const elapsed = ts - t0;
+    const rawSeg = Math.min(elapsed / SEG_MS, segCount);
+    const seg = Math.min(Math.floor(rawSeg), segCount - 1);
+    const segT = rawSeg - seg;
+    const eased = segT < 0.5 ? 2 * segT * segT : 1 - Math.pow(-2 * segT + 2, 2) / 2;
+    const from = waypoints[seg];
+    const to = waypoints[seg + 1];
+    drawPlinkoBoard(-1);
+    drawPlinkoPearl(from.x + (to.x - from.x) * eased, from.y + (to.y - from.y) * eased);
+
+    if (elapsed < totalMs) {
+      plinko.animId = requestAnimationFrame(frame);
+    } else {
+      plinko.dropping = false;
+      plinko.animId = null;
+      drawPlinkoBoard(slotIndex);
+      drawPlinkoPearl(waypoints[waypoints.length - 1].x, waypoints[waypoints.length - 1].y);
+      const reward = SLOT_REWARDS[slotIndex];
+      state.bonusPearls += reward;
+      saveState();
+      renderAll();
+      setTimeout(() => showPlinkoResult(reward), 600);
+    }
+  }
+
+  plinko.animId = requestAnimationFrame(frame);
+}
+
+function showPlinkoResult(reward) {
+  const eyebrows = { 10: "Jackpot!", 5: "Great drop!", 2: "Good drop!", 1: "So close!" };
+  els.plinkoResultEyebrow.textContent = eyebrows[reward] || "Nice drop!";
+  els.plinkoResultText.textContent = `+${reward} pearl${reward !== 1 ? "s" : ""}!`;
+  if (plinko.playsLeft > 0) {
+    els.plinkoAgainBtn.style.display = "";
+    els.plinkoAgainBtn.textContent = `Drop Again (${plinko.playsLeft} left)`;
+  } else {
+    els.plinkoAgainBtn.style.display = "none";
+  }
+  els.plinkoResult.style.display = "flex";
+}
+
 function wireEvents() {
   els.startPauseBtn.addEventListener("click", startPause);
   els.resetBtn.addEventListener("click", resetSession);
@@ -814,6 +1051,16 @@ function wireEvents() {
   els.gameCloseBtn.addEventListener("click", () => {
     els.pearlGame.style.display = "none";
   });
+
+  els.playPlinkoBtn.addEventListener("click", openPlinko);
+  els.quitPlinkoBtn.addEventListener("click", closePlinko);
+  els.plinkoDropBtn.addEventListener("click", dropPearl);
+  els.plinkoAgainBtn.addEventListener("click", () => {
+    els.plinkoResult.style.display = "none";
+    drawPlinkoBoard(-1);
+    els.plinkoDropBtn.disabled = false;
+  });
+  els.plinkoDoneBtn.addEventListener("click", closePlinko);
   els.gameArea.addEventListener("touchstart", e => {
     e.preventDefault();
     game.touchStartX = e.touches[0].clientX;
