@@ -219,8 +219,8 @@ function minuteLabel(minutes) {
 
 function sessionLabel() {
   const minutes = Math.round(state.customDuration / 60);
-  if (minutes >= LARGE_DRINK_MINUTES) return "Large Drink";
-  if (minutes >= SMALL_DRINK_MINUTES) return "Small Drink";
+  if (minutes === LARGE_DRINK_MINUTES) return "Large Drink";
+  if (minutes === SMALL_DRINK_MINUTES) return "Small Drink";
   return `${minutes} min`;
 }
 
@@ -636,7 +636,7 @@ function scheduleMakerBreakCycle() {
 }
 
 function adjustDuration(delta) {
-  state.customDuration = Math.max(15 * 60, state.customDuration + delta);
+  state.customDuration = Math.max(15 * 60, Math.min(LARGE_DRINK_MINUTES * 60, state.customDuration + delta));
   els.durationDisplay.textContent = sessionLabel();
   resetSession();
 }
