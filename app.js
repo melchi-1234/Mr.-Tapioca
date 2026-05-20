@@ -153,7 +153,6 @@ const els = {
   saveRewardBtn: document.querySelector("#saveRewardBtn"),
   previewRestrictionBtn: document.querySelector("#previewRestrictionBtn"),
   restrictionPreview: document.querySelector("#restrictionPreview"),
-  streakCount: document.querySelector("#streakCount"),
   timerStrip: document.querySelector("#timerStrip"),
   breakStrip: document.querySelector("#breakStrip"),
   breakOffer: document.querySelector("#breakOffer"),
@@ -291,8 +290,6 @@ function updateStats() {
   els.completedCount.textContent = `${state.collection.length} ${state.collection.length === 1 ? "drink" : "drinks"}`;
   els.shopPearlCount.textContent = `${pearls} pearls`;
 
-  const days = new Set(state.collection.map((drink) => drink.dateKey));
-  els.streakCount.textContent = String(days.size);
 }
 
 function renderShelf() {
