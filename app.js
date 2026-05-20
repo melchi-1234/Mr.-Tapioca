@@ -129,7 +129,6 @@ const els = {
   timerText: document.querySelector("#timerText"),
   startPauseBtn: document.querySelector("#startPauseBtn"),
   resetBtn: document.querySelector("#resetBtn"),
-  nextUnlock: document.querySelector("#nextUnlock"),
   drinkName: document.querySelector("#drinkName"),
   drawerTitle: document.querySelector("#drawerTitle"),
   shelfGrid: document.querySelector("#shelfGrid"),
@@ -267,17 +266,6 @@ function updateCup() {
   els.drinkName.textContent = currentDrinkName();
 }
 
-function updateUnlocks() {
-  const minutes = totalMinutes();
-  const next = UNLOCKS.find((unlock) => minutes < unlock.minutes);
-
-  if (!next) {
-    els.nextUnlock.textContent = "All starter toppings unlocked";
-    return;
-  }
-
-  els.nextUnlock.textContent = `${next.label} at ${next.minutes} focused minutes`;
-}
 
 function updateStats() {
   const minutes = totalMinutes();
@@ -410,7 +398,6 @@ function renderShop() {
 
 function renderAll() {
   updateCup();
-  updateUnlocks();
   updateStats();
   renderShelf();
   renderRewards();
