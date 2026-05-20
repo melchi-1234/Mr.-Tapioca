@@ -1,5 +1,8 @@
-const SMALL_DRINK_MINUTES = 180;
-const LARGE_DRINK_MINUTES = 360;
+const MODES = {
+  tasting: { label: "Tasting Cup", duration: 30 },
+  small:   { label: "Small Drink", duration: 3 * 60 * 60 },
+  large:   { label: "Large Drink", duration: 6 * 60 * 60 }
+};
 
 const BASES = {
   classic:    { label: "Classic Milk Tea",   color: "#c98555" },
@@ -109,7 +112,7 @@ const game = {
 };
 
 const state = {
-  customDuration: 30 * 60,
+  mode: "tasting",
   base: "classic",
   topping: "pearls",
   sticker: "Focus",
@@ -134,70 +137,79 @@ const state = {
 };
 
 const els = {
-  shopScene: document.querySelector("#shopScene"),
-  focusCup: document.querySelector("#focusCup"),
-  liquid: document.querySelector("#liquid"),
-  focusSticker: document.querySelector("#focusSticker"),
-  focusMakerCharacter: document.querySelector("#focusMakerCharacter"),
-  makerSpeech: document.querySelector("#makerSpeech"),
-  progressBar: document.querySelector("#progressBar"),
-  timerText: document.querySelector("#timerText"),
-  startPauseBtn: document.querySelector("#startPauseBtn"),
-  resetBtn: document.querySelector("#resetBtn"),
-  drinkName: document.querySelector("#drinkName"),
-  drawerTitle: document.querySelector("#drawerTitle"),
-  shelfGrid: document.querySelector("#shelfGrid"),
-  totalTime: document.querySelector("#totalTime"),
-  pearlCount: document.querySelector("#pearlCount"),
-  completedCount: document.querySelector("#completedCount"),
-  rewardList: document.querySelector("#rewardList"),
-  rewardDialog: document.querySelector("#rewardDialog"),
-  rewardTitle: document.querySelector("#rewardTitle"),
-  rewardCopy: document.querySelector("#rewardCopy"),
-  partnerReward: document.querySelector("#partnerReward"),
-  premiumDialog: document.querySelector("#premiumDialog"),
-  premiumTitle: document.querySelector("#premiumTitle"),
-  premiumCopy: document.querySelector("#premiumCopy"),
-  saveRewardBtn: document.querySelector("#saveRewardBtn"),
-  previewRestrictionBtn: document.querySelector("#previewRestrictionBtn"),
-  restrictionPreview: document.querySelector("#restrictionPreview"),
-  durationDisplay: document.querySelector("#durationDisplay"),
-  durationMinus: document.querySelector("#durationMinus"),
-  durationPlus: document.querySelector("#durationPlus"),
-  timerStrip: document.querySelector("#timerStrip"),
-  breakStrip: document.querySelector("#breakStrip"),
-  breakOffer: document.querySelector("#breakOffer"),
-  breakRunningPanel: document.querySelector("#breakRunningPanel"),
+  shopScene:            document.querySelector("#shopScene"),
+  focusCup:             document.querySelector("#focusCup"),
+  liquid:               document.querySelector("#liquid"),
+  focusSticker:         document.querySelector("#focusSticker"),
+  focusMakerCharacter:  document.querySelector("#focusMakerCharacter"),
+  makerSpeech:          document.querySelector("#makerSpeech"),
+  progressBar:          document.querySelector("#progressBar"),
+  sessionLabel:         document.querySelector("#sessionLabel"),
+  progressLabel:        document.querySelector("#progressLabel"),
+  timerText:            document.querySelector("#timerText"),
+  startPauseBtn:        document.querySelector("#startPauseBtn"),
+  resetBtn:             document.querySelector("#resetBtn"),
+  drinkName:            document.querySelector("#drinkName"),
+  focusControls:        document.querySelector("#focusControls"),
+  shelfGrid:            document.querySelector("#shelfGrid"),
+  totalTime:            document.querySelector("#totalTime"),
+  pearlCount:           document.querySelector("#pearlCount"),
+  completedCount:       document.querySelector("#completedCount"),
+  rewardList:           document.querySelector("#rewardList"),
+  rewardDialog:         document.querySelector("#rewardDialog"),
+  rewardTitle:          document.querySelector("#rewardTitle"),
+  rewardCopy:           document.querySelector("#rewardCopy"),
+  partnerReward:        document.querySelector("#partnerReward"),
+  premiumDialog:        document.querySelector("#premiumDialog"),
+  premiumTitle:         document.querySelector("#premiumTitle"),
+  premiumCopy:          document.querySelector("#premiumCopy"),
+  saveRewardBtn:        document.querySelector("#saveRewardBtn"),
+  previewRestrictionBtn:document.querySelector("#previewRestrictionBtn"),
+  restrictionPreview:   document.querySelector("#restrictionPreview"),
+  breakOffer:           document.querySelector("#breakOffer"),
+  breakRunningPanel:    document.querySelector("#breakRunningPanel"),
   breakDurationDisplay: document.querySelector("#breakDurationDisplay"),
-  breakTimerText: document.querySelector("#breakTimerText"),
-  breakProgressBar: document.querySelector("#breakProgressBar"),
-  breakProgressLabel: document.querySelector("#breakProgressLabel"),
-  startBreakBtn: document.querySelector("#startBreakBtn"),
-  skipBreakBtn: document.querySelector("#skipBreakBtn"),
-  skipBreakRunningBtn: document.querySelector("#skipBreakRunningBtn"),
-  breakMinus: document.querySelector("#breakMinus"),
-  breakPlus: document.querySelector("#breakPlus"),
-  pearlGame: document.querySelector("#pearlGame"),
-  gameArea: document.querySelector("#gameArea"),
-  gameCup: document.querySelector("#gameCup"),
-  gameScore: document.querySelector("#gameScore"),
-  gameTimer: document.querySelector("#gameTimer"),
-  gameResult: document.querySelector("#gameResult"),
-  gameResultText: document.querySelector("#gameResultText"),
-  playGameBtn: document.querySelector("#playGameBtn"),
-  quitGameBtn: document.querySelector("#quitGameBtn"),
-  gameCloseBtn: document.querySelector("#gameCloseBtn"),
-  playPlinkoBtn: document.querySelector("#playPlinkoBtn"),
-  plinkoGame: document.querySelector("#plinkoGame"),
-  plinkoCanvas: document.querySelector("#plinkoCanvas"),
-  plinkoPlaysLeft: document.querySelector("#plinkoPlaysLeft"),
-  quitPlinkoBtn: document.querySelector("#quitPlinkoBtn"),
-  plinkoDropBtn: document.querySelector("#plinkoDropBtn"),
-  plinkoResult: document.querySelector("#plinkoResult"),
-  plinkoResultEyebrow: document.querySelector("#plinkoResultEyebrow"),
-  plinkoResultText: document.querySelector("#plinkoResultText"),
-  plinkoAgainBtn: document.querySelector("#plinkoAgainBtn"),
-  plinkoDoneBtn: document.querySelector("#plinkoDoneBtn")
+  breakTimerText:       document.querySelector("#breakTimerText"),
+  breakProgressBar:     document.querySelector("#breakProgressBar"),
+  breakProgressLabel:   document.querySelector("#breakProgressLabel"),
+  startBreakBtn:        document.querySelector("#startBreakBtn"),
+  skipBreakBtn:         document.querySelector("#skipBreakBtn"),
+  skipBreakRunningBtn:  document.querySelector("#skipBreakRunningBtn"),
+  breakMinus:           document.querySelector("#breakMinus"),
+  breakPlus:            document.querySelector("#breakPlus"),
+  pearlGame:            document.querySelector("#pearlGame"),
+  gameArea:             document.querySelector("#gameArea"),
+  gameCup:              document.querySelector("#gameCup"),
+  gameScore:            document.querySelector("#gameScore"),
+  gameTimer:            document.querySelector("#gameTimer"),
+  gameResult:           document.querySelector("#gameResult"),
+  gameResultText:       document.querySelector("#gameResultText"),
+  playGameBtn:          document.querySelector("#playGameBtn"),
+  quitGameBtn:          document.querySelector("#quitGameBtn"),
+  gameCloseBtn:         document.querySelector("#gameCloseBtn"),
+  playPlinkoBtn:        document.querySelector("#playPlinkoBtn"),
+  plinkoGame:           document.querySelector("#plinkoGame"),
+  plinkoCanvas:         document.querySelector("#plinkoCanvas"),
+  plinkoPlaysLeft:      document.querySelector("#plinkoPlaysLeft"),
+  quitPlinkoBtn:        document.querySelector("#quitPlinkoBtn"),
+  plinkoDropBtn:        document.querySelector("#plinkoDropBtn"),
+  plinkoResult:         document.querySelector("#plinkoResult"),
+  plinkoResultEyebrow:  document.querySelector("#plinkoResultEyebrow"),
+  plinkoResultText:     document.querySelector("#plinkoResultText"),
+  plinkoAgainBtn:       document.querySelector("#plinkoAgainBtn"),
+  plinkoDoneBtn:        document.querySelector("#plinkoDoneBtn"),
+  shopBtn:              document.querySelector("#shopBtn"),
+  settingsBtn:          document.querySelector("#settingsBtn"),
+  shopSheet:            document.querySelector("#shopSheet"),
+  shopClose:            document.querySelector("#shopClose"),
+  shopGrid:             document.querySelector("#shopGrid"),
+  shopPearlCount:       document.querySelector("#shopPearlCount"),
+  customizeTrigger:     document.querySelector("#customizeTrigger"),
+  customizeSheet:       document.querySelector("#customizeSheet"),
+  customizeClose:       document.querySelector("#customizeClose"),
+  settingsSheet:        document.querySelector("#settingsSheet"),
+  settingsClose:        document.querySelector("#settingsClose"),
+  sheetBackdrop:        document.querySelector("#sheetBackdrop")
 };
 
 // ── Character animation ──────────────────────────────────────────────────────
@@ -302,19 +314,12 @@ function minuteLabel(minutes) {
   return `${minutes} focused ${minutes === 1 ? "minute" : "minutes"}`;
 }
 
-function sessionLabel() {
-  const minutes = Math.round(state.customDuration / 60);
-  if (minutes === LARGE_DRINK_MINUTES) return "Large Drink";
-  if (minutes === SMALL_DRINK_MINUTES) return "Small Drink";
-  return `${minutes} min`;
-}
-
 function currentDrinkName() {
   return `${BASES[state.base].label} + ${TOPPINGS[state.topping]}`;
 }
 
 function progress() {
-  return Math.min(1, state.elapsed / state.customDuration);
+  return Math.min(1, state.elapsed / MODES[state.mode].duration);
 }
 
 function currentPearls() {
@@ -339,6 +344,7 @@ function speechForState() {
 
 function updateCup() {
   const pct = Math.round(progress() * 100);
+  const mode = MODES[state.mode];
   els.liquid.style.setProperty("--fill", `${pct}%`);
   els.liquid.style.setProperty("--drink-color", BASES[state.base].color);
   els.progressBar.style.width = `${pct}%`;
@@ -348,8 +354,10 @@ function updateCup() {
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
   els.makerSpeech.textContent = speechForState();
-  els.timerText.textContent = formatTime(state.customDuration - state.elapsed);
-  els.startPauseBtn.textContent = state.running ? "Pause" : pct === 100 ? "Seal" : "Start";
+  els.timerText.textContent = formatTime(mode.duration - state.elapsed);
+  els.sessionLabel.textContent = mode.label;
+  els.progressLabel.textContent = `${pct}%`;
+  els.startPauseBtn.textContent = state.running ? "Pause" : pct === 100 ? "Seal & Save" : "Start Focus";
   els.drinkName.textContent = currentDrinkName();
 }
 
@@ -357,8 +365,8 @@ function updateCup() {
 function updateStats() {
   const minutes = totalMinutes();
   const pearls = currentPearls();
-  els.totalTime.textContent = `${minutes} min`;
-  els.pearlCount.textContent = String(pearls);
+  els.pearlCount.textContent  = String(pearls);
+  els.totalTime.textContent   = `${minutes} min`;
   els.completedCount.textContent = `${state.collection.length} ${state.collection.length === 1 ? "drink" : "drinks"}`;
 }
 
@@ -437,46 +445,40 @@ function renderShop() {
   const pearls = currentPearls();
   els.shopPearlCount.textContent = `${pearls} pearls`;
 
-  els.shopGrid.innerHTML = SHOP_CATEGORIES.map(cat => {
-    const cards = SHOP_ITEMS.filter(i => i.category === cat).map(item => {
-      const owned    = isOwned(item.id);
-      const equipped = isEquipped(item);
-      const canBuy   = pearls >= item.price;
+  const freeSkins    = SHOP_ITEMS.filter(i => i.type === "skin" && !i.premium);
+  const premiumSkins = SHOP_ITEMS.filter(i => i.type === "skin" && i.premium);
 
-      let previewInner = "";
-      if (item.type === "sticker") {
-        previewInner = `<span class="shop-sticker-preview">${item.value}</span>`;
-      } else if (item.type === "skin" && item.img) {
-        previewInner = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
-      }
+  function renderCard(item) {
+    const owned  = isOwned(item.id);
+    const equipped = isEquipped(item);
+    const canBuy = pearls >= item.price;
+    const preview = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
 
-      let action = "";
-      if (item.premium) {
-        action = `<button class="shop-preview-btn" data-preview="${item.id}">✦ Premium</button>`;
-      } else if (equipped) {
-        action = `
-          <span class="shop-equipped-badge">Equipped</span>
-          <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
-      } else if (owned) {
-        action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
-      } else {
-        action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
-      }
+    let action = "";
+    if (item.premium) {
+      action = `<button class="shop-preview-btn" data-preview="${item.id}">✦ $1.99</button>`;
+    } else if (equipped) {
+      action = `<span class="shop-equipped-badge">Equipped</span>
+                <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+    } else if (owned) {
+      action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
+    } else {
+      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
+    }
 
-      const bgStyle = item.img ? "background:#f5f0ee" : `background:${item.color || "#f5f0ff"}`;
-      return `
-        <article class="shop-card">
-          <div class="shop-preview" style="${bgStyle}">${previewInner}</div>
-          <div>
-            <strong>${item.name}</strong>
-            <small>${item.desc}</small>
-          </div>
-          <div class="shop-card-action">${action}</div>
-        </article>`;
-    }).join("");
+    return `
+      <article class="shop-card">
+        <div class="shop-preview" style="background:#f5f0ee">${preview}</div>
+        <div><strong>${item.name}</strong><small>${item.desc}</small></div>
+        <div class="shop-card-action">${action}</div>
+      </article>`;
+  }
 
-    return `<h4 class="shop-category-head">${cat}</h4>${cards}`;
-  }).join("");
+  els.shopGrid.innerHTML =
+    `<h4 class="shop-category-head">Character Skins</h4>
+     ${freeSkins.map(renderCard).join("")}
+     <h4 class="shop-category-head">Premium Skins</h4>
+     ${premiumSkins.map(renderCard).join("")}`;
 
   els.shopGrid.querySelectorAll("[data-buy]").forEach(btn => {
     btn.addEventListener("click", () => buyItem(btn.dataset.buy));
@@ -490,14 +492,13 @@ function renderShop() {
   els.shopGrid.querySelectorAll("[data-preview]").forEach(btn => {
     btn.addEventListener("click", () => {
       const item = SHOP_ITEMS.find(i => i.id === btn.dataset.preview);
-      if (item) showPremiumPreview(item.name, "Premium skin");
+      if (item) showPremiumPreview(item.name, "$1.99");
     });
   });
 }
 
 function renderAll() {
   updateCup();
-  updateUnlocks();
   updateStats();
   renderShelf();
   renderRewards();
@@ -522,7 +523,7 @@ function tick() {
 
   const delta = (now - state.lastTick) / 1000;
   state.lastTick = now;
-  state.elapsed = Math.min(state.customDuration, state.elapsed + delta);
+  state.elapsed = Math.min(MODES[state.mode].duration, state.elapsed + delta);
   updateCup();
 
   if (progress() >= 1) {
@@ -572,11 +573,12 @@ function resetSession() {
 function completeSession() {
   stopTicker();
   state.running = false;
-  state.elapsed = state.customDuration;
+  state.elapsed = MODES[state.mode].duration;
   state.lastTick = null;
 
-  const minutes = Math.round(state.customDuration / 60);
-  const size = sessionLabel();
+  const mode    = MODES[state.mode];
+  const minutes = Math.round(mode.duration / 60);
+  const size    = mode.label;
   const now = new Date();
   const drink = {
     id: crypto.randomUUID(),
@@ -700,8 +702,7 @@ function updatePhaseUI() {
   const isOffer = state.phase === "break-offer";
   const isBreak = state.phase === "break";
 
-  els.timerStrip.classList.toggle("hidden", !isFocus);
-  els.breakStrip.classList.toggle("hidden", isFocus);
+  els.focusControls.classList.toggle("hidden", !isFocus);
   els.breakOffer.classList.toggle("hidden", !isOffer);
   els.breakRunningPanel.classList.toggle("hidden", !isBreak);
 
@@ -721,10 +722,23 @@ function scheduleMakerBreakCycle() {
   cycle();
 }
 
-function adjustDuration(delta) {
-  state.customDuration = Math.max(15 * 60, Math.min(LARGE_DRINK_MINUTES * 60, state.customDuration + delta));
-  els.durationDisplay.textContent = sessionLabel();
+function setMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll(".size-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.mode === mode);
+  });
   resetSession();
+}
+
+function openSheet(id) {
+  document.querySelectorAll(".sheet").forEach(s => s.classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+  els.sheetBackdrop.classList.remove("hidden");
+}
+
+function closeSheets() {
+  document.querySelectorAll(".sheet").forEach(s => s.classList.add("hidden"));
+  els.sheetBackdrop.classList.add("hidden");
 }
 
 function setBase(base) {
@@ -767,24 +781,6 @@ function setShopTheme(theme, button) {
   }
 }
 
-function switchArea(areaId) {
-  const titles = {
-    counterPanel: "Counter",
-    shelfPanel: "Shelf",
-    treatsPanel: "Treats",
-    shopPanel: "Shop"
-  };
-
-  document.querySelectorAll(".area-panel").forEach((panel) => {
-    panel.classList.toggle("active", panel.id === areaId);
-  });
-
-  document.querySelectorAll(".tab").forEach((tab) => {
-    tab.classList.toggle("active", tab.dataset.area === areaId);
-  });
-
-  els.drawerTitle.textContent = titles[areaId] || "Counter";
-}
 
 function stopGame() {
   if (!game.active) return;
@@ -1118,51 +1114,57 @@ function showPlinkoResult(reward) {
 }
 
 function wireEvents() {
+  // ── Main timer controls ──────────────────────────────────────────────────
   els.startPauseBtn.addEventListener("click", startPause);
   els.resetBtn.addEventListener("click", resetSession);
+
+  // ── Mode / size picker ───────────────────────────────────────────────────
+  document.querySelectorAll(".size-btn").forEach(btn => {
+    btn.addEventListener("click", () => setMode(btn.dataset.mode));
+  });
+
+  // ── Bottom bar sheets ────────────────────────────────────────────────────
+  els.shopBtn.addEventListener("click",       () => openSheet("shopSheet"));
+  els.settingsBtn.addEventListener("click",   () => openSheet("settingsSheet"));
+  els.customizeTrigger.addEventListener("click", () => openSheet("customizeSheet"));
+  els.shopClose.addEventListener("click",     closeSheets);
+  els.customizeClose.addEventListener("click",closeSheets);
+  els.settingsClose.addEventListener("click", closeSheets);
+  els.sheetBackdrop.addEventListener("click", closeSheets);
+
+  // ── Customize sheet: tea base, topping, shop theme ───────────────────────
+  document.querySelectorAll(".swatch").forEach(button => {
+    button.addEventListener("click", () => setBase(button.dataset.base));
+  });
+  document.querySelectorAll("[data-topping]").forEach(button => {
+    button.addEventListener("click", () => setChoice("topping", button.dataset.topping));
+  });
+  document.querySelectorAll("[data-shop-theme]").forEach(button => {
+    button.addEventListener("click", () => setShopTheme(button.dataset.shopTheme, button));
+  });
+
+  // ── Blocked apps preview (inside settings sheet) ─────────────────────────
   els.previewRestrictionBtn.addEventListener("click", () => {
     els.restrictionPreview.classList.toggle("hidden");
   });
 
-  els.durationMinus.addEventListener("click", () => adjustDuration(-15 * 60));
-  els.durationPlus.addEventListener("click", () => adjustDuration(15 * 60));
-
-  document.querySelectorAll(".swatch").forEach((button) => {
-    button.addEventListener("click", () => setBase(button.dataset.base));
-  });
-
-  document.querySelectorAll("[data-topping]").forEach((button) => {
-    button.addEventListener("click", () => setChoice("topping", button.dataset.topping));
-  });
-
-  document.querySelectorAll("[data-sticker]").forEach((button) => {
-    button.addEventListener("click", () => setChoice("sticker", button.dataset.sticker));
-  });
-
-  document.querySelectorAll("[data-shop-theme]").forEach((button) => {
-    button.addEventListener("click", () => setShopTheme(button.dataset.shopTheme, button));
-  });
-
-  document.querySelectorAll(".tab").forEach((tab) => {
-    tab.addEventListener("click", () => switchArea(tab.dataset.area));
-  });
-
-  els.saveRewardBtn.addEventListener("click", () => {
-    switchArea("treatsPanel");
-  });
-
+  // ── Reward dialog ────────────────────────────────────────────────────────
   els.rewardDialog.addEventListener("close", onRewardDialogClose);
+  els.saveRewardBtn.addEventListener("click", () => {
+    // dialog closes via form method=dialog, then onRewardDialogClose fires
+  });
+
+  // ── Break controls ───────────────────────────────────────────────────────
   els.startBreakBtn.addEventListener("click", startBreak);
   els.skipBreakBtn.addEventListener("click", skipBreak);
   els.skipBreakRunningBtn.addEventListener("click", skipBreak);
   els.breakMinus.addEventListener("click", () => adjustBreakDuration(-300));
   els.breakPlus.addEventListener("click", () => adjustBreakDuration(300));
 
+  // ── Games ────────────────────────────────────────────────────────────────
   els.playGameBtn.addEventListener("click", startPearlGame);
   els.quitGameBtn.addEventListener("click", stopGame);
-  els.gameCloseBtn.addEventListener("click", () => {
-    els.pearlGame.style.display = "none";
-  });
+  els.gameCloseBtn.addEventListener("click", () => { els.pearlGame.style.display = "none"; });
 
   els.playPlinkoBtn.addEventListener("click", openPlinko);
   els.quitPlinkoBtn.addEventListener("click", closePlinko);
@@ -1173,6 +1175,8 @@ function wireEvents() {
     els.plinkoDropBtn.disabled = false;
   });
   els.plinkoDoneBtn.addEventListener("click", closePlinko);
+
+  // ── Touch controls for pearl game ────────────────────────────────────────
   els.gameArea.addEventListener("touchstart", e => {
     e.preventDefault();
     game.touchStartX = e.touches[0].clientX;
@@ -1185,6 +1189,8 @@ function wireEvents() {
     game.cupX = Math.max(0, Math.min(els.gameArea.offsetWidth - GAME_CUP_W, game.touchStartCupX + dx));
     els.gameCup.style.left = Math.round(game.cupX) + "px";
   }, { passive: false });
+
+  // ── Keyboard controls (pearl game) ───────────────────────────────────────
   document.addEventListener("keydown", e => {
     if (e.key === "ArrowLeft")  { e.preventDefault(); game.keysLeft = true; }
     if (e.key === "ArrowRight") { e.preventDefault(); game.keysRight = true; }
@@ -1194,6 +1200,7 @@ function wireEvents() {
     if (e.key === "ArrowRight") game.keysRight = false;
   });
 
+  // ── Spill on tab switch ──────────────────────────────────────────────────
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && state.running && state.phase === "focus") {
       stopTicker();
