@@ -16,6 +16,7 @@
           </div>
           <div class="hud-chips" aria-label="Shop stats">
             <div class="hud-chip">
+              <img src="assets/Tapioca Currency.png" class="pearl-icon" alt="">
               <span id="pearlCount">0</span>
               <small>pearls</small>
             </div>
@@ -57,28 +58,7 @@
 
           <div id="makerSpeech" class="speech-bubble">Mr. Tapioca is ready to make your focus drink.</div>
 
-          <div id="focusMakerCharacter" class="maker-character" data-apron="mint" data-style="classic" data-state="idle">
-            <div class="pearl-gloss"></div>
-            <div class="pearl-sprinkle one"></div>
-            <div class="pearl-sprinkle two"></div>
-            <div class="pearl-sprinkle three"></div>
-            <div class="face">
-              <span class="eye left"></span>
-              <span class="eye right"></span>
-              <span class="smile"></span>
-              <span class="blush left"></span>
-              <span class="blush right"></span>
-            </div>
-            <div class="body">
-              <span class="apron"></span>
-            </div>
-            <div class="arm left"></div>
-            <div class="arm right"></div>
-            <div class="hand-cup"></div>
-            <span class="zzz z1">z</span>
-            <span class="zzz z2">z</span>
-            <span class="zzz z3">Z</span>
-          </div>
+          <img id="focusMakerCharacter" class="maker-img" src="assets/Mr. Tapioca.png" alt="Mr. Tapioca">
 
           <div class="work-counter">
             <div class="register"></div>
@@ -276,16 +256,6 @@
             </div>
 
             <div>
-              <h3>Mr. Tapioca Style</h3>
-              <div class="choice-row" role="group" aria-label="Mr. Tapioca style">
-                <button class="choice active" data-pal-style="classic">Classic</button>
-                <button class="choice" data-pal-style="strawberry">Strawberry</button>
-                <button class="choice premium-choice" data-pal-style="starry" data-premium-price="$1.99">Starry <span>$1.99</span></button>
-                <button class="choice premium-choice" data-pal-style="royal" data-premium-price="$2.99">Royal <span>$2.99</span></button>
-              </div>
-            </div>
-
-            <div>
               <h3>Shop Theme</h3>
               <div class="choice-row" role="group" aria-label="Shop theme">
                 <button class="choice active" data-shop-theme="cozy">Cozy</button>
@@ -313,15 +283,30 @@
               </div>
             </div>
 
-            <div>
-              <h3>Maker Apron</h3>
-              <div class="choice-row" role="group" aria-label="Maker apron">
-                <button class="choice active" data-apron="mint">Mint</button>
-                <button class="choice" data-apron="berry">Berry</button>
-                <button class="choice" data-apron="gold">Gold</button>
-              </div>
-            </div>
+          </section>
 
+          <section id="shelfPanel" class="area-panel" aria-label="Shelf">
+            <div class="section-head compact">
+              <h3>Drink Shelf</h3>
+              <span id="totalTime" class="badge">0 min</span>
+            </div>
+            <div id="shelfGrid" class="shelf-grid" aria-live="polite"></div>
+          </section>
+
+          <section id="treatsPanel" class="area-panel" aria-label="Treats">
+            <div class="section-head compact">
+              <h3>Treat Jar</h3>
+              <span id="completedCount" class="badge">0 drinks</span>
+            </div>
+            <div id="rewardList" class="reward-list" aria-live="polite"></div>
+          </section>
+
+          <section id="shopPanel" class="area-panel" aria-label="Shop">
+            <div class="section-head compact">
+              <h3>Tapioca Shop</h3>
+              <span id="shopPearlCount" class="badge"><img src="assets/Tapioca Currency.png" class="pearl-icon" alt=""> 0 pearls</span>
+            </div>
+            <div id="shopGrid" class="shop-grid" aria-live="polite"></div>
           </section>
         </section>
 

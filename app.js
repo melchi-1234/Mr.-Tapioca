@@ -19,11 +19,11 @@ const TOPPINGS = {
   coconut: "Coconut Jelly"
 };
 
-const SHOP_CATEGORIES = ["Tea Base", "Topping", "Cup Sticker", "Mr. T Skin", "Apron", "Shop Theme"];
+const SHOP_CATEGORIES = ["Tea Base", "Topping", "Cup Sticker", "Character Skin", "Shop Theme"];
 
 const DEFAULTS = {
   base: "classic", topping: "pearls", sticker: "Focus",
-  palStyle: "classic", apron: "mint", shopTheme: "cozy"
+  skin: "", shopTheme: "cozy"
 };
 
 const SHOP_ITEMS = [
@@ -46,15 +46,21 @@ const SHOP_ITEMS = [
   { id: "sticker-dnd",     name: "Do Not Disturb",       desc: "Actually leave me alone",             category: "Cup Sticker", type: "sticker",   value: "DND",        price: 15, color: "#f0d4ff" },
   { id: "sticker-szn",     name: "Study Szn",            desc: "It's giving seasonal",                category: "Cup Sticker", type: "sticker",   value: "Study Szn",  price: 15, color: "#d4ffec" },
 
-  { id: "style-strawberry", name: "Strawberry",          desc: "Pink and sweet",                      category: "Mr. T Skin",  type: "palStyle",  value: "strawberry", price: 30, color: "#d96d86" },
-  { id: "style-barista",    name: "Barista",             desc: "Dark roast, mysterious",              category: "Mr. T Skin",  type: "palStyle",  value: "barista",    price: 55, color: "#4a2010" },
-  { id: "style-starry",     name: "Starry Night",        desc: "Galaxy sparkles, dreamy",             category: "Mr. T Skin",  type: "palStyle",  value: "starry",     price: 75, color: "#2d294f" },
-  { id: "style-royal",      name: "Royal",               desc: "Crown, purple, main character energy",category: "Mr. T Skin",  type: "palStyle",  value: "royal",      price: 95, color: "#46285c" },
+  // Free skins (purchasable with pearls)
+  { id: "skin-grad-cap",   name: "Graduation Cap", desc: "Scholar energy",        category: "Character Skin", type: "skin", value: "grad-cap",   price: 20, img: "assets/Graduation Cap.png"   },
+  { id: "skin-flower",     name: "Flower Crown",   desc: "In full bloom",         category: "Character Skin", type: "skin", value: "flower",     price: 25, img: "assets/Flower Crown.png"     },
+  { id: "skin-scarf",      name: "Scarf",          desc: "Cozy and warm",         category: "Character Skin", type: "skin", value: "scarf",      price: 15, img: "assets/Scarf.png"            },
+  { id: "skin-shades",     name: "Sunglasses",     desc: "Too cool for school",   category: "Character Skin", type: "skin", value: "shades",     price: 20, img: "assets/Sunglasses.png"       },
 
-  { id: "apron-berry",     name: "Berry Apron",          desc: "Rosy pink",                           category: "Apron",       type: "apron",     value: "berry",      price: 25, color: "#e97991" },
-  { id: "apron-lavender",  name: "Lavender Apron",       desc: "Matches the break mode colors",       category: "Apron",       type: "apron",     value: "lavender",   price: 30, color: "#c4a8e0" },
-  { id: "apron-gold",      name: "Gold Apron",           desc: "Shiny, bougie",                       category: "Apron",       type: "apron",     value: "gold",       price: 35, color: "#e2ad46" },
-  { id: "apron-black",     name: "Black Apron",          desc: "Chef mode, sophisticated",            category: "Apron",       type: "apron",     value: "black",      price: 50, color: "#2d2428" },
+  // Premium skins (future IAP)
+  { id: "skin-angel",      name: "Angel",          desc: "Wings and a halo",      category: "Character Skin", type: "skin", value: "angel",      premium: true, img: "assets/Angel.png"            },
+  { id: "skin-devil",      name: "Devil",          desc: "Horns and mischief",    category: "Character Skin", type: "skin", value: "devil",      premium: true, img: "assets/Devil.png"            },
+  { id: "skin-dragon",     name: "Dragon",         desc: "Breathe fire, focus",   category: "Character Skin", type: "skin", value: "dragon",     premium: true, img: "assets/Dragon.png"           },
+  { id: "skin-astro-blue", name: "Astronaut (Blue)",desc: "Space mode on",        category: "Character Skin", type: "skin", value: "astro-blue", premium: true, img: "assets/Astronaut, blue.png"  },
+  { id: "skin-astro-pink", name: "Astronaut (Pink)",desc: "Cosmic pink",          category: "Character Skin", type: "skin", value: "astro-pink", premium: true, img: "assets/Astronaut, pink.png"  },
+  { id: "skin-ninja",      name: "Ninja",          desc: "Silent focus mode",     category: "Character Skin", type: "skin", value: "ninja",      premium: true, img: "assets/Ninja.png"            },
+  { id: "skin-strawberry", name: "Strawberry",     desc: "Sweet and cute",        category: "Character Skin", type: "skin", value: "strawberry", premium: true, img: "assets/Strawberry.png"       },
+  { id: "skin-wizard",     name: "Wizard",         desc: "Cast your focus spell", category: "Character Skin", type: "skin", value: "wizard",     premium: true, img: "assets/Wizard.png"           },
 
   { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Shop Theme",  type: "shopTheme", value: "night",      price: 65, color: "#36476b" },
   { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Shop Theme",  type: "shopTheme", value: "sakura",     price: 65, color: "#ffdfe8" },
@@ -107,8 +113,7 @@ const state = {
   base: "classic",
   topping: "pearls",
   sticker: "Focus",
-  apron: "mint",
-  palStyle: "classic",
+  skin: "",
   shopTheme: "cozy",
   running: false,
   elapsed: 0,
@@ -195,20 +200,85 @@ const els = {
   plinkoDoneBtn: document.querySelector("#plinkoDoneBtn")
 };
 
+// ── Character animation ──────────────────────────────────────────────────────
+
+const SKIN_IMAGES = {
+  "grad-cap":   "assets/Graduation Cap.png",
+  "flower":     "assets/Flower Crown.png",
+  "scarf":      "assets/Scarf.png",
+  "shades":     "assets/Sunglasses.png",
+  "angel":      "assets/Angel.png",
+  "devil":      "assets/Devil.png",
+  "dragon":     "assets/Dragon.png",
+  "astro-blue": "assets/Astronaut, blue.png",
+  "astro-pink": "assets/Astronaut, pink.png",
+  "ninja":      "assets/Ninja.png",
+  "strawberry": "assets/Strawberry.png",
+  "wizard":     "assets/Wizard.png"
+};
+
+const MAKER_ANIM = {
+  idle:   { frames: ["assets/idle-1.png",    "assets/idle-2.png",    "assets/idle-3.png"],   ms: 400 },
+  mixing: { frames: ["assets/mixing-1.png",  "assets/mixing-2.png",  "assets/mixing-3.png"], ms: 400 }
+};
+
+const MAKER_STATIC = {
+  sleeping: "assets/Sleeping.png",
+  shocked:  "assets/Startled.png",
+  drinking: "assets/Surprised-Happy.png"
+};
+
+let makerAnimTimer = null;
+let makerAnimFrame = 0;
+let currentMakerState = "";
+
+function setMakerState(stateName) {
+  if (stateName === currentMakerState) return;
+  currentMakerState = stateName;
+  if (makerAnimTimer) { clearInterval(makerAnimTimer); makerAnimTimer = null; }
+  makerAnimFrame = 0;
+
+  const img = els.focusMakerCharacter;
+
+  // Equipped skin overrides the idle pose only
+  if (stateName === "idle" && state.skin && SKIN_IMAGES[state.skin]) {
+    img.src = SKIN_IMAGES[state.skin];
+    return;
+  }
+
+  // Animated states
+  if (MAKER_ANIM[stateName]) {
+    const { frames, ms } = MAKER_ANIM[stateName];
+    img.src = frames[0];
+    makerAnimTimer = setInterval(() => {
+      makerAnimFrame = (makerAnimFrame + 1) % frames.length;
+      img.src = frames[makerAnimFrame];
+    }, ms);
+    return;
+  }
+
+  // Static states
+  img.src = MAKER_STATIC[stateName] || "assets/Mr. Tapioca.png";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function loadState() {
-  state.collection = JSON.parse(localStorage.getItem("bobaFocusCollection") || "[]");
-  state.rewards   = JSON.parse(localStorage.getItem("bobaFocusRewards")    || "[]");
-  state.owned     = JSON.parse(localStorage.getItem("bobaFocusOwned")      || "[]");
+  state.collection  = JSON.parse(localStorage.getItem("bobaFocusCollection")  || "[]");
+  state.rewards     = JSON.parse(localStorage.getItem("bobaFocusRewards")     || "[]");
+  state.owned       = JSON.parse(localStorage.getItem("bobaFocusOwned")       || "[]");
   state.spent       = JSON.parse(localStorage.getItem("bobaFocusSpent")       || "0");
   state.bonusPearls = JSON.parse(localStorage.getItem("bobaFocusBonusPearls") || "0");
+  state.skin        = localStorage.getItem("bobaFocusSkin") || "";
 }
 
 function saveState() {
-  localStorage.setItem("bobaFocusCollection", JSON.stringify(state.collection));
-  localStorage.setItem("bobaFocusRewards",    JSON.stringify(state.rewards));
-  localStorage.setItem("bobaFocusOwned",      JSON.stringify(state.owned));
-  localStorage.setItem("bobaFocusSpent",       JSON.stringify(state.spent));
-  localStorage.setItem("bobaFocusBonusPearls", JSON.stringify(state.bonusPearls));
+  localStorage.setItem("bobaFocusCollection",  JSON.stringify(state.collection));
+  localStorage.setItem("bobaFocusRewards",      JSON.stringify(state.rewards));
+  localStorage.setItem("bobaFocusOwned",        JSON.stringify(state.owned));
+  localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
+  localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
+  localStorage.setItem("bobaFocusSkin",         state.skin);
 }
 
 function formatTime(seconds) {
@@ -274,9 +344,7 @@ function updateCup() {
   els.progressBar.style.width = `${pct}%`;
   els.focusCup.dataset.topping = state.topping;
   els.focusSticker.textContent = state.sticker;
-  els.focusMakerCharacter.dataset.apron = state.apron;
-  els.focusMakerCharacter.dataset.style = state.palStyle;
-  els.focusMakerCharacter.dataset.state = state.running ? "mixing" : "idle";
+  if (state.phase === "focus") setMakerState(state.running ? "mixing" : "idle");
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
   els.makerSpeech.textContent = speechForState();
@@ -354,21 +422,86 @@ function equipItem(itemId) {
   const item = SHOP_ITEMS.find(i => i.id === itemId);
   if (!item) return;
   state[item.type] = item.value;
+  if (item.type === "skin") { currentMakerState = ""; saveState(); }
   renderAll();
   els.makerSpeech.textContent = "Ooh, nice pick.";
 }
 
 function unequipItem(type) {
   state[type] = DEFAULTS[type];
+  if (type === "skin") { currentMakerState = ""; saveState(); }
   renderAll();
 }
 
+function renderShop() {
+  const pearls = currentPearls();
+  els.shopPearlCount.textContent = `${pearls} pearls`;
+
+  els.shopGrid.innerHTML = SHOP_CATEGORIES.map(cat => {
+    const cards = SHOP_ITEMS.filter(i => i.category === cat).map(item => {
+      const owned    = isOwned(item.id);
+      const equipped = isEquipped(item);
+      const canBuy   = pearls >= item.price;
+
+      let previewInner = "";
+      if (item.type === "sticker") {
+        previewInner = `<span class="shop-sticker-preview">${item.value}</span>`;
+      } else if (item.type === "skin" && item.img) {
+        previewInner = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
+      }
+
+      let action = "";
+      if (item.premium) {
+        action = `<button class="shop-preview-btn" data-preview="${item.id}">✦ Premium</button>`;
+      } else if (equipped) {
+        action = `
+          <span class="shop-equipped-badge">Equipped</span>
+          <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+      } else if (owned) {
+        action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
+      } else {
+        action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
+      }
+
+      const bgStyle = item.img ? "background:#f5f0ee" : `background:${item.color || "#f5f0ff"}`;
+      return `
+        <article class="shop-card">
+          <div class="shop-preview" style="${bgStyle}">${previewInner}</div>
+          <div>
+            <strong>${item.name}</strong>
+            <small>${item.desc}</small>
+          </div>
+          <div class="shop-card-action">${action}</div>
+        </article>`;
+    }).join("");
+
+    return `<h4 class="shop-category-head">${cat}</h4>${cards}`;
+  }).join("");
+
+  els.shopGrid.querySelectorAll("[data-buy]").forEach(btn => {
+    btn.addEventListener("click", () => buyItem(btn.dataset.buy));
+  });
+  els.shopGrid.querySelectorAll("[data-equip]").forEach(btn => {
+    btn.addEventListener("click", () => equipItem(btn.dataset.equip));
+  });
+  els.shopGrid.querySelectorAll("[data-unequip]").forEach(btn => {
+    btn.addEventListener("click", () => unequipItem(btn.dataset.unequip));
+  });
+  els.shopGrid.querySelectorAll("[data-preview]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const item = SHOP_ITEMS.find(i => i.id === btn.dataset.preview);
+      if (item) showPremiumPreview(item.name, "Premium skin");
+    });
+  });
+}
 
 function renderAll() {
   updateCup();
+  updateUnlocks();
   updateStats();
   renderShelf();
   renderRewards();
+  renderShop();
 }
 
 function stopTicker() {
@@ -431,7 +564,7 @@ function resetSession() {
   state.phase = "focus";
   state.spillPending = false;
   els.shopScene.classList.remove("is-on-break");
-  els.focusMakerCharacter.dataset.state = "idle";
+  currentMakerState = ""; setMakerState("idle");
   updatePhaseUI();
   updateCup();
 }
@@ -525,7 +658,7 @@ function endBreak() {
   state.breakElapsed = 0;
   state.phase = "focus";
   els.shopScene.classList.remove("is-on-break");
-  els.focusMakerCharacter.dataset.state = "idle";
+  currentMakerState = ""; setMakerState("idle");
   updatePhaseUI();
   renderAll();
   els.makerSpeech.textContent = "Break over. Ready for another round?";
@@ -541,7 +674,7 @@ function skipBreak() {
   state.breakElapsed = 0;
   state.phase = "focus";
   els.shopScene.classList.remove("is-on-break");
-  els.focusMakerCharacter.dataset.state = "idle";
+  currentMakerState = ""; setMakerState("idle");
   updatePhaseUI();
   renderAll();
 }
@@ -580,7 +713,7 @@ function scheduleMakerBreakCycle() {
   let idx = 0;
 
   function cycle() {
-    els.focusMakerCharacter.dataset.state = makerStates[idx % makerStates.length];
+    setMakerState(makerStates[idx % makerStates.length]);
     idx++;
     state.breakMakerCycleId = setTimeout(cycle, 8000);
   }
@@ -609,7 +742,7 @@ function setChoice(type, value) {
     button.classList.toggle("active", button.dataset[type] === value);
   });
   renderAll();
-  els.makerSpeech.textContent = type === "apron" ? "New apron on. Ready behind the counter." : "Got it. I will make that drink next.";
+  els.makerSpeech.textContent = "Got it. I will make that drink next.";
 }
 
 function showPremiumPreview(title, price) {
@@ -618,19 +751,6 @@ function showPremiumPreview(title, price) {
 
   if (typeof els.premiumDialog.showModal === "function") {
     els.premiumDialog.showModal();
-  }
-}
-
-function setPalStyle(style, button) {
-  state.palStyle = style;
-  document.querySelectorAll("[data-pal-style]").forEach((item) => {
-    item.classList.toggle("active", item.dataset.palStyle === style);
-  });
-  renderAll();
-  els.makerSpeech.textContent = style === "classic" ? "Classic tapioca shine." : "Mr. Tapioca is trying on a new look.";
-
-  if (button.dataset.premiumPrice) {
-    showPremiumPreview(button.textContent.trim(), button.dataset.premiumPrice);
   }
 }
 
@@ -774,7 +894,7 @@ function endPearlGame() {
 }
 
 function spillSession() {
-  els.focusMakerCharacter.dataset.state = "shocked";
+  setMakerState("shocked");
   els.makerSpeech.textContent = "You left! Your drink spilled. No pearls this time.";
   els.liquid.style.setProperty("--fill", "0%");
   els.focusCup.classList.add("spilling");
@@ -1019,14 +1139,6 @@ function wireEvents() {
     button.addEventListener("click", () => setChoice("sticker", button.dataset.sticker));
   });
 
-  document.querySelectorAll("[data-apron]").forEach((button) => {
-    button.addEventListener("click", () => setChoice("apron", button.dataset.apron));
-  });
-
-  document.querySelectorAll("[data-pal-style]").forEach((button) => {
-    button.addEventListener("click", () => setPalStyle(button.dataset.palStyle, button));
-  });
-
   document.querySelectorAll("[data-shop-theme]").forEach((button) => {
     button.addEventListener("click", () => setShopTheme(button.dataset.shopTheme, button));
   });
@@ -1098,3 +1210,4 @@ function wireEvents() {
 loadState();
 wireEvents();
 renderAll();
+setMakerState("idle");
