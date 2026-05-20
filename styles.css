@@ -90,6 +90,10 @@ h1 {
   line-height: 1.08;
 }
 
+.happy-banner {
+  margin: 6px 0 0;
+}
+
 h2 {
   margin-bottom: 0;
   font-size: 1.08rem;
