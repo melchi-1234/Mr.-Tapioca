@@ -227,7 +227,24 @@
             </div>
           </section>
 
-          <section id="ingredientsPanel" class="area-panel" aria-label="Mix">
+
+          <section id="shelfPanel" class="area-panel" aria-label="Shelf">
+            <div class="section-head compact">
+              <h3>Drink Shelf</h3>
+              <span id="totalTime" class="badge">0 min</span>
+            </div>
+            <div id="shelfGrid" class="shelf-grid" aria-live="polite"></div>
+          </section>
+
+          <section id="treatsPanel" class="area-panel" aria-label="Treats">
+            <div class="section-head compact">
+              <h3>Treat Jar</h3>
+              <span id="completedCount" class="badge">0 drinks</span>
+            </div>
+            <div id="rewardList" class="reward-list" aria-live="polite"></div>
+          </section>
+
+          <section id="shopPanel" class="area-panel" aria-label="Shop">
             <div>
               <h3>Tea Base</h3>
               <div class="swatches" role="group" aria-label="Tea base">
@@ -284,25 +301,7 @@
                 <button class="choice" data-apron="gold">Gold</button>
               </div>
             </div>
-          </section>
 
-          <section id="shelfPanel" class="area-panel" aria-label="Shelf">
-            <div class="section-head compact">
-              <h3>Drink Shelf</h3>
-              <span id="totalTime" class="badge">0 min</span>
-            </div>
-            <div id="shelfGrid" class="shelf-grid" aria-live="polite"></div>
-          </section>
-
-          <section id="treatsPanel" class="area-panel" aria-label="Treats">
-            <div class="section-head compact">
-              <h3>Treat Jar</h3>
-              <span id="completedCount" class="badge">0 drinks</span>
-            </div>
-            <div id="rewardList" class="reward-list" aria-live="polite"></div>
-          </section>
-
-          <section id="shopPanel" class="area-panel" aria-label="Shop">
             <div class="section-head compact">
               <h3>Tapioca Shop</h3>
               <span id="shopPearlCount" class="badge">0 pearls</span>
@@ -315,10 +314,6 @@
           <button class="tab active" data-area="counterPanel">
             <span class="tab-icon counter-icon"></span>
             Study
-          </button>
-          <button class="tab" data-area="ingredientsPanel">
-            <span class="tab-icon mix-icon"></span>
-            Mix
           </button>
           <button class="tab" data-area="shelfPanel">
             <span class="tab-icon shelf-icon"></span>

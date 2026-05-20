@@ -678,7 +678,6 @@ function setShopTheme(theme, button) {
 function switchArea(areaId) {
   const titles = {
     counterPanel: "Counter",
-    ingredientsPanel: "Mix",
     shelfPanel: "Shelf",
     treatsPanel: "Treats",
     shopPanel: "Shop"
