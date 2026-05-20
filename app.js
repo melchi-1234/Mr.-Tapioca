@@ -129,7 +129,6 @@ const els = {
   timerText: document.querySelector("#timerText"),
   startPauseBtn: document.querySelector("#startPauseBtn"),
   resetBtn: document.querySelector("#resetBtn"),
-  focusState: document.querySelector("#focusState"),
   nextUnlock: document.querySelector("#nextUnlock"),
   drinkName: document.querySelector("#drinkName"),
   drawerTitle: document.querySelector("#drawerTitle"),
@@ -264,7 +263,6 @@ function updateCup() {
   els.shopScene.classList.toggle("is-focusing", state.running);
   els.makerSpeech.textContent = speechForState();
   els.timerText.textContent = formatTime(state.customDuration - state.elapsed);
-  els.focusState.textContent = state.running ? "Focusing" : pct === 100 ? "Ready to seal" : "Ready";
   els.startPauseBtn.textContent = state.running ? "Pause" : pct === 100 ? "Seal" : "Start";
   els.drinkName.textContent = currentDrinkName();
 }
