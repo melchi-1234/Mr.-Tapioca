@@ -162,8 +162,6 @@ const els = {
   skipBreakRunningBtn: document.querySelector("#skipBreakRunningBtn"),
   breakMinus: document.querySelector("#breakMinus"),
   breakPlus: document.querySelector("#breakPlus"),
-  shopPearlCount: document.querySelector("#shopPearlCount"),
-  shopGrid: document.querySelector("#shopGrid"),
   pearlGame: document.querySelector("#pearlGame"),
   gameArea: document.querySelector("#gameArea"),
   gameCup: document.querySelector("#gameCup"),
@@ -273,8 +271,6 @@ function updateStats() {
   els.totalTime.textContent = `${minutes} min`;
   els.pearlCount.textContent = String(pearls);
   els.completedCount.textContent = `${state.collection.length} ${state.collection.length === 1 ? "drink" : "drinks"}`;
-  els.shopPearlCount.textContent = `${pearls} pearls`;
-
 }
 
 function renderShelf() {
@@ -346,62 +342,12 @@ function unequipItem(type) {
   renderAll();
 }
 
-function renderShop() {
-  const pearls = currentPearls();
-  els.shopPearlCount.textContent = `${pearls} pearls`;
-
-  els.shopGrid.innerHTML = SHOP_CATEGORIES.map(cat => {
-    const cards = SHOP_ITEMS.filter(i => i.category === cat).map(item => {
-      const owned    = isOwned(item.id);
-      const equipped = isEquipped(item);
-      const canBuy   = pearls >= item.price;
-
-      const previewInner = item.type === "sticker"
-        ? `<span class="shop-sticker-preview">${item.value}</span>`
-        : "";
-
-      let action = "";
-      if (equipped) {
-        action = `
-          <span class="shop-equipped-badge">Equipped</span>
-          <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
-      } else if (owned) {
-        action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
-      } else {
-        action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
-      }
-
-      return `
-        <article class="shop-card">
-          <div class="shop-preview" style="background:${item.color || "#f5f0ff"}">${previewInner}</div>
-          <div>
-            <strong>${item.name}</strong>
-            <small>${item.desc}</small>
-          </div>
-          <div class="shop-card-action">${action}</div>
-        </article>`;
-    }).join("");
-
-    return `<h4 class="shop-category-head">${cat}</h4>${cards}`;
-  }).join("");
-
-  els.shopGrid.querySelectorAll("[data-buy]").forEach(btn => {
-    btn.addEventListener("click", () => buyItem(btn.dataset.buy));
-  });
-  els.shopGrid.querySelectorAll("[data-equip]").forEach(btn => {
-    btn.addEventListener("click", () => equipItem(btn.dataset.equip));
-  });
-  els.shopGrid.querySelectorAll("[data-unequip]").forEach(btn => {
-    btn.addEventListener("click", () => unequipItem(btn.dataset.unequip));
-  });
-}
 
 function renderAll() {
   updateCup();
   updateStats();
   renderShelf();
   renderRewards();
-  renderShop();
 }
 
 function stopTicker() {
