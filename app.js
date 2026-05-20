@@ -1,8 +1,5 @@
-const MODES = {
-  tasting: { label: "Tasting Cup", duration: 30, reward: "Sample Sip" },
-  small: { label: "Small Drink", duration: 3 * 60 * 60, reward: "Small Boba Run" },
-  large: { label: "Large Drink", duration: 6 * 60 * 60, reward: "Large Boba Run" }
-};
+const SMALL_DRINK_MINUTES = 180;
+const LARGE_DRINK_MINUTES = 360;
 
 const BASES = {
   classic:    { label: "Classic Milk Tea",   color: "#c98555" },
@@ -96,7 +93,7 @@ const game = {
 };
 
 const state = {
-  mode: "tasting",
+  customDuration: 30 * 60,
   base: "classic",
   topping: "pearls",
   sticker: "Focus",
@@ -153,6 +150,9 @@ const els = {
   saveRewardBtn: document.querySelector("#saveRewardBtn"),
   previewRestrictionBtn: document.querySelector("#previewRestrictionBtn"),
   restrictionPreview: document.querySelector("#restrictionPreview"),
+  durationDisplay: document.querySelector("#durationDisplay"),
+  durationMinus: document.querySelector("#durationMinus"),
+  durationPlus: document.querySelector("#durationPlus"),
   timerStrip: document.querySelector("#timerStrip"),
   breakStrip: document.querySelector("#breakStrip"),
   breakOffer: document.querySelector("#breakOffer"),
@@ -217,8 +217,11 @@ function minuteLabel(minutes) {
   return `${minutes} focused ${minutes === 1 ? "minute" : "minutes"}`;
 }
 
-function currentMode() {
-  return MODES[state.mode];
+function sessionLabel() {
+  const minutes = Math.round(state.customDuration / 60);
+  if (minutes >= LARGE_DRINK_MINUTES) return "Large Drink";
+  if (minutes >= SMALL_DRINK_MINUTES) return "Small Drink";
+  return `${minutes} min`;
 }
 
 function currentDrinkName() {
@@ -226,11 +229,11 @@ function currentDrinkName() {
 }
 
 function progress() {
-  return Math.min(1, state.elapsed / currentMode().duration);
+  return Math.min(1, state.elapsed / state.customDuration);
 }
 
 function currentPearls() {
-  return state.collection.length * 6 + Math.floor(totalMinutes() / 25) + state.bonusPearls - state.spent;
+  return Math.floor(totalMinutes() / 15) + state.bonusPearls - state.spent;
 }
 
 function speechForState() {
@@ -262,8 +265,8 @@ function updateCup() {
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
   els.makerSpeech.textContent = speechForState();
-  els.timerText.textContent = formatTime(currentMode().duration - state.elapsed);
-  els.sessionLabel.textContent = currentMode().label;
+  els.timerText.textContent = formatTime(state.customDuration - state.elapsed);
+  els.sessionLabel.textContent = sessionLabel();
   els.progressLabel.textContent = `${pct}%`;
   els.focusState.textContent = state.running ? "Focusing" : pct === 100 ? "Ready to seal" : "Ready";
   els.startPauseBtn.textContent = state.running ? "Pause" : pct === 100 ? "Seal" : "Start";
@@ -438,7 +441,7 @@ function tick() {
 
   const delta = (now - state.lastTick) / 1000;
   state.lastTick = now;
-  state.elapsed = Math.min(currentMode().duration, state.elapsed + delta);
+  state.elapsed = Math.min(state.customDuration, state.elapsed + delta);
   updateCup();
 
   if (progress() >= 1) {
@@ -487,16 +490,16 @@ function resetSession() {
 function completeSession() {
   stopTicker();
   state.running = false;
-  state.elapsed = currentMode().duration;
+  state.elapsed = state.customDuration;
   state.lastTick = null;
 
-  const mode = currentMode();
-  const minutes = Math.round(mode.duration / 60);
+  const minutes = Math.round(state.customDuration / 60);
+  const size = sessionLabel();
   const now = new Date();
   const drink = {
     id: crypto.randomUUID(),
     name: currentDrinkName(),
-    size: mode.label,
+    size,
     color: BASES[state.base].color,
     minutes,
     sticker: state.sticker,
@@ -506,7 +509,7 @@ function completeSession() {
   const reward = {
     id: crypto.randomUUID(),
     title: "You deserve to go get one in-person!",
-    copy: `${mode.reward} earned from ${minuteLabel(minutes)}.`,
+    copy: `${size} earned from ${minuteLabel(minutes)}.`,
     partner: minutes >= 180 ? "Local Boba Partner - 5% Study Sip Pass" : "Save this treat for later"
   };
 
@@ -632,12 +635,10 @@ function scheduleMakerBreakCycle() {
   cycle();
 }
 
-function setMode(mode) {
-  state.mode = mode;
+function adjustDuration(delta) {
+  state.customDuration = Math.max(15 * 60, state.customDuration + delta);
+  els.durationDisplay.textContent = sessionLabel();
   resetSession();
-  document.querySelectorAll(".mode").forEach((button) => {
-    button.classList.toggle("active", button.dataset.mode === mode);
-  });
 }
 
 function setBase(base) {
@@ -840,9 +841,8 @@ function wireEvents() {
     els.restrictionPreview.classList.toggle("hidden");
   });
 
-  document.querySelectorAll(".mode").forEach((button) => {
-    button.addEventListener("click", () => setMode(button.dataset.mode));
-  });
+  els.durationMinus.addEventListener("click", () => adjustDuration(-15 * 60));
+  els.durationPlus.addEventListener("click", () => adjustDuration(15 * 60));
 
   document.querySelectorAll(".swatch").forEach((button) => {
     button.addEventListener("click", () => setBase(button.dataset.base));
