@@ -1541,6 +1541,21 @@ h3 {
   border-radius: 5px 5px 8px 8px;
 }
 
+.book-icon {
+  border: 2px solid currentColor;
+  border-radius: 2px 4px 4px 2px;
+}
+
+.book-icon::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: currentColor;
+}
+
 .mix-icon {
   border: 2px solid currentColor;
   border-radius: 50%;
