@@ -65,10 +65,11 @@ const SHOP_ITEMS = [
   { id: "skin-strawberry", name: "Strawberry",     desc: "Sweet and cute",        category: "Character Skin", type: "skin", value: "strawberry", premium: true, img: "assets/Strawberry.png"       },
   { id: "skin-wizard",     name: "Wizard",         desc: "Cast your focus spell", category: "Character Skin", type: "skin", value: "wizard",     premium: true, img: "assets/Wizard.png"           },
 
-  { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Shop Theme",  type: "shopTheme", value: "night",      price: 65, color: "#36476b" },
-  { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Shop Theme",  type: "shopTheme", value: "sakura",     price: 65, color: "#ffdfe8" },
-  { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Shop Theme",  type: "shopTheme", value: "autumn",     price: 75, color: "#c4873a" },
-  { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Shop Theme",  type: "shopTheme", value: "rainy",      price: 80, color: "#7a9ab8" },
+  { id: "theme-cozy",      name: "Cozy",                 desc: "The classic warm shop",               category: "Backgrounds", type: "shopTheme", value: "cozy",       price: 0,  color: "#f3d8b7" },
+  { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Backgrounds", type: "shopTheme", value: "night",      price: 65, color: "#36476b" },
+  { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 65, color: "#ffdfe8" },
+  { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 75, color: "#c4873a" },
+  { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 80, color: "#7a9ab8" },
 ];
 
 const UNLOCKS = [
@@ -428,9 +429,14 @@ function equipItem(itemId) {
     currentMakerState = "";
     saveState();
     closeSheets();  // step back so the user can see Mr. Tapioca change
+  } else if (item.type === "shopTheme") {
+    saveState();
+    closeSheets();  // step back so the user can see the new backdrop
   }
   renderAll();
-  els.makerSpeech.textContent = "Ooh, nice pick.";
+  els.makerSpeech.textContent = item.type === "shopTheme"
+    ? "Ooh, fresh backdrop."
+    : "Ooh, nice pick.";
 }
 
 function unequipItem(type) {
@@ -445,8 +451,9 @@ function renderShop() {
 
   const freeSkins    = SHOP_ITEMS.filter(i => i.type === "skin" && !i.premium);
   const premiumSkins = SHOP_ITEMS.filter(i => i.type === "skin" && i.premium);
+  const themes       = SHOP_ITEMS.filter(i => i.type === "shopTheme");
 
-  function renderCard(item) {
+  function renderSkinCard(item) {
     const equipped = isEquipped(item);
     const owned    = isOwned(item.id);
     const canBuy   = pearls >= item.price;
@@ -459,7 +466,6 @@ function renderShop() {
       action = `<span class="shop-equipped-badge">${label}</span>
                 <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
     } else if (item.premium) {
-      // Prototype: premium skins are equippable as a free preview (would be IAP in the real app)
       action = `<button class="shop-preview-btn" data-equip="${item.id}" data-premium="1">✦ Try $1.99</button>`;
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
@@ -475,11 +481,40 @@ function renderShop() {
       </article>`;
   }
 
+  function renderThemeCard(item) {
+    const equipped  = isEquipped(item);
+    const isDefault = item.value === "cozy";          // cozy is the free default
+    const owned     = isDefault || isOwned(item.id);
+    const canBuy    = pearls >= item.price;
+    const preview   = `<div class="shop-theme-preview" style="background:${item.color}"></div>`;
+
+    let action = "";
+    if (equipped) {
+      action = isDefault
+        ? `<span class="shop-equipped-badge">Default</span>`
+        : `<span class="shop-equipped-badge">Equipped</span>
+           <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+    } else if (owned) {
+      action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
+    } else {
+      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
+    }
+
+    return `
+      <article class="shop-card">
+        <div class="shop-preview">${preview}</div>
+        <div><strong>${item.name}</strong><small>${item.desc}</small></div>
+        <div class="shop-card-action">${action}</div>
+      </article>`;
+  }
+
   els.shopGrid.innerHTML =
     `<h4 class="shop-category-head">Character Skins</h4>
-     ${freeSkins.map(renderCard).join("")}
+     ${freeSkins.map(renderSkinCard).join("")}
+     <h4 class="shop-category-head">Backgrounds</h4>
+     ${themes.map(renderThemeCard).join("")}
      <h4 class="shop-category-head">Premium Skins</h4>
-     ${premiumSkins.map(renderCard).join("")}`;
+     ${premiumSkins.map(renderSkinCard).join("")}`;
 
   els.shopGrid.querySelectorAll("[data-buy]").forEach(btn => {
     btn.addEventListener("click", () => buyItem(btn.dataset.buy));
@@ -488,7 +523,6 @@ function renderShop() {
     btn.addEventListener("click", () => {
       equipItem(btn.dataset.equip);
       if (btn.dataset.premium) {
-        // brief notice that this would be an IAP in the real app
         els.makerSpeech.textContent = "Premium preview — would be $1.99 on the App Store.";
       }
     });
@@ -768,20 +802,6 @@ function showPremiumPreview(title, price) {
     els.premiumDialog.showModal();
   }
 }
-
-function setShopTheme(theme, button) {
-  state.shopTheme = theme;
-  document.querySelectorAll("[data-shop-theme]").forEach((item) => {
-    item.classList.toggle("active", item.dataset.shopTheme === theme);
-  });
-  renderAll();
-  els.makerSpeech.textContent = theme === "cozy" ? "Back to the cozy shop." : "The shop got a glow-up.";
-
-  if (button.dataset.premiumPrice) {
-    showPremiumPreview(button.textContent.trim(), button.dataset.premiumPrice);
-  }
-}
-
 
 function stopGame() {
   if (!game.active) return;
@@ -1139,9 +1159,6 @@ function wireEvents() {
   });
   document.querySelectorAll("[data-topping]").forEach(button => {
     button.addEventListener("click", () => setChoice("topping", button.dataset.topping));
-  });
-  document.querySelectorAll("[data-shop-theme]").forEach(button => {
-    button.addEventListener("click", () => setShopTheme(button.dataset.shopTheme, button));
   });
 
   // ── Blocked apps preview (inside settings sheet) ─────────────────────────
