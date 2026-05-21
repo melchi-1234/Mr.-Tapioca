@@ -199,12 +199,12 @@ const els = {
   plinkoAgainBtn:       document.querySelector("#plinkoAgainBtn"),
   plinkoDoneBtn:        document.querySelector("#plinkoDoneBtn"),
   shopBtn:              document.querySelector("#shopBtn"),
+  customizeBtn:         document.querySelector("#customizeBtn"),
   settingsBtn:          document.querySelector("#settingsBtn"),
   shopSheet:            document.querySelector("#shopSheet"),
   shopClose:            document.querySelector("#shopClose"),
   shopGrid:             document.querySelector("#shopGrid"),
   shopPearlCount:       document.querySelector("#shopPearlCount"),
-  customizeTrigger:     document.querySelector("#customizeTrigger"),
   customizeSheet:       document.querySelector("#customizeSheet"),
   customizeClose:       document.querySelector("#customizeClose"),
   settingsSheet:        document.querySelector("#settingsSheet"),
@@ -229,47 +229,36 @@ const SKIN_IMAGES = {
   "wizard":     "assets/Wizard.png"
 };
 
-const MAKER_ANIM = {
-  idle:   { frames: ["assets/idle-1.png",    "assets/idle-2.png",    "assets/idle-3.png"],   ms: 400 },
-  mixing: { frames: ["assets/mixing-1.png",  "assets/mixing-2.png",  "assets/mixing-3.png"], ms: 400 }
-};
-
+// Every state uses a single high-res still image; bounce/stir/sleep motion
+// is driven by CSS keyframes that key off the img's data-state attribute.
+// (Earlier we cycled cropped frames here; one of the idle crops was mid-blink,
+// which made the eye look like it disappeared.)
 const MAKER_STATIC = {
+  idle:     "assets/Mr. Tapioca.png",
+  mixing:   "assets/Mixing.png",
   sleeping: "assets/Sleeping.png",
   shocked:  "assets/Startled.png",
   drinking: "assets/Surprised-Happy.png"
 };
 
-let makerAnimTimer = null;
-let makerAnimFrame = 0;
 let currentMakerState = "";
 
 function setMakerState(stateName) {
   if (stateName === currentMakerState) return;
   currentMakerState = stateName;
-  if (makerAnimTimer) { clearInterval(makerAnimTimer); makerAnimTimer = null; }
-  makerAnimFrame = 0;
 
   const img = els.focusMakerCharacter;
+  img.dataset.state = stateName;
 
-  // Equipped skin overrides the idle pose only
-  if (stateName === "idle" && state.skin && SKIN_IMAGES[state.skin]) {
+  // Equipped skin overrides idle AND mixing — we don't have skinned mixing
+  // poses, so we show the skin portrait with a CSS stir/bounce instead so the
+  // user keeps seeing their equipped character throughout the focus session.
+  const skinStates = stateName === "idle" || stateName === "mixing";
+  if (skinStates && state.skin && SKIN_IMAGES[state.skin]) {
     img.src = SKIN_IMAGES[state.skin];
     return;
   }
 
-  // Animated states
-  if (MAKER_ANIM[stateName]) {
-    const { frames, ms } = MAKER_ANIM[stateName];
-    img.src = frames[0];
-    makerAnimTimer = setInterval(() => {
-      makerAnimFrame = (makerAnimFrame + 1) % frames.length;
-      img.src = frames[makerAnimFrame];
-    }, ms);
-    return;
-  }
-
-  // Static states
   img.src = MAKER_STATIC[stateName] || "assets/Mr. Tapioca.png";
 }
 
@@ -328,18 +317,22 @@ function currentPearls() {
 
 function speechForState() {
   if (state.running) {
-    return "Mixing your focus drink. Keep going.";
+    return "Mixing your drink — stay focused! 🧋";
   }
 
   if (state.elapsed > 0) {
-    return "Paused at the counter. Your drink is waiting.";
+    return "Paused. Your drink is waiting for you.";
+  }
+
+  if (state.collection.length > 5) {
+    return "Welcome back! The shelf is looking full ✨";
   }
 
   if (state.collection.length > 0) {
-    return "Welcome back. The shelf is filling up.";
+    return "Ready for another round?";
   }
 
-  return "Mr. Tapioca is ready to make your focus drink.";
+  return "Hi! Pick a size and I'll start mixing.";
 }
 
 function updateCup() {
@@ -358,6 +351,7 @@ function updateCup() {
   els.sessionLabel.textContent = mode.label;
   els.progressLabel.textContent = `${pct}%`;
   els.startPauseBtn.textContent = state.running ? "Pause" : pct === 100 ? "Seal & Save" : "Start Focus";
+  els.startPauseBtn.classList.toggle("is-running", state.running);
   els.drinkName.textContent = currentDrinkName();
 }
 
@@ -372,7 +366,7 @@ function updateStats() {
 
 function renderShelf() {
   if (state.collection.length === 0) {
-    els.shelfGrid.innerHTML = `<div class="empty-state">Your finished drinks will appear here.</div>`;
+    els.shelfGrid.innerHTML = `<div class="empty-state">Finish a focus session to start your collection 🧋</div>`;
     return;
   }
 
@@ -393,7 +387,7 @@ function renderShelf() {
 
 function renderRewards() {
   if (state.rewards.length === 0) {
-    els.rewardList.innerHTML = `<div class="empty-state">Saved treat cards will appear here.</div>`;
+    els.rewardList.innerHTML = `<div class="empty-state">Treat cards earned from focus sessions show up here.</div>`;
     return;
   }
 
@@ -430,7 +424,11 @@ function equipItem(itemId) {
   const item = SHOP_ITEMS.find(i => i.id === itemId);
   if (!item) return;
   state[item.type] = item.value;
-  if (item.type === "skin") { currentMakerState = ""; saveState(); }
+  if (item.type === "skin") {
+    currentMakerState = "";
+    saveState();
+    closeSheets();  // step back so the user can see Mr. Tapioca change
+  }
   renderAll();
   els.makerSpeech.textContent = "Ooh, nice pick.";
 }
@@ -449,17 +447,20 @@ function renderShop() {
   const premiumSkins = SHOP_ITEMS.filter(i => i.type === "skin" && i.premium);
 
   function renderCard(item) {
-    const owned  = isOwned(item.id);
     const equipped = isEquipped(item);
-    const canBuy = pearls >= item.price;
-    const preview = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
+    const owned    = isOwned(item.id);
+    const canBuy   = pearls >= item.price;
+    const preview  = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
+    const premiumBadge = item.premium ? `<span class="shop-premium-flag">✦</span>` : "";
 
     let action = "";
-    if (item.premium) {
-      action = `<button class="shop-preview-btn" data-preview="${item.id}">✦ $1.99</button>`;
-    } else if (equipped) {
-      action = `<span class="shop-equipped-badge">Equipped</span>
+    if (equipped) {
+      const label = item.premium ? "✦ Equipped" : "Equipped";
+      action = `<span class="shop-equipped-badge">${label}</span>
                 <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+    } else if (item.premium) {
+      // Prototype: premium skins are equippable as a free preview (would be IAP in the real app)
+      action = `<button class="shop-preview-btn" data-equip="${item.id}" data-premium="1">✦ Try $1.99</button>`;
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
@@ -468,7 +469,7 @@ function renderShop() {
 
     return `
       <article class="shop-card">
-        <div class="shop-preview" style="background:#f5f0ee">${preview}</div>
+        <div class="shop-preview" style="background:#f5f0ee">${preview}${premiumBadge}</div>
         <div><strong>${item.name}</strong><small>${item.desc}</small></div>
         <div class="shop-card-action">${action}</div>
       </article>`;
@@ -484,16 +485,16 @@ function renderShop() {
     btn.addEventListener("click", () => buyItem(btn.dataset.buy));
   });
   els.shopGrid.querySelectorAll("[data-equip]").forEach(btn => {
-    btn.addEventListener("click", () => equipItem(btn.dataset.equip));
+    btn.addEventListener("click", () => {
+      equipItem(btn.dataset.equip);
+      if (btn.dataset.premium) {
+        // brief notice that this would be an IAP in the real app
+        els.makerSpeech.textContent = "Premium preview — would be $1.99 on the App Store.";
+      }
+    });
   });
   els.shopGrid.querySelectorAll("[data-unequip]").forEach(btn => {
     btn.addEventListener("click", () => unequipItem(btn.dataset.unequip));
-  });
-  els.shopGrid.querySelectorAll("[data-preview]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const item = SHOP_ITEMS.find(i => i.id === btn.dataset.preview);
-      if (item) showPremiumPreview(item.name, "$1.99");
-    });
   });
 }
 
@@ -1125,8 +1126,8 @@ function wireEvents() {
 
   // ── Bottom bar sheets ────────────────────────────────────────────────────
   els.shopBtn.addEventListener("click",       () => openSheet("shopSheet"));
+  els.customizeBtn.addEventListener("click",  () => openSheet("customizeSheet"));
   els.settingsBtn.addEventListener("click",   () => openSheet("settingsSheet"));
-  els.customizeTrigger.addEventListener("click", () => openSheet("customizeSheet"));
   els.shopClose.addEventListener("click",     closeSheets);
   els.customizeClose.addEventListener("click",closeSheets);
   els.settingsClose.addEventListener("click", closeSheets);

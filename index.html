@@ -11,13 +11,8 @@
 
       <!-- ── Full-screen boba shop scene ─────────────────────────── -->
       <section id="shopScene" class="scene" aria-label="Boba shop" data-theme="cozy">
-        <div class="wall-pattern"></div>
         <div class="ceiling-lights">
           <span></span><span></span><span></span><span></span><span></span>
-        </div>
-        <div class="shop-sign">
-          <strong>Mr. Tapioca</strong>
-          <span>fresh focus tea</span>
         </div>
         <div class="window"><span></span></div>
         <div class="menu-board">
@@ -37,27 +32,25 @@
         <div class="work-counter">
           <div class="register"></div>
           <div class="mixing-tools"><span></span><span></span><span></span></div>
-          <div class="cup-wrap">
+          <div class="cup-stage">
             <div class="steam"><span></span><span></span><span></span></div>
-            <div class="straw"></div>
-            <div id="focusCup" class="cup" data-topping="pearls">
-              <div id="liquid" class="liquid">
-                <span class="foam-cap"></span>
-                <span class="pearl p1"></span>
-                <span class="pearl p2"></span>
-                <span class="pearl p3"></span>
-                <span class="pearl p4"></span>
-                <span class="pearl p5"></span>
-                <span class="pearl p6"></span>
+            <div id="focusCup" class="cup-frame" data-topping="pearls">
+              <div class="cup-fill-area">
+                <div id="liquid" class="cup-liquid">
+                  <span class="foam-cap"></span>
+                  <span class="pearl p1"></span>
+                  <span class="pearl p2"></span>
+                  <span class="pearl p3"></span>
+                  <span class="pearl p4"></span>
+                  <span class="pearl p5"></span>
+                  <span class="pearl p6"></span>
+                </div>
               </div>
+              <img class="cup-art" src="assets/Cup.png" alt="Boba cup">
               <div id="focusSticker" class="cup-sticker">Focus</div>
-              <div class="cup-shine"></div>
-              <div class="fill-line"></div>
             </div>
           </div>
         </div>
-        <div class="floor-rug"><span></span></div>
-
         <!-- Catch the Pearls game overlay -->
         <div id="pearlGame" class="pearl-game" style="display:none">
           <div class="game-hud">
@@ -98,12 +91,8 @@
 
       <!-- ── Top HUD overlay ──────────────────────────────────────── -->
       <header class="top-hud">
-        <div class="brand-block">
-          <p class="app-title">Mr. Tapioca</p>
-          <button class="drink-label" id="customizeTrigger" aria-label="Customize drink">
-            <span id="drinkName">Classic Milk Tea + Pearls</span>
-            <span class="edit-icon">✏</span>
-          </button>
+        <div class="drink-label">
+          <span id="drinkName">Classic Milk Tea + Pearls</span>
         </div>
         <div class="pearl-chip">
           <img src="assets/Tapioca Currency.png" class="pearl-icon" alt="">
@@ -170,11 +159,15 @@
       <!-- ── Bottom navigation bar ────────────────────────────────── -->
       <nav class="bottom-bar">
         <button class="icon-pill" id="shopBtn" aria-label="Shop">
-          <span class="pill-icon">🛍</span>
+          <span class="nav-icon nav-bag" aria-hidden="true"></span>
           <span class="pill-label">Shop</span>
         </button>
+        <button class="icon-pill" id="customizeBtn" aria-label="Customize drink">
+          <span class="nav-icon nav-palette" aria-hidden="true"></span>
+          <span class="pill-label">Customize</span>
+        </button>
         <button class="icon-pill" id="settingsBtn" aria-label="History">
-          <span class="pill-icon">📖</span>
+          <span class="nav-icon nav-book" aria-hidden="true"></span>
           <span class="pill-label">History</span>
         </button>
       </nav>
@@ -236,7 +229,26 @@
           <button class="sheet-close" id="settingsClose" aria-label="Close">✕</button>
         </div>
         <div class="sheet-body">
-          <div class="section-head compact">
+          <div class="pearl-info-card">
+            <h3>How pearls work</h3>
+            <div class="pearl-info-rows">
+              <div class="pearl-info-row">
+                <span class="pearl-info-icon">⏱</span>
+                <span><strong>15 min</strong> focus = <strong>1 pearl</strong></span>
+              </div>
+              <div class="pearl-info-row">
+                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
+                <span>Small drink = <strong>12 pearls</strong> (3 hr)</span>
+              </div>
+              <div class="pearl-info-row">
+                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
+                <span>Large drink = <strong>24 pearls</strong> (6 hr)</span>
+              </div>
+            </div>
+            <p class="pearl-info-foot">Spend pearls on cute skins in the Shop.</p>
+          </div>
+
+          <div class="section-head compact section-gap">
             <h3>Drink Shelf</h3>
             <span id="totalTime" class="badge">0 min</span>
           </div>
