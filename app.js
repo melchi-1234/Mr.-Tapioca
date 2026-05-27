@@ -449,24 +449,22 @@ function renderShop() {
   const pearls = currentPearls();
   els.shopPearlCount.textContent = `${pearls} pearls`;
 
-  const freeSkins    = SHOP_ITEMS.filter(i => i.type === "skin" && !i.premium);
-  const premiumSkins = SHOP_ITEMS.filter(i => i.type === "skin" && i.premium);
-  const themes       = SHOP_ITEMS.filter(i => i.type === "shopTheme");
+  const allSkins = SHOP_ITEMS.filter(i => i.type === "skin");
+  const themes   = SHOP_ITEMS.filter(i => i.type === "shopTheme");
 
   function renderSkinCard(item) {
     const equipped = isEquipped(item);
     const owned    = isOwned(item.id);
     const canBuy   = pearls >= item.price;
-    const preview  = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
+    const img      = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
     const premiumBadge = item.premium ? `<span class="shop-premium-flag">✦</span>` : "";
 
     let action = "";
     if (equipped) {
-      const label = item.premium ? "✦ Equipped" : "Equipped";
-      action = `<span class="shop-equipped-badge">${label}</span>
+      action = `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
                 <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
     } else if (item.premium) {
-      action = `<button class="shop-preview-btn" data-equip="${item.id}" data-premium="1">✦ Try $1.99</button>`;
+      action = `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
@@ -475,7 +473,7 @@ function renderShop() {
 
     return `
       <article class="shop-card">
-        <div class="shop-preview" style="background:#f5f0ee">${preview}${premiumBadge}</div>
+        <div class="shop-preview" style="background:#f5f0ee">${img}${premiumBadge}</div>
         <div><strong>${item.name}</strong><small>${item.desc}</small></div>
         <div class="shop-card-action">${action}</div>
       </article>`;
@@ -483,7 +481,7 @@ function renderShop() {
 
   function renderThemeCard(item) {
     const equipped  = isEquipped(item);
-    const isDefault = item.value === "cozy";          // cozy is the free default
+    const isDefault = item.value === "cozy";
     const owned     = isDefault || isOwned(item.id);
     const canBuy    = pearls >= item.price;
     const preview   = `<div class="shop-theme-preview" style="background:${item.color}"></div>`;
@@ -509,22 +507,21 @@ function renderShop() {
   }
 
   els.shopGrid.innerHTML =
-    `<h4 class="shop-category-head">Character Skins</h4>
-     ${freeSkins.map(renderSkinCard).join("")}
+    `<h4 class="shop-category-head">Skins</h4>
+     ${allSkins.map(renderSkinCard).join("")}
      <h4 class="shop-category-head">Backgrounds</h4>
-     ${themes.map(renderThemeCard).join("")}
-     <h4 class="shop-category-head">Premium Skins</h4>
-     ${premiumSkins.map(renderSkinCard).join("")}`;
+     ${themes.map(renderThemeCard).join("")}`;
 
   els.shopGrid.querySelectorAll("[data-buy]").forEach(btn => {
     btn.addEventListener("click", () => buyItem(btn.dataset.buy));
   });
   els.shopGrid.querySelectorAll("[data-equip]").forEach(btn => {
+    btn.addEventListener("click", () => equipItem(btn.dataset.equip));
+  });
+  els.shopGrid.querySelectorAll("[data-premium]").forEach(btn => {
     btn.addEventListener("click", () => {
-      equipItem(btn.dataset.equip);
-      if (btn.dataset.premium) {
-        els.makerSpeech.textContent = "Premium preview — would be $1.99 on the App Store.";
-      }
+      const item = SHOP_ITEMS.find(i => i.id === btn.dataset.premium);
+      if (item) showPremiumPreview(item.name, "$1.99");
     });
   });
   els.shopGrid.querySelectorAll("[data-unequip]").forEach(btn => {
