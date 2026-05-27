@@ -230,6 +230,7 @@ body {
 .plant::after  { right: -10px; transform: rotate(36deg); }
 
 .speech-bubble {
+  display: none;
   /* sits just above Mr. Tapioca's head, pointing down at him */
   left: 14px;
   bottom: calc(var(--floor-y) + 215px);
