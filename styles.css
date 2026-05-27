@@ -60,12 +60,9 @@ body {
     /* floor stripe + colour at bottom (softer, less orange) */
     linear-gradient(180deg, transparent 0 calc(100% - var(--floor-y)),
                             #cf9d7b calc(100% - var(--floor-y)) calc(100% - var(--floor-y) + 26px),
-                            #e6c8a0 calc(100% - var(--floor-y) + 26px) 100%),
-    /* boba wallpaper covering the wall area */
-    url('assets/Background.png');
-  background-repeat: no-repeat, no-repeat, repeat;
-  background-size: auto, auto, 220px;
-  background-position: top, bottom, center;
+                            #e6c8a0 calc(100% - var(--floor-y) + 26px) 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: top, bottom;
 }
 
 .scene[data-theme="night"] {
