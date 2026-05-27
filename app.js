@@ -49,27 +49,31 @@ const SHOP_ITEMS = [
   { id: "sticker-dnd",     name: "Do Not Disturb",       desc: "Actually leave me alone",             category: "Cup Sticker", type: "sticker",   value: "DND",        price: 15, color: "#f0d4ff" },
   { id: "sticker-szn",     name: "Study Szn",            desc: "It's giving seasonal",                category: "Cup Sticker", type: "sticker",   value: "Study Szn",  price: 15, color: "#d4ffec" },
 
-  // Free skins (purchasable with pearls)
+  // Default skin
+  { id: "skin-default",    name: "Mr. Tapioca",    desc: "The original",          category: "Character Skin", type: "skin", value: "",           price: 0,  img: "assets/Mr. Tapioca.png"      },
+
+  // 20-pearl skins
   { id: "skin-grad-cap",   name: "Graduation Cap", desc: "Scholar energy",        category: "Character Skin", type: "skin", value: "grad-cap",   price: 20, img: "assets/Graduation Cap.png"   },
-  { id: "skin-flower",     name: "Flower Crown",   desc: "In full bloom",         category: "Character Skin", type: "skin", value: "flower",     price: 25, img: "assets/Flower Crown.png"     },
-  { id: "skin-scarf",      name: "Scarf",          desc: "Cozy and warm",         category: "Character Skin", type: "skin", value: "scarf",      price: 15, img: "assets/Scarf.png"            },
+  { id: "skin-flower",     name: "Flower Crown",   desc: "In full bloom",         category: "Character Skin", type: "skin", value: "flower",     price: 20, img: "assets/Flower Crown.png"     },
+  { id: "skin-scarf",      name: "Scarf",          desc: "Cozy and warm",         category: "Character Skin", type: "skin", value: "scarf",      price: 20, img: "assets/Scarf.png"            },
   { id: "skin-shades",     name: "Sunglasses",     desc: "Too cool for school",   category: "Character Skin", type: "skin", value: "shades",     price: 20, img: "assets/Sunglasses.png"       },
 
+  // 35-pearl skins
+  { id: "skin-strawberry", name: "Strawberry",     desc: "Sweet and cute",        category: "Character Skin", type: "skin", value: "strawberry", price: 35, img: "assets/Strawberry.png"       },
+  { id: "skin-astro-blue", name: "Astronaut",      desc: "Space mode on",         category: "Character Skin", type: "skin", value: "astro-blue", price: 35, img: "assets/Astronaut, blue.png"  },
+  { id: "skin-dragon",     name: "Dragon",         desc: "Breathe fire, focus",   category: "Character Skin", type: "skin", value: "dragon",     price: 35, img: "assets/Dragon.png"           },
+
   // Premium skins (future IAP)
+  { id: "skin-ninja",      name: "Ninja",          desc: "Silent focus mode",     category: "Character Skin", type: "skin", value: "ninja",      premium: true, img: "assets/Ninja.png"            },
+  { id: "skin-wizard",     name: "Wizard",         desc: "Cast your focus spell", category: "Character Skin", type: "skin", value: "wizard",     premium: true, img: "assets/Wizard.png"           },
   { id: "skin-angel",      name: "Angel",          desc: "Wings and a halo",      category: "Character Skin", type: "skin", value: "angel",      premium: true, img: "assets/Angel.png"            },
   { id: "skin-devil",      name: "Devil",          desc: "Horns and mischief",    category: "Character Skin", type: "skin", value: "devil",      premium: true, img: "assets/Devil.png"            },
-  { id: "skin-dragon",     name: "Dragon",         desc: "Breathe fire, focus",   category: "Character Skin", type: "skin", value: "dragon",     premium: true, img: "assets/Dragon.png"           },
-  { id: "skin-astro-blue", name: "Astronaut (Blue)",desc: "Space mode on",        category: "Character Skin", type: "skin", value: "astro-blue", premium: true, img: "assets/Astronaut, blue.png"  },
-  { id: "skin-astro-pink", name: "Astronaut (Pink)",desc: "Cosmic pink",          category: "Character Skin", type: "skin", value: "astro-pink", premium: true, img: "assets/Astronaut, pink.png"  },
-  { id: "skin-ninja",      name: "Ninja",          desc: "Silent focus mode",     category: "Character Skin", type: "skin", value: "ninja",      premium: true, img: "assets/Ninja.png"            },
-  { id: "skin-strawberry", name: "Strawberry",     desc: "Sweet and cute",        category: "Character Skin", type: "skin", value: "strawberry", premium: true, img: "assets/Strawberry.png"       },
-  { id: "skin-wizard",     name: "Wizard",         desc: "Cast your focus spell", category: "Character Skin", type: "skin", value: "wizard",     premium: true, img: "assets/Wizard.png"           },
 
   { id: "theme-cozy",      name: "Cozy",                 desc: "The classic warm shop",               category: "Backgrounds", type: "shopTheme", value: "cozy",       price: 0,  color: "#f3d8b7" },
-  { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Backgrounds", type: "shopTheme", value: "night",      price: 65, color: "#36476b" },
-  { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 65, color: "#ffdfe8" },
-  { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 75, color: "#c4873a" },
-  { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 80, color: "#7a9ab8" },
+  { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Backgrounds", type: "shopTheme", value: "night",      price: 70, color: "#36476b" },
+  { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 70, color: "#ffdfe8" },
+  { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 70, color: "#c4873a" },
+  { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 70, color: "#7a9ab8" },
 ];
 
 const UNLOCKS = [
@@ -224,7 +228,6 @@ const SKIN_IMAGES = {
   "devil":      "assets/Devil.png",
   "dragon":     "assets/Dragon.png",
   "astro-blue": "assets/Astronaut, blue.png",
-  "astro-pink": "assets/Astronaut, pink.png",
   "ninja":      "assets/Ninja.png",
   "strawberry": "assets/Strawberry.png",
   "wizard":     "assets/Wizard.png"
@@ -453,16 +456,19 @@ function renderShop() {
   const themes   = SHOP_ITEMS.filter(i => i.type === "shopTheme");
 
   function renderSkinCard(item) {
-    const equipped = isEquipped(item);
-    const owned    = isOwned(item.id);
-    const canBuy   = pearls >= item.price;
-    const img      = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
+    const isDefault = item.id === "skin-default";
+    const equipped  = isEquipped(item);
+    const owned     = isDefault || isOwned(item.id);
+    const canBuy    = pearls >= item.price;
+    const img       = `<img class="shop-skin-preview" src="${item.img}" alt="${item.name}">`;
     const premiumBadge = item.premium ? `<span class="shop-premium-flag">✦</span>` : "";
 
     let action = "";
     if (equipped) {
-      action = `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
-                <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+      action = isDefault
+        ? `<span class="shop-equipped-badge">Default</span>`
+        : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
+           <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
     } else if (item.premium) {
       action = `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
     } else if (owned) {
