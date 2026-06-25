@@ -1322,6 +1322,121 @@ h3 {
 }
 .toggle.on .toggle-knob { transform: translateX(22px); }
 
+/* ── First-run onboarding ───────────────────────────────────────────────── */
+.onboarding {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(160deg, #fff2dd 0%, #ffe6ea 55%, #e8f3ee 100%);
+}
+.onboarding.hidden { display: none; }
+
+.onboard-card {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  padding: 26px 22px 22px;
+  border-radius: 28px;
+  background: var(--cream);
+  border: 3px solid var(--bark);
+  box-shadow: 0 16px 50px rgba(60,32,24,0.28);
+  text-align: center;
+}
+
+.onboard-skip {
+  position: absolute;
+  top: 14px; right: 16px;
+  border: none;
+  background: none;
+  color: var(--bark-mid);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.onboard-visual {
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+.onboard-img {
+  max-height: 150px;
+  max-width: 70%;
+  object-fit: contain;
+  animation: onboard-pop 0.5s ease-out;
+}
+.onboard-emoji {
+  font-size: 5rem;
+  line-height: 1;
+  animation: onboard-pop 0.5s ease-out;
+}
+.onboard-emoji.hidden, .onboard-img.hidden { display: none; }
+@keyframes onboard-pop {
+  0%   { transform: scale(0.6) translateY(10px); opacity: 0; }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.onboard-card h2 {
+  font-size: 1.4rem;
+  color: var(--bark);
+  margin-bottom: 8px;
+}
+.onboard-card p {
+  color: var(--bark-mid);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.4;
+  min-height: 66px;
+  margin: 0 6px;
+}
+
+.onboard-dots {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin: 16px 0 18px;
+}
+.onboard-dots span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(60,32,24,0.2);
+  transition: width 200ms, background 200ms;
+}
+.onboard-dots span.on {
+  width: 22px;
+  border-radius: 999px;
+  background: var(--bark);
+}
+
+.onboard-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.onboard-next { flex: 1; }
+.onboard-back {
+  min-width: 76px;
+}
+.onboard-back.hidden { display: none; }
+
+.settings-action-btn {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 2px solid var(--teal);
+  border-radius: 999px;
+  background: var(--mint);
+  color: var(--bark);
+  font-size: 0.78rem;
+  font-weight: 950;
+  flex-shrink: 0;
+}
+
 /* ── Boba map sheet ─────────────────────────────────────────────────────── */
 .map-body {
   display: flex;

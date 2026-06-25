@@ -305,6 +305,11 @@
             </button>
           </div>
 
+          <div class="settings-row">
+            <span class="settings-row-label">👋 Welcome tour <small>see the intro again</small></span>
+            <button id="replayIntroBtn" class="settings-action-btn">Replay</button>
+          </div>
+
           <div class="section-head compact section-gap">
             <h3>Drink Shelf</h3>
             <span id="totalTime" class="badge">0 min</span>
@@ -354,6 +359,24 @@
 
       <!-- ── Sheet backdrop ───────────────────────────────────────── -->
       <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
+
+      <!-- ── First-run onboarding ─────────────────────────────────── -->
+      <div id="onboarding" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Welcome">
+        <div class="onboard-card">
+          <button id="onboardSkip" class="onboard-skip">Skip</button>
+          <div class="onboard-visual">
+            <img id="onboardImg" class="onboard-img" src="assets/Mr. Tapioca.png" alt="">
+            <span id="onboardEmoji" class="onboard-emoji hidden"></span>
+          </div>
+          <h2 id="onboardTitle">Meet Mr. Tapioca</h2>
+          <p id="onboardBody">Your cozy study buddy.</p>
+          <div id="onboardDots" class="onboard-dots"></div>
+          <div class="onboard-actions">
+            <button id="onboardBack" class="quiet onboard-back">Back</button>
+            <button id="onboardNext" class="start-btn onboard-next">Next</button>
+          </div>
+        </div>
+      </div>
 
     </main>
 

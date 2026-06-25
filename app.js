@@ -239,6 +239,16 @@ const els = {
   mapClose:             document.querySelector("#mapClose"),
   mapPerkBanner:        document.querySelector("#mapPerkBanner"),
   sheetBackdrop:        document.querySelector("#sheetBackdrop"),
+  onboarding:           document.querySelector("#onboarding"),
+  onboardImg:           document.querySelector("#onboardImg"),
+  onboardEmoji:         document.querySelector("#onboardEmoji"),
+  onboardTitle:         document.querySelector("#onboardTitle"),
+  onboardBody:          document.querySelector("#onboardBody"),
+  onboardDots:          document.querySelector("#onboardDots"),
+  onboardBack:          document.querySelector("#onboardBack"),
+  onboardNext:          document.querySelector("#onboardNext"),
+  onboardSkip:          document.querySelector("#onboardSkip"),
+  replayIntroBtn:       document.querySelector("#replayIntroBtn"),
   customStepper:        document.querySelector("#customStepper"),
   customDurationDisplay:document.querySelector("#customDurationDisplay"),
   customMinus:          document.querySelector("#customMinus"),
@@ -366,6 +376,7 @@ function loadState() {
   // Resume an in-progress drink across app closes
   state.mode        = localStorage.getItem("bobaFocusMode") || "small";
   state.elapsed     = JSON.parse(localStorage.getItem("bobaFocusElapsed") || "0");
+  state.onboarded   = JSON.parse(localStorage.getItem("bobaFocusOnboarded") || "false");
 }
 
 function saveState() {
@@ -1599,6 +1610,89 @@ function buildMap(lat, lng, real) {
   setTimeout(() => mapObj.invalidateSize(), 250);
 }
 
+// ── First-run onboarding ──────────────────────────────────────────────────────
+
+const ONBOARD_STEPS = [
+  {
+    img: "assets/Mr. Tapioca.png",
+    title: "Meet Mr. Tapioca",
+    body: "Your cozy study buddy. Focus alongside him and he'll brew you the perfect boba."
+  },
+  {
+    img: "assets/Cup.png",
+    title: "Focus fills your cup",
+    body: "Pick a drink size and start a session. The longer you stay focused, the more your boba fills up."
+  },
+  {
+    img: "assets/Tapioca Currency.png",
+    title: "Earn tapioca pearls",
+    body: "Every 15 focused minutes earns a pearl. Spend pearls on cute character skins and shop backgrounds."
+  },
+  {
+    emoji: "🗺️",
+    title: "Real boba rewards",
+    body: "Finish big drinks to unlock discounts at partner boba shops near you. Tap the Map to explore!"
+  }
+];
+
+let onboardStep = 0;
+
+function showOnboarding() {
+  onboardStep = 0;
+  renderOnboardStep();
+  els.onboarding.classList.remove("hidden");
+}
+
+function renderOnboardStep() {
+  const step = ONBOARD_STEPS[onboardStep];
+  if (step.emoji) {
+    els.onboardEmoji.textContent = step.emoji;
+    els.onboardEmoji.classList.remove("hidden");
+    els.onboardImg.classList.add("hidden");
+  } else {
+    els.onboardImg.src = step.img;
+    els.onboardImg.classList.remove("hidden");
+    els.onboardEmoji.classList.add("hidden");
+  }
+  // restart the pop animation on the active visual
+  const visual = step.emoji ? els.onboardEmoji : els.onboardImg;
+  visual.style.animation = "none";
+  void visual.offsetWidth;
+  visual.style.animation = "";
+
+  els.onboardTitle.textContent = step.title;
+  els.onboardBody.textContent = step.body;
+
+  els.onboardDots.innerHTML = ONBOARD_STEPS
+    .map((_, i) => `<span class="${i === onboardStep ? "on" : ""}"></span>`)
+    .join("");
+
+  els.onboardBack.classList.toggle("hidden", onboardStep === 0);
+  els.onboardNext.textContent = onboardStep === ONBOARD_STEPS.length - 1 ? "Let's go! 🧋" : "Next";
+}
+
+function onboardAdvance() {
+  if (onboardStep >= ONBOARD_STEPS.length - 1) {
+    finishOnboarding();
+  } else {
+    onboardStep++;
+    renderOnboardStep();
+  }
+}
+
+function onboardGoBack() {
+  if (onboardStep > 0) {
+    onboardStep--;
+    renderOnboardStep();
+  }
+}
+
+function finishOnboarding() {
+  els.onboarding.classList.add("hidden");
+  state.onboarded = true;
+  localStorage.setItem("bobaFocusOnboarded", "true");
+}
+
 function wireEvents() {
   // ── Main timer controls ──────────────────────────────────────────────────
   els.startPauseBtn.addEventListener("click", startPause);
@@ -1643,6 +1737,12 @@ function wireEvents() {
   els.settingsClose.addEventListener("click", closeSheets);
   els.mapClose.addEventListener("click",      closeSheets);
   els.sheetBackdrop.addEventListener("click", closeSheets);
+
+  // ── Onboarding ────────────────────────────────────────────────────────────
+  els.onboardNext.addEventListener("click", onboardAdvance);
+  els.onboardBack.addEventListener("click", onboardGoBack);
+  els.onboardSkip.addEventListener("click", finishOnboarding);
+  els.replayIntroBtn.addEventListener("click", () => { closeSheets(); showOnboarding(); });
 
   // ── Customize sheet: tea base, topping, shop theme ───────────────────────
   document.querySelectorAll(".swatch").forEach(button => {
@@ -1733,6 +1833,9 @@ renderDevToggle();
 
 renderAll();
 setMakerState("idle");
+
+// First-time visitors get the welcome tour
+if (!state.onboarded) showOnboarding();
 
 // ── PWA: register the service worker so the app installs + works offline ──────
 if ("serviceWorker" in navigator) {
