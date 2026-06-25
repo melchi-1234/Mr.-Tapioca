@@ -1,8 +1,18 @@
 const MODES = {
-  tasting: { label: "Tasting Cup", duration: 30 },
-  small:   { label: "Small Drink", duration: 3 * 60 * 60 },
-  large:   { label: "Large Drink", duration: 6 * 60 * 60 }
+  tasting: { label: "Tasting Cup", duration: 5 * 60 },
+  small:   { label: "Small Drink", duration: 25 * 60 },
+  large:   { label: "Large Drink", duration: 50 * 60 },
+  custom:  { label: "Custom Cup",  duration: null }   // uses state.customDuration
 };
+
+const CUSTOM_MIN = 5 * 60;
+const CUSTOM_MAX = 120 * 60;
+const CUSTOM_STEP = 5 * 60;
+
+// Resolve the active session length in seconds (custom mode reads its own value)
+function modeDuration() {
+  return state.mode === "custom" ? state.customDuration : MODES[state.mode].duration;
+}
 
 const BASES = {
   classic:    { label: "Classic Milk Tea",   color: "#c98555" },
@@ -117,12 +127,14 @@ const game = {
 };
 
 const state = {
-  mode: "tasting",
+  mode: "small",
+  customDuration: 30 * 60,
   base: "classic",
   topping: "pearls",
   sticker: "Focus",
   skin: "",
   shopTheme: "cozy",
+  soundOn: true,
   running: false,
   elapsed: 0,
   lastTick: null,
@@ -214,7 +226,17 @@ const els = {
   customizeClose:       document.querySelector("#customizeClose"),
   settingsSheet:        document.querySelector("#settingsSheet"),
   settingsClose:        document.querySelector("#settingsClose"),
-  sheetBackdrop:        document.querySelector("#sheetBackdrop")
+  sheetBackdrop:        document.querySelector("#sheetBackdrop"),
+  customStepper:        document.querySelector("#customStepper"),
+  customDurationDisplay:document.querySelector("#customDurationDisplay"),
+  customMinus:          document.querySelector("#customMinus"),
+  customPlus:           document.querySelector("#customPlus"),
+  soundToggle:          document.querySelector("#soundToggle"),
+  statStreak:           document.querySelector("#statStreak"),
+  statTotalTime:        document.querySelector("#statTotalTime"),
+  statToday:            document.querySelector("#statToday"),
+  statWeek:             document.querySelector("#statWeek"),
+  statBest:             document.querySelector("#statBest")
 };
 
 // ── Character animation ──────────────────────────────────────────────────────
@@ -275,6 +297,8 @@ function loadState() {
   state.spent       = JSON.parse(localStorage.getItem("bobaFocusSpent")       || "0");
   state.bonusPearls = JSON.parse(localStorage.getItem("bobaFocusBonusPearls") || "0");
   state.skin        = localStorage.getItem("bobaFocusSkin") || "";
+  state.customDuration = JSON.parse(localStorage.getItem("bobaFocusCustomDuration") || String(30 * 60));
+  state.soundOn     = JSON.parse(localStorage.getItem("bobaFocusSoundOn") || "true");
 }
 
 function saveState() {
@@ -284,6 +308,8 @@ function saveState() {
   localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
   localStorage.setItem("bobaFocusSkin",         state.skin);
+  localStorage.setItem("bobaFocusCustomDuration", JSON.stringify(state.customDuration));
+  localStorage.setItem("bobaFocusSoundOn",      JSON.stringify(state.soundOn));
 }
 
 function formatTime(seconds) {
@@ -299,6 +325,14 @@ function formatTime(seconds) {
   return [minutes, secs].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
+// Local (not UTC) YYYY-MM-DD so streaks line up with the user's calendar day
+function localDateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function totalMinutes() {
   return state.collection.reduce((sum, drink) => sum + drink.minutes, 0);
 }
@@ -312,7 +346,14 @@ function currentDrinkName() {
 }
 
 function progress() {
-  return Math.min(1, state.elapsed / MODES[state.mode].duration);
+  return Math.min(1, state.elapsed / modeDuration());
+}
+
+function modeLabel() {
+  if (state.mode === "custom") {
+    return `Custom · ${Math.round(state.customDuration / 60)} min`;
+  }
+  return MODES[state.mode].label;
 }
 
 function currentPearls() {
@@ -341,7 +382,7 @@ function speechForState() {
 
 function updateCup() {
   const pct = Math.round(progress() * 100);
-  const mode = MODES[state.mode];
+  const remaining = modeDuration() - state.elapsed;
   els.liquid.style.setProperty("--fill", `${pct}%`);
   els.liquid.style.setProperty("--drink-color", BASES[state.base].color);
   els.progressBar.style.width = `${pct}%`;
@@ -351,12 +392,13 @@ function updateCup() {
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
   els.makerSpeech.textContent = speechForState();
-  els.timerText.textContent = formatTime(mode.duration - state.elapsed);
-  els.sessionLabel.textContent = mode.label;
+  els.timerText.textContent = formatTime(remaining);
+  els.sessionLabel.textContent = modeLabel();
   els.progressLabel.textContent = `${pct}%`;
   els.startPauseBtn.textContent = state.running ? "Pause" : pct === 100 ? "Seal & Save" : "Start Focus";
   els.startPauseBtn.classList.toggle("is-running", state.running);
   els.drinkName.textContent = currentDrinkName();
+  updateTabTitle(remaining);
 }
 
 
@@ -366,6 +408,54 @@ function updateStats() {
   els.pearlCount.textContent  = String(pearls);
   els.totalTime.textContent   = `${minutes} min`;
   els.completedCount.textContent = `${state.collection.length} ${state.collection.length === 1 ? "drink" : "drinks"}`;
+}
+
+// Convert a YYYY-MM-DD key to a whole-day ordinal so we can compare/streak them
+function keyToOrdinal(k) {
+  const [y, m, d] = k.split("-").map(Number);
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
+
+function computeStats() {
+  const ordinals = new Set(state.collection.map(d => keyToOrdinal(d.dateKey)));
+  const todayOrd = keyToOrdinal(localDateKey(new Date()));
+
+  // Current streak: must include today or yesterday, then count backwards
+  let current = 0;
+  let cursor = ordinals.has(todayOrd) ? todayOrd
+             : ordinals.has(todayOrd - 1) ? todayOrd - 1 : null;
+  while (cursor !== null && ordinals.has(cursor)) { current++; cursor--; }
+
+  // Longest streak across all history
+  let longest = 0;
+  const sorted = [...ordinals].sort((a, b) => a - b);
+  let run = 0, prev = null;
+  for (const o of sorted) {
+    run = (prev !== null && o === prev + 1) ? run + 1 : 1;
+    longest = Math.max(longest, run);
+    prev = o;
+  }
+
+  const todayCount = state.collection.filter(d => keyToOrdinal(d.dateKey) === todayOrd).length;
+  const weekCount  = state.collection.filter(d => keyToOrdinal(d.dateKey) > todayOrd - 7).length;
+
+  return { current, longest, todayCount, weekCount, totalMin: totalMinutes() };
+}
+
+function formatFocusTotal(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return `${m}m`;
+}
+
+function renderStats() {
+  const s = computeStats();
+  els.statStreak.textContent    = String(s.current);
+  els.statTotalTime.textContent = formatFocusTotal(s.totalMin);
+  els.statToday.textContent     = String(s.todayCount);
+  els.statWeek.textContent      = String(s.weekCount);
+  els.statBest.textContent      = String(s.longest);
 }
 
 function renderShelf() {
@@ -538,6 +628,7 @@ function renderShop() {
 function renderAll() {
   updateCup();
   updateStats();
+  renderStats();
   renderShelf();
   renderRewards();
   renderShop();
@@ -561,7 +652,7 @@ function tick() {
 
   const delta = (now - state.lastTick) / 1000;
   state.lastTick = now;
-  state.elapsed = Math.min(MODES[state.mode].duration, state.elapsed + delta);
+  state.elapsed = Math.min(modeDuration(), state.elapsed + delta);
   updateCup();
 
   if (progress() >= 1) {
@@ -581,6 +672,7 @@ function startPause() {
   updateCup();
 
   if (state.running) {
+    maybeRequestNotify();
     stopTicker();
     state.timerId = setInterval(tick, 250);
   } else {
@@ -611,12 +703,11 @@ function resetSession() {
 function completeSession() {
   stopTicker();
   state.running = false;
-  state.elapsed = MODES[state.mode].duration;
+  state.elapsed = modeDuration();
   state.lastTick = null;
 
-  const mode    = MODES[state.mode];
-  const minutes = Math.round(mode.duration / 60);
-  const size    = mode.label;
+  const minutes = Math.round(modeDuration() / 60);
+  const size    = modeLabel();
   const now = new Date();
   const drink = {
     id: crypto.randomUUID(),
@@ -625,20 +716,22 @@ function completeSession() {
     color: BASES[state.base].color,
     minutes,
     sticker: state.sticker,
-    dateKey: now.toISOString().slice(0, 10)
+    dateKey: localDateKey(now)
   };
 
   const reward = {
     id: crypto.randomUUID(),
     title: "You deserve to go get one in-person!",
     copy: `${size} earned from ${minuteLabel(minutes)}.`,
-    partner: minutes >= 180 ? "Local Boba Partner - 5% Study Sip Pass" : "Save this treat for later"
+    partner: minutes >= 50 ? "Local Boba Partner — 5% Study Sip Pass" : "Save this treat for later"
   };
 
   state.collection.unshift(drink);
   state.rewards.unshift(reward);
   saveState();
   renderAll();
+  sessionChime();
+  notifyComplete(size);
   showReward(reward);
 }
 
@@ -765,7 +858,24 @@ function setMode(mode) {
   document.querySelectorAll(".size-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.mode === mode);
   });
+  if (els.customStepper) {
+    els.customStepper.classList.toggle("hidden", mode !== "custom");
+  }
+  updateCustomDisplay();
   resetSession();
+}
+
+function adjustCustomDuration(delta) {
+  state.customDuration = Math.min(CUSTOM_MAX, Math.max(CUSTOM_MIN, state.customDuration + delta));
+  saveState();
+  updateCustomDisplay();
+  if (state.mode === "custom") resetSession();
+}
+
+function updateCustomDisplay() {
+  if (els.customDurationDisplay) {
+    els.customDurationDisplay.textContent = `${Math.round(state.customDuration / 60)} min`;
+  }
 }
 
 function openSheet(id) {
@@ -1137,6 +1247,69 @@ function showPlinkoResult(reward) {
   els.plinkoResult.style.display = "flex";
 }
 
+// ── Completion feedback: tab title, chime, notification ───────────────────────
+
+function updateTabTitle(remainingSeconds) {
+  if (state.running && state.phase === "focus") {
+    document.title = `${formatTime(remainingSeconds)} · Mr. Tapioca`;
+  } else {
+    document.title = "Mr. Tapioca";
+  }
+}
+
+// A short, gentle two-note chime synthesised with the Web Audio API (no asset).
+let audioCtx = null;
+function sessionChime() {
+  if (!state.soundOn) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const now = audioCtx.currentTime;
+    const notes = [523.25, 659.25, 783.99];  // C5, E5, G5 — a soft major arpeggio
+    notes.forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const t = now + i * 0.14;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.18, t + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.5);
+    });
+  } catch (e) {
+    /* audio not available — fail silently */
+  }
+}
+
+function renderSoundToggle() {
+  els.soundToggle.classList.toggle("on", state.soundOn);
+  els.soundToggle.setAttribute("aria-checked", String(state.soundOn));
+}
+
+// Ask for notification permission the first time a session starts (gesture-driven)
+let askedNotify = false;
+function maybeRequestNotify() {
+  if (askedNotify) return;
+  askedNotify = true;
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function notifyComplete(size) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (document.visibilityState === "visible") return;  // only notify if they're away
+  try {
+    new Notification("Your drink is ready! 🧋", {
+      body: `${size} complete — great focus. Come grab it.`,
+      icon: "assets/Tapioca Currency.png"
+    });
+  } catch (e) { /* ignore */ }
+}
+
 function wireEvents() {
   // ── Main timer controls ──────────────────────────────────────────────────
   els.startPauseBtn.addEventListener("click", startPause);
@@ -1145,6 +1318,16 @@ function wireEvents() {
   // ── Mode / size picker ───────────────────────────────────────────────────
   document.querySelectorAll(".size-btn").forEach(btn => {
     btn.addEventListener("click", () => setMode(btn.dataset.mode));
+  });
+  els.customMinus.addEventListener("click", () => adjustCustomDuration(-CUSTOM_STEP));
+  els.customPlus.addEventListener("click",  () => adjustCustomDuration(CUSTOM_STEP));
+
+  // ── Sound toggle (Settings) ──────────────────────────────────────────────
+  els.soundToggle.addEventListener("click", () => {
+    state.soundOn = !state.soundOn;
+    saveState();
+    renderSoundToggle();
+    if (state.soundOn) sessionChime();  // little preview when turning on
   });
 
   // ── Bottom bar sheets ────────────────────────────────────────────────────
@@ -1237,5 +1420,21 @@ function wireEvents() {
 
 loadState();
 wireEvents();
+
+// Reflect persisted prefs in the UI before first paint
+document.querySelectorAll(".size-btn").forEach(b => {
+  b.classList.toggle("active", b.dataset.mode === state.mode);
+});
+if (els.customStepper) els.customStepper.classList.toggle("hidden", state.mode !== "custom");
+updateCustomDisplay();
+renderSoundToggle();
+
 renderAll();
 setMakerState("idle");
+
+// ── PWA: register the service worker so the app installs + works offline ──────
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}

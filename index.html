@@ -2,8 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Mr. Tapioca</title>
+
+    <!-- PWA / installable app -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3c2018">
+    <meta name="description" content="A cozy boba-themed focus timer. Study, fill your drink, collect cute rewards.">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Mr. Tapioca">
+    <meta name="mobile-web-app-capable" content="yes">
+
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -103,15 +114,23 @@
       <!-- ── Focus controls ───────────────────────────────────────── -->
       <div id="focusControls" class="focus-controls">
         <div class="size-picker" role="group" aria-label="Session size">
-          <button class="size-btn active" data-mode="tasting">
-            Taste<small>30s</small>
+          <button class="size-btn" data-mode="tasting">
+            Taste<small>5 min</small>
           </button>
-          <button class="size-btn" data-mode="small">
-            Small<small>3 hr</small>
+          <button class="size-btn active" data-mode="small">
+            Small<small>25 min</small>
           </button>
           <button class="size-btn" data-mode="large">
-            Large<small>6 hr</small>
+            Large<small>50 min</small>
           </button>
+          <button class="size-btn" data-mode="custom">
+            Custom<small>set</small>
+          </button>
+        </div>
+        <div id="customStepper" class="custom-stepper hidden">
+          <button id="customMinus" class="adj-btn small-adj" aria-label="Less time">−</button>
+          <span id="customDurationDisplay" class="custom-duration">30 min</span>
+          <button id="customPlus" class="adj-btn small-adj" aria-label="More time">+</button>
         </div>
         <div class="timer-card" id="timerCard">
           <div class="timer-time" id="timerText">00:30</div>
@@ -220,23 +239,55 @@
           <button class="sheet-close" id="settingsClose" aria-label="Close">✕</button>
         </div>
         <div class="sheet-body">
+          <div class="stats-card">
+            <div class="stat-block stat-streak">
+              <span class="stat-value" id="statStreak">0</span>
+              <span class="stat-label">day streak 🔥</span>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-block">
+                <span class="stat-value" id="statTotalTime">0m</span>
+                <span class="stat-label">total focus</span>
+              </div>
+              <div class="stat-block">
+                <span class="stat-value" id="statToday">0</span>
+                <span class="stat-label">today</span>
+              </div>
+              <div class="stat-block">
+                <span class="stat-value" id="statWeek">0</span>
+                <span class="stat-label">this week</span>
+              </div>
+              <div class="stat-block">
+                <span class="stat-value" id="statBest">0</span>
+                <span class="stat-label">best streak</span>
+              </div>
+            </div>
+          </div>
+
           <div class="pearl-info-card">
             <h3>How pearls work</h3>
             <div class="pearl-info-rows">
               <div class="pearl-info-row">
                 <span class="pearl-info-icon">⏱</span>
-                <span><strong>15 min</strong> focus = <strong>1 pearl</strong></span>
+                <span><strong>15 min</strong> of focus = <strong>1 pearl</strong></span>
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Small drink = <strong>12 pearls</strong> (3 hr)</span>
+                <span>Small drink = 25 min · Large = 50 min</span>
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Large drink = <strong>24 pearls</strong> (6 hr)</span>
+                <span>Spend pearls on cute skins &amp; backgrounds</span>
               </div>
             </div>
-            <p class="pearl-info-foot">Spend pearls on cute skins in the Shop.</p>
+            <p class="pearl-info-foot">Leave the app mid-session and your drink spills! 🫣</p>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">🔔 Completion sound</span>
+            <button id="soundToggle" class="toggle" role="switch" aria-checked="true">
+              <span class="toggle-knob"></span>
+            </button>
           </div>
 
           <div class="section-head compact section-gap">

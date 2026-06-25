@@ -603,6 +603,7 @@ body {
 .size-picker {
   display: flex;
   gap: 0;
+  width: 100%;
   background: var(--cream-90);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -613,26 +614,56 @@ body {
 }
 
 .size-btn {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  padding: 8px 18px;
+  padding: 8px 6px;
   border: none;
   background: none;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 900;
   color: var(--bark-mid);
   transition: background 180ms, color 180ms, box-shadow 180ms;
 }
-.size-btn small { font-size: 0.58rem; font-weight: 700; opacity: 0.65; }
+.size-btn small { font-size: 0.56rem; font-weight: 700; opacity: 0.65; }
 .size-btn.active {
   background: var(--bark);
   color: var(--cream);
   box-shadow: 0 2px 8px rgba(60,32,24,0.25);
 }
 .size-btn.active small { opacity: 0.75; }
+
+/* Custom duration stepper (shown only when Custom is selected) */
+.custom-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--cream-90);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 10px;
+  box-shadow: 0 2px 10px rgba(60,32,24,0.14);
+}
+.custom-stepper.hidden { display: none; }
+.custom-duration {
+  min-width: 78px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 950;
+  color: var(--bark);
+  font-variant-numeric: tabular-nums;
+}
+.adj-btn.small-adj {
+  width: 34px; height: 34px;
+  font-size: 1.15rem;
+  border-width: 2px;
+}
 
 .timer-card {
   width: 100%;
@@ -1077,6 +1108,90 @@ h3 {
   color: var(--bark);
   font-weight: 950;
 }
+
+/* ── Stats dashboard (History sheet) ────────────────────────────────────── */
+.stats-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat-streak {
+  background: linear-gradient(135deg, #ffe7c2 0%, #ffd2a6 100%);
+  border: 2px solid var(--line);
+}
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 14px 8px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.7);
+  border: 2px solid var(--line);
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 950;
+  color: var(--bark);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-streak .stat-value { font-size: 2.1rem; }
+.stat-label {
+  font-size: 0.68rem;
+  font-weight: 850;
+  color: var(--bark-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Settings row + toggle ──────────────────────────────────────────────── */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.7);
+}
+.settings-row-label {
+  font-size: 0.86rem;
+  font-weight: 900;
+  color: var(--bark);
+}
+.toggle {
+  position: relative;
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: rgba(60,32,24,0.14);
+  transition: background 180ms;
+  flex-shrink: 0;
+}
+.toggle.on { background: var(--teal); }
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(60,32,24,0.3);
+  transition: transform 180ms;
+}
+.toggle.on .toggle-knob { transform: translateX(22px); }
 
 /* ── Pearl economy info card (History sheet) ────────────────────────────── */
 .pearl-info-card {
