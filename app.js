@@ -259,7 +259,10 @@ const els = {
   statTotalTime:        document.querySelector("#statTotalTime"),
   statToday:            document.querySelector("#statToday"),
   statWeek:             document.querySelector("#statWeek"),
-  statBest:             document.querySelector("#statBest")
+  statBest:             document.querySelector("#statBest"),
+  badgeGrid:            document.querySelector("#badgeGrid"),
+  badgeCount:           document.querySelector("#badgeCount"),
+  toast:                document.querySelector("#toast")
 };
 
 // ── Character animation ──────────────────────────────────────────────────────
@@ -377,6 +380,7 @@ function loadState() {
   state.mode        = localStorage.getItem("bobaFocusMode") || "small";
   state.elapsed     = JSON.parse(localStorage.getItem("bobaFocusElapsed") || "0");
   state.onboarded   = JSON.parse(localStorage.getItem("bobaFocusOnboarded") || "false");
+  state.badges      = JSON.parse(localStorage.getItem("bobaFocusBadges") || "[]");
 }
 
 function saveState() {
@@ -391,6 +395,7 @@ function saveState() {
   localStorage.setItem("bobaFocusDevMode",      JSON.stringify(state.devMode));
   localStorage.setItem("bobaFocusMode",         state.mode);
   localStorage.setItem("bobaFocusElapsed",      JSON.stringify(state.elapsed));
+  localStorage.setItem("bobaFocusBadges",       JSON.stringify(state.badges || []));
 }
 
 function formatTime(seconds) {
@@ -546,6 +551,64 @@ function renderStats() {
   els.statBest.textContent      = String(s.longest);
 }
 
+// ── Achievements / badges ────────────────────────────────────────────────────
+const BADGES = [
+  { id: "first-sip",   icon: "🧋", name: "First Sip",      desc: "Finish a drink",        test: () => state.collection.length >= 1 },
+  { id: "regular",     icon: "🥤", name: "Regular",        desc: "Finish 5 drinks",       test: () => state.collection.length >= 5 },
+  { id: "connoisseur", icon: "🏆", name: "Connoisseur",    desc: "Finish 25 drinks",      test: () => state.collection.length >= 25 },
+  { id: "deep-work",   icon: "🌟", name: "Deep Work",      desc: "Finish a Large drink",  test: () => state.collection.some(d => d.minutes >= 360) },
+  { id: "roll",        icon: "🔥", name: "On a Roll",      desc: "3-day streak",          test: () => computeStats().longest >= 3 },
+  { id: "unstoppable", icon: "⚡", name: "Unstoppable",    desc: "7-day streak",          test: () => computeStats().longest >= 7 },
+  { id: "started",     icon: "⏱️", name: "Getting Going",  desc: "1 hour total",          test: () => totalMinutes() >= 60 },
+  { id: "scholar",     icon: "📚", name: "Scholar",        desc: "10 hours total",        test: () => totalMinutes() >= 600 },
+  { id: "master",      icon: "🎓", name: "Master Student", desc: "50 hours total",        test: () => totalMinutes() >= 3000 },
+  { id: "stylish",     icon: "✨", name: "Stylish",        desc: "Equip a skin",          test: () => !!state.skin },
+  { id: "decorator",   icon: "🏠", name: "Decorator",      desc: "Change the background",  test: () => state.shopTheme !== "cozy" },
+  { id: "break-champ", icon: "🎮", name: "Break Champ",    desc: "Win pearls in a game",  test: () => state.bonusPearls > 0 }
+];
+
+function checkBadges(celebrate) {
+  const have = new Set(state.badges || []);
+  const newly = BADGES.filter(b => !have.has(b.id) && b.test()).map(b => b.id);
+  if (!newly.length) return;
+  state.badges = [...have, ...newly];
+  saveState();
+  renderBadges();
+  if (celebrate) {
+    newly.forEach((id, i) => {
+      const b = BADGES.find(x => x.id === id);
+      setTimeout(() => { showToast(`${b.icon} Badge unlocked: ${b.name}`); playSfx("success"); haptic(10); }, i * 1500);
+    });
+  }
+}
+
+function renderBadges() {
+  const have = new Set(state.badges || []);
+  els.badgeGrid.innerHTML = BADGES.map(b => {
+    const earned = have.has(b.id);
+    return `
+      <div class="badge-item ${earned ? "earned" : "locked"}">
+        <span class="badge-emoji">${b.icon}</span>
+        <span class="badge-name">${b.name}</span>
+        <span class="badge-desc">${b.desc}</span>
+      </div>`;
+  }).join("");
+  els.badgeCount.textContent = `${have.size} / ${BADGES.length}`;
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  els.toast.textContent = msg;
+  els.toast.classList.remove("hidden");
+  void els.toast.offsetWidth;
+  els.toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    els.toast.classList.remove("show");
+    setTimeout(() => els.toast.classList.add("hidden"), 320);
+  }, 2600);
+}
+
 function renderShelf() {
   if (state.collection.length === 0) {
     els.shelfGrid.innerHTML = `<div class="empty-state">Finish a focus session to start your collection 🧋</div>`;
@@ -625,6 +688,7 @@ function equipItem(itemId) {
   renderAll();
   playSfx("success");
   haptic(8);
+  checkBadges(true);   // "Stylish" / "Decorator"
   els.makerSpeech.textContent = item.type === "shopTheme"
     ? "Ooh, fresh backdrop."
     : "Ooh, nice pick.";
@@ -729,6 +793,7 @@ function renderAll() {
   updateCup();
   updateStats();
   renderStats();
+  renderBadges();
   renderShelf();
   renderRewards();
   renderShop();
@@ -861,6 +926,7 @@ function completeSession() {
   haptic([14, 40, 24]);   // celebratory buzz pattern
   notifyComplete(size);
   showReward(reward);
+  checkBadges(true);      // toast any milestone reached by finishing this drink
 }
 
 function showReward(reward) {
@@ -1181,6 +1247,7 @@ function endPearlGame() {
   state.bonusPearls += game.score;
   saveState();
   renderAll();
+  if (game.score > 0) checkBadges(true);   // "Break Champ"
   els.gameResultText.textContent = "You caught " + game.score + " pearl" + (game.score !== 1 ? "s" : "") + "! +" + game.score + " added to your stash.";
   els.gameResult.style.display = "flex";
 }
@@ -1397,6 +1464,7 @@ function dropPearl() {
       state.bonusPearls += reward;
       saveState();
       renderAll();
+      checkBadges(true);   // "Break Champ"
       setTimeout(() => showPlinkoResult(reward), 600);
     }
   }
@@ -1876,6 +1944,7 @@ renderDevToggle();
 
 renderAll();
 setMakerState("idle");
+checkBadges(false);   // baseline already-earned badges silently (no toast spam on load)
 
 // First-time visitors get the welcome tour
 if (!state.onboarded) showOnboarding();

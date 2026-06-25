@@ -1322,6 +1322,55 @@ h3 {
 }
 .toggle.on .toggle-knob { transform: translateX(22px); }
 
+/* ── Achievements / badges ──────────────────────────────────────────────── */
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.badge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: rgba(255,255,255,0.7);
+}
+.badge-item.locked { opacity: 0.45; filter: grayscale(0.9); }
+.badge-item.earned {
+  background: linear-gradient(135deg, #fff4d6 0%, #ffe7c2 100%);
+  border-color: var(--gold);
+}
+.badge-emoji { font-size: 1.7rem; line-height: 1; }
+.badge-name  { font-size: 0.64rem; font-weight: 950; color: var(--bark); }
+.badge-desc  { font-size: 0.56rem; font-weight: 700; color: var(--bark-mid); line-height: 1.2; }
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 120px;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 120;
+  max-width: 84%;
+  padding: 11px 18px;
+  border-radius: 999px;
+  background: var(--bark);
+  color: var(--cream);
+  font-size: 0.84rem;
+  font-weight: 900;
+  box-shadow: 0 8px 24px rgba(60,32,24,0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 280ms ease, transform 280ms cubic-bezier(0.34,1.56,0.64,1);
+  text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.hidden { display: none; }
+
 /* ── First-run onboarding ───────────────────────────────────────────────── */
 .onboarding {
   position: absolute;
