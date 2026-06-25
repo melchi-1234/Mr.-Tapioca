@@ -8,6 +8,11 @@ const MODES = {
 const CUSTOM_MIN = 5 * 60;
 const CUSTOM_MAX = 120 * 60;
 const CUSTOM_STEP = 5 * 60;
+const DEV_MIN = 5;            // dev mode lets Custom drop to 5 seconds for quick testing
+
+function fmtDuration(seconds) {
+  return seconds < 60 ? `${seconds} sec` : `${Math.round(seconds / 60)} min`;
+}
 
 // Resolve the active session length in seconds (custom mode reads its own value)
 function modeDuration() {
@@ -413,7 +418,7 @@ function progress() {
 
 function modeLabel() {
   if (state.mode === "custom") {
-    return `Custom · ${Math.round(state.customDuration / 60)} min`;
+    return `Custom · ${fmtDuration(state.customDuration)}`;
   }
   return MODES[state.mode].label;
 }
@@ -985,7 +990,22 @@ function setMode(mode) {
 }
 
 function adjustCustomDuration(delta) {
-  state.customDuration = Math.min(CUSTOM_MAX, Math.max(CUSTOM_MIN, state.customDuration + delta));
+  const d = state.customDuration;
+  if (delta < 0) {
+    // In dev mode, "−" at the normal minimum drops to the 5-second test rung
+    if (state.devMode && d <= CUSTOM_MIN) {
+      state.customDuration = DEV_MIN;
+    } else {
+      state.customDuration = Math.max(CUSTOM_MIN, d - CUSTOM_STEP);
+    }
+  } else {
+    // "+" from the dev rung jumps back to the normal minimum
+    if (d < CUSTOM_MIN) {
+      state.customDuration = CUSTOM_MIN;
+    } else {
+      state.customDuration = Math.min(CUSTOM_MAX, d + CUSTOM_STEP);
+    }
+  }
   saveState();
   updateCustomDisplay();
   if (state.mode === "custom") resetSession();
@@ -993,7 +1013,7 @@ function adjustCustomDuration(delta) {
 
 function updateCustomDisplay() {
   if (els.customDurationDisplay) {
-    els.customDurationDisplay.textContent = `${Math.round(state.customDuration / 60)} min`;
+    els.customDurationDisplay.textContent = fmtDuration(state.customDuration);
   }
 }
 
@@ -1463,6 +1483,12 @@ function wireEvents() {
 
   els.devToggle.addEventListener("click", () => {
     state.devMode = !state.devMode;
+    // Leaving dev mode shouldn't strand a sub-minute custom timer
+    if (!state.devMode && state.customDuration < CUSTOM_MIN) {
+      state.customDuration = CUSTOM_MIN;
+      updateCustomDisplay();
+      if (state.mode === "custom") resetSession();
+    }
     saveState();
     renderDevToggle();
     renderShop();  // every item becomes equippable / reverts to locked
