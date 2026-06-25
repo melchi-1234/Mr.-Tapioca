@@ -279,23 +279,6 @@ body {
   background: rgba(45,36,40,0.1);
 }
 
-.register {
-  position: absolute;
-  left: 22px; top: -42px;
-  width: 58px; height: 46px;
-  border: 3px solid #67473d;
-  border-radius: 12px 12px 6px 6px;
-  background: #f3bd74;
-}
-.register::before {
-  content: "";
-  position: absolute;
-  left: 13px; top: 11px;
-  width: 30px; height: 12px;
-  border-radius: 4px;
-  background: #fff6dd;
-  border: 2px solid #67473d;
-}
 
 
 /* ── Mr. Tapioca character image ────────────────────────────────────────── */
@@ -314,27 +297,42 @@ body {
   transform-origin: center bottom;
 }
 
-.maker-img[data-state="idle"]    { animation: maker-bounce 1.8s ease-in-out infinite; }
-.maker-img[data-state="mixing"]  { animation: maker-stir   1.1s ease-in-out infinite; }
-.maker-img[data-state="sleeping"]{ animation: maker-sleep  3.4s ease-in-out infinite; }
-.maker-img[data-state="drinking"]{ animation: maker-bounce 2.4s ease-in-out infinite; }
+/* These animate the whole sprite (transform), so they apply to EVERY skin,
+   not just the base art. transform-origin is center-bottom for squash/stretch. */
+.maker-img { will-change: transform; }
+.maker-img[data-state="idle"]    { animation: maker-idle  4s   ease-in-out infinite; }
+.maker-img[data-state="mixing"]  { animation: maker-mixing 0.9s ease-in-out infinite; }
+.maker-img[data-state="sleeping"]{ animation: maker-sleep  3.6s ease-in-out infinite; }
+.maker-img[data-state="drinking"]{ animation: maker-drink  1.4s ease-in-out infinite; }
 .maker-img[data-state="shocked"] { animation: maker-shock  0.5s ease-out forwards; }
 
-@keyframes maker-bounce {
-  0%, 100% { transform: translateY(0)    rotate(-1deg); }
-  50%      { transform: translateY(-6px) rotate(1.5deg); }
+/* Idle: soft breathing, then a little hop with squash-and-stretch — reads as
+   "alive" even though each skin is a single still image. */
+@keyframes maker-idle {
+  0%, 100% { transform: translateY(0)    scaleX(1)    scaleY(1); }
+  18%      { transform: translateY(-4px) scaleX(0.99) scaleY(1.02); }  /* breathe in */
+  36%      { transform: translateY(0)    scaleX(1)    scaleY(1); }      /* breathe out */
+  68%      { transform: translateY(0)    scaleX(1.04) scaleY(0.96); }   /* crouch */
+  80%      { transform: translateY(-13px) scaleX(0.97) scaleY(1.05); }  /* hop */
+  90%      { transform: translateY(0)    scaleX(1.05) scaleY(0.95); }   /* land squash */
 }
-@keyframes maker-stir {
-  0%, 100% { transform: translate(0, 0)        rotate(-1deg); }
-  25%      { transform: translate(-3px, -3px)  rotate(2deg); }
-  75%      { transform: translate(3px, -3px)   rotate(-2deg); }
+/* Mixing: happy busy wiggle */
+@keyframes maker-mixing {
+  0%, 100% { transform: translateY(0)   rotate(-3deg); }
+  25%      { transform: translateY(-3px) rotate(3deg); }
+  50%      { transform: translateY(0)   rotate(-3deg); }
+  75%      { transform: translateY(-3px) rotate(3deg); }
 }
 @keyframes maker-sleep {
-  0%, 100% { transform: translateY(0) rotate(-3deg) scale(1);    }
-  50%      { transform: translateY(2px) rotate(-3deg) scale(1.03);}
+  0%, 100% { transform: translateY(0)   rotate(-3deg) scale(1); }
+  50%      { transform: translateY(2px) rotate(-3deg) scale(1.03); }
+}
+@keyframes maker-drink {
+  0%, 100% { transform: translateY(0)   rotate(-2deg); }
+  50%      { transform: translateY(-4px) rotate(2deg); }
 }
 @keyframes maker-shock {
-  0%   { transform: translateY(0)   scale(1); }
+  0%   { transform: translateY(0)    scale(1); }
   20%  { transform: translateY(-9px) scale(1.08) rotate(2deg); }
   100% { transform: translateY(-3px) scale(1.04) rotate(-1deg); }
 }

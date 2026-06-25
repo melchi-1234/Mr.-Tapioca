@@ -278,11 +278,11 @@ function setMakerState(stateName) {
   const img = els.focusMakerCharacter;
   img.dataset.state = stateName;
 
-  // Equipped skin overrides idle AND mixing — we don't have skinned mixing
-  // poses, so we show the skin portrait with a CSS stir/bounce instead so the
-  // user keeps seeing their equipped character throughout the focus session.
-  const skinStates = stateName === "idle" || stateName === "mixing";
-  if (skinStates && state.skin && SKIN_IMAGES[state.skin]) {
+  // The CSS keyframes (keyed off data-state) animate whatever image is shown,
+  // so motion works for every skin. An equipped skin is a single portrait, so
+  // it keeps that portrait across ALL states and relies on the motion; only the
+  // base character has dedicated pose art (mixing arms, sleeping eyes, etc.).
+  if (state.skin && SKIN_IMAGES[state.skin]) {
     img.src = SKIN_IMAGES[state.skin];
     return;
   }
