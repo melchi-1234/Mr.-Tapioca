@@ -189,6 +189,10 @@
           <span class="nav-icon nav-palette" aria-hidden="true"></span>
           <span class="pill-label">Customize</span>
         </button>
+        <button class="icon-pill" id="mapBtn" aria-label="Boba map">
+          <span class="nav-icon nav-pin" aria-hidden="true"></span>
+          <span class="pill-label">Map</span>
+        </button>
         <button class="icon-pill" id="settingsBtn" aria-label="History">
           <span class="nav-icon nav-book" aria-hidden="true"></span>
           <span class="pill-label">History</span>
@@ -328,6 +332,22 @@
               <strong>Restricted</strong>
               <p>You cannot use YouTube because it is restricted.</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Sheet: Boba Map ──────────────────────────────────────── -->
+      <div id="mapSheet" class="sheet hidden" role="dialog" aria-label="Boba map" aria-modal="true">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+          <h2>Boba Map</h2>
+          <button class="sheet-close" id="mapClose" aria-label="Close">✕</button>
+        </div>
+        <div class="sheet-body map-body">
+          <p class="map-intro">⭐ Starred shops are <strong>Mr. Tapioca partners</strong> — finish drinks to unlock real discounts there.</p>
+          <div id="mapPerkBanner" class="map-perk-banner hidden"></div>
+          <div id="map" class="map-canvas">
+            <div id="mapStatus" class="map-status">Loading the map…</div>
           </div>
         </div>
       </div>

@@ -235,6 +235,9 @@ const els = {
   customizeClose:       document.querySelector("#customizeClose"),
   settingsSheet:        document.querySelector("#settingsSheet"),
   settingsClose:        document.querySelector("#settingsClose"),
+  mapBtn:               document.querySelector("#mapBtn"),
+  mapClose:             document.querySelector("#mapClose"),
+  mapPerkBanner:        document.querySelector("#mapPerkBanner"),
   sheetBackdrop:        document.querySelector("#sheetBackdrop"),
   customStepper:        document.querySelector("#customStepper"),
   customDurationDisplay:document.querySelector("#customDurationDisplay"),
@@ -457,6 +460,9 @@ function updateCup() {
   els.focusSticker.textContent = state.sticker;
   // Maker state is driven by the walk choreography (startPause/reset/break),
   // not here — updateCup runs every tick and would override the walk.
+  // Skins are single "awake" portraits, so hide the sleepy zzz when one is on
+  // (only the base character has a real eyes-closed sleeping pose).
+  els.shopScene.classList.toggle("skin-awake", !!state.skin);
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
   els.makerSpeech.textContent = speechForState();
@@ -1461,6 +1467,138 @@ function notifyComplete(size) {
   } catch (e) { /* ignore */ }
 }
 
+// ── Boba map (Leaflet + free OpenStreetMap tiles, lazy-loaded) ────────────────
+
+// Sample shops placed as small offsets from the user's location, so the map
+// looks populated wherever they are. Starred ones are "partners" with perks.
+const SAMPLE_SHOPS = [
+  { name: "Boba Guys",    dy:  0.0040, dx:  0.0025, partner: true,  perk: "20% off",       unlock: "Finish a Large drink" },
+  { name: "Sharetea",     dy: -0.0032, dx:  0.0041, partner: true,  perk: "10% off",       unlock: "Finish a Small drink" },
+  { name: "Tiger Sugar",  dy: -0.0050, dx: -0.0038, partner: true,  perk: "Free topping",  unlock: "Finish any drink" },
+  { name: "Gong Cha",     dy:  0.0052, dx: -0.0030, partner: false },
+  { name: "Happy Lemon",  dy:  0.0018, dx:  0.0060, partner: false },
+  { name: "CoCo Fresh",   dy: -0.0061, dx:  0.0012, partner: false }
+];
+
+const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS  = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+let leafletPromise = null;
+let mapObj = null;
+
+function ensureLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = LEAFLET_CSS;
+    document.head.appendChild(link);
+    const s = document.createElement("script");
+    s.src = LEAFLET_JS;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("leaflet failed to load"));
+    document.head.appendChild(s);
+  });
+  return leafletPromise;
+}
+
+function setMapStatus(msg) {
+  const el = document.getElementById("mapStatus");
+  if (!el) return;
+  if (msg) { el.textContent = msg; el.classList.remove("hidden"); }
+  else     { el.classList.add("hidden"); }
+}
+
+function openMap() {
+  openSheet("mapSheet");
+  if (mapObj) { setTimeout(() => mapObj.invalidateSize(), 250); return; }
+  setMapStatus("Loading the map…");
+  ensureLeaflet()
+    .then(locateAndBuild)
+    .catch(() => setMapStatus("Couldn't load the map — check your connection and try again."));
+}
+
+function locateAndBuild() {
+  const fallback = [37.7749, -122.4194];   // a real area to demo with if location is off
+  if (navigator.geolocation) {
+    setMapStatus("Finding boba near you…");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => buildMap(pos.coords.latitude, pos.coords.longitude, true),
+      ()    => buildMap(fallback[0], fallback[1], false),
+      { timeout: 8000, maximumAge: 600000 }
+    );
+  } else {
+    buildMap(fallback[0], fallback[1], false);
+  }
+}
+
+function bobaPin(emoji, cls) {
+  return L.divIcon({
+    className: "",
+    html: `<div class="boba-pin ${cls}"><span>${emoji}</span></div>`,
+    iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -32]
+  });
+}
+
+function earnedPerkCount() {
+  return state.rewards.filter(r => r.partner && r.partner.startsWith("🌟")).length;
+}
+
+function haversine(la1, lo1, la2, lo2) {
+  const R = 6371000, toR = Math.PI / 180;
+  const dLa = (la2 - la1) * toR, dLo = (lo2 - lo1) * toR;
+  const a = Math.sin(dLa / 2) ** 2 +
+            Math.cos(la1 * toR) * Math.cos(la2 * toR) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function formatDistance(m) {
+  return m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`;
+}
+
+function buildMap(lat, lng, real) {
+  setMapStatus("");
+  mapObj = L.map("map", { zoomControl: true }).setView([lat, lng], 15);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap"
+  }).addTo(mapObj);
+
+  L.marker([lat, lng], { icon: bobaPin("📍", "me") })
+    .addTo(mapObj)
+    .bindPopup(real
+      ? `<div class="map-pop-name">You are here</div>`
+      : `<div class="map-pop-name">Example area</div><div class="map-pop-meta">Allow location to see shops near you</div>`);
+
+  const earned = earnedPerkCount();
+  SAMPLE_SHOPS.forEach(shop => {
+    const slat = lat + shop.dy, slng = lng + shop.dx;
+    const dist = formatDistance(haversine(lat, lng, slat, slng));
+    let perkHtml = "";
+    if (shop.partner) {
+      perkHtml = earned > 0
+        ? `<div class="map-pop-perk">✓ ${shop.perk} — you have a reward to redeem!</div>`
+        : `<div class="map-pop-perk locked">${shop.perk} · ${shop.unlock}</div>`;
+    }
+    L.marker([slat, slng], { icon: bobaPin(shop.partner ? "⭐" : "🧋", shop.partner ? "partner" : "") })
+      .addTo(mapObj)
+      .bindPopup(
+        `<div class="map-pop-name">${shop.partner ? "⭐ " : ""}${shop.name}</div>` +
+        `<div class="map-pop-meta">${dist} away${shop.partner ? " · partner" : ""}</div>` +
+        perkHtml
+      );
+  });
+
+  if (earned > 0) {
+    els.mapPerkBanner.textContent = `🎉 You have ${earned} reward${earned !== 1 ? "s" : ""} ready to redeem at partner shops!`;
+    els.mapPerkBanner.classList.remove("hidden");
+  } else {
+    els.mapPerkBanner.classList.add("hidden");
+  }
+
+  setTimeout(() => mapObj.invalidateSize(), 250);
+}
+
 function wireEvents() {
   // ── Main timer controls ──────────────────────────────────────────────────
   els.startPauseBtn.addEventListener("click", startPause);
@@ -1499,9 +1637,11 @@ function wireEvents() {
   els.shopBtn.addEventListener("click",       () => openSheet("shopSheet"));
   els.customizeBtn.addEventListener("click",  () => openSheet("customizeSheet"));
   els.settingsBtn.addEventListener("click",   () => openSheet("settingsSheet"));
+  els.mapBtn.addEventListener("click",        openMap);
   els.shopClose.addEventListener("click",     closeSheets);
   els.customizeClose.addEventListener("click",closeSheets);
   els.settingsClose.addEventListener("click", closeSheets);
+  els.mapClose.addEventListener("click",      closeSheets);
   els.sheetBackdrop.addEventListener("click", closeSheets);
 
   // ── Customize sheet: tea base, topping, shop theme ───────────────────────
