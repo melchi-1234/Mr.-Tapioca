@@ -160,6 +160,7 @@ const els = {
   liquid:               document.querySelector("#liquid"),
   focusSticker:         document.querySelector("#focusSticker"),
   focusMakerCharacter:  document.querySelector("#focusMakerCharacter"),
+  makerWrap:            document.querySelector("#makerWrap"),
   makerSpeech:          document.querySelector("#makerSpeech"),
   progressBar:          document.querySelector("#progressBar"),
   sessionLabel:         document.querySelector("#sessionLabel"),
@@ -307,6 +308,39 @@ function celebrate() {
   setTimeout(() => els.shopScene.classList.remove("celebrating"), 1500);
 }
 
+// ── Walk-to-the-cup choreography ──────────────────────────────────────────────
+// How far right the maker glides so he stands beside the cup. ~720ms matches the
+// CSS transition on .maker-wrap; tweak MIX_WALK_X if he stops short of the cup.
+const MIX_WALK_X = 158;
+const WALK_MS = 720;
+let walkTimer = null;
+
+function setWalk(px) {
+  els.makerWrap.style.setProperty("--walk", px + "px");
+}
+
+// Walk over to the cup, then start mixing once he arrives
+function walkToCupAndMix() {
+  clearTimeout(walkTimer);
+  setWalk(MIX_WALK_X);
+  setMakerState("walking");
+  walkTimer = setTimeout(() => {
+    if (state.running && state.phase === "focus") setMakerState("mixing");
+  }, WALK_MS);
+}
+
+// Walk back to his station, then settle into the given resting state
+function walkToStation(restState = "idle") {
+  clearTimeout(walkTimer);
+  setWalk(0);
+  // only show the walk waddle if he actually has distance to cover
+  const current = parseFloat(getComputedStyle(els.makerWrap).getPropertyValue("--walk")) || 0;
+  if (current !== 0) setMakerState("walking");
+  walkTimer = setTimeout(() => {
+    if (!state.running) setMakerState(restState);
+  }, WALK_MS);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function loadState() {
@@ -414,7 +448,8 @@ function updateCup() {
   els.progressBar.style.width = `${pct}%`;
   els.focusCup.dataset.topping = state.topping;
   els.focusSticker.textContent = state.sticker;
-  if (state.phase === "focus") setMakerState(state.running ? "mixing" : "idle");
+  // Maker state is driven by the walk choreography (startPause/reset/break),
+  // not here — updateCup runs every tick and would override the walk.
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
   els.makerSpeech.textContent = speechForState();
@@ -710,12 +745,13 @@ function startPause() {
 
   if (state.running) {
     maybeRequestNotify();
-    pulseMaker("pop", 450);   // little hop when focus begins
+    walkToCupAndMix();        // glide over to the cup, then mix
     stopTicker();
     state.timerId = setInterval(tick, 250);
   } else {
     stopTicker();
-    saveState();   // bank progress whenever the user pauses
+    walkToStation("idle");    // walk back to his spot
+    saveState();              // bank progress whenever the user pauses
   }
 }
 
@@ -734,6 +770,7 @@ function resetSession() {
   state.phase = "focus";
   state.spillPending = false;
   els.shopScene.classList.remove("is-on-break");
+  clearTimeout(walkTimer); setWalk(0);
   currentMakerState = ""; setMakerState("idle");
   saveState();   // persist the cleared drink so it doesn't resume on reload
   updatePhaseUI();
@@ -745,6 +782,8 @@ function completeSession() {
   state.running = false;
   state.elapsed = modeDuration();
   state.lastTick = null;
+  clearTimeout(walkTimer); setWalk(0);   // step back to his station to finish up
+  currentMakerState = ""; setMakerState("idle");
 
   const minutes = Math.round(modeDuration() / 60);
   const size    = modeLabel();
@@ -1091,7 +1130,8 @@ function pauseAndBank() {
   state.running = false;
   state.lastTick = null;
   saveState();
-  setMakerState("shocked");
+  clearTimeout(walkTimer); setWalk(0);   // hurry back to the station
+  currentMakerState = ""; setMakerState("shocked");
   updateCup();
   els.makerSpeech.textContent = "You stepped away — saved your spot! 🧋";
   setTimeout(() => {
