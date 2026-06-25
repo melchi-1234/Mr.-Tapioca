@@ -174,14 +174,15 @@ body {
 }
 .ceiling-lights span:nth-child(even) { animation-delay: 0.45s; }
 
-.menu-board, .decor-shelf, .speech-bubble, .window {
+.decor-shelf, .speech-bubble, .window {
   position: absolute;
   z-index: 4;
 }
 
+/* Window on the right wall, sitting in the wall zone below the HUD */
 .window {
-  top: 72px; right: 26px;
-  width: 88px; height: 82px;
+  top: 118px; right: 22px;
+  width: 84px; height: 78px;
   border: 4px solid #7a4b42;
   border-radius: 16px 16px 8px 8px;
   background:
@@ -191,27 +192,14 @@ body {
 .window span {
   position: absolute;
   left: 14px; bottom: 14px;
-  width: 54px; height: 18px;
+  width: 52px; height: 18px;
   border-radius: 50% 50% 0 0;
   background: rgba(255,255,255,0.55);
 }
 
-.menu-board {
-  top: 76px; left: 26px;
-  width: 92px;
-  padding: 9px;
-  border: 3px solid #67473d;
-  border-radius: 8px;
-  background: #6f514a;
-  color: #fff7e8;
-  box-shadow: 3px 3px 0 rgba(45,36,40,0.12);
-}
-.menu-board strong, .menu-board span { display: block; }
-.menu-board strong { margin-bottom: 5px; font-size: 0.75rem; }
-.menu-board span   { padding: 2px 0; border-top: 1px dashed rgba(255,247,232,0.35); font-size: 0.58rem; font-weight: 800; }
-
+/* Boba-jar shelf on the left wall */
 .decor-shelf {
-  top: 160px; right: 24px;
+  top: 132px; left: 22px;
   display: flex; align-items: end; gap: 8px;
   padding: 0 9px 8px;
   border-bottom: 5px solid #7a4b42;
@@ -309,21 +297,6 @@ body {
   border: 2px solid #67473d;
 }
 
-.mixing-tools {
-  position: absolute;
-  left: 92px; top: -32px;
-  display: flex; gap: 7px;
-}
-.mixing-tools span {
-  width: 12px; height: 50px;
-  border: 2px solid #67473d;
-  border-radius: 999px;
-  background: #fff6dd;
-  transform-origin: bottom;
-}
-.mixing-tools span:nth-child(1) { transform: rotate(-13deg); }
-.mixing-tools span:nth-child(2) { background: #ef8aa0; }
-.mixing-tools span:nth-child(3) { transform: rotate(13deg); background: #95d8c6; }
 
 /* ── Mr. Tapioca character image ────────────────────────────────────────── */
 .maker-img {
@@ -1168,6 +1141,13 @@ h3 {
   font-size: 0.86rem;
   font-weight: 900;
   color: var(--bark);
+}
+.settings-row-label small {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--bark-mid);
+  margin-top: 1px;
 }
 .toggle {
   position: relative;

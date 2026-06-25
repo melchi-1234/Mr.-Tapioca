@@ -26,12 +26,6 @@
           <span></span><span></span><span></span><span></span><span></span>
         </div>
         <div class="window"><span></span></div>
-        <div class="menu-board">
-          <strong>Menu</strong>
-          <span>milk tea</span>
-          <span>taro</span>
-          <span>matcha</span>
-        </div>
         <div class="decor-shelf">
           <span class="jar classic"></span>
           <span class="jar taro"></span>
@@ -42,7 +36,6 @@
         <img id="focusMakerCharacter" class="maker-img" src="assets/Mr. Tapioca.png" alt="Mr. Tapioca">
         <div class="work-counter">
           <div class="register"></div>
-          <div class="mixing-tools"><span></span><span></span><span></span></div>
           <div class="cup-stage">
             <div class="steam"><span></span><span></span><span></span></div>
             <div id="focusCup" class="cup-frame" data-topping="pearls">
@@ -118,10 +111,10 @@
             Taste<small>5 min</small>
           </button>
           <button class="size-btn active" data-mode="small">
-            Small<small>25 min</small>
+            Small<small>2 hr</small>
           </button>
           <button class="size-btn" data-mode="large">
-            Large<small>50 min</small>
+            Large<small>6 hr</small>
           </button>
           <button class="size-btn" data-mode="custom">
             Custom<small>set</small>
@@ -273,19 +266,26 @@
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Small drink = 25 min · Large = 50 min</span>
+                <span>Small = 2 hr · Large = 6 hr → real boba discounts 🌟</span>
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
                 <span>Spend pearls on cute skins &amp; backgrounds</span>
               </div>
             </div>
-            <p class="pearl-info-foot">Leave the app mid-session and your drink spills! 🫣</p>
+            <p class="pearl-info-foot">Big drinks fill across sessions — leave and come back anytime. ✨</p>
           </div>
 
           <div class="settings-row">
             <span class="settings-row-label">🔔 Completion sound</span>
             <button id="soundToggle" class="toggle" role="switch" aria-checked="true">
+              <span class="toggle-knob"></span>
+            </button>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">🛠 Dev mode <small>unlock everything</small></span>
+            <button id="devToggle" class="toggle" role="switch" aria-checked="false">
               <span class="toggle-knob"></span>
             </button>
           </div>

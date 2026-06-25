@@ -1,8 +1,8 @@
 const MODES = {
-  tasting: { label: "Tasting Cup", duration: 5 * 60 },
-  small:   { label: "Small Drink", duration: 25 * 60 },
-  large:   { label: "Large Drink", duration: 50 * 60 },
-  custom:  { label: "Custom Cup",  duration: null }   // uses state.customDuration
+  tasting: { label: "Tasting Cup", duration: 5 * 60 },        // quick single sitting
+  small:   { label: "Small Drink", duration: 2 * 60 * 60 },   // ~2 hr, fillable in segments
+  large:   { label: "Large Drink", duration: 6 * 60 * 60 },   // ~6 hr, fillable in segments
+  custom:  { label: "Custom Cup",  duration: null }           // uses state.customDuration
 };
 
 const CUSTOM_MIN = 5 * 60;
@@ -135,6 +135,7 @@ const state = {
   skin: "",
   shopTheme: "cozy",
   soundOn: true,
+  devMode: false,
   running: false,
   elapsed: 0,
   lastTick: null,
@@ -232,6 +233,7 @@ const els = {
   customMinus:          document.querySelector("#customMinus"),
   customPlus:           document.querySelector("#customPlus"),
   soundToggle:          document.querySelector("#soundToggle"),
+  devToggle:            document.querySelector("#devToggle"),
   statStreak:           document.querySelector("#statStreak"),
   statTotalTime:        document.querySelector("#statTotalTime"),
   statToday:            document.querySelector("#statToday"),
@@ -299,6 +301,10 @@ function loadState() {
   state.skin        = localStorage.getItem("bobaFocusSkin") || "";
   state.customDuration = JSON.parse(localStorage.getItem("bobaFocusCustomDuration") || String(30 * 60));
   state.soundOn     = JSON.parse(localStorage.getItem("bobaFocusSoundOn") || "true");
+  state.devMode     = JSON.parse(localStorage.getItem("bobaFocusDevMode") || "false");
+  // Resume an in-progress drink across app closes
+  state.mode        = localStorage.getItem("bobaFocusMode") || "small";
+  state.elapsed     = JSON.parse(localStorage.getItem("bobaFocusElapsed") || "0");
 }
 
 function saveState() {
@@ -310,6 +316,9 @@ function saveState() {
   localStorage.setItem("bobaFocusSkin",         state.skin);
   localStorage.setItem("bobaFocusCustomDuration", JSON.stringify(state.customDuration));
   localStorage.setItem("bobaFocusSoundOn",      JSON.stringify(state.soundOn));
+  localStorage.setItem("bobaFocusDevMode",      JSON.stringify(state.devMode));
+  localStorage.setItem("bobaFocusMode",         state.mode);
+  localStorage.setItem("bobaFocusElapsed",      JSON.stringify(state.elapsed));
 }
 
 function formatTime(seconds) {
@@ -395,7 +404,10 @@ function updateCup() {
   els.timerText.textContent = formatTime(remaining);
   els.sessionLabel.textContent = modeLabel();
   els.progressLabel.textContent = `${pct}%`;
-  els.startPauseBtn.textContent = state.running ? "Pause" : pct === 100 ? "Seal & Save" : "Start Focus";
+  els.startPauseBtn.textContent = state.running ? "Pause"
+    : pct === 100 ? "Seal & Save"
+    : state.elapsed > 0 ? "Resume"
+    : "Start Focus";
   els.startPauseBtn.classList.toggle("is-running", state.running);
   els.drinkName.textContent = currentDrinkName();
   updateTabTitle(remaining);
@@ -498,7 +510,7 @@ function renderRewards() {
 }
 
 function isOwned(itemId) {
-  return state.owned.includes(itemId);
+  return state.devMode || state.owned.includes(itemId);
 }
 
 function isEquipped(item) {
@@ -559,7 +571,7 @@ function renderShop() {
         ? `<span class="shop-equipped-badge">Default</span>`
         : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
            <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
-    } else if (item.premium) {
+    } else if (item.premium && !state.devMode) {
       action = `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
@@ -634,6 +646,8 @@ function renderAll() {
   renderShop();
 }
 
+let lastPersist = 0;
+
 function stopTicker() {
   if (state.timerId !== null) {
     clearInterval(state.timerId);
@@ -654,6 +668,12 @@ function tick() {
   state.lastTick = now;
   state.elapsed = Math.min(modeDuration(), state.elapsed + delta);
   updateCup();
+
+  // Persist progress every ~10s so a long drink survives an unexpected close
+  if (now - lastPersist > 10000) {
+    lastPersist = now;
+    saveState();
+  }
 
   if (progress() >= 1) {
     completeSession();
@@ -677,6 +697,7 @@ function startPause() {
     state.timerId = setInterval(tick, 250);
   } else {
     stopTicker();
+    saveState();   // bank progress whenever the user pauses
   }
 }
 
@@ -696,6 +717,7 @@ function resetSession() {
   state.spillPending = false;
   els.shopScene.classList.remove("is-on-break");
   currentMakerState = ""; setMakerState("idle");
+  saveState();   // persist the cleared drink so it doesn't resume on reload
   updatePhaseUI();
   updateCup();
 }
@@ -719,11 +741,17 @@ function completeSession() {
     dateKey: localDateKey(now)
   };
 
+  // Bigger drinks (more study time) map to bigger real-world partner perks
+  let partner;
+  if (minutes >= 300)      partner = "🌟 20% off at a partner boba shop";
+  else if (minutes >= 90)  partner = "🌟 10% off at a partner boba shop";
+  else                     partner = "Save this treat for later";
+
   const reward = {
     id: crypto.randomUUID(),
     title: "You deserve to go get one in-person!",
     copy: `${size} earned from ${minuteLabel(minutes)}.`,
-    partner: minutes >= 50 ? "Local Boba Partner — 5% Study Sip Pass" : "Save this treat for later"
+    partner
   };
 
   state.collection.unshift(drink);
@@ -747,6 +775,7 @@ function showReward(reward) {
 
 function onRewardDialogClose() {
   state.elapsed = 0;
+  saveState();   // the finished drink is banked; clear in-progress so it won't resume
   updateCup();
   startBreakOffer();
 }
@@ -854,6 +883,18 @@ function scheduleMakerBreakCycle() {
 }
 
 function setMode(mode) {
+  if (mode === state.mode) return;
+  // Guard against wiping a drink that's partway filled
+  if (state.elapsed > 0 && progress() < 1) {
+    const ok = confirm("Switch drinks? Your current drink's progress will be lost.");
+    if (!ok) {
+      // keep the previously-active button highlighted
+      document.querySelectorAll(".size-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.mode === state.mode);
+      });
+      return;
+    }
+  }
   state.mode = mode;
   document.querySelectorAll(".size-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.mode === mode);
@@ -1023,17 +1064,23 @@ function endPearlGame() {
   els.gameResult.style.display = "flex";
 }
 
-function spillSession() {
+// Leaving mid-session no longer spills the whole drink (long drinks are meant
+// to be filled across multiple sittings). Instead we pause and bank progress,
+// with a startled reaction, so the user can resume right where they left off.
+function pauseAndBank() {
+  stopTicker();
+  state.running = false;
+  state.lastTick = null;
+  saveState();
   setMakerState("shocked");
-  els.makerSpeech.textContent = "You left! Your drink spilled. No pearls this time.";
-  els.liquid.style.setProperty("--fill", "0%");
-  els.focusCup.classList.add("spilling");
+  updateCup();
+  els.makerSpeech.textContent = "You stepped away — saved your spot! 🧋";
   setTimeout(() => {
-    els.focusCup.classList.remove("spilling");
-    state.elapsed = 0;
-    renderAll();
-    els.makerSpeech.textContent = "Ready to try again? I'll make a fresh one.";
-  }, 1800);
+    if (!state.running && state.phase === "focus") {
+      currentMakerState = "";
+      setMakerState("idle");
+    }
+  }, 1600);
 }
 
 function plinkoRoundRect(ctx, x, y, w, h, r) {
@@ -1289,6 +1336,11 @@ function renderSoundToggle() {
   els.soundToggle.setAttribute("aria-checked", String(state.soundOn));
 }
 
+function renderDevToggle() {
+  els.devToggle.classList.toggle("on", state.devMode);
+  els.devToggle.setAttribute("aria-checked", String(state.devMode));
+}
+
 // Ask for notification permission the first time a session starts (gesture-driven)
 let askedNotify = false;
 function maybeRequestNotify() {
@@ -1328,6 +1380,14 @@ function wireEvents() {
     saveState();
     renderSoundToggle();
     if (state.soundOn) sessionChime();  // little preview when turning on
+  });
+
+  els.devToggle.addEventListener("click", () => {
+    state.devMode = !state.devMode;
+    saveState();
+    renderDevToggle();
+    renderShop();  // every item becomes equippable / reverts to locked
+    els.makerSpeech.textContent = state.devMode ? "Dev mode on — everything unlocked." : "Dev mode off.";
   });
 
   // ── Bottom bar sheets ────────────────────────────────────────────────────
@@ -1404,18 +1464,14 @@ function wireEvents() {
     if (e.key === "ArrowRight") game.keysRight = false;
   });
 
-  // ── Spill on tab switch ──────────────────────────────────────────────────
+  // ── Pause + bank progress when the app is backgrounded mid-session ────────
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && state.running && state.phase === "focus") {
-      stopTicker();
-      state.running = false;
-      state.lastTick = null;
-      state.spillPending = true;
-    } else if (document.visibilityState === "visible" && state.spillPending) {
-      state.spillPending = false;
-      spillSession();
+      pauseAndBank();
     }
   });
+  // Last-chance save if the tab/app is actually closed
+  window.addEventListener("pagehide", () => { if (state.phase === "focus") saveState(); });
 }
 
 loadState();
@@ -1428,6 +1484,7 @@ document.querySelectorAll(".size-btn").forEach(b => {
 if (els.customStepper) els.customStepper.classList.toggle("hidden", state.mode !== "custom");
 updateCustomDisplay();
 renderSoundToggle();
+renderDevToggle();
 
 renderAll();
 setMakerState("idle");
