@@ -1942,6 +1942,19 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   font-size: 0.88rem;
 }
 
+/* ── Tactile press feedback (springy squish on tap) ─────────────────────── */
+.size-btn, .choice, .swatch, .adj-btn, .primary, .quiet,
+.shop-buy-btn, .shop-equip-btn, .shop-unequip-btn, .shop-preview-btn,
+.sheet-close, .settings-action-btn, .game-quit-btn, .toggle {
+  transition: transform 90ms ease, background 180ms, color 180ms, box-shadow 180ms;
+}
+.size-btn:active, .choice:active, .swatch:active, .adj-btn:active,
+.primary:active, .quiet:active, .shop-buy-btn:active, .shop-equip-btn:active,
+.shop-unequip-btn:active, .shop-preview-btn:active, .sheet-close:active,
+.settings-action-btn:active, .game-quit-btn:active {
+  transform: scale(0.93);
+}
+
 /* ── Game overlays ──────────────────────────────────────────────────────── */
 .pearl-game {
   position: absolute;

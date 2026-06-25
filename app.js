@@ -599,6 +599,7 @@ function buyItem(itemId) {
   state.owned.push(itemId);
   state.spent += item.price;
   saveState();
+  playSfx("coin");
   equipItem(itemId);
 }
 
@@ -622,6 +623,8 @@ function equipItem(itemId) {
     closeSheets();  // step back so the user can see the new backdrop
   }
   renderAll();
+  playSfx("success");
+  haptic(8);
   els.makerSpeech.textContent = item.type === "shopTheme"
     ? "Ooh, fresh backdrop."
     : "Ooh, nice pick.";
@@ -632,6 +635,7 @@ function unequipItem(type) {
   saveState();
   if (type === "skin") refreshMaker();
   renderAll();
+  playSfx("tap");
 }
 
 function renderShop() {
@@ -854,6 +858,7 @@ function completeSession() {
   saveState();
   renderAll();
   sessionChime();
+  haptic([14, 40, 24]);   // celebratory buzz pattern
   notifyComplete(size);
   showReward(reward);
 }
@@ -1130,6 +1135,7 @@ function gameLoop(ts) {
   if (caught.length) {
     game.score += caught.length;
     els.gameScore.textContent = "⬡ " + game.score;
+    playSfx("blip");
   }
 
   game.spawnTimer += dt;
@@ -1357,6 +1363,7 @@ function dropPearl() {
   els.plinkoResult.style.display = "none";
   updatePlinkoHUD();
   updatePlinkoBtnState();
+  playSfx("drop");
 
   const geo = getPlinkoGeo();
   const decisions = Array.from({ length: PLINKO_ROWS }, () => Math.random() < 0.5);
@@ -1408,6 +1415,8 @@ function showPlinkoResult(reward) {
     els.plinkoAgainBtn.style.display = "none";
   }
   els.plinkoResult.style.display = "flex";
+  playSfx(reward >= 10 ? "success" : "coin");
+  haptic(reward >= 10 ? [10, 30, 20] : 8);
 }
 
 // ── Completion feedback: tab title, chime, notification ───────────────────────
@@ -1420,31 +1429,61 @@ function updateTabTitle(remainingSeconds) {
   }
 }
 
-// A short, gentle two-note chime synthesised with the Web Audio API (no asset).
+// ── Synthesised sound (Web Audio, no asset files) ─────────────────────────────
 let audioCtx = null;
+function audio() {
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+// One short note with an attack/decay envelope; optional pitch glide to freq2
+function tone(ctx, { freq, freq2 = null, type = "sine", t0 = 0, dur = 0.12, peak = 0.15 }) {
+  const now = ctx.currentTime + t0;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  if (freq2) osc.frequency.exponentialRampToValueAtTime(freq2, now + dur);
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.linearRampToValueAtTime(peak, now + Math.min(0.02, dur * 0.3));
+  g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + dur + 0.02);
+}
+
+// Tiny UI sound effects, all gated by the sound toggle
+function playSfx(name) {
+  if (!state.soundOn) return;
+  try {
+    const ctx = audio();
+    switch (name) {
+      case "tap":     tone(ctx, { freq: 300, type: "triangle", dur: 0.06, peak: 0.09 }); break;
+      case "select":  tone(ctx, { freq: 540, freq2: 680, type: "sine", dur: 0.08, peak: 0.10 }); break;
+      case "open":    tone(ctx, { freq: 380, freq2: 560, type: "sine", dur: 0.14, peak: 0.10 }); break;
+      case "success": tone(ctx, { freq: 659.25, dur: 0.12, peak: 0.13 });
+                      tone(ctx, { freq: 880, t0: 0.10, dur: 0.16, peak: 0.13 }); break;
+      case "coin":    tone(ctx, { freq: 988, type: "square", dur: 0.06, peak: 0.07 });
+                      tone(ctx, { freq: 1319, type: "square", t0: 0.05, dur: 0.10, peak: 0.07 }); break;
+      case "blip":    tone(ctx, { freq: 880, type: "sine", dur: 0.05, peak: 0.06 }); break;
+      case "drop":    tone(ctx, { freq: 520, freq2: 300, type: "sine", dur: 0.14, peak: 0.10 }); break;
+    }
+  } catch (e) { /* audio unavailable — ignore */ }
+}
+
+function haptic(ms) {
+  if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} }
+}
+
+// A short, gentle major-arpeggio chime when a drink completes
 function sessionChime() {
   if (!state.soundOn) return;
   try {
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume();
-    const now = audioCtx.currentTime;
-    const notes = [523.25, 659.25, 783.99];  // C5, E5, G5 — a soft major arpeggio
-    notes.forEach((freq, i) => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      const t = now + i * 0.14;
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.18, t + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start(t);
-      osc.stop(t + 0.5);
-    });
-  } catch (e) {
-    /* audio not available — fail silently */
-  }
+    const ctx = audio();
+    [523.25, 659.25, 783.99].forEach((f, i) =>
+      tone(ctx, { freq: f, type: "sine", t0: i * 0.14, dur: 0.5, peak: 0.18 }));
+  } catch (e) { /* ignore */ }
 }
 
 function renderSoundToggle() {
@@ -1677,6 +1716,7 @@ function onboardAdvance() {
   } else {
     onboardStep++;
     renderOnboardStep();
+    playSfx("select");
   }
 }
 
@@ -1684,6 +1724,7 @@ function onboardGoBack() {
   if (onboardStep > 0) {
     onboardStep--;
     renderOnboardStep();
+    playSfx("tap");
   }
 }
 
@@ -1691,19 +1732,21 @@ function finishOnboarding() {
   els.onboarding.classList.add("hidden");
   state.onboarded = true;
   localStorage.setItem("bobaFocusOnboarded", "true");
+  playSfx("success");
+  haptic(10);
 }
 
 function wireEvents() {
   // ── Main timer controls ──────────────────────────────────────────────────
-  els.startPauseBtn.addEventListener("click", startPause);
-  els.resetBtn.addEventListener("click", resetSession);
+  els.startPauseBtn.addEventListener("click", () => { playSfx("tap"); startPause(); });
+  els.resetBtn.addEventListener("click", () => { playSfx("tap"); resetSession(); });
 
   // ── Mode / size picker ───────────────────────────────────────────────────
   document.querySelectorAll(".size-btn").forEach(btn => {
-    btn.addEventListener("click", () => setMode(btn.dataset.mode));
+    btn.addEventListener("click", () => { playSfx("select"); setMode(btn.dataset.mode); });
   });
-  els.customMinus.addEventListener("click", () => adjustCustomDuration(-CUSTOM_STEP));
-  els.customPlus.addEventListener("click",  () => adjustCustomDuration(CUSTOM_STEP));
+  els.customMinus.addEventListener("click", () => { playSfx("select"); adjustCustomDuration(-CUSTOM_STEP); });
+  els.customPlus.addEventListener("click",  () => { playSfx("select"); adjustCustomDuration(CUSTOM_STEP); });
 
   // ── Sound toggle (Settings) ──────────────────────────────────────────────
   els.soundToggle.addEventListener("click", () => {
@@ -1728,10 +1771,10 @@ function wireEvents() {
   });
 
   // ── Bottom bar sheets ────────────────────────────────────────────────────
-  els.shopBtn.addEventListener("click",       () => openSheet("shopSheet"));
-  els.customizeBtn.addEventListener("click",  () => openSheet("customizeSheet"));
-  els.settingsBtn.addEventListener("click",   () => openSheet("settingsSheet"));
-  els.mapBtn.addEventListener("click",        openMap);
+  els.shopBtn.addEventListener("click",       () => { playSfx("open"); openSheet("shopSheet"); });
+  els.customizeBtn.addEventListener("click",  () => { playSfx("open"); openSheet("customizeSheet"); });
+  els.settingsBtn.addEventListener("click",   () => { playSfx("open"); openSheet("settingsSheet"); });
+  els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
   els.shopClose.addEventListener("click",     closeSheets);
   els.customizeClose.addEventListener("click",closeSheets);
   els.settingsClose.addEventListener("click", closeSheets);
