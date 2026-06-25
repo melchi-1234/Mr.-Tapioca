@@ -290,6 +290,23 @@ function setMakerState(stateName) {
   img.src = MAKER_STATIC[stateName] || "assets/Mr. Tapioca.png";
 }
 
+// Play a one-shot reaction class on the maker (pop / celebrate) without
+// disturbing its looping idle/mixing animation.
+function pulseMaker(cls, ms) {
+  const img = els.focusMakerCharacter;
+  img.classList.remove(cls);
+  void img.offsetWidth;        // force reflow so the animation restarts
+  img.classList.add(cls);
+  setTimeout(() => img.classList.remove(cls), ms);
+}
+
+// Happy hop + a burst of treats over the scene
+function celebrate() {
+  els.shopScene.classList.add("celebrating");
+  pulseMaker("celebrate", 1200);
+  setTimeout(() => els.shopScene.classList.remove("celebrating"), 1500);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function loadState() {
@@ -693,6 +710,7 @@ function startPause() {
 
   if (state.running) {
     maybeRequestNotify();
+    pulseMaker("pop", 450);   // little hop when focus begins
     stopTicker();
     state.timerId = setInterval(tick, 250);
   } else {
@@ -777,6 +795,7 @@ function onRewardDialogClose() {
   state.elapsed = 0;
   saveState();   // the finished drink is banked; clear in-progress so it won't resume
   updateCup();
+  celebrate();   // happy hop + treat burst now that the modal is out of the way
   startBreakOffer();
 }
 
