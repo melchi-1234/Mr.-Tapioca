@@ -340,12 +340,23 @@
     <!-- Dialogs (outside main so they can use native dialog z-index) -->
     <dialog id="rewardDialog">
       <div class="reward-card">
-        <p class="eyebrow">Drink complete</p>
-        <h2 id="rewardTitle">You deserve to go get one in-person!</h2>
+        <div class="reward-confetti" aria-hidden="true">
+          <span>🎉</span><span>✨</span><span>🧋</span><span>💛</span><span>⭐</span><span>🎉</span><span>✨</span>
+        </div>
+        <div id="rewardDrink" class="reward-drink">
+          <img src="assets/Cup.png" alt="">
+          <span class="reward-drink-fill"></span>
+        </div>
+        <p class="eyebrow">Drink complete!</p>
+        <h2 id="rewardTitle">Nice work! 🎉</h2>
         <p id="rewardCopy">Your focus session filled a fresh boba drink.</p>
+        <div class="reward-earned">
+          <img src="assets/Tapioca Currency.png" class="reward-pearl" alt="">
+          <span id="rewardPearls">+0 pearls</span>
+        </div>
         <div id="partnerReward" class="partner"></div>
         <form method="dialog" class="dialog-actions">
-          <button id="saveRewardBtn" class="primary" value="save">Save Reward</button>
+          <button id="saveRewardBtn" class="primary" value="save">Save to Treat Jar</button>
           <button class="quiet" value="close">Close</button>
         </form>
       </div>

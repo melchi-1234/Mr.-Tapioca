@@ -178,6 +178,8 @@ const els = {
   rewardDialog:         document.querySelector("#rewardDialog"),
   rewardTitle:          document.querySelector("#rewardTitle"),
   rewardCopy:           document.querySelector("#rewardCopy"),
+  rewardPearls:         document.querySelector("#rewardPearls"),
+  rewardDrink:          document.querySelector("#rewardDrink"),
   partnerReward:        document.querySelector("#partnerReward"),
   premiumDialog:        document.querySelector("#premiumDialog"),
   premiumTitle:         document.querySelector("#premiumTitle"),
@@ -312,7 +314,7 @@ function celebrate() {
 // How far right the maker glides so he stands beside the cup. ~720ms matches the
 // CSS transition on .maker-wrap; tweak MIX_WALK_X if he stops short of the cup.
 const MIX_WALK_X = 158;
-const WALK_MS = 720;
+const WALK_MS = 1050;   // keep in sync with the .maker-wrap CSS transition
 let walkTimer = null;
 
 function setWalk(px) {
@@ -578,14 +580,21 @@ function buyItem(itemId) {
   equipItem(itemId);
 }
 
+// Re-apply the maker image for the current resting/working state. Needed after
+// a skin change because updateCup no longer drives maker state every tick.
+function refreshMaker() {
+  currentMakerState = "";
+  setMakerState(state.running ? "mixing" : "idle");
+}
+
 function equipItem(itemId) {
   const item = SHOP_ITEMS.find(i => i.id === itemId);
   if (!item) return;
   state[item.type] = item.value;
   if (item.type === "skin") {
-    currentMakerState = "";
     saveState();
     closeSheets();  // step back so the user can see Mr. Tapioca change
+    refreshMaker(); // swap his image to the new skin immediately
   } else if (item.type === "shopTheme") {
     saveState();
     closeSheets();  // step back so the user can see the new backdrop
@@ -598,7 +607,8 @@ function equipItem(itemId) {
 
 function unequipItem(type) {
   state[type] = DEFAULTS[type];
-  if (type === "skin") { currentMakerState = ""; saveState(); }
+  saveState();
+  if (type === "skin") refreshMaker();
   renderAll();
 }
 
@@ -798,6 +808,10 @@ function completeSession() {
     dateKey: localDateKey(now)
   };
 
+  // Pearls are floor(totalMinutes/15); show how many THIS drink added
+  const oldTotal = totalMinutes();
+  const pearlsEarned = Math.floor((oldTotal + minutes) / 15) - Math.floor(oldTotal / 15);
+
   // Bigger drinks (more study time) map to bigger real-world partner perks
   let partner;
   if (minutes >= 300)      partner = "🌟 20% off at a partner boba shop";
@@ -808,6 +822,8 @@ function completeSession() {
     id: crypto.randomUUID(),
     title: "You deserve to go get one in-person!",
     copy: `${size} earned from ${minuteLabel(minutes)}.`,
+    size,
+    pearls: pearlsEarned,
     partner
   };
 
@@ -821,9 +837,13 @@ function completeSession() {
 }
 
 function showReward(reward) {
-  els.rewardTitle.textContent = reward.title;
-  els.rewardCopy.textContent = reward.copy;
+  els.rewardTitle.textContent  = `${reward.size} complete! 🎉`;
+  els.rewardCopy.textContent   = reward.copy;
+  els.rewardPearls.textContent = `+${reward.pearls} pearl${reward.pearls !== 1 ? "s" : ""}`;
+  els.rewardDrink.style.setProperty("--drink-color", BASES[state.base].color);
   els.partnerReward.textContent = reward.partner;
+  // Highlight the perk as a real reward only when there is one
+  els.partnerReward.classList.toggle("has-perk", reward.partner.startsWith("🌟"));
 
   if (typeof els.rewardDialog.showModal === "function") {
     els.rewardDialog.showModal();
