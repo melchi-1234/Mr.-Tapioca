@@ -1322,6 +1322,52 @@ h3 {
 }
 .toggle.on .toggle-knob { transform: translateX(22px); }
 
+/* ── Weekly focus chart ─────────────────────────────────────────────────── */
+.week-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  height: 110px;
+  padding: 10px 8px 0;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.7);
+}
+.week-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  gap: 4px;
+}
+.week-bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.week-bar {
+  width: 62%;
+  min-height: 4px;
+  border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(180deg, #f0bb4f, #ef8aa0);
+  transition: height 400ms ease;
+}
+.week-bar.empty { background: rgba(60,32,24,0.12); }
+.week-bar.today {
+  background: linear-gradient(180deg, #75c8bd, #158f92);
+  box-shadow: 0 0 0 2px rgba(21,143,146,0.25);
+}
+.week-day {
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: var(--bark-mid);
+}
+.week-col.is-today .week-day { color: var(--teal); }
+
 /* ── Achievements / badges ──────────────────────────────────────────────── */
 .badge-grid {
   display: grid;

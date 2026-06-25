@@ -262,6 +262,8 @@ const els = {
   statBest:             document.querySelector("#statBest"),
   badgeGrid:            document.querySelector("#badgeGrid"),
   badgeCount:           document.querySelector("#badgeCount"),
+  weekChart:            document.querySelector("#weekChart"),
+  weekTotal:            document.querySelector("#weekTotal"),
   toast:                document.querySelector("#toast")
 };
 
@@ -551,6 +553,37 @@ function renderStats() {
   els.statBest.textContent      = String(s.longest);
 }
 
+// ── Weekly focus chart (last 7 days of focus minutes) ─────────────────────────
+const WEEKDAY = ["S", "M", "T", "W", "T", "F", "S"];
+
+function renderWeekChart() {
+  const todayOrd = keyToOrdinal(localDateKey(new Date()));
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const ord = todayOrd - i;
+    const mins = state.collection
+      .filter(d => keyToOrdinal(d.dateKey) === ord)
+      .reduce((sum, d) => sum + d.minutes, 0);
+    days.push({ ord, mins });
+  }
+  const max = Math.max(60, ...days.map(d => d.mins));   // floor so tiny days aren't huge
+
+  els.weekChart.innerHTML = days.map(d => {
+    const h = Math.round((d.mins / max) * 100);
+    const isToday = d.ord === todayOrd;
+    const cls = `week-bar ${d.mins === 0 ? "empty" : ""} ${isToday ? "today" : ""}`.trim();
+    const wd = WEEKDAY[new Date(d.ord * 86400000).getUTCDay()];
+    return `
+      <div class="week-col ${isToday ? "is-today" : ""}">
+        <div class="week-bar-wrap"><div class="${cls}" style="height:${h}%"></div></div>
+        <span class="week-day">${wd}</span>
+      </div>`;
+  }).join("");
+
+  const total = days.reduce((sum, d) => sum + d.mins, 0);
+  els.weekTotal.textContent = formatFocusTotal(total);
+}
+
 // ── Achievements / badges ────────────────────────────────────────────────────
 const BADGES = [
   { id: "first-sip",   icon: "🧋", name: "First Sip",      desc: "Finish a drink",        test: () => state.collection.length >= 1 },
@@ -793,6 +826,7 @@ function renderAll() {
   updateCup();
   updateStats();
   renderStats();
+  renderWeekChart();
   renderBadges();
   renderShelf();
   renderRewards();
