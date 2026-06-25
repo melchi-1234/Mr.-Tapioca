@@ -115,6 +115,13 @@
         </div>
       </header>
 
+      <!-- ── Daily goal progress (always visible) ─────────────────── -->
+      <div id="dailyGoal" class="daily-goal">
+        <span class="dg-icon">🎯</span>
+        <div class="dg-track"><span id="dgFill" class="dg-fill"></span></div>
+        <span id="dgLabel" class="dg-label">0/60</span>
+      </div>
+
       <!-- ── Focus controls ───────────────────────────────────────── -->
       <div id="focusControls" class="focus-controls">
         <div class="size-picker" role="group" aria-label="Session size">
@@ -301,6 +308,15 @@
               </div>
             </div>
             <p class="pearl-info-foot">Big drinks fill across sessions — leave and come back anytime. ✨</p>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">🎯 Daily goal</span>
+            <div class="goal-stepper">
+              <button id="goalMinus" class="adj-btn small-adj" aria-label="Lower daily goal">−</button>
+              <span id="goalDisplay" class="goal-display">60 min</span>
+              <button id="goalPlus" class="adj-btn small-adj" aria-label="Raise daily goal">+</button>
+            </div>
           </div>
 
           <div class="settings-row">

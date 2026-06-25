@@ -691,6 +691,69 @@ body {
 }
 .pearl-chip.small .pearl-icon { width: 20px; height: 20px; }
 
+/* ── Daily goal progress pill (under the top HUD) ───────────────────────── */
+.daily-goal {
+  position: absolute;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px;
+  width: max-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--cream-90);
+  border: 2px solid var(--line);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 10px rgba(60,32,24,0.16);
+}
+.dg-icon { font-size: 0.9rem; line-height: 1; }
+.dg-track {
+  width: 110px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(60,32,24,0.12);
+  overflow: hidden;
+}
+.dg-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f0bb4f, #ef8aa0);
+  transition: width 500ms ease;
+}
+.dg-label {
+  font-size: 0.72rem;
+  font-weight: 950;
+  color: var(--bark);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.daily-goal.met {
+  border-color: var(--teal);
+  background: var(--mint);
+}
+.daily-goal.met .dg-fill { background: linear-gradient(90deg, #75c8bd, #158f92); }
+
+.goal-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.goal-display {
+  min-width: 56px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 950;
+  color: var(--bark);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Focus controls overlay ─────────────────────────────────────────────── */
 .focus-controls {
   position: absolute;

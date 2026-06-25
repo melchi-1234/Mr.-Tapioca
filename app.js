@@ -264,6 +264,12 @@ const els = {
   badgeCount:           document.querySelector("#badgeCount"),
   weekChart:            document.querySelector("#weekChart"),
   weekTotal:            document.querySelector("#weekTotal"),
+  dailyGoal:            document.querySelector("#dailyGoal"),
+  dgFill:               document.querySelector("#dgFill"),
+  dgLabel:              document.querySelector("#dgLabel"),
+  goalMinus:            document.querySelector("#goalMinus"),
+  goalPlus:             document.querySelector("#goalPlus"),
+  goalDisplay:          document.querySelector("#goalDisplay"),
   toast:                document.querySelector("#toast")
 };
 
@@ -383,6 +389,7 @@ function loadState() {
   state.elapsed     = JSON.parse(localStorage.getItem("bobaFocusElapsed") || "0");
   state.onboarded   = JSON.parse(localStorage.getItem("bobaFocusOnboarded") || "false");
   state.badges      = JSON.parse(localStorage.getItem("bobaFocusBadges") || "[]");
+  state.dailyGoal   = JSON.parse(localStorage.getItem("bobaFocusDailyGoal") || "60");
 }
 
 function saveState() {
@@ -398,6 +405,7 @@ function saveState() {
   localStorage.setItem("bobaFocusMode",         state.mode);
   localStorage.setItem("bobaFocusElapsed",      JSON.stringify(state.elapsed));
   localStorage.setItem("bobaFocusBadges",       JSON.stringify(state.badges || []));
+  localStorage.setItem("bobaFocusDailyGoal",    JSON.stringify(state.dailyGoal));
 }
 
 function formatTime(seconds) {
@@ -551,6 +559,35 @@ function renderStats() {
   els.statToday.textContent     = String(s.todayCount);
   els.statWeek.textContent      = String(s.weekCount);
   els.statBest.textContent      = String(s.longest);
+}
+
+// ── Daily focus goal ──────────────────────────────────────────────────────────
+const GOAL_MIN = 15;
+const GOAL_MAX = 240;
+const GOAL_STEP = 15;
+
+function todayMinutes() {
+  const todayOrd = keyToOrdinal(localDateKey(new Date()));
+  return state.collection
+    .filter(d => keyToOrdinal(d.dateKey) === todayOrd)
+    .reduce((sum, d) => sum + d.minutes, 0);
+}
+
+function renderDailyGoal() {
+  const today = todayMinutes();
+  const goal = state.dailyGoal;
+  const pct = Math.min(100, Math.round((today / goal) * 100));
+  const met = today >= goal;
+  els.dgFill.style.width = `${pct}%`;
+  els.dgLabel.textContent = met ? `${today}/${goal} ✓` : `${today}/${goal}`;
+  els.dailyGoal.classList.toggle("met", met);
+  if (els.goalDisplay) els.goalDisplay.textContent = `${goal} min`;
+}
+
+function adjustDailyGoal(delta) {
+  state.dailyGoal = Math.min(GOAL_MAX, Math.max(GOAL_MIN, state.dailyGoal + delta));
+  saveState();
+  renderDailyGoal();
 }
 
 // ── Weekly focus chart (last 7 days of focus minutes) ─────────────────────────
@@ -826,6 +863,7 @@ function renderAll() {
   updateCup();
   updateStats();
   renderStats();
+  renderDailyGoal();
   renderWeekChart();
   renderBadges();
   renderShelf();
@@ -937,6 +975,9 @@ function completeSession() {
   const oldTotal = totalMinutes();
   const pearlsEarned = Math.floor((oldTotal + minutes) / 15) - Math.floor(oldTotal / 15);
 
+  // Did this drink push today across the daily goal?
+  const goalWasUnmet = todayMinutes() < state.dailyGoal;
+
   // Bigger drinks (more study time) map to bigger real-world partner perks
   let partner;
   if (minutes >= 300)      partner = "🌟 20% off at a partner boba shop";
@@ -961,6 +1002,9 @@ function completeSession() {
   notifyComplete(size);
   showReward(reward);
   checkBadges(true);      // toast any milestone reached by finishing this drink
+  if (goalWasUnmet && todayMinutes() >= state.dailyGoal) {
+    setTimeout(() => { showToast("🎯 Daily goal reached — nice!"); playSfx("success"); }, 900);
+  }
 }
 
 function showReward(reward) {
@@ -1849,6 +1893,10 @@ function wireEvents() {
   });
   els.customMinus.addEventListener("click", () => { playSfx("select"); adjustCustomDuration(-CUSTOM_STEP); });
   els.customPlus.addEventListener("click",  () => { playSfx("select"); adjustCustomDuration(CUSTOM_STEP); });
+
+  // ── Daily goal stepper (Settings) ─────────────────────────────────────────
+  els.goalMinus.addEventListener("click", () => { playSfx("select"); adjustDailyGoal(-GOAL_STEP); });
+  els.goalPlus.addEventListener("click",  () => { playSfx("select"); adjustDailyGoal(GOAL_STEP); });
 
   // ── Sound toggle (Settings) ──────────────────────────────────────────────
   els.soundToggle.addEventListener("click", () => {
