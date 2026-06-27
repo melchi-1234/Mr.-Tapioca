@@ -390,6 +390,7 @@ function loadState() {
   state.onboarded   = JSON.parse(localStorage.getItem("bobaFocusOnboarded") || "false");
   state.badges      = JSON.parse(localStorage.getItem("bobaFocusBadges") || "[]");
   state.dailyGoal   = JSON.parse(localStorage.getItem("bobaFocusDailyGoal") || "60");
+  state.ambience    = localStorage.getItem("bobaFocusAmbience") || "off";
 }
 
 function saveState() {
@@ -406,6 +407,7 @@ function saveState() {
   localStorage.setItem("bobaFocusElapsed",      JSON.stringify(state.elapsed));
   localStorage.setItem("bobaFocusBadges",       JSON.stringify(state.badges || []));
   localStorage.setItem("bobaFocusDailyGoal",    JSON.stringify(state.dailyGoal));
+  localStorage.setItem("bobaFocusAmbience",     state.ambience);
 }
 
 function formatTime(seconds) {
@@ -919,10 +921,12 @@ function startPause() {
   if (state.running) {
     maybeRequestNotify();
     walkToCupAndMix();        // glide over to the cup, then mix
+    startAmbience();          // soundscape on while focusing
     stopTicker();
     state.timerId = setInterval(tick, 250);
   } else {
     stopTicker();
+    stopAmbience();
     walkToStation("idle");    // walk back to his spot
     saveState();              // bank progress whenever the user pauses
   }
@@ -931,6 +935,7 @@ function startPause() {
 function resetSession() {
   closePlinko();
   stopGame();
+  stopAmbience();
   clearTimeout(state.breakMakerCycleId);
   state.breakMakerCycleId = null;
   clearInterval(state.breakTimerId);
@@ -952,6 +957,7 @@ function resetSession() {
 
 function completeSession() {
   stopTicker();
+  stopAmbience();
   state.running = false;
   state.elapsed = modeDuration();
   state.lastTick = null;
@@ -1335,6 +1341,7 @@ function endPearlGame() {
 // with a startled reaction, so the user can resume right where they left off.
 function pauseAndBank() {
   stopTicker();
+  stopAmbience();
   state.running = false;
   state.lastTick = null;
   saveState();
@@ -1632,6 +1639,112 @@ function sessionChime() {
   } catch (e) { /* ignore */ }
 }
 
+// ── Focus ambience: procedural soundscapes (rain / brown noise / ocean) ───────
+let amb = null;          // active ambience graph, or null
+let ambPreviewTimer = null;
+
+function makeNoiseBuffer(ctx, brown) {
+  const len = ctx.sampleRate * 2;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  if (brown) {
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      data[i] = last * 3.5;
+    }
+  } else {
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  }
+  return buf;
+}
+
+function startAmbience(type = state.ambience) {
+  if (!type || type === "off") return;
+  if (amb) stopAmbience(true);
+  try {
+    const ctx = audio();
+    const src = ctx.createBufferSource();
+    src.buffer = makeNoiseBuffer(ctx, type === "brown" || type === "ocean");
+    src.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    const ambGain = ctx.createGain();   // tone level (LFO-modulated for ocean)
+    const master = ctx.createGain();    // fade in/out
+    let lfo = null;
+
+    if (type === "rain") {
+      filter.type = "bandpass"; filter.frequency.value = 1400; filter.Q.value = 0.6;
+      ambGain.gain.value = 0.12;
+    } else if (type === "brown") {
+      filter.type = "lowpass"; filter.frequency.value = 500;
+      ambGain.gain.value = 0.18;
+    } else { // ocean — slow swelling waves
+      filter.type = "lowpass"; filter.frequency.value = 650;
+      ambGain.gain.value = 0.12;
+      lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 0.12;
+      lfoGain.gain.value = 0.07;
+      lfo.connect(lfoGain).connect(ambGain.gain);
+      lfo.start();
+    }
+
+    const now = ctx.currentTime;
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.linearRampToValueAtTime(1, now + 1.2);
+
+    src.connect(filter).connect(ambGain).connect(master).connect(ctx.destination);
+    src.start();
+    amb = { src, master, lfo };
+  } catch (e) { /* audio unavailable — ignore */ }
+}
+
+function stopAmbience(immediate) {
+  if (!amb) return;
+  const { src, master, lfo } = amb;
+  amb = null;
+  try {
+    const ctx = audio();
+    const now = ctx.currentTime;
+    if (immediate) {
+      src.stop(); if (lfo) lfo.stop();
+    } else {
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(master.gain.value, now);
+      master.gain.linearRampToValueAtTime(0.0001, now + 0.5);
+      src.stop(now + 0.55);
+      if (lfo) lfo.stop(now + 0.55);
+    }
+  } catch (e) {
+    try { src.stop(); } catch (_) {}
+  }
+}
+
+function renderAmbiencePicker() {
+  document.querySelectorAll(".amb-chip").forEach(c =>
+    c.classList.toggle("active", c.dataset.amb === state.ambience));
+}
+
+function setAmbience(type) {
+  state.ambience = type;
+  saveState();
+  renderAmbiencePicker();
+  clearTimeout(ambPreviewTimer);
+  if (state.running && state.phase === "focus") {
+    // switch live during a session
+    startAmbience(type);
+  } else {
+    // preview the choice for a few seconds so the user can hear it
+    stopAmbience(true);
+    if (type !== "off") {
+      startAmbience(type);
+      ambPreviewTimer = setTimeout(() => { if (!state.running) stopAmbience(); }, 4000);
+    }
+  }
+}
+
 function renderSoundToggle() {
   els.soundToggle.classList.toggle("on", state.soundOn);
   els.soundToggle.setAttribute("aria-checked", String(state.soundOn));
@@ -1898,6 +2011,11 @@ function wireEvents() {
   els.goalMinus.addEventListener("click", () => { playSfx("select"); adjustDailyGoal(-GOAL_STEP); });
   els.goalPlus.addEventListener("click",  () => { playSfx("select"); adjustDailyGoal(GOAL_STEP); });
 
+  // ── Focus ambience picker (Settings) ──────────────────────────────────────
+  document.querySelectorAll(".amb-chip").forEach(chip => {
+    chip.addEventListener("click", () => { playSfx("tap"); setAmbience(chip.dataset.amb); });
+  });
+
   // ── Sound toggle (Settings) ──────────────────────────────────────────────
   els.soundToggle.addEventListener("click", () => {
     state.soundOn = !state.soundOn;
@@ -2023,6 +2141,7 @@ if (els.customStepper) els.customStepper.classList.toggle("hidden", state.mode !
 updateCustomDisplay();
 renderSoundToggle();
 renderDevToggle();
+renderAmbiencePicker();
 
 renderAll();
 setMakerState("idle");
