@@ -936,13 +936,12 @@ body {
   color: var(--bark-mid);
   transition: background 180ms, color 180ms, box-shadow 180ms;
 }
-.size-btn small { font-size: 0.56rem; font-weight: 700; opacity: 0.65; }
+.size-btn small { font-size: 0.56rem; font-weight: 700; opacity: 0.85; }
 .size-btn.active {
   background: linear-gradient(180deg, #f6ddc4, #efcead);
   color: var(--bark);
   box-shadow: inset 0 0 0 1.5px rgba(60,32,24,0.16), 0 2px 6px rgba(60,32,24,0.12);
 }
-.size-btn.active small { opacity: 0.6; }
 
 /* Custom duration stepper (shown only when Custom is selected) */
 .custom-stepper {
@@ -1092,7 +1091,13 @@ body {
   color: var(--cream);
   font-size: 1rem;
   font-weight: 950;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.35);
+  align-self: center;
+  /* Plate behind the title so it stays legible over the light mascot/scene. */
+  background: rgba(60,32,24,0.55);
+  padding: 5px 16px;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .break-adjust-row {
@@ -2572,6 +2577,28 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 @supports (padding-top: env(safe-area-inset-top)) {
   .top-hud { padding-top: max(52px, env(safe-area-inset-top) + 12px); }
   .bottom-bar { padding-bottom: max(28px, env(safe-area-inset-bottom) + 12px); }
+  /* Keep game HUD/controls clear of the notch + home indicator. */
+  .game-hud { padding-top: max(10px, calc(env(safe-area-inset-top) + 6px)); }
+  .game-cup { bottom: max(8px, calc(env(safe-area-inset-bottom) + 4px)); }
+  .plinko-controls { padding-bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px)); }
+  .pong-hint { padding-bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px)); }
+  .sheet-body { padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 24px)); }
+}
+
+/* Short phones (e.g. iPhone SE, 375x667): the full-size scene + control stack
+   don't both fit, so the mascot poked into the daily-goal pill and the counter
+   crowded the size-picker. Shrink the scene + controls together so everything
+   fits with breathing room. (Taller phones keep the full-size layout.) */
+@media (max-height: 720px) {
+  :root { --floor-y: 290px; }
+  .maker-wrap { width: 176px; height: 188px; bottom: calc(var(--floor-y) + 12px); }
+  .cup-stage { width: 112px; height: 150px; top: -100px; }
+  .work-counter { height: 72px; }
+  .daily-goal { top: 84px; }
+  .focus-controls { bottom: 90px; gap: 7px; }
+  .timer-card { padding: 10px 18px 8px; }
+  .timer-time { font-size: 2.4rem; }
+  .start-btn { padding: 13px 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
