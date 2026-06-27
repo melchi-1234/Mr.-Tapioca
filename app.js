@@ -1977,7 +1977,8 @@ function openPlinko() {
   if (plinko.dropping) return;
   if (gameDoneToday("plinko")) return;
   plinko.playsLeft = PLINKO_MAX_PLAYS;   // fresh session for today
-  markGamePlayed("plinko");
+  // NOTE: the daily play is marked on the FIRST drop (see dropPearl), not here,
+  // so opening + quitting without dropping doesn't burn the day.
   if (plinko.animId) { cancelAnimationFrame(plinko.animId); plinko.animId = null; }
   els.plinkoResult.style.display = "none";
   els.plinkoDropBtn.disabled = plinko.playsLeft <= 0;
@@ -2053,6 +2054,7 @@ function resolvePlinko(geo, x) {
 function dropPearl() {
   if (plinko.dropping || plinko.playsLeft <= 0) return;
   plinko.dropping = true;
+  if (plinko.playsLeft === PLINKO_MAX_PLAYS) markGamePlayed("plinko");   // burn the day on first real drop
   plinko.playsLeft--;
   els.plinkoDropBtn.disabled = true;
   els.plinkoResult.style.display = "none";
@@ -2835,7 +2837,7 @@ function openPong() {
   if (gameDoneToday("pong")) return;
   pong.throwsLeft = PONG_MAX_PLAYS;    // fresh session for today
   pong.score = 0;
-  markGamePlayed("pong");
+  // Daily play is marked on the FIRST throw (see pongNextThrow), not on open.
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   pong.opening = true;
   pong.cupDir = 1;
@@ -2880,6 +2882,7 @@ function pongLaunch() {
 }
 
 function pongNextThrow(made) {
+  if (pong.throwsLeft === PONG_MAX_PLAYS) markGamePlayed("pong");   // burn the day on first real throw
   pong.throwsLeft = Math.max(0, pong.throwsLeft - 1);
   updatePongHUD();
   updatePongBtnState();
