@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mr. Tapioca — Art Prompt Pack</title>
+<style>
+  :root{--bg:#fff7f0;--card:#fffdfa;--ink:#3c2018;--mid:#7a5a4c;--line:#eaddcf;--teal:#158f92;--mint:#dff3ef;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,Inter,system-ui,sans-serif;}
+  .wrap{max-width:820px;margin:0 auto;padding:32px 20px 80px;}
+  h1{font-size:1.9rem;line-height:1.2;margin:.4em 0 .3em;}
+  h2{font-size:1.35rem;margin:1.6em 0 .4em;padding-top:.6em;border-top:2px solid var(--line);}
+  h3{font-size:1.05rem;margin:1.4em 0 .3em;color:var(--teal);}
+  p{margin:.5em 0;} strong{color:var(--ink);}
+  code{background:var(--mint);padding:1px 6px;border-radius:6px;font:0.86em ui-monospace,Menlo,monospace;}
+  blockquote{margin:.6em 0;padding:.4em 14px;border-left:4px solid var(--teal);background:#fff;border-radius:0 10px 10px 0;color:var(--mid);}
+  ul{padding-left:22px;} li{margin:.25em 0;} input[type=checkbox]{margin-right:6px;}
+  hr{border:none;border-top:2px dashed var(--line);margin:2em 0;}
+  .codewrap{position:relative;margin:.5em 0 1.2em;}
+  pre{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:14px 16px;overflow-x:auto;
+      white-space:pre-wrap;word-break:break-word;font:0.84rem/1.5 ui-monospace,Menlo,monospace;color:#46352c;}
+  .copy{position:absolute;top:8px;right:8px;border:2px solid var(--teal);background:var(--mint);color:var(--teal);
+        font-weight:800;font-size:.72rem;border-radius:999px;padding:5px 12px;cursor:pointer;}
+  .copy.done{background:var(--teal);color:#fff;}
+  .top{background:var(--mint);border:2px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:18px;font-size:.92rem;color:var(--mid);}
+  table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.9rem;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--mint);color:var(--ink);font-weight:800;}
+  td:first-child{white-space:nowrap;color:var(--teal);font-weight:700;}
+</style></head>
+<body><div class="wrap">
+<div class="top">🧋 Mr. Tapioca art prompt pack — click <strong>Copy</strong> on any block, paste into Leonardo AI. Generated automatically; edit <code>ART_PROMPTS.md</code> and re-run <code>node build-art-prompts-html.js</code> to refresh.</div>
+<h1>Mr. Tapioca → real iPhone app with the Focus-Friend-style app blocker</h1>
+<p>This is the step-by-step to turn the web app into a real App-Store app whose</p>
+<p>focus mode greys out other apps and shows a "Restricted" screen — exactly like</p>
+<p>Focus Friend. That effect is Apple's <strong>Screen Time / Family Controls</strong> API; the</p>
+<p>starter code for it is already in <code>native-ios/</code>.</p>
+<p><strong>How the work splits:</strong></p>
+<ul>
+<li>🟢 <strong>You can do now (even from your phone):</strong> Steps 1–2. These start Apple's</li>
+</ul>
+<p>  slow approval clock, so do them first.</p>
+<ul>
+<li>🔵 <strong>We do together at your Mac (Claude writes the code, you run Xcode):</strong> Steps 3–7.</li>
+</ul>
+<hr>
+<h2>🟢 Step 1 — Enroll in the Apple Developer Program ($99/yr)</h2>
+<p>Required to test on a real iPhone and to publish. From your phone or Mac:</p>
+<p><strong>developer.apple.com → Account → Enroll.</strong> It can take a day or two to activate.</p>
+<h2>🟢 Step 2 — Request the "Family Controls" entitlement (DO THIS EARLY)</h2>
+<p>App blocking needs a special Apple permission that a human at Apple must approve.</p>
+<p>Approval can take <strong>a few days to a few weeks</strong>, so request it the moment your</p>
+<p>account is active — don't wait until the app is built.</p>
+<p>Go to: <strong>developer.apple.com/contact/request/family-controls-distribution</strong></p>
+<p>Paste something like this (edit the brackets):</p>
+<blockquote>
+<p><strong>App name:</strong> Mr. Tapioca</p>
+<p><strong>What it does:</strong> Mr. Tapioca is a personal focus/study timer. Users grow a</p>
+<p>virtual boba drink by studying; during a focus session the app uses the Screen</p>
+<p>Time API to shield distracting apps the *user themselves* selects, helping them</p>
+<p>stay off social media until their session ends.</p>
+<p><strong>Why we need Family Controls (Distribution):</strong> to let users pick their own</p>
+<p>distracting apps via the FamilyActivityPicker and apply a ManagedSettings</p>
+<p>shield during focus sessions. All Screen Time data stays on-device; we never</p>
+<p>transmit or store the user's app selections off the device.</p>
+<p><strong>Audience:</strong> individual users practicing self-control (not MDM / not</p>
+<p>parental control for others).</p>
+</blockquote>
+<blockquote>
+<p>Tip: you submit one request, but later each piece (main app + the 3 extensions)</p>
+<p>needs the entitlement too — same approval covers your team; you just add the</p>
+<p>capability to each target in Xcode (Step 5).</p>
+</blockquote>
+<hr>
+<h2>🔵 Step 3 — Install the toolchain (one time, on your Mac)</h2>
+<p>In Terminal, inside this project folder:</p>
+<div class="codewrap"><button class="copy" data-target="c0">Copy</button><pre id="c0"><code>npm install
+npx cap add ios</code></pre></div>
+<p>This downloads Capacitor and generates the native <code>ios/</code> Xcode project that wraps</p>
+<p>your web app. (Needs Node, Xcode, and CocoaPods installed — we'll sort those out.)</p>
+<h2>🔵 Step 4 — Bundle the web app into the shell</h2>
+<div class="codewrap"><button class="copy" data-target="c1">Copy</button><pre id="c1"><code>npm run ios:open</code></pre></div>
+<p>That copies your web files into <code>www/</code>, syncs them into the iOS app, and opens</p>
+<p>Xcode. From now on, any time I change the web app you just run this again — your</p>
+<p>fast web iteration is preserved.</p>
+<h2>🔵 Step 5 — Add the native blocker (the part that makes the magic)</h2>
+<p>In Xcode we will:</p>
+<p>1. Add the <strong>Family Controls</strong> capability to the app target (Signing &amp;</p>
+<p>   Capabilities → + → Family Controls), and an <strong>App Group</strong></p>
+<p>   (<code>group.com.melchior.mrtapioca</code>).</p>
+<p>2. Add <code>native-ios/FocusShieldPlugin.swift</code>, <code>FocusShieldPlugin.m</code>, and</p>
+<p>   <code>SharedSelection.swift</code> to the <strong>app target</strong>.</p>
+<p>3. Create three <strong>extension targets</strong> (File → New → Target):</p>
+<p>   - <strong>Shield Configuration</strong> → use <code>ShieldConfigurationExtension.swift</code> (the boba "Restricted" screen)</p>
+<p>   - <strong>Shield Action</strong> → use <code>ShieldActionExtension.swift</code> (the buttons)</p>
+<p>   - <strong>Device Activity Monitor</strong> → use <code>DeviceActivityMonitorExtension.swift</code></p>
+<p>   Add <code>SharedSelection.swift</code> + the App Group + Family Controls capability to <strong>each</strong> extension.</p>
+<p>I'll walk you through every click — this is the fiddly part, but it's one-time.</p>
+<h2>🔵 Step 6 — Test on your real iPhone</h2>
+<p>Plug in your iPhone, pick it in Xcode, press ▶. (Screen Time **does not work in</p>
+<p>the simulator<strong> — it must be a real device.) In the app: Settings → </strong>Choose apps</p>
+<p>to block** → pick a couple → start a focus session → try to open one. It should</p>
+<p>grey out and show your boba "Restricted" screen. 🎉</p>
+<h2>🔵 Step 7 — TestFlight → App Store</h2>
+<p>Once the entitlement (Step 2) is approved, archive in Xcode and upload to</p>
+<p>App Store Connect → TestFlight (try it on your own phone first) → submit for review.</p>
+<hr>
+<h2>What it will and won't do (so there are no surprises)</h2>
+<ul>
+<li>✅ Greys out + shows a custom "Restricted" screen for apps/categories the user picks.</li>
+<li>✅ Turns on instantly when a focus session starts, off when it ends/pauses/breaks.</li>
+<li>✅ You can paywall the app picker later (like Focus Friend) — it's just a UI gate.</li>
+<li>❌ Can't lock the whole phone or force-quit apps (Apple allows no app to).</li>
+<li>❌ Can't see *which* apps the user chose (Apple hides this for privacy) — so the</li>
+</ul>
+<p>  UI can't say "you blocked TikTok," only "X apps blocked."</p>
+<ul>
+<li>❌ A determined user can turn Screen Time permission off in iOS Settings.</li>
+</ul>
+<p>This is the exact same capability and ceiling every focus app (Focus Friend, Opal,</p>
+<p>one sec) works within. Our edge is the boba reward loop on top.</p>
+<hr>
+<h2>How the web app already talks to it</h2>
+<p><code>app.js</code> calls <code>window.Capacitor.Plugins.FocusShield</code> via the <code>FocusBlocker</code></p>
+<p>helper: <code>startBlocking()</code> on focus start, <code>stopBlocking()</code> on pause/break/finish,</p>
+<p>and <code>pickApps()</code> from the Settings "Choose apps to block" button. On the plain</p>
+<p>web build the plugin is absent, so those calls safely do nothing — the browser</p>
+<p>version keeps working, and real blocking only kicks in inside the iPhone app.</p>
+
+</div>
+<script>
+document.querySelectorAll(".copy").forEach(b=>b.addEventListener("click",async()=>{
+  const t=document.getElementById(b.dataset.target);
+  try{await navigator.clipboard.writeText(t.innerText);}catch(e){
+    const r=document.createRange();r.selectNode(t);getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand("copy");getSelection().removeAllRanges();
+  }
+  const o=b.textContent;b.textContent="Copied!";b.classList.add("done");
+  setTimeout(()=>{b.textContent=o;b.classList.remove("done");},1200);
+}));
+</script>
+</body></html>

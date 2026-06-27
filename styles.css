@@ -145,6 +145,13 @@ body {
   background-position: top, bottom;
 }
 
+/* Cozy (default) theme: the illustrated boba-shop backdrop (shelf, window,
+   lights) instead of the flat gradient. Character/counter/cup sit on top. */
+.scene[data-theme="cozy"] {
+  background: #f3e4cf url('assets/Shop Background.png') top center / cover no-repeat;
+}
+.scene[data-theme="cozy"] .cafe-glow { display: none; }   /* real art already has depth */
+
 .scene[data-theme="night"] {
   background:
     radial-gradient(circle at 28% 18%, rgba(255,227,129,0.75) 0 8px, transparent 9px),

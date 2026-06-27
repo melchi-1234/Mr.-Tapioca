@@ -336,7 +336,9 @@ const SKIN_IMAGES = {
 // which made the eye look like it disappeared.)
 const MAKER_STATIC = {
   idle:     "assets/Mr. Tapioca.png",
-  mixing:   "assets/Mixing.png",
+  // Mixing reuses the normal portrait + the CSS lean/stir motion — the old
+  // Mixing.png (holding a second boba drink) looked silly.
+  mixing:   "assets/Mr. Tapioca.png",
   sleeping: "assets/Sleeping.png",
   shocked:  "assets/Startled.png",
   drinking: "assets/Surprised-Happy.png"
@@ -556,7 +558,7 @@ function currentDrinkName() {
 // The colour at the very top of each scene (the "sky"), so the phone status-bar
 // area can be tinted to match — no white gap above the app.
 const THEME_SKY = {
-  cozy:   "#d8ede7",
+  cozy:   "#f3e4cf",
   night:  "#36476b",
   sakura: "#ffdfe8",
   autumn: "#e8c490",

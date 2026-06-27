@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mr. Tapioca — Art Prompt Pack</title>
+<style>
+  :root{--bg:#fff7f0;--card:#fffdfa;--ink:#3c2018;--mid:#7a5a4c;--line:#eaddcf;--teal:#158f92;--mint:#dff3ef;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,Inter,system-ui,sans-serif;}
+  .wrap{max-width:820px;margin:0 auto;padding:32px 20px 80px;}
+  h1{font-size:1.9rem;line-height:1.2;margin:.4em 0 .3em;}
+  h2{font-size:1.35rem;margin:1.6em 0 .4em;padding-top:.6em;border-top:2px solid var(--line);}
+  h3{font-size:1.05rem;margin:1.4em 0 .3em;color:var(--teal);}
+  p{margin:.5em 0;} strong{color:var(--ink);}
+  code{background:var(--mint);padding:1px 6px;border-radius:6px;font:0.86em ui-monospace,Menlo,monospace;}
+  blockquote{margin:.6em 0;padding:.4em 14px;border-left:4px solid var(--teal);background:#fff;border-radius:0 10px 10px 0;color:var(--mid);}
+  ul{padding-left:22px;} li{margin:.25em 0;} input[type=checkbox]{margin-right:6px;}
+  hr{border:none;border-top:2px dashed var(--line);margin:2em 0;}
+  .codewrap{position:relative;margin:.5em 0 1.2em;}
+  pre{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:14px 16px;overflow-x:auto;
+      white-space:pre-wrap;word-break:break-word;font:0.84rem/1.5 ui-monospace,Menlo,monospace;color:#46352c;}
+  .copy{position:absolute;top:8px;right:8px;border:2px solid var(--teal);background:var(--mint);color:var(--teal);
+        font-weight:800;font-size:.72rem;border-radius:999px;padding:5px 12px;cursor:pointer;}
+  .copy.done{background:var(--teal);color:#fff;}
+  .top{background:var(--mint);border:2px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:18px;font-size:.92rem;color:var(--mid);}
+  table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.9rem;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--mint);color:var(--ink);font-weight:800;}
+  td:first-child{white-space:nowrap;color:var(--teal);font-weight:700;}
+</style></head>
+<body><div class="wrap">
+<div class="top">🧋 Mr. Tapioca art prompt pack — click <strong>Copy</strong> on any block, paste into Leonardo AI. Generated automatically; edit <code>ART_PROMPTS.md</code> and re-run <code>node build-art-prompts-html.js</code> to refresh.</div>
+<p>I'll write this memo directly. The research is comprehensive and verified, so I'm synthesizing it into the advisory format requested.</p>
+<h1>Mr. Tapioca — iOS App-Blocking: Architecture Memo</h1>
+<p>*For: Melchior (founder) · Scope: can the blocker be built, on Capacitor or native, and how to sequence it*</p>
+<hr>
+<h2>TL;DR</h2>
+<p>Yes — the core app-blocking feature is buildable on iOS, and indie focus apps (Opal, one sec, Jomo, ScreenZen) ship exactly this. But the blocker is <strong>irreducibly native Swift</strong>, it relies on a <strong>manually-approved Apple entitlement</strong>, and it can only be a <strong>"soft" deterrent</strong>, never a hard phone lock. The catch for your stack: Capacitor *can* host it, but the blocker itself gets none of the "fast web iteration" benefit — that part is native engineering either way.</p>
+<hr>
+<h2>1. Can it be built, and what will it actually do?</h2>
+<p><strong>Yes, on iOS 16+.</strong> Apple gives you exactly one sanctioned toolkit — the Screen Time API, which is three frameworks working together ([Apple docs](https://developer.apple.com/documentation/screentimeapidocumentation)):</p>
+<ul>
+<li><strong>FamilyControls</strong> — asks the user for permission and shows the picker where they choose what to block.</li>
+<li><strong>ManagedSettings</strong> — applies the actual "shield" (the block screen).</li>
+<li><strong>DeviceActivity</strong> — controls *when* blocks turn on/off and watches usage.</li>
+</ul>
+<p><strong>What it CAN do:</strong></p>
+<ul>
+<li>Block user-chosen apps, whole categories (Social, Games), and websites — on launch.</li>
+<li>Turn blocking on instantly for a study session (not just on a schedule) — exactly your use case.</li>
+<li>Show a <strong>branded shield screen</strong> with your boba styling.</li>
+<li>Run on schedules and fire on usage thresholds ("after 10 min").</li>
+</ul>
+<p><strong>What it CANNOT do (hard limits, same for every competitor):</strong></p>
+<ul>
+<li><strong>It never learns which apps the user picked.</strong> Selections come back as opaque tokens — no app names, no bundle IDs, no icons. You literally cannot show "you blocked TikTok" in your own UI. ([Apple forums](https://developer.apple.com/forums/thread/722618))</li>
+<li><strong>It can't lock the whole phone or force-quit apps.</strong> It only intercepts launching/foregrounding a blocked app. ([state of the API, 2024](https://riedel.wtf/state-of-the-screen-time-api-2024/))</li>
+<li><strong>It can't stop the user from bypassing it.</strong> Users can revoke Screen Time access in Settings anytime; third-party apps can't passcode-lock their own permission the way Apple's built-in Screen Time can.</li>
+<li><strong>It can't cleanly bounce the user back into Mr. Tapioca</strong> from the shield (only <code>.none</code>/<code>.close</code>/<code>.defer</code> buttons; devs hack around this with local notifications).</li>
+</ul>
+<p><strong>The honest framing:</strong> the block is "deterrent-grade." Your differentiation is the *intervention UX* (the boba reward, friction, streaks), not a stronger lock — because every app hits the same OS ceiling.</p>
+<hr>
+<h2>2. Can Capacitor use it, and what must be native?</h2>
+<p><strong>Yes, Capacitor can host it</strong> — but the blocking engine is <strong>100% native Swift and cannot live in the web layer.</strong> These frameworks have no JavaScript bridge, and key parts run in separate *app extensions* (own processes outside the WebView). ([Capacitor plugin docs](https://capacitorjs.com/docs/plugins/ios))</p>
+<p><strong>Clear dividing line:</strong></p>
+<table>
+<thead><tr><th>Stays in your existing web app (fast iteration ✅)</th><th>Must be native Swift (slow, finicky ⚠️)</th></tr></thead>
+<tbody>
+<tr><td>Boba timer, session config, streaks</td><td>Permission request (FamilyControls auth)</td></tr>
+<tr><td>Map, achievements, settings, onboarding</td><td>The app-picker UI (a SwiftUI view)</td></tr>
+<tr><td>Calling plugin methods: <code>startSession()</code>, <code>stopSession()</code>, <code>showPicker()</code></td><td>Writing the shield (ManagedSettings)</td></tr>
+<tr><td></td><td>DeviceActivityMonitor extension (start/stop block)</td></tr>
+<tr><td></td><td>ShieldConfiguration extension (the block screen)</td></tr>
+<tr><td></td><td>ShieldAction extension (handling taps)</td></tr>
+</tbody></table>
+<p><strong>The reality check:</strong> There is <strong>no off-the-shelf Capacitor plugin</strong> for this as of 2026 — you'd build a custom one. The only mature precedent is React-Native-only ([kingstinct/react-native-device-activity](https://github.com/kingstinct/react-native-device-activity)), which proves the hybrid approach works but isn't reusable for you. A Capacitor build means: a <strong>bespoke Swift plugin + ~3 native extension targets + App Groups plumbing</strong> to pass data across processes. Capacitor saves you nothing on the one feature that defines the product.</p>
+<hr>
+<h2>3. Capacitor-hybrid vs full-native SwiftUI</h2>
+<p><strong>Key insight: the blocker is native in BOTH paths, and the Apple entitlement gauntlet is identical in both.</strong> So the blocker alone does *not* justify throwing away your web app.</p>
+<p><strong>Does Capacitor disadvantage the blocker?</strong> Slightly, yes — be honest about it:</p>
+<ul>
+<li>It adds a JS↔native marshalling layer over the OS's *most fragile* API (unstable tokens, silent failures).</li>
+<li>It adds cross-process App Group plumbing you'd avoid in pure native.</li>
+<li>It's an extra failure surface on the finickiest part of the system.</li>
+<li>It does <strong>not</strong> reduce the native code you must write — the extensions are byte-for-byte the same.</li>
+</ul>
+<p><strong>The case for each:</strong></p>
+<ul>
+<li><strong>Capacitor wins if</strong> your real differentiator is the boba UX you've *already built in web*. You keep all of it, add a focused native plugin, ship faster to v1. This is the lower-effort path.</li>
+<li><strong>Native SwiftUI wins if</strong> you expect to lean hard into deep iOS integration later — Live Activities, Focus Filters, usage-chart dashboards (DeviceActivityReport), tighter reliability on the blocker — and want to avoid maintaining a custom bridge over Apple's buggiest API.</li>
+</ul>
+<p><strong>Recommendation:</strong> Given the boba experience is the product and it's already web, <strong>Capacitor + a custom Screen Time plugin is the smarter v1.</strong> Accept that the blocker module is a native sub-project regardless. Don't expect to "iterate fast in the browser" on anything blocking-related — that part is real Xcode/Swift/device work.</p>
+<hr>
+<h2>4. Real-world catches (plan for these now)</h2>
+<ul>
+<li><strong>Entitlement approval is the long pole.</strong> Shipping needs the gated <code>com.apple.developer.family-controls</code> <strong>Distribution</strong> entitlement, requested via [Apple's form](https://developer.apple.com/contact/request/family-controls-distribution). Dev builds work instantly on your own device, but <strong>TestFlight and App Store both require approval first.</strong> Timeline is unpredictable: best case ~2–4 business days, but 2025–26 reports show <strong>weeks to ~2 months of silence</strong>, no status dashboard. <strong>→ Submit this the day you have an App Store Connect listing, in parallel with building.</strong></li>
+<li><strong>Every bundle ID needs its own approval.</strong> The main app *plus each extension* = ~4 separate entitlement requests (<code>com.app</code>, <code>.ActivityMonitor</code>, <code>.ShieldAction</code>, <code>.ShieldConfiguration</code>). Miss one and blocking *silently fails* outside dev builds. ([itsuki guide](https://medium.com/@itsuki.enjoy/swift-ios-take-family-control-to-production-distribution-83da9b3346c6))</li>
+<li><strong>No Simulator — ever.</strong> Authorization, picker, shielding, and the monitor extension only work on a <strong>physical device.</strong> This changes your whole dev/test/CI workflow.</li>
+<li><strong>The "user picks apps" model is permanent.</strong> You will never know what they chose. Design onboarding and copy around opaque selections — no per-app labels, no "you saved 2 hrs on Instagram."</li>
+<li><strong>Documented API bugs to budget native time for:</strong> tokens randomly rotating, shields not updating across stores, ~6MB memory cap on the monitor extension, permission changes not seen until app restart, picker crashes. ([state of the API](https://riedel.wtf/state-of-the-screen-time-api-2024/))</li>
+<li><strong>App Store review:</strong> keep all Screen Time data on-device (sending tokens off-device risks rejection), and justify the genuine self-control use case. The real blocking feature also *protects* you from the Guideline 4.2.2 "thin web wrapper" rejection — it's a substantial native feature.</li>
+</ul>
+<p><strong>One lighter fallback worth knowing:</strong> without the entitlement, you can only do <strong>soft, honor-system accountability</strong> — detect when the user leaves Mr. Tapioca (Page Visibility API) and forfeit the drink/streak. It works in web/Capacitor today but <strong>can't see or block the distracting app</strong>, and iOS freezes backgrounded web code after ~5s. Good as a *complement*, not the core promise. (Focus modes/DND don't block apps either — common misconception.)</p>
+<hr>
+<h2>5. Recommended path (phased)</h2>
+<p><strong>Phase 0 — De-risk the gate (week 1, do immediately).</strong></p>
+<p>Create the App Store Connect listing and <strong>submit the Family Controls Distribution request for all ~4 bundle IDs.</strong> This clock runs while you build. Buy/dedicate a physical test device.</p>
+<p><strong>Phase 1 — Soft accountability in web (fast, ships value now).</strong></p>
+<p>Build the Page Visibility "leave = forfeit your boba" mechanic in your existing web app. This is real, on-brand, and gives you a usable product while the entitlement and native work proceed. Pure fast web iteration.</p>
+<p><strong>Phase 2 — Native blocker plugin (the heavy lift).</strong></p>
+<p>Build the custom Capacitor Swift plugin + the three extensions (Monitor, ShieldConfiguration, ShieldAction) + App Groups. Wire web → plugin (<code>requestAuth</code>, <code>showPicker</code>, <code>startSession</code>, <code>stopSession</code>). Use kingstinct's RN library as an architectural blueprint. <strong>Expect this to be slow, device-only, Swift-heavy work — not web iteration.</strong></p>
+<p><strong>Phase 3 — Integrate, polish, TestFlight (gated on approval).</strong></p>
+<p>Brand the shield screen, handle the return-to-app flow (local notifications), harden against the known API bugs. Once the entitlement clears, push to TestFlight (impossible before approval).</p>
+<p><strong>Phase 4 — Decision checkpoint.</strong></p>
+<p>If you later want Live Activities, usage dashboards, or you're fighting the bridge over Apple's fragile API, *that's* when to weigh a native SwiftUI migration of the blocker module — not for v1.</p>
+<hr>
+<p><strong>Bottom line:</strong> Build it on Capacitor, keep your boba UX in web, and treat the blocker as a native sub-project you start de-risking (entitlement + device) on day one. The feature is real and approvable, but the parts that matter — the entitlement wait and the Swift extensions — are deliberately slow and won't feel like web development. Set that expectation now and sequence around it.</p>
+
+</div>
+<script>
+document.querySelectorAll(".copy").forEach(b=>b.addEventListener("click",async()=>{
+  const t=document.getElementById(b.dataset.target);
+  try{await navigator.clipboard.writeText(t.innerText);}catch(e){
+    const r=document.createRange();r.selectNode(t);getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand("copy");getSelection().removeAllRanges();
+  }
+  const o=b.textContent;b.textContent="Copied!";b.classList.add("done");
+  setTimeout(()=>{b.textContent=o;b.classList.remove("done");},1200);
+}));
+</script>
+</body></html>
