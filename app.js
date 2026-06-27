@@ -290,6 +290,10 @@ const els = {
   sfxVolLabel:          document.querySelector("#sfxVolLabel"),
   ambVol:               document.querySelector("#ambVol"),
   ambVolLabel:          document.querySelector("#ambVolLabel"),
+  installBanner:        document.querySelector("#installBanner"),
+  installText:          document.querySelector("#installText"),
+  installBtn:           document.querySelector("#installBtn"),
+  installDismiss:       document.querySelector("#installDismiss"),
   devToggle:            document.querySelector("#devToggle"),
   statStreak:           document.querySelector("#statStreak"),
   statTotalTime:        document.querySelector("#statTotalTime"),
@@ -3058,4 +3062,68 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   });
+}
+
+// ── PWA install prompt (Android real prompt + iOS Add-to-Home-Screen hint) ───
+let deferredInstall = null;
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+function isiOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+function installDismissed() {
+  return localStorage.getItem("bobaFocusInstallDismissed") === "1";
+}
+
+function showInstallBanner(kind) {
+  if (!els.installBanner) return;
+  if (isStandalone() || installDismissed() || !state.onboarded) return;   // don't stack on the welcome tour
+  if (kind === "ios") {
+    els.installText.textContent = "Add to Home Screen: tap Share, then “Add to Home Screen.”";
+    els.installBtn.style.display = "none";
+  } else {
+    els.installText.textContent = "Install Mr. Tapioca for the full-screen app.";
+    els.installBtn.style.display = "";
+  }
+  els.installBanner.hidden = false;
+  requestAnimationFrame(() => els.installBanner.classList.add("show"));
+}
+function hideInstallBanner() {
+  if (!els.installBanner) return;
+  els.installBanner.classList.remove("show");
+  setTimeout(() => { els.installBanner.hidden = true; }, 340);
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();         // suppress the mini-infobar; we show our own
+  deferredInstall = e;
+  showInstallBanner("android");
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstall = null;
+  localStorage.setItem("bobaFocusInstallDismissed", "1");
+  hideInstallBanner();
+});
+
+if (els.installBtn) {
+  els.installBtn.addEventListener("click", async () => {
+    if (!deferredInstall) { hideInstallBanner(); return; }
+    deferredInstall.prompt();
+    try { await deferredInstall.userChoice; } catch (e) {}
+    deferredInstall = null;
+    hideInstallBanner();
+  });
+}
+if (els.installDismiss) {
+  els.installDismiss.addEventListener("click", () => {
+    localStorage.setItem("bobaFocusInstallDismissed", "1");
+    hideInstallBanner();
+  });
+}
+
+// iOS Safari never fires beforeinstallprompt — surface the A2HS hint ourselves.
+if (isiOS() && !isStandalone() && !installDismissed()) {
+  setTimeout(() => showInstallBanner("ios"), 4000);
 }

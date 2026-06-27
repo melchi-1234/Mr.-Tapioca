@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>Mr. Tapioca</title>
 
     <!-- PWA / installable app -->
@@ -220,6 +220,14 @@
           <span class="pill-label">Settings</span>
         </button>
       </nav>
+
+      <!-- ── Install prompt (PWA) ─────────────────────────────────────── -->
+      <div id="installBanner" class="install-banner" role="dialog" aria-label="Install Mr. Tapioca" hidden>
+        <span class="install-icon" aria-hidden="true">🧋</span>
+        <p id="installText" class="install-text">Install Mr. Tapioca for the full-screen app.</p>
+        <button id="installBtn" class="install-btn">Install</button>
+        <button id="installDismiss" class="install-x" aria-label="Dismiss">✕</button>
+      </div>
 
       <!-- ── Sheet: Shop ──────────────────────────────────────────── -->
       <div id="shopSheet" class="sheet hidden" role="dialog" aria-label="Shop" aria-modal="true">
