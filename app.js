@@ -2708,6 +2708,7 @@ function openPong() {
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   pong.opening = true;
   pong.cupDir = 1;
+  pong.splash = null;   // clear any leftover make-ring from a previous game
   els.pongResult.style.display = "none";
   els.pongHint.style.display = "";
   els.pongGame.style.display = "flex";
@@ -2727,6 +2728,7 @@ function closePong() {
   pong.opening = false;
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   pong.active = false;
+  pong.splash = null;
   els.pongGame.style.display = "none";
 }
 
