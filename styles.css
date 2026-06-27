@@ -117,10 +117,6 @@ body {
                             #b8733a calc(100% - var(--floor-y)) calc(100% - var(--floor-y) + 26px),
                             #cc9448 calc(100% - var(--floor-y) + 26px) 100%);
 }
-.scene[data-theme="autumn"] .ceiling-lights span {
-  background: #ffa050;
-  box-shadow: 0 0 12px rgba(255,140,30,0.7);
-}
 .scene[data-theme="autumn"] .work-counter {
   background: linear-gradient(90deg, rgba(255,255,255,0.15), transparent 36%), #8b5e3c;
 }
@@ -132,10 +128,6 @@ body {
     linear-gradient(180deg, #e8f0f8 0 calc(100% - var(--floor-y)),
                             #6888a8 calc(100% - var(--floor-y)) calc(100% - var(--floor-y) + 26px),
                             #7898b8 calc(100% - var(--floor-y) + 26px) 100%);
-}
-.scene[data-theme="rainy"] .ceiling-lights span {
-  background: #a0c8e8;
-  box-shadow: 0 0 10px rgba(100,160,220,0.5);
 }
 .scene[data-theme="rainy"] .work-counter {
   background: linear-gradient(90deg, rgba(255,255,255,0.15), transparent 36%), #486880;
@@ -149,95 +141,50 @@ body {
                             #b8a8d8 calc(100% - var(--floor-y)) calc(100% - var(--floor-y) + 26px),
                             #cbbce8 calc(100% - var(--floor-y) + 26px) 100%);
 }
-.scene.is-on-break .ceiling-lights span {
-  background: #d4c4f0;
-  box-shadow: 0 0 12px rgba(180,150,230,0.55);
-}
 .scene.is-on-break .work-counter {
   background: linear-gradient(90deg, rgba(255,255,255,0.15), transparent 36%), #8272aa;
 }
 .scene.is-on-break .speech-bubble { background: #f5f0ff; }
 
-/* ── Scene decoration elements ─────────────────────────────────────────── */
-.ceiling-lights {
+/* ── Scene ambiance ────────────────────────────────────────────────────── */
+/* Soft pastel light orbs drifting in the wall zone — gives the empty wall
+   gentle depth without the old crude jar/window/light blocks. Purely
+   decorative, low-contrast, never competes with the character or cup. */
+.cafe-glow {
   position: absolute;
-  top: 12px;
-  left: 22px;
-  right: 22px;
-  height: 48px;
-  border-top: 3px solid #7a4b42;
-  display: flex;
-  justify-content: space-around;
-  z-index: 3;
+  inset: 56px 0 auto 0;
+  height: clamp(180px, 26vh, 240px);
+  z-index: 1;
+  pointer-events: none;
 }
-.ceiling-lights span {
-  width: 13px; height: 13px;
-  margin-top: 13px;
+.cafe-glow span {
+  position: absolute;
   border-radius: 50%;
-  background: #ffe381;
-  border: 2px solid #7a4b42;
-  box-shadow: 0 0 12px rgba(255,224,113,0.8);
-  animation: glow 2.4s ease-in-out infinite;
+  filter: blur(2px);
+  opacity: 0.5;
+  animation: glow 5s ease-in-out infinite;
 }
-.ceiling-lights span:nth-child(even) { animation-delay: 0.45s; }
-
-.decor-shelf, .speech-bubble, .window {
-  position: absolute;
-  z-index: 4;
+.cafe-glow span:nth-child(1) {
+  top: 14px; left: 30px;
+  width: 64px; height: 64px;
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.85), rgba(255,224,180,0.45) 55%, transparent 72%);
 }
-
-/* Window on the right wall, sitting in the wall zone below the HUD */
-.window {
-  top: 138px; right: 22px;
-  width: 84px; height: 78px;
-  border: 4px solid #7a4b42;
-  border-radius: 16px 16px 8px 8px;
-  background:
-    linear-gradient(90deg, transparent 48%, rgba(122,75,66,0.8) 48% 52%, transparent 52%),
-    linear-gradient(#bff3f0 0 58%, #97dacd 58%);
+.cafe-glow span:nth-child(2) {
+  top: 70px; right: 34px;
+  width: 86px; height: 86px;
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.7), rgba(190,235,225,0.4) 55%, transparent 72%);
+  animation-delay: 1.2s;
 }
-.window span {
-  position: absolute;
-  left: 14px; bottom: 14px;
-  width: 52px; height: 18px;
-  border-radius: 50% 50% 0 0;
-  background: rgba(255,255,255,0.55);
+.cafe-glow span:nth-child(3) {
+  top: 6px; left: 48%;
+  width: 52px; height: 52px;
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.75), rgba(255,205,222,0.4) 55%, transparent 72%);
+  animation-delay: 2.4s;
 }
-
-/* Boba-jar shelf on the left wall */
-.decor-shelf {
-  top: 132px; left: 22px;
-  display: flex; align-items: end; gap: 8px;
-  padding: 0 9px 8px;
-  border-bottom: 5px solid #7a4b42;
-}
-.jar {
-  width: 20px; height: 36px;
-  border: 2px solid #67473d;
-  border-radius: 5px 5px 8px 8px;
-}
-.jar.classic { background: #c98555; }
-.jar.taro    { background: #ad83d6; }
-.jar.matcha  { background: #76a86a; }
-.plant {
-  width: 20px; height: 26px;
-  position: relative;
-  border: 2px solid #67473d;
-  border-radius: 4px 4px 8px 8px;
-  background: #d98978;
-}
-.plant::before, .plant::after {
-  content: "";
-  position: absolute;
-  bottom: 20px;
-  width: 18px; height: 12px;
-  border-radius: 50% 50% 50% 0;
-  background: #5fa875;
-}
-.plant::before { left: -9px;  transform: rotate(-28deg); }
-.plant::after  { right: -10px; transform: rotate(36deg); }
 
 .speech-bubble {
+  position: absolute;
+  z-index: 4;
   display: none;
   /* sits just above Mr. Tapioca's head, pointing down at him */
   left: 14px;
@@ -549,16 +496,27 @@ body {
   animation: tea-shine 3.6s ease-in-out infinite;
 }
 
+/* Cheese/cream foam cap — a creamy layer that rides the liquid SURFACE
+   (bottom:var(--fill)) and paints above the brown pearls, which stay brown.
+   It's a sibling of .cup-liquid so it never collapses with a near-empty cup;
+   .has-fill gates it off entirely when the cup is empty. */
 .foam-cap {
   display: none;
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 14px;
+  left: 0; right: 0;
+  bottom: clamp(0px, var(--fill), calc(100% - 15px));
+  height: 15px;
+  z-index: 3;
+  border-radius: 9px 9px 11px 11px;
   background:
-    radial-gradient(circle at 18% 42%, #fff8de 0 6px, transparent 7px),
-    radial-gradient(circle at 45% 22%, #fff1bd 0 7px, transparent 8px),
-    radial-gradient(circle at 72% 40%, #fff8de 0 6px, transparent 7px),
-    #fff0c8;
+    radial-gradient(circle at 22% 64%, rgba(255,255,255,0.95) 0 3.5px, transparent 4.5px),
+    radial-gradient(circle at 52% 52%, rgba(255,255,255,0.85) 0 4.5px, transparent 5.5px),
+    radial-gradient(circle at 80% 64%, rgba(255,255,255,0.9) 0 3.5px, transparent 4.5px),
+    linear-gradient(180deg, #fffaf0 0 42%, #ffeecb 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.85),
+    0 2px 3px rgba(170,130,60,0.22);
+  transition: bottom 420ms ease;
 }
 
 .pearl {
@@ -594,11 +552,9 @@ body {
   box-shadow: inset -3px -3px 0 rgba(132,87,22,0.22);
   transform: rotate(8deg);
 }
-.cup-frame[data-topping="foam"] .foam-cap { display: block; }
-.cup-frame[data-topping="foam"] .pearl {
-  background: #fff2c2;
-  box-shadow: inset -3px -3px 0 rgba(169,128,36,0.2);
-}
+/* Foam is additive: show the cream cap but keep the boba pearls brown.
+   Only once the cup has liquid, so an empty cup never shows a stray strip. */
+.cup-frame[data-topping="foam"].has-fill .foam-cap { display: block; }
 .cup-frame[data-topping="coconut"] .pearl {
   width: 14px; height: 10px;
   border-radius: 5px;
@@ -1138,30 +1094,17 @@ body {
   border: 2px solid currentColor;
 }
 
-/* Open book: two pages tilted with a spine */
-.nav-book {
-  width: 26px;
-  height: 22px;
-  margin-top: 2px;
-  background:
-    linear-gradient(90deg, transparent calc(50% - 1px), currentColor calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
-    linear-gradient(135deg, #fff7e8 0 50%, transparent 50%),
-    linear-gradient(225deg, #fff7e8 0 50%, transparent 50%);
-  background-color: #fff7e8;
-  border: 2.5px solid currentColor;
-  border-radius: 4px;
-}
-.nav-book::before, .nav-book::after {
-  content: "";
-  position: absolute;
-  top: 5px;
-  width: 5px;
-  height: 1.5px;
+/* Settings gear — crisp SVG silhouette tinted with the nav color.
+   URL-encoded data URI (encoded <,>,# ) so the mask works in every browser. */
+.nav-gear {
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
   background: currentColor;
-  opacity: 0.55;
+  -webkit-mask: var(--gear-mask) center / contain no-repeat;
+  mask: var(--gear-mask) center / contain no-repeat;
+  --gear-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.03 7.03 0 00-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84a.48.48 0 00-.48.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.48.48 0 00-.59.22L2.74 8.87a.48.48 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.13.22.39.31.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.09.46 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z'/%3E%3C/svg%3E");
 }
-.nav-book::before { left: 4px; box-shadow: 0 4px 0 currentColor; }
-.nav-book::after  { right: 4px; box-shadow: 0 4px 0 currentColor; }
 
 /* Map location pin */
 .nav-pin {
@@ -1275,21 +1218,54 @@ h3 {
 }
 
 /* ── Shared form controls (used inside sheets) ──────────────────────────── */
-.swatches, .choice-row {
+.choice-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.swatch {
-  width: 44px; height: 44px;
-  border: 3px solid transparent;
-  border-radius: 12px;
-  background: var(--swatch);
+.customize-hint {
+  margin: 2px 0 10px;
+  color: var(--bark-mid);
+  font-size: 0.76rem;
+  font-weight: 700;
 }
-.swatch.active {
-  border-color: var(--bark);
-  outline: 3px solid rgba(21,143,146,0.23);
+
+/* Named tea-base picker: a labeled card per flavor (replaces bare color dots). */
+.base-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.base-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 2px solid rgba(60,32,24,0.16);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.6);
+  color: var(--bark);
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-align: left;
+  cursor: pointer;
+}
+.base-option .base-dot {
+  flex: 0 0 auto;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset -3px -3px 0 rgba(0,0,0,0.18), 0 1px 3px rgba(60,32,24,0.2);
+}
+.base-option .base-name {
+  line-height: 1.15;
+}
+.base-option.active {
+  border-color: var(--teal);
+  background: var(--mint);
+  box-shadow: 0 0 0 3px rgba(21,143,146,0.16);
 }
 
 .choice {
@@ -1335,7 +1311,7 @@ h3 {
   font-weight: 950;
 }
 
-/* ── Stats dashboard (History sheet) ────────────────────────────────────── */
+/* ── Stats dashboard (Settings → Your Progress) ─────────────────────────── */
 .stats-card {
   display: flex;
   flex-direction: column;
@@ -1379,6 +1355,13 @@ h3 {
 }
 
 /* ── Settings row + toggle ──────────────────────────────────────────────── */
+.settings-section-title {
+  margin: 26px 0 4px;
+  padding-top: 18px;
+  border-top: 2px dashed var(--line);
+  font-size: 1.05rem;
+  color: var(--bark);
+}
 .settings-row {
   display: flex;
   align-items: center;
@@ -1726,7 +1709,7 @@ h3 {
 }
 .map-pop-perk.locked { background: rgba(60,32,24,0.05); border-color: var(--line); color: var(--bark-mid); }
 
-/* ── Pearl economy info card (History sheet) ────────────────────────────── */
+/* ── Pearl economy info card (Settings sheet) ───────────────────────────── */
 .pearl-info-card {
   padding: 16px 16px 14px;
   border: 2px solid var(--line);
@@ -2177,12 +2160,12 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 
 /* ── Tactile press feedback (springy squish on tap) ─────────────────────── */
-.size-btn, .choice, .swatch, .adj-btn, .primary, .quiet,
+.size-btn, .choice, .base-option, .adj-btn, .primary, .quiet,
 .shop-buy-btn, .shop-equip-btn, .shop-unequip-btn, .shop-preview-btn,
 .sheet-close, .settings-action-btn, .game-quit-btn, .toggle {
   transition: transform 90ms ease, background 180ms, color 180ms, box-shadow 180ms;
 }
-.size-btn:active, .choice:active, .swatch:active, .adj-btn:active,
+.size-btn:active, .choice:active, .base-option:active, .adj-btn:active,
 .primary:active, .quiet:active, .shop-buy-btn:active, .shop-equip-btn:active,
 .shop-unequip-btn:active, .shop-preview-btn:active, .sheet-close:active,
 .settings-action-btn:active, .game-quit-btn:active {

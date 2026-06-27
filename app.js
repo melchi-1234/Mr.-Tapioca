@@ -20,13 +20,16 @@ function modeDuration() {
 }
 
 const BASES = {
-  classic:    { label: "Classic Milk Tea",   color: "#c98555" },
-  taro:       { label: "Taro Milk Tea",       color: "#b58bdc" },
-  matcha:     { label: "Matcha Milk Tea",     color: "#76a86a" },
-  strawberry: { label: "Strawberry Milk Tea", color: "#f07c93" },
-  brownsugar: { label: "Brown Sugar Tiger",   color: "#8b4513" },
-  ube:        { label: "Ube Dream",           color: "#6b3d9a" },
-  lavender:   { label: "Lavender Mist",       color: "#c4b5e8" }
+  classic:    { label: "Classic Milk Tea",     color: "#c98555" },
+  brownsugar: { label: "Brown Sugar Milk Tea", color: "#8b4513" },
+  taro:       { label: "Taro Milk Tea",         color: "#b58bdc" },
+  matcha:     { label: "Matcha Latte",          color: "#76a86a" },
+  strawberry: { label: "Strawberry Milk Tea",   color: "#f07c93" },
+  earlgrey:   { label: "Earl Grey Milk Tea",    color: "#b08d63" },
+  thai:       { label: "Thai Tea",              color: "#e08a3c" },
+  ube:        { label: "Ube Milk Tea",          color: "#6b3d9a" },
+  lavender:   { label: "Lavender Milk Tea",     color: "#c4b5e8" },
+  honeydew:   { label: "Honeydew Milk Tea",     color: "#b6d67e" }
 };
 
 const TOPPINGS = {
@@ -175,6 +178,8 @@ const els = {
   startPauseBtn:        document.querySelector("#startPauseBtn"),
   resetBtn:             document.querySelector("#resetBtn"),
   drinkName:            document.querySelector("#drinkName"),
+  baseGrid:             document.querySelector("#baseGrid"),
+  toppingRow:           document.querySelector("#toppingRow"),
   focusControls:        document.querySelector("#focusControls"),
   shelfGrid:            document.querySelector("#shelfGrid"),
   totalTime:            document.querySelector("#totalTime"),
@@ -398,6 +403,13 @@ function loadState() {
   state.spent       = JSON.parse(localStorage.getItem("bobaFocusSpent")       || "0");
   state.bonusPearls = JSON.parse(localStorage.getItem("bobaFocusBonusPearls") || "0");
   state.skin        = localStorage.getItem("bobaFocusSkin") || "";
+  // Drink customization + equipped background — persist so they survive reloads.
+  state.base        = localStorage.getItem("bobaFocusBase")    || "classic";
+  state.topping     = localStorage.getItem("bobaFocusTopping") || "pearls";
+  state.shopTheme   = localStorage.getItem("bobaFocusTheme")   || "cozy";
+  state.sticker     = localStorage.getItem("bobaFocusSticker") || "Focus";
+  if (!BASES[state.base])       state.base = "classic";       // guard stale/removed keys
+  if (!TOPPINGS[state.topping]) state.topping = "pearls";
   state.customDuration = JSON.parse(localStorage.getItem("bobaFocusCustomDuration") || String(30 * 60));
   state.soundOn     = JSON.parse(localStorage.getItem("bobaFocusSoundOn") || "true");
   state.devMode     = JSON.parse(localStorage.getItem("bobaFocusDevMode") || "false");
@@ -418,6 +430,10 @@ function saveState() {
   localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
   localStorage.setItem("bobaFocusSkin",         state.skin);
+  localStorage.setItem("bobaFocusBase",         state.base);
+  localStorage.setItem("bobaFocusTopping",      state.topping);
+  localStorage.setItem("bobaFocusTheme",        state.shopTheme);
+  localStorage.setItem("bobaFocusSticker",      state.sticker);
   localStorage.setItem("bobaFocusCustomDuration", JSON.stringify(state.customDuration));
   localStorage.setItem("bobaFocusSoundOn",      JSON.stringify(state.soundOn));
   localStorage.setItem("bobaFocusDevMode",      JSON.stringify(state.devMode));
@@ -500,8 +516,11 @@ function speechForState() {
 function updateCup() {
   const pct = Math.round(progress() * 100);
   const remaining = modeDuration() - state.elapsed;
-  els.liquid.style.setProperty("--fill", `${pct}%`);
+  // --fill lives on the cup-frame so BOTH the liquid (height) and the foam cap
+  // (which rides the surface at bottom:var(--fill)) can read it.
+  els.focusCup.style.setProperty("--fill", `${pct}%`);
   els.liquid.style.setProperty("--drink-color", BASES[state.base].color);
+  els.focusCup.classList.toggle("has-fill", pct > 0);
   els.progressBar.style.width = `${pct}%`;
   els.focusCup.dataset.topping = state.topping;
   els.focusSticker.textContent = state.sticker;
@@ -796,6 +815,9 @@ function clearProgress() {
   state.badges = [];
   state.skin = "";
   state.shopTheme = "cozy";
+  state.base = "classic";
+  state.topping = "pearls";
+  renderCustomizeOptions();   // reflect the reset in the Customize sheet
   saveState();
   refreshMaker();
   renderAll();
@@ -1276,11 +1298,28 @@ function closeSheets() {
   els.sheetBackdrop.classList.add("hidden");
 }
 
+// Build the Customize sheet's tea-base + topping pickers from the single
+// BASES/TOPPINGS source of truth, so names/colors never drift from the HTML.
+function renderCustomizeOptions() {
+  if (els.baseGrid) {
+    els.baseGrid.innerHTML = Object.entries(BASES).map(([key, b]) =>
+      `<button class="base-option${state.base === key ? " active" : ""}" data-base="${key}" aria-label="${b.label}">
+        <span class="base-dot" style="--swatch:${b.color}"></span>
+        <span class="base-name">${b.label}</span>
+      </button>`).join("");
+  }
+  if (els.toppingRow) {
+    els.toppingRow.innerHTML = Object.entries(TOPPINGS).map(([key, label]) =>
+      `<button class="choice${state.topping === key ? " active" : ""}" data-topping="${key}">${label}</button>`).join("");
+  }
+}
+
 function setBase(base) {
   state.base = base;
-  document.querySelectorAll(".swatch").forEach((button) => {
+  document.querySelectorAll("[data-base]").forEach((button) => {
     button.classList.toggle("active", button.dataset.base === base);
   });
+  saveState();
   renderAll();
   els.makerSpeech.textContent = "Fresh tea base selected.";
 }
@@ -1290,6 +1329,7 @@ function setChoice(type, value) {
   document.querySelectorAll(`[data-${type}]`).forEach((button) => {
     button.classList.toggle("active", button.dataset[type] === value);
   });
+  saveState();
   renderAll();
   els.makerSpeech.textContent = "Got it. I will make that drink next.";
 }
@@ -2636,12 +2676,15 @@ function wireEvents() {
   els.replayIntroBtn.addEventListener("click", () => { closeSheets(); showOnboarding(); });
   els.clearProgressBtn.addEventListener("click", clearProgress);
 
-  // ── Customize sheet: tea base, topping, shop theme ───────────────────────
-  document.querySelectorAll(".swatch").forEach(button => {
-    button.addEventListener("click", () => setBase(button.dataset.base));
+  // ── Customize sheet: tea base + topping (rendered from BASES/TOPPINGS) ────
+  renderCustomizeOptions();
+  els.baseGrid.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-base]");
+    if (btn) setBase(btn.dataset.base);
   });
-  document.querySelectorAll("[data-topping]").forEach(button => {
-    button.addEventListener("click", () => setChoice("topping", button.dataset.topping));
+  els.toppingRow.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-topping]");
+    if (btn) setChoice("topping", btn.dataset.topping);
   });
 
   // ── Blocked apps preview (inside settings sheet) ─────────────────────────

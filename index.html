@@ -22,15 +22,10 @@
 
       <!-- ── Full-screen boba shop scene ─────────────────────────── -->
       <section id="shopScene" class="scene" aria-label="Boba shop" data-theme="cozy">
-        <div class="ceiling-lights">
-          <span></span><span></span><span></span><span></span><span></span>
-        </div>
-        <div class="window"><span></span></div>
-        <div class="decor-shelf">
-          <span class="jar classic"></span>
-          <span class="jar taro"></span>
-          <span class="jar matcha"></span>
-          <span class="plant"></span>
+        <!-- Soft cafe ambiance: gentle pastel light orbs (replaces the old
+             crude jar/window/light blocks that read as unfinished). -->
+        <div class="cafe-glow" aria-hidden="true">
+          <span></span><span></span><span></span>
         </div>
         <div id="makerSpeech" class="speech-bubble">Mr. Tapioca is ready to make your focus drink.</div>
         <div id="makerWrap" class="maker-wrap">
@@ -42,7 +37,6 @@
             <div id="focusCup" class="cup-frame" data-topping="pearls">
               <div class="cup-fill-area">
                 <div id="liquid" class="cup-liquid">
-                  <span class="foam-cap"></span>
                   <span class="pearl p1"></span>
                   <span class="pearl p2"></span>
                   <span class="pearl p3"></span>
@@ -50,6 +44,9 @@
                   <span class="pearl p5"></span>
                   <span class="pearl p6"></span>
                 </div>
+                <!-- Foam rides the liquid surface (bottom:var(--fill)), painted
+                     above the pearls; shown only when the cup has liquid. -->
+                <span class="foam-cap"></span>
               </div>
               <img class="cup-art" src="assets/Cup.png" alt="Boba cup">
               <div id="focusSticker" class="cup-sticker">Focus</div>
@@ -217,9 +214,9 @@
           <span class="nav-icon nav-pin" aria-hidden="true"></span>
           <span class="pill-label">Map</span>
         </button>
-        <button class="icon-pill" id="settingsBtn" aria-label="History">
-          <span class="nav-icon nav-book" aria-hidden="true"></span>
-          <span class="pill-label">History</span>
+        <button class="icon-pill" id="settingsBtn" aria-label="Settings">
+          <span class="nav-icon nav-gear" aria-hidden="true"></span>
+          <span class="pill-label">Settings</span>
         </button>
       </nav>
 
@@ -246,91 +243,23 @@
         </div>
         <div class="sheet-body">
           <h3>Tea Base</h3>
-          <div class="swatches" role="group" aria-label="Tea base">
-            <button class="swatch active" data-base="classic" style="--swatch:#c98555" aria-label="Classic milk tea"></button>
-            <button class="swatch" data-base="taro" style="--swatch:#b58bdc" aria-label="Taro milk tea"></button>
-            <button class="swatch" data-base="matcha" style="--swatch:#76a86a" aria-label="Matcha milk tea"></button>
-            <button class="swatch" data-base="strawberry" style="--swatch:#f07c93" aria-label="Strawberry milk tea"></button>
-            <button class="swatch" data-base="brownsugar" style="--swatch:#8b4513" aria-label="Brown sugar milk tea"></button>
-            <button class="swatch" data-base="ube" style="--swatch:#6b3d9a" aria-label="Ube milk tea"></button>
-            <button class="swatch" data-base="lavender" style="--swatch:#c4b5e8" aria-label="Lavender milk tea"></button>
-          </div>
+          <p class="customize-hint">Pick a flavor — it tints your drink.</p>
+          <div id="baseGrid" class="base-grid" role="group" aria-label="Tea base"></div>
 
           <h3 class="section-gap">Topping</h3>
-          <div class="choice-row" role="group" aria-label="Topping">
-            <button class="choice active" data-topping="pearls">Pearls</button>
-            <button class="choice" data-topping="jelly">Jelly</button>
-            <button class="choice" data-topping="pudding">Pudding</button>
-            <button class="choice" data-topping="foam">Foam</button>
-            <button class="choice" data-topping="coconut">Coconut</button>
-          </div>
+          <p class="customize-hint">Brown boba pearls come standard. Pick what tops the drink.</p>
+          <div id="toppingRow" class="choice-row" role="group" aria-label="Topping"></div>
         </div>
       </div>
 
-      <!-- ── Sheet: History ───────────────────────────────────────── -->
-      <div id="settingsSheet" class="sheet hidden" role="dialog" aria-label="History" aria-modal="true">
+      <!-- ── Sheet: Settings ──────────────────────────────────────── -->
+      <div id="settingsSheet" class="sheet hidden" role="dialog" aria-label="Settings" aria-modal="true">
         <div class="sheet-handle"></div>
         <div class="sheet-head">
-          <h2>History</h2>
+          <h2>Settings</h2>
           <button class="sheet-close" id="settingsClose" aria-label="Close">✕</button>
         </div>
         <div class="sheet-body">
-          <div class="stats-card">
-            <div class="stat-block stat-streak">
-              <span class="stat-value" id="statStreak">0</span>
-              <span class="stat-label">day streak 🔥</span>
-            </div>
-            <div class="stats-grid">
-              <div class="stat-block">
-                <span class="stat-value" id="statTotalTime">0m</span>
-                <span class="stat-label">total focus</span>
-              </div>
-              <div class="stat-block">
-                <span class="stat-value" id="statToday">0</span>
-                <span class="stat-label">today</span>
-              </div>
-              <div class="stat-block">
-                <span class="stat-value" id="statWeek">0</span>
-                <span class="stat-label">this week</span>
-              </div>
-              <div class="stat-block">
-                <span class="stat-value" id="statBest">0</span>
-                <span class="stat-label">best streak</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-head compact section-gap">
-            <h3>This week</h3>
-            <span id="weekTotal" class="badge">0 min</span>
-          </div>
-          <div id="weekChart" class="week-chart" aria-label="Focus minutes for the last 7 days"></div>
-
-          <div class="section-head compact section-gap">
-            <h3>Achievements</h3>
-            <span id="badgeCount" class="badge">0 / 0</span>
-          </div>
-          <div id="badgeGrid" class="badge-grid" aria-live="polite"></div>
-
-          <div class="pearl-info-card">
-            <h3>How pearls work</h3>
-            <div class="pearl-info-rows">
-              <div class="pearl-info-row">
-                <span class="pearl-info-icon">⏱</span>
-                <span><strong>15 min</strong> of focus = <strong>1 pearl</strong></span>
-              </div>
-              <div class="pearl-info-row">
-                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Small = 2 hr · Large = 6 hr → real boba discounts 🌟</span>
-              </div>
-              <div class="pearl-info-row">
-                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Spend pearls on cute skins &amp; backgrounds</span>
-              </div>
-            </div>
-            <p class="pearl-info-foot">Big drinks fill across sessions — leave and come back anytime. ✨</p>
-          </div>
-
           <div class="settings-row">
             <span class="settings-row-label">🎯 Daily goal</span>
             <div class="goal-stepper">
@@ -381,18 +310,6 @@
             <button id="clearProgressBtn" class="settings-action-btn danger">Clear</button>
           </div>
 
-          <div class="section-head compact section-gap">
-            <h3>Drink Shelf</h3>
-            <span id="totalTime" class="badge">0 min</span>
-          </div>
-          <div id="shelfGrid" class="shelf-grid" aria-live="polite"></div>
-
-          <div class="section-head compact section-gap">
-            <h3>Treat Jar</h3>
-            <span id="completedCount" class="badge">0 drinks</span>
-          </div>
-          <div id="rewardList" class="reward-list" aria-live="polite"></div>
-
           <div class="blocked-panel section-gap">
             <div class="section-head compact">
               <h3>App Blocking</h3>
@@ -410,6 +327,76 @@
               <strong>Restricted</strong>
               <p>You cannot use YouTube because it is restricted.</p>
             </div>
+          </div>
+
+          <!-- ── Your progress (stats / streaks / collection) ──────────── -->
+          <h3 class="settings-section-title">Your Progress</h3>
+          <div class="stats-card">
+            <div class="stat-block stat-streak">
+              <span class="stat-value" id="statStreak">0</span>
+              <span class="stat-label">day streak 🔥</span>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-block">
+                <span class="stat-value" id="statTotalTime">0m</span>
+                <span class="stat-label">total focus</span>
+              </div>
+              <div class="stat-block">
+                <span class="stat-value" id="statToday">0</span>
+                <span class="stat-label">today</span>
+              </div>
+              <div class="stat-block">
+                <span class="stat-value" id="statWeek">0</span>
+                <span class="stat-label">this week</span>
+              </div>
+              <div class="stat-block">
+                <span class="stat-value" id="statBest">0</span>
+                <span class="stat-label">best streak</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-head compact section-gap">
+            <h3>This week</h3>
+            <span id="weekTotal" class="badge">0 min</span>
+          </div>
+          <div id="weekChart" class="week-chart" aria-label="Focus minutes for the last 7 days"></div>
+
+          <div class="section-head compact section-gap">
+            <h3>Achievements</h3>
+            <span id="badgeCount" class="badge">0 / 0</span>
+          </div>
+          <div id="badgeGrid" class="badge-grid" aria-live="polite"></div>
+
+          <div class="section-head compact section-gap">
+            <h3>Drink Shelf</h3>
+            <span id="totalTime" class="badge">0 min</span>
+          </div>
+          <div id="shelfGrid" class="shelf-grid" aria-live="polite"></div>
+
+          <div class="section-head compact section-gap">
+            <h3>Treat Jar</h3>
+            <span id="completedCount" class="badge">0 drinks</span>
+          </div>
+          <div id="rewardList" class="reward-list" aria-live="polite"></div>
+
+          <div class="pearl-info-card">
+            <h3>How pearls work</h3>
+            <div class="pearl-info-rows">
+              <div class="pearl-info-row">
+                <span class="pearl-info-icon">⏱</span>
+                <span><strong>15 min</strong> of focus = <strong>1 pearl</strong></span>
+              </div>
+              <div class="pearl-info-row">
+                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
+                <span>Small = 2 hr · Large = 6 hr → real boba discounts 🌟</span>
+              </div>
+              <div class="pearl-info-row">
+                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
+                <span>Spend pearls on cute skins &amp; backgrounds</span>
+              </div>
+            </div>
+            <p class="pearl-info-foot">Big drinks fill across sessions — leave and come back anytime. ✨</p>
           </div>
         </div>
       </div>
