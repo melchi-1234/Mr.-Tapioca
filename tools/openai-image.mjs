@@ -33,6 +33,9 @@ try {
     form.append("model", "gpt-image-1");
     form.append("prompt", prompt);
     form.append("size", size);
+    // KEY for keeping a referenced character on-model: high input fidelity makes
+    // gpt-image-1 preserve the reference image's features instead of redrawing.
+    form.append("input_fidelity", process.env.IMG_FIDELITY || "high");
     if (bg) form.append("background", bg);
     for (const r of refs) {
       const buf = fs.readFileSync(r);

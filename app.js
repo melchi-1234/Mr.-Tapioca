@@ -334,16 +334,15 @@ const SKIN_IMAGES = {
 // is driven by CSS keyframes that key off the img's data-state attribute.
 // (Earlier we cycled cropped frames here; one of the idle crops was mid-blink,
 // which made the eye look like it disappeared.)
-// Use the REAL original Mr. Tapioca portrait for every state and let the CSS
-// keyframes supply the motion — this is the only zero-drift way to animate him
-// (AI-redrawn poses came out slightly off-model). Generated pose images are
-// parked in assets/ but not used until we get a faithful match.
+// Base-character pose set, generated faithfully from Mr. Tapioca.png via
+// gpt-image-1 with input_fidelity:high (keeps his exact look, only the pose
+// changes). CSS keyframes add motion on top. Idle stays the original art.
 const MAKER_STATIC = {
   idle:     "assets/Mr. Tapioca.png",
-  mixing:   "assets/Mr. Tapioca.png",
-  sleeping: "assets/Mr. Tapioca.png",
-  drinking: "assets/Mr. Tapioca.png",
-  shocked:  "assets/Mr. Tapioca.png"
+  mixing:   "assets/Pose Mixing.png",   // focusing — stirring the drink
+  sleeping: "assets/Pose Sleepy.png",   // break — dozing
+  drinking: "assets/Pose Happy.png",    // break — happy/relaxing
+  shocked:  "assets/Mr. Tapioca.png"    // (currently unused)
 };
 
 let currentMakerState = "";
