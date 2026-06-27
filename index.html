@@ -11,7 +11,7 @@
     <meta name="description" content="A cozy boba-themed focus timer. Study, fill your drink, collect cute rewards.">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Mr. Tapioca">
     <meta name="mobile-web-app-capable" content="yes">
 
@@ -67,7 +67,7 @@
         <div id="pearlGame" class="pearl-game" style="display:none">
           <div class="game-hud">
             <span id="gameScore" class="game-score">⬡ 0</span>
-            <span id="gameTimer" class="game-timer">1:00</span>
+            <span id="gameTimer" class="game-timer">0:45</span>
             <button id="quitGameBtn" class="game-quit-btn">Quit</button>
           </div>
           <div id="gameArea" class="game-area">
@@ -222,7 +222,7 @@
       </nav>
 
       <!-- ── Install prompt (PWA) ─────────────────────────────────────── -->
-      <div id="installBanner" class="install-banner" role="dialog" aria-label="Install Mr. Tapioca" hidden>
+      <div id="installBanner" class="install-banner" role="status" aria-live="polite" aria-label="Install Mr. Tapioca" hidden>
         <span class="install-icon" aria-hidden="true">🧋</span>
         <p id="installText" class="install-text">Install Mr. Tapioca for the full-screen app.</p>
         <button id="installBtn" class="install-btn">Install</button>

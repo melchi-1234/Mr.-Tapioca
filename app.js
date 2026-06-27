@@ -14,9 +14,12 @@ function fmtDuration(seconds) {
   return seconds < 60 ? `${seconds} sec` : `${Math.round(seconds / 60)} min`;
 }
 
-// Resolve the active session length in seconds (custom mode reads its own value)
+// Resolve the active session length in seconds (custom mode reads its own value).
+// Guarded against a corrupt/zero custom value so progress() can never divide by 0
+// or NaN (which would render NaN% and never let the session complete).
 function modeDuration() {
-  return state.mode === "custom" ? state.customDuration : MODES[state.mode].duration;
+  const d = state.mode === "custom" ? state.customDuration : (MODES[state.mode] && MODES[state.mode].duration);
+  return (typeof d === "number" && isFinite(d) && d > 0) ? d : 30 * 60;
 }
 
 // Tea bases: classic is free; the rest are one-time pearl unlocks (price).
@@ -467,46 +470,59 @@ function walkToStation(restState = "idle") {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function loadState() {
-  state.collection  = JSON.parse(localStorage.getItem("bobaFocusCollection")  || "[]");
-  state.rewards     = JSON.parse(localStorage.getItem("bobaFocusRewards")     || "[]");
-  state.owned       = JSON.parse(localStorage.getItem("bobaFocusOwned")       || "[]");
-  state.spent       = JSON.parse(localStorage.getItem("bobaFocusSpent")       || "0");
-  state.bonusPearls = JSON.parse(localStorage.getItem("bobaFocusBonusPearls") || "0");
-  state.skin        = localStorage.getItem("bobaFocusSkin") || "";
-  // Drink customization + equipped background — persist so they survive reloads.
-  state.base        = localStorage.getItem("bobaFocusBase")    || "classic";
-  state.topping     = localStorage.getItem("bobaFocusTopping") || "pearls";
-  state.shopTheme   = localStorage.getItem("bobaFocusTheme")   || "cozy";
-  state.sticker     = localStorage.getItem("bobaFocusSticker") || "Focus";
-  if (!BASES[state.base])       state.base = "classic";       // guard stale/removed keys
-  if (!TOPPINGS[state.topping]) state.topping = "pearls";
-  // Unlocked customizations + per-day game limits.
-  state.unlockedBases    = readJSON("bobaFocusUnlockedBases", ["classic"]);
-  state.unlockedToppings = readJSON("bobaFocusUnlockedToppings", ["pearls"]);
-  if (!state.unlockedBases.includes("classic")) state.unlockedBases.push("classic");
-  if (!state.unlockedToppings.includes("pearls")) state.unlockedToppings.push("pearls");
-  state.gameDays = readJSON("bobaFocusGameDays", {});
-  if (!state.gameDays || typeof state.gameDays !== "object") state.gameDays = {};
-  state.customDuration = JSON.parse(localStorage.getItem("bobaFocusCustomDuration") || String(30 * 60));
-  state.soundOn     = JSON.parse(localStorage.getItem("bobaFocusSoundOn") || "true");
-  state.devMode     = JSON.parse(localStorage.getItem("bobaFocusDevMode") || "false");
-  // Resume an in-progress drink across app closes
-  state.mode        = localStorage.getItem("bobaFocusMode") || "small";
-  state.elapsed     = JSON.parse(localStorage.getItem("bobaFocusElapsed") || "0");
-  state.onboarded   = JSON.parse(localStorage.getItem("bobaFocusOnboarded") || "false");
-  state.badges      = JSON.parse(localStorage.getItem("bobaFocusBadges") || "[]");
-  state.dailyGoal   = JSON.parse(localStorage.getItem("bobaFocusDailyGoal") || "60");
-  state.ambience    = localStorage.getItem("bobaFocusAmbience") || "off";
-  state.musicOn     = JSON.parse(localStorage.getItem("bobaFocusMusicOn") || "true");
-  // Volumes (0–1). Fall back to the legacy on/off toggles for returning users.
-  const mv = localStorage.getItem("bobaFocusMusicVol");
-  const sv = localStorage.getItem("bobaFocusSfxVol");
-  state.musicVolume = mv !== null ? clampVol01(JSON.parse(mv)) : (state.musicOn ? 0.8 : 0);
-  state.sfxVolume   = sv !== null ? clampVol01(JSON.parse(sv)) : (state.soundOn ? 0.9 : 0);
-  const av = localStorage.getItem("bobaFocusAmbVol");
-  state.ambVolume   = av !== null ? clampVol01(JSON.parse(av)) : 0.5;
-  state.musicOn = state.musicVolume > 0;   // toggles are now derived from volume
-  state.soundOn = state.sfxVolume > 0;
+  // Every value is read through readJSON (per-key try/catch + fallback) so ONE
+  // corrupt bobaFocus* key can't throw and brick the whole app at boot — the rest
+  // still load. An outer try/catch is a final backstop. After a load, the call
+  // site re-saves so any repaired value self-heals on disk.
+  try {
+    state.collection  = readJSON("bobaFocusCollection",  []);
+    state.rewards     = readJSON("bobaFocusRewards",     []);
+    state.owned       = readJSON("bobaFocusOwned",       []);
+    state.spent       = readJSON("bobaFocusSpent",       0);
+    state.bonusPearls = readJSON("bobaFocusBonusPearls", 0);
+    if (!Array.isArray(state.collection)) state.collection = [];
+    if (!Array.isArray(state.rewards))    state.rewards = [];
+    if (!Array.isArray(state.owned))      state.owned = [];
+    state.skin        = localStorage.getItem("bobaFocusSkin") || "";
+    // Drink customization + equipped background — persist so they survive reloads.
+    state.base        = localStorage.getItem("bobaFocusBase")    || "classic";
+    state.topping     = localStorage.getItem("bobaFocusTopping") || "pearls";
+    state.shopTheme   = localStorage.getItem("bobaFocusTheme")   || "cozy";
+    state.sticker     = localStorage.getItem("bobaFocusSticker") || "Focus";
+    if (!BASES[state.base])       state.base = "classic";       // guard stale/removed keys
+    if (!TOPPINGS[state.topping]) state.topping = "pearls";
+    // Unlocked customizations + per-day game limits.
+    state.unlockedBases    = readJSON("bobaFocusUnlockedBases", ["classic"]);
+    state.unlockedToppings = readJSON("bobaFocusUnlockedToppings", ["pearls"]);
+    if (!Array.isArray(state.unlockedBases))    state.unlockedBases = ["classic"];
+    if (!Array.isArray(state.unlockedToppings)) state.unlockedToppings = ["pearls"];
+    if (!state.unlockedBases.includes("classic")) state.unlockedBases.push("classic");
+    if (!state.unlockedToppings.includes("pearls")) state.unlockedToppings.push("pearls");
+    state.gameDays = readJSON("bobaFocusGameDays", {});
+    if (!state.gameDays || typeof state.gameDays !== "object") state.gameDays = {};
+    state.customDuration = readJSON("bobaFocusCustomDuration", 30 * 60);
+    state.soundOn     = readJSON("bobaFocusSoundOn", true);
+    state.devMode     = readJSON("bobaFocusDevMode", false);
+    // Resume an in-progress drink across app closes
+    state.mode        = localStorage.getItem("bobaFocusMode") || "small";
+    state.elapsed     = readJSON("bobaFocusElapsed", 0);
+    state.onboarded   = readJSON("bobaFocusOnboarded", false);
+    state.badges      = readJSON("bobaFocusBadges", []);
+    state.dailyGoal   = readJSON("bobaFocusDailyGoal", 60);
+    state.ambience    = localStorage.getItem("bobaFocusAmbience") || "off";
+    state.musicOn     = readJSON("bobaFocusMusicOn", true);
+    // Volumes (0–1). Fall back to the legacy on/off toggles for returning users.
+    const mv = localStorage.getItem("bobaFocusMusicVol");
+    const sv = localStorage.getItem("bobaFocusSfxVol");
+    state.musicVolume = mv !== null ? clampVol01(readJSON("bobaFocusMusicVol", 0.8)) : (state.musicOn ? 0.8 : 0);
+    state.sfxVolume   = sv !== null ? clampVol01(readJSON("bobaFocusSfxVol", 0.9))   : (state.soundOn ? 0.9 : 0);
+    const av = localStorage.getItem("bobaFocusAmbVol");
+    state.ambVolume   = av !== null ? clampVol01(readJSON("bobaFocusAmbVol", 0.5)) : 0.5;
+    state.musicOn = state.musicVolume > 0;   // toggles are now derived from volume
+    state.soundOn = state.sfxVolume > 0;
+  } catch (e) {
+    console.warn("loadState failed — using defaults", e);
+  }
 }
 
 // Clamp a stored/parsed volume to a safe 0–1 range.
@@ -1106,7 +1122,16 @@ function renderShop() {
     const isDefault = item.value === "cozy";
     const owned     = isDefault || isOwned(item.id);
     const canBuy    = pearls >= item.price;
-    const preview   = `<div class="shop-theme-preview" style="background:${item.color}"></div>`;
+    const THEME_BG = {
+      cozy:   "assets/Shop Background.png",
+      night:  "assets/Shop Background Night.png",
+      sakura: "assets/Shop Background Sakura.png",
+      autumn: "assets/Shop Background Autumn.png",
+      rainy:  "assets/Shop Background Rainy.png",
+    };
+    const bg = THEME_BG[item.value];
+    // Show the actual backdrop art (color stays as the load fallback).
+    const preview   = `<div class="shop-theme-preview" style="background:${item.color}${bg ? ` url('${bg}') center/cover no-repeat` : ""}"></div>`;
 
     let action = "";
     if (equipped) {
@@ -1276,12 +1301,17 @@ function resetSession() {
 }
 
 function completeSession() {
+  // Idempotency guard: once banked, elapsed is 0 and we're not running, so a
+  // second call (e.g. reload mid-reward-dialog then re-press) can't double-bank.
+  if (state.elapsed <= 0 && !state.running) return;
   stopTicker();
   stopAmbience();
   stopMusic();
   FocusBlocker.stop();   // session done — apps free again
   state.running = false;
-  state.elapsed = modeDuration();
+  // Reset elapsed to 0 NOW (before saveState) so the finished drink is fully
+  // banked and a reload can't resurrect it at 100% and re-award it.
+  state.elapsed = 0;
   state.lastTick = null;
   clearTimeout(walkTimer); setWalk(0);   // step back to his station to finish up
   currentMakerState = ""; setMakerState("idle");
@@ -1347,12 +1377,16 @@ function showReward(reward) {
 
   if (typeof els.rewardDialog.showModal === "function") {
     els.rewardDialog.showModal();
+  } else {
+    // Very old WebView without <dialog>.showModal — don't dead-end the app:
+    // toast the reward and run the close handler directly.
+    showToast(`${reward.size} complete! +${reward.pearls} pearl${reward.pearls !== 1 ? "s" : ""} 🎉`);
+    onRewardDialogClose();
   }
 }
 
 function onRewardDialogClose() {
-  state.elapsed = 0;
-  saveState();   // the finished drink is banked; clear in-progress so it won't resume
+  // elapsed was already reset + saved in completeSession(); just continue the flow.
   updateCup();
   celebrate();   // happy hop + treat burst now that the modal is out of the way
   startBreakOffer();
@@ -1367,6 +1401,10 @@ function startBreakOffer() {
 }
 
 function startBreak() {
+  // Clear any existing break timers first so a fast double-tap can't leave two
+  // intervals running (which made the break clock tick ~2x speed).
+  clearInterval(state.breakTimerId); state.breakTimerId = null;
+  clearTimeout(state.breakMakerCycleId); state.breakMakerCycleId = null;
   state.phase = "break";
   state.breakElapsed = 0;
   state.breakLastTick = Date.now();
@@ -1536,15 +1574,33 @@ function updateCustomDisplay() {
   }
 }
 
+let lastSheetTrigger = null;   // element to return focus to when a sheet closes
+
 function openSheet(id) {
+  lastSheetTrigger = document.activeElement;
   document.querySelectorAll(".sheet").forEach(s => s.classList.add("hidden"));
-  document.getElementById(id).classList.remove("hidden");
+  const sheet = document.getElementById(id);
+  sheet.classList.remove("hidden");
   els.sheetBackdrop.classList.remove("hidden");
+  // a11y: move focus into the sheet (first control, else the sheet itself)
+  const f = sheet.querySelector("button:not([disabled]), [href], input, select, textarea");
+  (f || sheet).focus();
 }
 
 function closeSheets() {
   document.querySelectorAll(".sheet").forEach(s => s.classList.add("hidden"));
   els.sheetBackdrop.classList.add("hidden");
+  // Stop any audio PREVIEW the Settings sliders started (it otherwise lingers a
+  // few seconds after the sheet is gone). Leave real session/break audio alone.
+  clearTimeout(musicPreviewTimer);
+  clearTimeout(ambPreviewTimer);
+  if (!state.running && state.phase !== "break" && state.phase !== "break-offer") {
+    stopMusic(true);
+    stopAmbience(true);
+  }
+  // a11y: restore focus to whatever opened the sheet
+  if (lastSheetTrigger && typeof lastSheetTrigger.focus === "function") lastSheetTrigger.focus();
+  lastSheetTrigger = null;
 }
 
 function isBaseUnlocked(key) {
@@ -1717,12 +1773,14 @@ function startPearlGame() {
   game.pearls = [];
   game.keysLeft = false;
   game.keysRight = false;
-  game.cupX = (els.gameArea.offsetWidth - GAME_CUP_W) / 2;
-  els.gameCup.style.left = Math.round(game.cupX) + "px";
   els.gameScore.textContent = "⬡ 0";
   els.gameTimer.textContent = "0:45";
   els.gameResult.style.display = "none";
   els.pearlGame.style.display = "flex";
+  // Show the overlay BEFORE measuring, or offsetWidth is 0 (display:none) and the
+  // cup spawns off-screen at left:-36px until the first touch.
+  game.cupX = (els.gameArea.offsetWidth - GAME_CUP_W) / 2;
+  els.gameCup.style.left = Math.round(game.cupX) + "px";
   game.animId = requestAnimationFrame(gameLoop);
 }
 
@@ -2041,6 +2099,7 @@ function dropPearl() {
 }
 
 function showPlinkoResult(reward) {
+  if (els.plinkoGame.style.display === "none") return;   // user quit before the drop resolved
   const eyebrows = { 10: "Jackpot!", 5: "Great drop!", 2: "Good drop!", 1: "So close!" };
   els.plinkoResultEyebrow.textContent = eyebrows[reward] || "Nice drop!";
   els.plinkoResultText.textContent = `+${reward} pearl${reward !== 1 ? "s" : ""}!`;
@@ -3017,6 +3076,7 @@ function drawPong(d) {
 }
 
 function endPong() {
+  if (els.pongGame.style.display === "none") return;   // user quit before the final throw resolved
   pong.active = false;
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   const s = pong.score;
@@ -3254,7 +3314,10 @@ function wireEvents() {
   }, { passive: false });
 
   // ── Keyboard controls (pearl game) ───────────────────────────────────────
+  // Only hijack the arrow keys while the Catch game is actually running; otherwise
+  // preventDefault would break range-slider (volume) adjustment and a11y nav.
   document.addEventListener("keydown", e => {
+    if (!game.active || els.pearlGame.style.display === "none") return;
     if (e.key === "ArrowLeft")  { e.preventDefault(); game.keysLeft = true; }
     if (e.key === "ArrowRight") { e.preventDefault(); game.keysRight = true; }
   });
@@ -3262,6 +3325,32 @@ function wireEvents() {
     if (e.key === "ArrowLeft")  game.keysLeft = false;
     if (e.key === "ArrowRight") game.keysRight = false;
   });
+
+  // ── Sheet a11y: Escape to close + Tab focus trap for the custom .sheet modals.
+  // (Only acts when a .sheet is open; the native <dialog> reward/premium modals
+  // manage their own focus and are unaffected.)
+  document.addEventListener("keydown", e => {
+    const sheet = document.querySelector(".sheet:not(.hidden)");
+    if (!sheet) return;
+    if (e.key === "Escape") { e.preventDefault(); closeSheets(); return; }
+    if (e.key === "Tab") {
+      const f = [...sheet.querySelectorAll('button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter(el => el.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+
+  // ── Prime the AudioContext on the FIRST user gesture (iOS autoplay policy) so
+  //    the first tap chime / SFX isn't swallowed on a cold start. Self-removes. ──
+  const primeEvents = ["pointerdown", "touchstart", "keydown", "click"];
+  function primeAudioOnce() {
+    try { audio(); } catch (e) { /* ignore */ }
+    primeEvents.forEach(ev => document.removeEventListener(ev, primeAudioOnce, true));
+  }
+  primeEvents.forEach(ev => document.addEventListener(ev, primeAudioOnce, true));
 
   // ── Keep the focus session running while the screen is off / app is away ──
   // (Locking your phone to study IS focusing — the time should still count, and
@@ -3286,6 +3375,7 @@ function wireEvents() {
 }
 
 loadState();
+saveState();   // self-heal: rewrite any value readJSON had to repair from corrupt data
 wireEvents();
 
 // Reflect persisted prefs in the UI before first paint
