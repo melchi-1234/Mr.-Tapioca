@@ -2627,22 +2627,27 @@ const ONBOARD_STEPS = [
   {
     img: "assets/Mr. Tapioca.png",
     title: "Meet Mr. Tapioca",
-    body: "Your cozy study buddy. Focus alongside him and he'll brew you the perfect boba."
+    body: "Your cozy study buddy. He brews boba while you focus — and you can tap him anytime to say hi. 🧋"
   },
   {
     img: "assets/Cup.png",
     title: "Focus fills your cup",
-    body: "Pick a drink size and start a session. The longer you stay focused, the more your boba fills up."
+    body: "Pick a size and press start. The longer you focus, the fuller your boba gets. Big drinks even pick up where you left off across sittings."
   },
   {
     img: "assets/Tapioca Currency.png",
-    title: "Earn tapioca pearls",
-    body: "Every 15 focused minutes earns a pearl. Spend pearls on cute character skins and shop backgrounds."
+    title: "Earn pearls",
+    body: "Every 15 focused minutes = 1 pearl. Spend them on cute character skins and shop backgrounds."
+  },
+  {
+    emoji: "🎮",
+    title: "Earn your breaks",
+    body: "Finish a session and take a breather — play a quick break game (Catch, Plinko, or Cup Pong) for bonus pearls."
   },
   {
     emoji: "🗺️",
     title: "Real boba rewards",
-    body: "Finish big drinks to unlock discounts at partner boba shops near you. Tap the Map to explore!"
+    body: "The dream: finish big drinks to unlock discounts at real boba shops near you. Tap Map to look around!"
   }
 ];
 
@@ -3108,6 +3113,22 @@ function wireEvents() {
   els.customizeBtn.addEventListener("click",  () => { playSfx("open"); openSheet("customizeSheet"); });
   els.settingsBtn.addEventListener("click",   () => { playSfx("open"); openSheet("settingsSheet"); });
   els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
+
+  // Top-HUD shortcuts: tap the drink name to Customize, tap the pearl chip for the Shop.
+  const drinkLabelEl = document.querySelector(".drink-label");
+  if (drinkLabelEl) {
+    drinkLabelEl.style.cursor = "pointer";
+    drinkLabelEl.setAttribute("role", "button");
+    drinkLabelEl.setAttribute("aria-label", "Customize your drink");
+    drinkLabelEl.addEventListener("click", () => { playSfx("open"); openSheet("customizeSheet"); });
+  }
+  const hudPearlEl = document.querySelector(".top-hud .pearl-chip");
+  if (hudPearlEl) {
+    hudPearlEl.style.cursor = "pointer";
+    hudPearlEl.setAttribute("role", "button");
+    hudPearlEl.setAttribute("aria-label", "Open shop");
+    hudPearlEl.addEventListener("click", () => { playSfx("open"); openSheet("shopSheet"); });
+  }
   els.shopClose.addEventListener("click",     closeSheets);
   els.customizeClose.addEventListener("click",closeSheets);
   els.settingsClose.addEventListener("click", closeSheets);
