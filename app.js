@@ -144,6 +144,9 @@ const state = {
   skin: "",
   shopTheme: "cozy",
   soundOn: true,
+  musicOn: true,
+  musicVolume: 0.8,
+  sfxVolume: 0.9,
   devMode: false,
   running: false,
   elapsed: 0,
@@ -271,8 +274,10 @@ const els = {
   customDurationDisplay:document.querySelector("#customDurationDisplay"),
   customMinus:          document.querySelector("#customMinus"),
   customPlus:           document.querySelector("#customPlus"),
-  soundToggle:          document.querySelector("#soundToggle"),
-  musicToggle:          document.querySelector("#musicToggle"),
+  musicVol:             document.querySelector("#musicVol"),
+  musicVolLabel:        document.querySelector("#musicVolLabel"),
+  sfxVol:               document.querySelector("#sfxVol"),
+  sfxVolLabel:          document.querySelector("#sfxVolLabel"),
   devToggle:            document.querySelector("#devToggle"),
   statStreak:           document.querySelector("#statStreak"),
   statTotalTime:        document.querySelector("#statTotalTime"),
@@ -421,6 +426,20 @@ function loadState() {
   state.dailyGoal   = JSON.parse(localStorage.getItem("bobaFocusDailyGoal") || "60");
   state.ambience    = localStorage.getItem("bobaFocusAmbience") || "off";
   state.musicOn     = JSON.parse(localStorage.getItem("bobaFocusMusicOn") || "true");
+  // Volumes (0–1). Fall back to the legacy on/off toggles for returning users.
+  const mv = localStorage.getItem("bobaFocusMusicVol");
+  const sv = localStorage.getItem("bobaFocusSfxVol");
+  state.musicVolume = mv !== null ? clampVol01(JSON.parse(mv)) : (state.musicOn ? 0.8 : 0);
+  state.sfxVolume   = sv !== null ? clampVol01(JSON.parse(sv)) : (state.soundOn ? 0.9 : 0);
+  state.musicOn = state.musicVolume > 0;   // toggles are now derived from volume
+  state.soundOn = state.sfxVolume > 0;
+}
+
+// Clamp a stored/parsed volume to a safe 0–1 range.
+function clampVol01(v) {
+  v = Number(v);
+  if (!isFinite(v)) return 0.8;
+  return Math.max(0, Math.min(1, v));
 }
 
 function saveState() {
@@ -443,6 +462,8 @@ function saveState() {
   localStorage.setItem("bobaFocusDailyGoal",    JSON.stringify(state.dailyGoal));
   localStorage.setItem("bobaFocusAmbience",     state.ambience);
   localStorage.setItem("bobaFocusMusicOn",      JSON.stringify(state.musicOn));
+  localStorage.setItem("bobaFocusMusicVol",     JSON.stringify(state.musicVolume));
+  localStorage.setItem("bobaFocusSfxVol",       JSON.stringify(state.sfxVolume));
 }
 
 function formatTime(seconds) {
@@ -734,43 +755,37 @@ function pearlsWonFx(n, withToast = true) {
   }
 }
 
+const SHELF_CAP = 24;   // most-recent drinks shown as chips; rest summarized as "+N"
+const TREAT_CAP = 20;
+
 function renderShelf() {
   if (state.collection.length === 0) {
     els.shelfGrid.innerHTML = `<div class="empty-state">Finish a focus session to start your collection 🧋</div>`;
     return;
   }
-
-  els.shelfGrid.innerHTML = state.collection
-    .map((drink) => {
-      return `
-        <article class="shelf-item">
+  const drinks = state.collection;   // already newest-first (unshift on complete)
+  let html = drinks.slice(0, SHELF_CAP).map((drink) => `
+        <article class="shelf-item" title="${drink.name} · ${minuteLabel(drink.minutes)} · ${drink.size}">
           <div class="shelf-cup" style="background:${drink.color}"></div>
-          <div>
-            <strong>${drink.name}</strong>
-            <small>${minuteLabel(drink.minutes)} - ${drink.size}</small>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
+          <strong>${drink.name}</strong>
+          <small>${minuteLabel(drink.minutes)}</small>
+        </article>`).join("");
+  if (drinks.length > SHELF_CAP) html += `<article class="shelf-item more">+${drinks.length - SHELF_CAP}</article>`;
+  els.shelfGrid.innerHTML = html;
 }
 
 function renderRewards() {
   if (state.rewards.length === 0) {
-    els.rewardList.innerHTML = `<div class="empty-state">Treat cards earned from focus sessions show up here.</div>`;
+    els.rewardList.innerHTML = `<div class="empty-state">Treats from finished drinks show up here 🎟️</div>`;
     return;
   }
-
-  els.rewardList.innerHTML = state.rewards
-    .map((reward) => {
-      return `
-        <article class="reward-item">
+  let html = state.rewards.slice(0, TREAT_CAP).map((reward) => `
+        <article class="reward-item" title="${reward.title}">
           <strong>${reward.title}</strong>
           <small>${reward.copy}</small>
-        </article>
-      `;
-    })
-    .join("");
+        </article>`).join("");
+  if (state.rewards.length > TREAT_CAP) html += `<article class="reward-item more">+${state.rewards.length - TREAT_CAP} more</article>`;
+  els.rewardList.innerHTML = html;
 }
 
 function isOwned(itemId) {
@@ -1795,6 +1810,18 @@ function masterOut(ctx) {
   return masterComp;
 }
 
+// SFX volume bus: every UI sound + chime routes through this so the "Sound
+// effects" slider scales them all (music has its own bus). Sits before master.
+let sfxGain = null;
+function sfxBus(ctx) {
+  if (!sfxGain) {
+    sfxGain = ctx.createGain();
+    sfxGain.gain.value = state.sfxVolume;
+    sfxGain.connect(masterOut(ctx));
+  }
+  return sfxGain;
+}
+
 // One short note with an attack/decay envelope; optional pitch glide to freq2
 function tone(ctx, { freq, freq2 = null, type = "sine", t0 = 0, dur = 0.12, peak = 0.15 }) {
   const now = ctx.currentTime + t0;
@@ -1806,9 +1833,23 @@ function tone(ctx, { freq, freq2 = null, type = "sine", t0 = 0, dur = 0.12, peak
   g.gain.setValueAtTime(0.0001, now);
   g.gain.linearRampToValueAtTime(peak, now + Math.min(0.02, dur * 0.3));
   g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-  osc.connect(g).connect(masterOut(ctx));
+  osc.connect(g).connect(sfxBus(ctx));
   osc.start(now);
   osc.stop(now + dur + 0.02);
+}
+
+// Live volume setters used by the Settings sliders.
+function setSfxVolume(v) {
+  state.sfxVolume = clampVol01(v);
+  state.soundOn = state.sfxVolume > 0;
+  if (sfxGain) { try { sfxGain.gain.setTargetAtTime(state.sfxVolume, audio().currentTime, 0.02); } catch (e) {} }
+}
+function setMusicVolume(v) {
+  state.musicVolume = clampVol01(v);
+  state.musicOn = state.musicVolume > 0;
+  if (musicGain && musicTimer) {   // adjust a currently-playing tune live
+    try { musicGain.gain.setTargetAtTime(MUSIC_PEAK * state.musicVolume, audio().currentTime, 0.05); } catch (e) {}
+  }
 }
 
 // Tiny UI sound effects, all gated by the sound toggle
@@ -1977,6 +2018,7 @@ const BREAK_MUSIC = {
 
 let musicTimer = null, musicNext = 0, musicStep = 0, musicTune = null;
 let musicGain = null, musicNoiseBuf = null, musicPreviewTimer = null;
+const MUSIC_PEAK = 0.9;   // full-volume target for the music bus (scaled by state.musicVolume)
 
 function musicBus(ctx) {
   if (!musicGain) { musicGain = ctx.createGain(); musicGain.gain.value = 0.0001; musicGain.connect(masterOut(ctx)); }
@@ -2106,7 +2148,7 @@ function startMusic(which) {
     const bus = musicBus(ctx);
     bus.gain.cancelScheduledValues(ctx.currentTime);
     bus.gain.setValueAtTime(Math.max(0.0001, bus.gain.value), ctx.currentTime);
-    bus.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 1.0);
+    bus.gain.linearRampToValueAtTime(MUSIC_PEAK * state.musicVolume, ctx.currentTime + 1.0);
     musicTimer = setInterval(musicScheduler, 25);
     musicScheduler();
   } catch (e) { /* ignore */ }
@@ -2126,14 +2168,18 @@ function stopMusic(immediate) {
   }
 }
 
-function renderMusicToggle() {
-  els.musicToggle.classList.toggle("on", state.musicOn);
-  els.musicToggle.setAttribute("aria-checked", String(state.musicOn));
-}
-
-function renderSoundToggle() {
-  els.soundToggle.classList.toggle("on", state.soundOn);
-  els.soundToggle.setAttribute("aria-checked", String(state.soundOn));
+// Reflect current volumes onto the Settings sliders + their value labels.
+function renderVolumeControls() {
+  if (els.musicVol) {
+    const m = Math.round(state.musicVolume * 100);
+    els.musicVol.value = m;
+    els.musicVolLabel.textContent = m;
+  }
+  if (els.sfxVol) {
+    const s = Math.round(state.sfxVolume * 100);
+    els.sfxVol.value = s;
+    els.sfxVolLabel.textContent = s;
+  }
 }
 
 function renderDevToggle() {
@@ -2618,29 +2664,40 @@ function wireEvents() {
     chip.addEventListener("click", () => { playSfx("tap"); setAmbience(chip.dataset.amb); });
   });
 
-  // ── Sound toggle (Settings) ──────────────────────────────────────────────
-  els.soundToggle.addEventListener("click", () => {
-    state.soundOn = !state.soundOn;
+  // ── Sound-effects volume slider (Settings) ───────────────────────────────
+  els.sfxVol.addEventListener("input", () => {
+    setSfxVolume(parseInt(els.sfxVol.value, 10) / 100);
+    els.sfxVolLabel.textContent = Math.round(state.sfxVolume * 100);
+  });
+  els.sfxVol.addEventListener("change", () => {
     saveState();
-    renderSoundToggle();
-    if (state.soundOn) sessionChime();  // little preview when turning on
+    if (state.sfxVolume > 0) playSfx("coin");   // preview the level on release
   });
 
-  els.musicToggle.addEventListener("click", () => {
-    state.musicOn = !state.musicOn;
-    saveState();
-    renderMusicToggle();
+  // ── Music volume slider (Settings) ───────────────────────────────────────
+  els.musicVol.addEventListener("input", () => {
+    setMusicVolume(parseInt(els.musicVol.value, 10) / 100);
+    els.musicVolLabel.textContent = Math.round(state.musicVolume * 100);
     clearTimeout(musicPreviewTimer);
-    if (state.musicOn) {
-      // start the tune for the current phase (or a short focus preview)
+    // Start a tune (once) so the user hears the level while dragging.
+    if (state.musicVolume > 0 && !musicTimer) {
       if (state.running && state.phase === "focus") startMusic("focus");
       else if (state.phase === "break" || state.phase === "break-offer") startMusic("break");
-      else {
-        startMusic("focus");
-        musicPreviewTimer = setTimeout(() => { if (!state.running && state.phase === "focus") stopMusic(); }, 6000);
-      }
-    } else {
-      stopMusic();
+      else startMusic("focus");
+    } else if (state.musicVolume === 0) {
+      stopMusic(true);
+    }
+  });
+  els.musicVol.addEventListener("change", () => {
+    saveState();
+    clearTimeout(musicPreviewTimer);
+    // If this was just an idle preview (not an active session/break), fade it
+    // back out shortly after the user lets go.
+    if (state.musicVolume > 0 && !state.running &&
+        state.phase !== "break" && state.phase !== "break-offer") {
+      musicPreviewTimer = setTimeout(() => {
+        if (!state.running && state.phase === "focus") stopMusic();
+      }, 2500);
     }
   });
 
@@ -2802,8 +2859,7 @@ document.querySelectorAll(".size-btn").forEach(b => {
 });
 if (els.customStepper) els.customStepper.classList.toggle("hidden", state.mode !== "custom");
 updateCustomDisplay();
-renderSoundToggle();
-renderMusicToggle();
+renderVolumeControls();
 renderDevToggle();
 renderAmbiencePicker();
 

@@ -279,18 +279,20 @@
             </div>
           </div>
 
-          <div class="settings-row">
-            <span class="settings-row-label">🎵 Lo-fi music <small>focus &amp; break tunes</small></span>
-            <button id="musicToggle" class="toggle on" role="switch" aria-checked="true">
-              <span class="toggle-knob"></span>
-            </button>
+          <div class="settings-row stack">
+            <span class="settings-row-label">🎵 Music <small>lo-fi focus &amp; break tunes</small></span>
+            <div class="volume-control">
+              <input id="musicVol" class="volume-slider" type="range" min="0" max="100" step="1" value="80" aria-label="Music volume">
+              <span id="musicVolLabel" class="volume-val">80</span>
+            </div>
           </div>
 
-          <div class="settings-row">
-            <span class="settings-row-label">🔔 Completion sound</span>
-            <button id="soundToggle" class="toggle" role="switch" aria-checked="true">
-              <span class="toggle-knob"></span>
-            </button>
+          <div class="settings-row stack">
+            <span class="settings-row-label">🔊 Sound effects <small>taps, coins &amp; completion chime</small></span>
+            <div class="volume-control">
+              <input id="sfxVol" class="volume-slider" type="range" min="0" max="100" step="1" value="90" aria-label="Sound effects volume">
+              <span id="sfxVolLabel" class="volume-val">90</span>
+            </div>
           </div>
 
           <div class="settings-row">
