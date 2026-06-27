@@ -944,6 +944,7 @@ function tick() {
 }
 
 function startPause() {
+  state.autoPaused = false;   // any manual press cancels a pending auto-resume
   if (progress() >= 1 && !state.running) {
     completeSession();
     return;
@@ -1092,6 +1093,7 @@ function startBreak() {
   plinko.playsLeft = PLINKO_MAX_PLAYS;
   pong.throwsLeft = PONG_MAX_PLAYS;
   updatePlinkoBtnState();
+  updatePongBtnState();
   updatePhaseUI();
 }
 
@@ -1405,6 +1407,7 @@ function pauseAndBank() {
   stopMusic();
   state.running = false;
   state.lastTick = null;
+  state.autoPaused = true;   // so returning to the app can auto-resume
   saveState();
   clearTimeout(walkTimer); setWalk(0);   // hurry back to the station
   currentMakerState = ""; setMakerState("shocked");
@@ -1546,6 +1549,17 @@ function updatePlinkoBtnState() {
   }
 }
 
+function updatePongBtnState() {
+  const left = pong.throwsLeft;
+  if (left > 0) {
+    els.playPongBtn.textContent = `Cup Pong 🥤 (${left} left)`;
+    els.playPongBtn.disabled = false;
+  } else {
+    els.playPongBtn.textContent = "Cup Pong (done for break)";
+    els.playPongBtn.disabled = true;
+  }
+}
+
 function openPlinko() {
   if (plinko.dropping) return;
   if (plinko.animId) { cancelAnimationFrame(plinko.animId); plinko.animId = null; }
@@ -1596,6 +1610,8 @@ function plinkoStep(p, pegs, geo, h) {
         p.vy -= (1 + PLINKO_REST) * vn * ny;
         p.vx += (Math.random() * 2 - 1) * 45;   // a little chaos so it isn't deterministic
       }
+      // anti-wedge: if it's barely moving while resting on a peg, nudge it off
+      if (Math.abs(p.vx) + Math.abs(p.vy) < 30) p.vx += (Math.random() < 0.5 ? -1 : 1) * 80;
     }
   }
   return p.y + PLINKO_R >= geo.H - geo.slotH;
@@ -1636,10 +1652,10 @@ function dropPearl() {
     vy: 0
   };
 
-  // Reduced motion: simulate to the result without animating
+  // Reduced motion: simulate to the result without animating (same ~6s budget as the animated path)
   if (prefersReducedMotion()) {
     let guard = 0;
-    while (!plinkoStep(p, pegs, geo, 0.016) && guard++ < 4000) {}
+    while (!plinkoStep(p, pegs, geo, 0.016) && guard++ < 400) {}
     resolvePlinko(geo, p.x);
     return;
   }
@@ -1692,10 +1708,26 @@ function updateTabTitle(remainingSeconds) {
 
 // ── Synthesised sound (Web Audio, no asset files) ─────────────────────────────
 let audioCtx = null;
+let masterComp = null;
 function audio() {
   audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === "suspended") audioCtx.resume();
   return audioCtx;
+}
+
+// Single master bus: a soft compressor so SFX + chime + music + ambience can't
+// stack into clipping. Everything connects here instead of ctx.destination.
+function masterOut(ctx) {
+  if (!masterComp) {
+    masterComp = ctx.createDynamicsCompressor();
+    masterComp.threshold.value = -10;
+    masterComp.knee.value = 24;
+    masterComp.ratio.value = 4;
+    masterComp.attack.value = 0.005;
+    masterComp.release.value = 0.18;
+    masterComp.connect(ctx.destination);
+  }
+  return masterComp;
 }
 
 // One short note with an attack/decay envelope; optional pitch glide to freq2
@@ -1709,7 +1741,7 @@ function tone(ctx, { freq, freq2 = null, type = "sine", t0 = 0, dur = 0.12, peak
   g.gain.setValueAtTime(0.0001, now);
   g.gain.linearRampToValueAtTime(peak, now + Math.min(0.02, dur * 0.3));
   g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-  osc.connect(g).connect(ctx.destination);
+  osc.connect(g).connect(masterOut(ctx));
   osc.start(now);
   osc.stop(now + dur + 0.02);
 }
@@ -1807,7 +1839,7 @@ function startAmbience(type = state.ambience) {
     master.gain.setValueAtTime(0.0001, now);
     master.gain.linearRampToValueAtTime(1, now + 1.2);
 
-    src.connect(filter).connect(ambGain).connect(master).connect(ctx.destination);
+    src.connect(filter).connect(ambGain).connect(master).connect(masterOut(ctx));
     src.start();
     amb = { src, master, lfo };
   } catch (e) { /* audio unavailable — ignore */ }
@@ -1873,10 +1905,10 @@ const BREAK_MUSIC = {
 };
 
 let musicTimer = null, musicNext = 0, musicStep = 0, musicTune = null;
-let musicGain = null, musicNoiseBuf = null;
+let musicGain = null, musicNoiseBuf = null, musicPreviewTimer = null;
 
 function musicBus(ctx) {
-  if (!musicGain) { musicGain = ctx.createGain(); musicGain.gain.value = 0.0001; musicGain.connect(ctx.destination); }
+  if (!musicGain) { musicGain = ctx.createGain(); musicGain.gain.value = 0.0001; musicGain.connect(masterOut(ctx)); }
   return musicGain;
 }
 
@@ -2241,15 +2273,17 @@ function resetPongPearl() {
 }
 
 function openPong() {
+  if (pong.throwsLeft <= 0) return;   // out of throws this break
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   pong.score = 0;
-  pong.cupX = els.pongCanvas.offsetWidth / 2 || 180;
   pong.cupDir = 1;
   els.pongResult.style.display = "none";
   els.pongHint.style.display = "";
   els.pongGame.style.display = "flex";
   updatePongHUD();
   requestAnimationFrame(() => {
+    // canvas now has real dimensions — centre the cup and place the pearl
+    pong.cupX = pongDims().W / 2;
     resetPongPearl();
     pong.active = true;
     pong.lastTs = null;
@@ -2264,7 +2298,7 @@ function closePong() {
 }
 
 function pongLaunch() {
-  if (pong.phase !== "aim" || !pong.drag) return;
+  if (pong.phase !== "aim" || !pong.drag || pong.throwsLeft <= 0) return;
   const d = pongDims();
   // slingshot: pull back from the pearl, release to fling the opposite way
   const k = 6.2;
@@ -2282,8 +2316,9 @@ function pongLaunch() {
 }
 
 function pongNextThrow(made) {
-  pong.throwsLeft--;
+  pong.throwsLeft = Math.max(0, pong.throwsLeft - 1);
   updatePongHUD();
+  updatePongBtnState();
   if (pong.throwsLeft <= 0) {
     pong.phase = "done";
     setTimeout(endPong, 700);
@@ -2300,24 +2335,33 @@ function pongLoop(ts) {
   pong.lastTs = ts;
   const d = pongDims();
 
-  // cup drifts side to side
-  const cupSpeed = 70;
+  // cup drifts side to side (held still for reduced-motion users)
+  const cupSpeed = prefersReducedMotion() ? 0 : 70;
   pong.cupX += pong.cupDir * cupSpeed * dt;
   if (pong.cupX < d.margin) { pong.cupX = d.margin; pong.cupDir = 1; }
   if (pong.cupX > d.W - d.margin) { pong.cupX = d.W - d.margin; pong.cupDir = -1; }
 
   if (pong.phase === "fly" && pong.pearl) {
     const p = pong.pearl;
-    p.prevY = p.y;
-    p.vy += PONG_GRAV * dt;
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    // bounce off side walls so it stays playable
-    if (p.x < PONG_R) { p.x = PONG_R; p.vx = Math.abs(p.vx) * 0.6; }
-    if (p.x > d.W - PONG_R) { p.x = d.W - PONG_R; p.vx = -Math.abs(p.vx) * 0.6; }
-    // make: crossed the rim plane going down, within the mouth
-    if (p.vy > 0 && p.prevY <= d.mouthY && p.y >= d.mouthY &&
-        Math.abs(p.x - pong.cupX) < d.mouthHalf - PONG_R) {
+    // sub-step the integration so a fast pearl can't tunnel through the rim
+    const sub = 4, h = dt / sub;
+    let result = null;   // "make" | "miss"
+    for (let s = 0; s < sub && !result; s++) {
+      const prevX = p.x, prevY = p.y;
+      p.vy += PONG_GRAV * h;
+      p.x += p.vx * h;
+      p.y += p.vy * h;
+      if (p.x < PONG_R) { p.x = PONG_R; p.vx = Math.abs(p.vx) * 0.6; }
+      if (p.x > d.W - PONG_R) { p.x = d.W - PONG_R; p.vx = -Math.abs(p.vx) * 0.6; }
+      // make: interpolate x at the exact moment y crosses the rim
+      if (p.vy > 0 && prevY <= d.mouthY && p.y >= d.mouthY) {
+        const f = (d.mouthY - prevY) / (p.y - prevY || 1);
+        const crossX = prevX + (p.x - prevX) * f;
+        if (Math.abs(crossX - pong.cupX) < d.mouthHalf - PONG_R) result = "make";
+      }
+      if (!result && (p.y > d.H + 40 || p.x < -40 || p.x > d.W + 40)) result = "miss";
+    }
+    if (result === "make") {
       pong.score++;
       state.bonusPearls += PONG_REWARD;
       saveState();
@@ -2326,7 +2370,7 @@ function pongLoop(ts) {
       haptic(12);
       checkBadges(true);
       pongNextThrow(true);
-    } else if (p.y > d.H + 40 || p.x < -40 || p.x > d.W + 40) {
+    } else if (result === "miss") {
       playSfx("tap");
       pongNextThrow(false);
     }
@@ -2415,6 +2459,7 @@ function endPong() {
   els.pongResultEyebrow.textContent = s >= 4 ? "Sharp shooter!" : s >= 1 ? "Nice tossing!" : "Tough luck!";
   els.pongResultText.textContent = `You sank ${s} · +${s * PONG_REWARD} pearls`;
   els.pongResult.style.display = "flex";
+  updatePongBtnState();   // reflect 0 throws left on the break-panel button
   if (s > 0) playSfx("success");
 }
 
@@ -2458,11 +2503,15 @@ function wireEvents() {
     state.musicOn = !state.musicOn;
     saveState();
     renderMusicToggle();
+    clearTimeout(musicPreviewTimer);
     if (state.musicOn) {
       // start the tune for the current phase (or a short focus preview)
       if (state.running && state.phase === "focus") startMusic("focus");
       else if (state.phase === "break" || state.phase === "break-offer") startMusic("break");
-      else { startMusic("focus"); setTimeout(() => { if (!state.running && state.phase === "focus") stopMusic(); }, 6000); }
+      else {
+        startMusic("focus");
+        musicPreviewTimer = setTimeout(() => { if (!state.running && state.phase === "focus") stopMusic(); }, 6000);
+      }
     } else {
       stopMusic();
     }
@@ -2590,14 +2639,26 @@ function wireEvents() {
     if (e.key === "ArrowRight") game.keysRight = false;
   });
 
-  // ── Pause + bank progress when the app is backgrounded mid-session ────────
+  // ── Backgrounding banks progress; returning auto-resumes (music & all) ────
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden" && state.running && state.phase === "focus") {
-      pauseAndBank();
+    if (document.visibilityState === "hidden") {
+      if (state.running && state.phase === "focus") pauseAndBank();   // sets state.autoPaused
+    } else if (document.visibilityState === "visible") {
+      // If we auto-paused on leave, seamlessly pick the session back up
+      if (state.autoPaused && state.phase === "focus" && !state.running &&
+          state.elapsed > 0 && progress() < 1) {
+        state.autoPaused = false;
+        startPause();   // resumes ticker + music + ambience + walk-to-cup
+      }
+      state.autoPaused = false;
     }
   });
-  // Last-chance save if the tab/app is actually closed
-  window.addEventListener("pagehide", () => { if (state.phase === "focus") saveState(); });
+  // Last-chance save + audio cleanup if the tab/app is actually closed
+  window.addEventListener("pagehide", () => {
+    if (state.phase === "focus") saveState();
+    stopMusic(true);
+    stopAmbience(true);
+  });
 }
 
 loadState();
