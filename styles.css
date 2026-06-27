@@ -2406,7 +2406,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   justify-content: center;
   gap: 8px;
   padding: 24px;
-  background: rgba(232,224,248,0.94);
+  background: rgba(253,245,236,0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   text-align: center;
 }
 .game-result h3 { margin: 0 0 10px; color: var(--bark); }
@@ -2441,7 +2443,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   justify-content: center;
   gap: 10px;
   padding: 24px;
-  background: rgba(253,240,216,0.96);
+  background: rgba(253,245,236,0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: 0;
   text-align: center;
 }
@@ -2482,7 +2486,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   justify-content: center;
   gap: 10px;
   padding: 24px;
-  background: rgba(243,230,214,0.96);
+  background: rgba(253,245,236,0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   text-align: center;
 }
 .pong-result h3 { margin: 0 0 6px; font-size: 1.8rem; color: var(--bark); }
