@@ -340,10 +340,10 @@ function celebrate() {
 }
 
 // ── Walk-to-the-cup choreography ──────────────────────────────────────────────
-// How far right the maker glides so he stands beside the cup. ~720ms matches the
-// CSS transition on .maker-wrap; tweak MIX_WALK_X if he stops short of the cup.
+// How far right the maker glides so he stands beside the cup. WALK_MS must match
+// the .maker-wrap CSS transition (1050ms); tweak MIX_WALK_X if he stops short.
 const MIX_WALK_X = 158;
-const WALK_MS = 1050;   // keep in sync with the .maker-wrap CSS transition
+const WALK_MS = 1050;   // keep in sync with the .maker-wrap CSS transition (1050ms)
 let walkTimer = null;
 
 function setWalk(px) {
@@ -363,13 +363,16 @@ function walkToCupAndMix() {
 // Walk back to his station, then settle into the given resting state
 function walkToStation(restState = "idle") {
   clearTimeout(walkTimer);
-  setWalk(0);
-  // only show the walk waddle if he actually has distance to cover
+  // Capture how far out he is BEFORE zeroing it, so the waddle only plays when
+  // he actually has ground to cover (reading after setWalk(0) always saw 0).
   const current = parseFloat(getComputedStyle(els.makerWrap).getPropertyValue("--walk")) || 0;
-  if (current !== 0) setMakerState("walking");
-  walkTimer = setTimeout(() => {
-    if (!state.running) setMakerState(restState);
-  }, WALK_MS);
+  setWalk(0);
+  if (current !== 0) {
+    setMakerState("walking");
+    walkTimer = setTimeout(() => { if (!state.running) setMakerState(restState); }, WALK_MS);
+  } else {
+    setMakerState(restState);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -639,10 +642,11 @@ const BADGES = [
   { id: "break-champ", icon: "🎮", name: "Break Champ",    desc: "Win pearls in a game",  test: () => state.bonusPearls > 0 }
 ];
 
+// Returns the number of newly-unlocked badges (so callers can stagger their own toasts)
 function checkBadges(celebrate) {
   const have = new Set(state.badges || []);
   const newly = BADGES.filter(b => !have.has(b.id) && b.test()).map(b => b.id);
-  if (!newly.length) return;
+  if (!newly.length) return 0;
   state.badges = [...have, ...newly];
   saveState();
   renderBadges();
@@ -652,6 +656,7 @@ function checkBadges(celebrate) {
       setTimeout(() => { showToast(`${b.icon} Badge unlocked: ${b.name}`); playSfx("success"); haptic(10); }, i * 1500);
     });
   }
+  return newly.length;
 }
 
 function renderBadges() {
@@ -919,7 +924,6 @@ function startPause() {
   updateCup();
 
   if (state.running) {
-    maybeRequestNotify();
     walkToCupAndMix();        // glide over to the cup, then mix
     startAmbience();          // soundscape on while focusing
     stopTicker();
@@ -1005,11 +1009,12 @@ function completeSession() {
   renderAll();
   sessionChime();
   haptic([14, 40, 24]);   // celebratory buzz pattern
-  notifyComplete(size);
   showReward(reward);
-  checkBadges(true);      // toast any milestone reached by finishing this drink
+  const newBadges = checkBadges(true);   // toast any milestone reached by finishing this drink
   if (goalWasUnmet && todayMinutes() >= state.dailyGoal) {
-    setTimeout(() => { showToast("🎯 Daily goal reached — nice!"); playSfx("success"); }, 900);
+    // queue the goal toast after any badge toasts (each badge toast holds ~1.5s)
+    const delay = newBadges > 0 ? newBadges * 1500 + 200 : 900;
+    setTimeout(() => { showToast("🎯 Daily goal reached — nice!"); playSfx("success"); }, delay);
   }
 }
 
@@ -1162,6 +1167,10 @@ function setMode(mode) {
 }
 
 function adjustCustomDuration(delta) {
+  // Don't silently wipe an in-progress custom drink (mirrors setMode's guard)
+  if (state.mode === "custom" && state.elapsed > 0 && progress() < 1) {
+    if (!confirm("Change cup size? Your current drink's progress will be lost.")) return;
+  }
   const d = state.customDuration;
   if (delta < 0) {
     // In dev mode, "−" at the normal minimum drops to the 5-second test rung
@@ -1228,11 +1237,15 @@ function showPremiumPreview(title, price) {
 }
 
 function stopGame() {
-  if (!game.active) return;
-  cancelAnimationFrame(game.animId);
-  game.active = false;
-  for (const p of game.pearls) p.el.remove();
-  game.pearls = [];
+  if (game.active) {
+    cancelAnimationFrame(game.animId);
+    game.active = false;
+    for (const p of game.pearls) p.el.remove();
+    game.pearls = [];
+  }
+  // Always hide the overlay, even if the game already ended and is showing its
+  // result screen — otherwise it stays painted over the focus UI after a break.
+  els.gameResult.style.display = "none";
   els.pearlGame.style.display = "none";
 }
 
@@ -1522,6 +1535,19 @@ function dropPearl() {
   const slotIndex = decisions.filter(Boolean).length;
   const waypoints = buildPlinkoWaypoints(decisions, geo);
 
+  // Respect reduced-motion: skip the bouncing animation, resolve immediately
+  if (prefersReducedMotion()) {
+    plinko.dropping = false;
+    drawPlinkoBoard(slotIndex);
+    const reward = SLOT_REWARDS[slotIndex];
+    state.bonusPearls += reward;
+    saveState();
+    renderAll();
+    checkBadges(true);
+    showPlinkoResult(reward);
+    return;
+  }
+
   const SEG_MS = 170;
   const totalMs = SEG_MS * (waypoints.length - 1);
   const segCount = waypoints.length - 1;
@@ -1627,6 +1653,10 @@ function playSfx(name) {
 
 function haptic(ms) {
   if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} }
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 // A short, gentle major-arpeggio chime when a drink completes
@@ -1755,26 +1785,6 @@ function renderDevToggle() {
   els.devToggle.setAttribute("aria-checked", String(state.devMode));
 }
 
-// Ask for notification permission the first time a session starts (gesture-driven)
-let askedNotify = false;
-function maybeRequestNotify() {
-  if (askedNotify) return;
-  askedNotify = true;
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission().catch(() => {});
-  }
-}
-
-function notifyComplete(size) {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
-  if (document.visibilityState === "visible") return;  // only notify if they're away
-  try {
-    new Notification("Your drink is ready! 🧋", {
-      body: `${size} complete — great focus. Come grab it.`,
-      icon: "assets/Tapioca Currency.png"
-    });
-  } catch (e) { /* ignore */ }
-}
 
 // ── Boba map (Leaflet + free OpenStreetMap tiles, lazy-loaded) ────────────────
 

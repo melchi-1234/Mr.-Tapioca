@@ -1,5 +1,5 @@
 // Mr. Tapioca service worker — makes the app installable and usable offline.
-const CACHE = "mr-tapioca-v1";
+const CACHE = "mr-tapioca-v2";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -15,8 +15,10 @@ const SHELL = [
   "assets/Surprised-Happy.png",
   "assets/Cup.png",
   "assets/Tapioca Currency.png",
+  "assets/Background.png",
   "assets/icon-192.png",
-  "assets/icon-512.png"
+  "assets/icon-512.png",
+  "assets/apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (event) => {
