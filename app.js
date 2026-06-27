@@ -559,10 +559,10 @@ function currentDrinkName() {
 // area can be tinted to match — no white gap above the app.
 const THEME_SKY = {
   cozy:   "#f3e4cf",
-  night:  "#36476b",
-  sakura: "#ffdfe8",
-  autumn: "#e8c490",
-  rainy:  "#b0c4d8"
+  night:  "#2e3b57",
+  sakura: "#f6e0e6",
+  autumn: "#f0dcb8",
+  rainy:  "#d6dee6"
 };
 function updateThemeColor() {
   const meta = document.querySelector('meta[name="theme-color"]');
