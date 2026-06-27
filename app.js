@@ -420,11 +420,30 @@ function setWalk(px) {
   els.makerWrap.style.setProperty("--walk", px + "px");
 }
 
-// Walk over to the cup, then start mixing once he arrives
+// Walk over to the cup, then start mixing once he arrives. The distance is
+// computed from the cup's ACTUAL on-screen position so he reaches it on any
+// viewport width (a fixed pixel walk fell short on wider phones). He stays in
+// front of the counter and leans into the cup's left edge to stir.
 function walkToCupAndMix() {
   clearTimeout(walkTimer);
-  setWalk(MIX_WALK_X);
   setMakerState("walking");
+  requestAnimationFrame(() => {
+    const wrap = els.makerWrap, cup = els.focusCup;
+    if (wrap && cup) {
+      const cupRect = cup.getBoundingClientRect();
+      const wrapRect = wrap.getBoundingClientRect();
+      const curWalk = parseFloat(getComputedStyle(wrap).getPropertyValue("--walk")) || 0;
+      // Land the maker box's right edge near the cup's centre so he stands right
+      // beside the cup and leans in to stir (cup's right half stays visible). The
+      // base art has internal padding, so aiming at the cup centre — not its left
+      // edge — makes his visible arm actually reach the cup.
+      const targetRight = cupRect.left + cupRect.width * 0.45;
+      const walk = Math.max(0, curWalk + (targetRight - wrapRect.right));
+      setWalk(walk);
+    } else {
+      setWalk(MIX_WALK_X);   // fallback if rects unavailable
+    }
+  });
   walkTimer = setTimeout(() => {
     if (state.running && state.phase === "focus") setMakerState("mixing");
   }, WALK_MS);
