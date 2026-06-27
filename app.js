@@ -552,6 +552,22 @@ function currentDrinkName() {
   return `${BASES[state.base].label} + ${TOPPINGS[state.topping].label}`;
 }
 
+// The colour at the very top of each scene (the "sky"), so the phone status-bar
+// area can be tinted to match — no white gap above the app.
+const THEME_SKY = {
+  cozy:   "#d8ede7",
+  night:  "#36476b",
+  sakura: "#ffdfe8",
+  autumn: "#e8c490",
+  rainy:  "#b0c4d8"
+};
+function updateThemeColor() {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  const color = state.phase === "break" ? "#dbd2f0" : (THEME_SKY[state.shopTheme] || "#d8ede7");
+  if (meta.content !== color) meta.content = color;
+}
+
 function progress() {
   return Math.min(1, state.elapsed / modeDuration());
 }
@@ -655,6 +671,7 @@ function updateCup() {
   els.shopScene.classList.toggle("skin-awake", !!state.skin);
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
+  updateThemeColor();   // tint the phone status-bar area to match the scene's sky
   // Don't clobber a tap-to-talk line while it's visible.
   if (!els.makerSpeech.classList.contains("show")) els.makerSpeech.textContent = speechForState();
   els.timerText.textContent = formatTime(remaining);
@@ -2352,17 +2369,6 @@ function renderDevToggle() {
 
 // ── Boba map (Leaflet + free OpenStreetMap tiles, lazy-loaded) ────────────────
 
-// Sample shops placed as small offsets from the user's location, so the map
-// looks populated wherever they are. Starred ones are "partners" with perks.
-const SAMPLE_SHOPS = [
-  { name: "Boba Guys",    dy:  0.0040, dx:  0.0025, partner: true,  perk: "20% off",       unlock: "Finish a Large drink" },
-  { name: "Sharetea",     dy: -0.0032, dx:  0.0041, partner: true,  perk: "10% off",       unlock: "Finish a Small drink" },
-  { name: "Tiger Sugar",  dy: -0.0050, dx: -0.0038, partner: true,  perk: "Free topping",  unlock: "Finish any drink" },
-  { name: "Gong Cha",     dy:  0.0052, dx: -0.0030, partner: false },
-  { name: "Happy Lemon",  dy:  0.0018, dx:  0.0060, partner: false },
-  { name: "CoCo Fresh",   dy: -0.0061, dx:  0.0012, partner: false }
-];
-
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS  = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 let leafletPromise = null;
@@ -2439,6 +2445,43 @@ function formatDistance(m) {
   return m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`;
 }
 
+// Escape untrusted text (OSM shop names) before putting it in popup HTML.
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Query OpenStreetMap's free Overpass API for REAL bubble-tea shops near a
+// point. CORS-enabled, no key. Returns [{name, lat, lng}] sorted by distance.
+function fetchRealBobaShops(lat, lng, radius = 4000) {
+  const q = `[out:json][timeout:20];(` +
+    `nwr["cuisine"="bubble_tea"](around:${radius},${lat},${lng});` +
+    `nwr["shop"="bubble_tea"](around:${radius},${lat},${lng});` +
+    `nwr["name"~"boba|bubble tea|tapioca|milk tea",i](around:${radius},${lat},${lng});` +
+    `);out center 60;`;
+  return fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "data=" + encodeURIComponent(q)
+  })
+    .then(r => { if (!r.ok) throw new Error("overpass " + r.status); return r.json(); })
+    .then(data => {
+      const seen = new Set(), shops = [];
+      for (const el of (data.elements || [])) {
+        const name = el.tags && el.tags.name;
+        const slat = el.lat != null ? el.lat : (el.center && el.center.lat);
+        const slng = el.lon != null ? el.lon : (el.center && el.center.lon);
+        if (!name || slat == null || slng == null) continue;
+        const key = name.toLowerCase() + "@" + slat.toFixed(4) + "," + slng.toFixed(4);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        shops.push({ name, lat: slat, lng: slng });
+      }
+      shops.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng));
+      return shops;
+    });
+}
+
 function buildMap(lat, lng, real) {
   setMapStatus("");
   mapObj = L.map("map", { zoomControl: true }).setView([lat, lng], 15);
@@ -2451,35 +2494,40 @@ function buildMap(lat, lng, real) {
     .addTo(mapObj)
     .bindPopup(real
       ? `<div class="map-pop-name">You are here</div>`
-      : `<div class="map-pop-name">Example area</div><div class="map-pop-meta">Allow location to see shops near you</div>`);
+      : `<div class="map-pop-name">Example area</div><div class="map-pop-meta">Allow location to see real shops near you</div>`);
 
+  // Perk banner reflects rewards you've earned (redeemable once partners sign on)
   const earned = earnedPerkCount();
-  SAMPLE_SHOPS.forEach(shop => {
-    const slat = lat + shop.dy, slng = lng + shop.dx;
-    const dist = formatDistance(haversine(lat, lng, slat, slng));
-    let perkHtml = "";
-    if (shop.partner) {
-      perkHtml = earned > 0
-        ? `<div class="map-pop-perk">✓ ${shop.perk} — you have a reward to redeem!</div>`
-        : `<div class="map-pop-perk locked">${shop.perk} · ${shop.unlock}</div>`;
-    }
-    L.marker([slat, slng], { icon: bobaPin(shop.partner ? "⭐" : "🧋", shop.partner ? "partner" : "") })
-      .addTo(mapObj)
-      .bindPopup(
-        `<div class="map-pop-name">${shop.partner ? "⭐ " : ""}${shop.name}</div>` +
-        `<div class="map-pop-meta">${dist} away${shop.partner ? " · partner" : ""}</div>` +
-        perkHtml
-      );
-  });
-
   if (earned > 0) {
-    els.mapPerkBanner.textContent = `🎉 You have ${earned} reward${earned !== 1 ? "s" : ""} ready to redeem at partner shops!`;
+    els.mapPerkBanner.textContent = `🎉 You have ${earned} reward${earned !== 1 ? "s" : ""} saved for partner shops!`;
     els.mapPerkBanner.classList.remove("hidden");
   } else {
     els.mapPerkBanner.classList.add("hidden");
   }
 
   setTimeout(() => mapObj.invalidateSize(), 250);
+
+  // Only pull real nearby shops when we actually have the user's location.
+  if (!real) {
+    setMapStatus("Turn on location to see real boba shops near you.");
+    return;
+  }
+  setMapStatus("Finding real boba spots near you…");
+  fetchRealBobaShops(lat, lng)
+    .then(shops => {
+      if (!shops.length) { setMapStatus("No boba spots listed within ~4 km — try a city area."); return; }
+      setMapStatus("");
+      shops.slice(0, 60).forEach(shop => {
+        const dist = formatDistance(haversine(lat, lng, shop.lat, shop.lng));
+        L.marker([shop.lat, shop.lng], { icon: bobaPin("🧋", "") })
+          .addTo(mapObj)
+          .bindPopup(
+            `<div class="map-pop-name">${escapeHtml(shop.name)}</div>` +
+            `<div class="map-pop-meta">${dist} away · real boba shop</div>`
+          );
+      });
+    })
+    .catch(() => setMapStatus("Couldn't load nearby shops — close and reopen the map to retry."));
 }
 
 // ── First-run onboarding ──────────────────────────────────────────────────────
