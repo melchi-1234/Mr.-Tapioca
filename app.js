@@ -330,6 +330,12 @@ const SKIN_IMAGES = {
   "wizard":     "assets/Wizard.png"
 };
 
+// Per-skin pose sets (generated on-model from each skin via gpt-image-1).
+// Keyed by skin value → { mixing, sleeping, drinking } image paths. Any skin/
+// state not listed falls back to that skin's single portrait above, so this is
+// safe to fill in incrementally. Populated by tools/gen-skin-poses output.
+const SKIN_POSES = {};
+
 // Every state uses a single high-res still image; bounce/stir/sleep motion
 // is driven by CSS keyframes that key off the img's data-state attribute.
 // (Earlier we cycled cropped frames here; one of the idle crops was mid-blink,
@@ -359,7 +365,8 @@ function setMakerState(stateName) {
   // it keeps that portrait across ALL states and relies on the motion; only the
   // base character has dedicated pose art (mixing arms, sleeping eyes, etc.).
   if (state.skin && SKIN_IMAGES[state.skin]) {
-    img.src = SKIN_IMAGES[state.skin];
+    const poses = SKIN_POSES[state.skin];
+    img.src = (poses && poses[stateName]) ? poses[stateName] : SKIN_IMAGES[state.skin];
     return;
   }
 
@@ -620,19 +627,37 @@ function speechForState() {
 
 // Tap-to-talk: little personality lines Mr. Tapioca says when you tap him.
 // Keyed by what he's currently doing so it always feels in-context.
+// Lines are keyed to what he's actually DOING (his current pose) so a tap always
+// fits the moment — nap lines while sleeping, sip lines while drinking, etc.
 const TAP_LINES = {
+  mixing: [
+    "Shaking up something good 🥤", "Stir, stir, stir…", "Mixing your focus potion ✨",
+    "Eyes on the prize, friend.", "One pearl at a time!", "Almost perfect…",
+    "Future you says thank you.", "We've got a rhythm going 🎧"
+  ],
+  walking: [
+    "Just stretching my legs!", "Wander wander 🚶", "Off to find more boba…",
+    "Taking a little stroll.", "Don't mind me, just pacing."
+  ],
+  sleeping: [
+    "Shhh… don't wake me 😴", "Nappy nap nap 💤", "Five more minutes…",
+    "Recharging my boba batteries 🔋", "Zzz… so cozy.", "Dreaming of tapioca…"
+  ],
+  drinking: [
+    "Sip sip, hooray 🧋", "Ahh, that hits the spot.", "Break vibes only 💕",
+    "Treat yourself!", "So refreshing 💧", "Best part of the day."
+  ],
   focus: [
     "Deep focus mode… shhh 🤫", "Eyes on the prize, friend.", "One pearl at a time!",
-    "I'm shaking up something good.", "Future you says thank you.", "We've got a rhythm going 🎧",
-    "Don't quit — the drink's almost there.", "You + me = unstoppable."
+    "Future you says thank you.", "Don't quit — almost there.", "You + me = unstoppable."
   ],
   paused: [
     "Take your time, I'll keep it cold.", "Psst… your drink's waiting 🧋",
     "Ready when you are.", "A little break is okay. Then back to it!"
   ],
   break: [
-    "Stretch those legs! 🧋", "Break time is sacred.", "Sip, breathe, relax.",
-    "You earned this one.", "Wanna play a quick game? 🎮", "Hydrate, superstar 💧"
+    "Stretch those legs! 🧋", "Break time is sacred.", "You earned this one.",
+    "Wanna play a quick game? 🎮", "Hydrate, superstar 💧"
   ],
   idle: [
     "Tap tap! Hi there 👋", "What are we sipping today?", "Pick a size, let's brew ✨",
@@ -645,8 +670,13 @@ let lastTapLine = "";
 let tapLineTimer = null;
 
 function tapLineStateKey() {
-  if (state.phase === "break" || state.phase === "break-offer") return "break";
-  if (state.running) return "focus";
+  // Prefer the actual pose he's in so the line matches what he's doing.
+  if (state.phase === "break" || state.phase === "break-offer") {
+    return TAP_LINES[currentMakerState] ? currentMakerState : "break";  // sleeping / drinking
+  }
+  if (state.running) {
+    return TAP_LINES[currentMakerState] ? currentMakerState : "focus";  // mixing / walking
+  }
   if (state.elapsed > 0) return "paused";
   return "idle";
 }
@@ -1347,6 +1377,7 @@ function endBreak() {
   state.breakElapsed = 0;
   state.phase = "focus";
   els.shopScene.classList.remove("is-on-break");
+  clearTimeout(walkTimer); setWalk(0);   // walk him back from wherever he wandered
   currentMakerState = ""; setMakerState("idle");
   updatePhaseUI();
   renderAll();
@@ -1365,6 +1396,7 @@ function skipBreak() {
   state.breakElapsed = 0;
   state.phase = "focus";
   els.shopScene.classList.remove("is-on-break");
+  clearTimeout(walkTimer); setWalk(0);
   currentMakerState = ""; setMakerState("idle");
   updatePhaseUI();
   renderAll();
@@ -1399,13 +1431,24 @@ function updatePhaseUI() {
 }
 
 function scheduleMakerBreakCycle() {
-  const makerStates = ["drinking", "sleeping"];
+  const poses = ["drinking", "sleeping"];
   let idx = 0;
 
+  function settle() {
+    setMakerState(poses[idx++ % poses.length]);
+    state.breakMakerCycleId = setTimeout(cycle, 5000 + Math.random() * 3500);
+  }
+
   function cycle() {
-    setMakerState(makerStates[idx % makerStates.length]);
-    idx++;
-    state.breakMakerCycleId = setTimeout(cycle, 8000);
+    // Wander to a new spot most of the time, then settle into a drink/nap pose,
+    // so he mills about during the break instead of standing in one place.
+    if (!prefersReducedMotion() && Math.random() < 0.6) {
+      setWalk(Math.round(Math.random() * 175));   // roam within the scene
+      setMakerState("walking");
+      state.breakMakerCycleId = setTimeout(settle, WALK_MS);
+    } else {
+      settle();
+    }
   }
 
   cycle();
