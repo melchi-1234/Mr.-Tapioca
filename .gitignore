@@ -9,3 +9,7 @@ build/
 www/
 ios/
 package-lock.json
+
+# never commit an API key, just in case one lands in the repo
+.openai-mrtapioca
+*.key
