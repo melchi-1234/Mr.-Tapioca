@@ -335,28 +335,22 @@ const SKIN_IMAGES = {
 // Mr. Tapioca as references, then sliced (see tools/slice-sheet.py). Keyed by
 // skin value → { mixing, sleeping, drinking }; any missing state falls back to
 // the skin's single portrait above.
-const SKIN_POSES = Object.fromEntries(
-  ["grad-cap", "flower", "scarf", "shades", "strawberry", "astro-blue",
-   "dragon", "ninja", "wizard", "angel", "devil"].map((v) => [v, {
-    mixing:   `assets/poses/${v}-mixing.png`,
-    sleeping: `assets/poses/${v}-sleepy.png`,
-    drinking: `assets/poses/${v}-happy.png`,
-  }])
-);
+const SKIN_POSES = {};   // reverted: skins use their original portrait + code motion (no drift)
 
 // Every state uses a single high-res still image; bounce/stir/sleep motion
 // is driven by CSS keyframes that key off the img's data-state attribute.
 // (Earlier we cycled cropped frames here; one of the idle crops was mid-blink,
 // which made the eye look like it disappeared.)
-// Base-character pose set, generated faithfully from Mr. Tapioca.png via
-// gpt-image-1 with input_fidelity:high (keeps his exact look, only the pose
-// changes). CSS keyframes add motion on top. Idle stays the original art.
+// Every state uses the REAL original portrait; the CSS keyframes supply the
+// motion (bob / lean / wiggle / hop). This is uniform for the base AND all skins
+// (see SKIN_POSES = {} below) and never drifts off-model. Drawn pose PNGs are
+// parked in assets/poses/ if we ever wire faithful ones in.
 const MAKER_STATIC = {
   idle:     "assets/Mr. Tapioca.png",
-  mixing:   "assets/Pose Mixing.png",   // focusing — stirring the drink
-  sleeping: "assets/Pose Sleepy.png",   // break — dozing
-  drinking: "assets/Pose Happy.png",    // break — happy/relaxing
-  shocked:  "assets/Mr. Tapioca.png"    // (currently unused)
+  mixing:   "assets/Mr. Tapioca.png",
+  sleeping: "assets/Mr. Tapioca.png",
+  drinking: "assets/Mr. Tapioca.png",
+  shocked:  "assets/Mr. Tapioca.png"
 };
 
 let currentMakerState = "";
@@ -1448,13 +1442,15 @@ function scheduleMakerBreakCycle() {
   }
 
   function cycle() {
-    // Wander to a new spot most of the time, then settle into a drink/nap pose,
-    // so he mills about during the break instead of standing in one place.
-    if (!prefersReducedMotion() && Math.random() < 0.6) {
-      setWalk(Math.round(Math.random() * 175));   // roam within the scene
+    // Gently pace near his station (LEFT side, well away from the cup at ~158 so
+    // it doesn't look like he's walking to make a drink during the break), then
+    // settle into a drink/nap pose.
+    if (!prefersReducedMotion() && Math.random() < 0.5) {
+      setWalk(Math.round(Math.random() * 60));   // small pace, stays left of the cup
       setMakerState("walking");
       state.breakMakerCycleId = setTimeout(settle, WALK_MS);
     } else {
+      setWalk(0);   // back to his spot
       settle();
     }
   }
