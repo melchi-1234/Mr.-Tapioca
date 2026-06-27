@@ -334,14 +334,17 @@ const SKIN_IMAGES = {
 // is driven by CSS keyframes that key off the img's data-state attribute.
 // (Earlier we cycled cropped frames here; one of the idle crops was mid-blink,
 // which made the eye look like it disappeared.)
+// Removed the base character's emote face-swaps (mixing/sleeping/startled/
+// surprised) for now — every state uses his normal portrait, and the CSS
+// keyframes (keyed off data-state) supply the motion. This keeps the base
+// consistent with the skins (which are single portraits) instead of having
+// "extra" expressions only he had.
 const MAKER_STATIC = {
   idle:     "assets/Mr. Tapioca.png",
-  // Mixing reuses the normal portrait + the CSS lean/stir motion — the old
-  // Mixing.png (holding a second boba drink) looked silly.
   mixing:   "assets/Mr. Tapioca.png",
-  sleeping: "assets/Sleeping.png",
-  shocked:  "assets/Startled.png",
-  drinking: "assets/Surprised-Happy.png"
+  sleeping: "assets/Mr. Tapioca.png",
+  shocked:  "assets/Mr. Tapioca.png",
+  drinking: "assets/Mr. Tapioca.png"
 };
 
 let currentMakerState = "";
@@ -482,6 +485,17 @@ function clampVol01(v) {
   v = Number(v);
   if (!isFinite(v)) return 0.8;
   return Math.max(0, Math.min(1, v));
+}
+
+// Unique id that works EVERYWHERE. crypto.randomUUID only exists in a secure
+// context (https or localhost) — on a plain-http LAN address (e.g. testing on a
+// phone via http://192.168.x.x) it's undefined and throws, which used to freeze
+// session completion. This falls back to a good-enough random id.
+function uuid() {
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  } catch (e) { /* fall through */ }
+  return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
 }
 
 // Parse a JSON localStorage value, returning a fallback on missing/corrupt data.
@@ -1224,7 +1238,7 @@ function completeSession() {
   const size    = modeLabel();
   const now = new Date();
   const drink = {
-    id: crypto.randomUUID(),
+    id: uuid(),
     name: currentDrinkName(),
     size,
     color: BASES[state.base].color,
@@ -1247,7 +1261,7 @@ function completeSession() {
   else                     partner = "Save this treat for later";
 
   const reward = {
-    id: crypto.randomUUID(),
+    id: uuid(),
     title: "You deserve to go get one in-person!",
     copy: `${size} earned from ${minuteLabel(minutes)}.`,
     size,
