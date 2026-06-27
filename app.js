@@ -19,25 +19,27 @@ function modeDuration() {
   return state.mode === "custom" ? state.customDuration : MODES[state.mode].duration;
 }
 
+// Tea bases: classic is free; the rest are one-time pearl unlocks (price).
 const BASES = {
-  classic:    { label: "Classic Milk Tea",     color: "#c98555" },
-  brownsugar: { label: "Brown Sugar Milk Tea", color: "#8b4513" },
-  taro:       { label: "Taro Milk Tea",         color: "#b58bdc" },
-  matcha:     { label: "Matcha Latte",          color: "#76a86a" },
-  strawberry: { label: "Strawberry Milk Tea",   color: "#f07c93" },
-  earlgrey:   { label: "Earl Grey Milk Tea",    color: "#b08d63" },
-  thai:       { label: "Thai Tea",              color: "#e08a3c" },
-  ube:        { label: "Ube Milk Tea",          color: "#6b3d9a" },
-  lavender:   { label: "Lavender Milk Tea",     color: "#c4b5e8" },
-  honeydew:   { label: "Honeydew Milk Tea",     color: "#b6d67e" }
+  classic:    { label: "Classic Milk Tea",     color: "#c98555", price: 0 },
+  brownsugar: { label: "Brown Sugar Milk Tea", color: "#8b4513", price: 12 },
+  taro:       { label: "Taro Milk Tea",         color: "#b58bdc", price: 12 },
+  matcha:     { label: "Matcha Latte",          color: "#76a86a", price: 12 },
+  strawberry: { label: "Strawberry Milk Tea",   color: "#f07c93", price: 14 },
+  earlgrey:   { label: "Earl Grey Milk Tea",    color: "#b08d63", price: 14 },
+  thai:       { label: "Thai Tea",              color: "#e08a3c", price: 16 },
+  ube:        { label: "Ube Milk Tea",          color: "#6b3d9a", price: 16 },
+  lavender:   { label: "Lavender Milk Tea",     color: "#c4b5e8", price: 18 },
+  honeydew:   { label: "Honeydew Milk Tea",     color: "#b6d67e", price: 18 }
 };
 
+// Toppings: pearls are free (the signature); others are one-time pearl unlocks.
 const TOPPINGS = {
-  pearls:  "Tapioca Pearls",
-  jelly:   "Lychee Jelly",
-  pudding: "Egg Pudding",
-  foam:    "Cheese Foam",
-  coconut: "Coconut Jelly"
+  pearls:  { label: "Tapioca Pearls", price: 0 },
+  jelly:   { label: "Lychee Jelly",   price: 10 },
+  pudding: { label: "Egg Pudding",    price: 10 },
+  foam:    { label: "Cheese Foam",    price: 12 },
+  coconut: { label: "Coconut Jelly",  price: 10 }
 };
 
 const DEFAULTS = {
@@ -52,16 +54,16 @@ const SHOP_ITEMS = [
   // Default skin
   { id: "skin-default",    name: "Mr. Tapioca",    desc: "The original",          category: "Character Skin", type: "skin", value: "",           price: 0,  img: "assets/Mr. Tapioca.png"      },
 
-  // 20-pearl skins
-  { id: "skin-grad-cap",   name: "Graduation Cap", desc: "Scholar energy",        category: "Character Skin", type: "skin", value: "grad-cap",   price: 20, img: "assets/Graduation Cap.png"   },
-  { id: "skin-flower",     name: "Flower Crown",   desc: "In full bloom",         category: "Character Skin", type: "skin", value: "flower",     price: 20, img: "assets/Flower Crown.png"     },
-  { id: "skin-scarf",      name: "Scarf",          desc: "Cozy and warm",         category: "Character Skin", type: "skin", value: "scarf",      price: 20, img: "assets/Scarf.png"            },
-  { id: "skin-shades",     name: "Sunglasses",     desc: "Too cool for school",   category: "Character Skin", type: "skin", value: "shades",     price: 20, img: "assets/Sunglasses.png"       },
+  // common skins
+  { id: "skin-grad-cap",   name: "Graduation Cap", desc: "Scholar energy",        category: "Character Skin", type: "skin", value: "grad-cap",   price: 45, img: "assets/Graduation Cap.png"   },
+  { id: "skin-flower",     name: "Flower Crown",   desc: "In full bloom",         category: "Character Skin", type: "skin", value: "flower",     price: 45, img: "assets/Flower Crown.png"     },
+  { id: "skin-scarf",      name: "Scarf",          desc: "Cozy and warm",         category: "Character Skin", type: "skin", value: "scarf",      price: 45, img: "assets/Scarf.png"            },
+  { id: "skin-shades",     name: "Sunglasses",     desc: "Too cool for school",   category: "Character Skin", type: "skin", value: "shades",     price: 45, img: "assets/Sunglasses.png"       },
 
-  // 35-pearl skins
-  { id: "skin-strawberry", name: "Strawberry",     desc: "Sweet and cute",        category: "Character Skin", type: "skin", value: "strawberry", price: 35, img: "assets/Strawberry.png"       },
-  { id: "skin-astro-blue", name: "Astronaut",      desc: "Space mode on",         category: "Character Skin", type: "skin", value: "astro-blue", price: 35, img: "assets/Astronaut, blue.png"  },
-  { id: "skin-dragon",     name: "Dragon",         desc: "Breathe fire, focus",   category: "Character Skin", type: "skin", value: "dragon",     price: 35, img: "assets/Dragon.png"           },
+  // rare skins
+  { id: "skin-strawberry", name: "Strawberry",     desc: "Sweet and cute",        category: "Character Skin", type: "skin", value: "strawberry", price: 85, img: "assets/Strawberry.png"       },
+  { id: "skin-astro-blue", name: "Astronaut",      desc: "Space mode on",         category: "Character Skin", type: "skin", value: "astro-blue", price: 85, img: "assets/Astronaut, blue.png"  },
+  { id: "skin-dragon",     name: "Dragon",         desc: "Breathe fire, focus",   category: "Character Skin", type: "skin", value: "dragon",     price: 85, img: "assets/Dragon.png"           },
 
   // Premium skins (future IAP)
   { id: "skin-ninja",      name: "Ninja",          desc: "Silent focus mode",     category: "Character Skin", type: "skin", value: "ninja",      premium: true, img: "assets/Ninja.png"            },
@@ -69,11 +71,11 @@ const SHOP_ITEMS = [
   { id: "skin-angel",      name: "Angel",          desc: "Wings and a halo",      category: "Character Skin", type: "skin", value: "angel",      premium: true, img: "assets/Angel.png"            },
   { id: "skin-devil",      name: "Devil",          desc: "Horns and mischief",    category: "Character Skin", type: "skin", value: "devil",      premium: true, img: "assets/Devil.png"            },
 
-  { id: "theme-cozy",      name: "Cozy",                 desc: "The classic warm shop",               category: "Backgrounds", type: "shopTheme", value: "cozy",       price: 0,  color: "#f3d8b7" },
-  { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Backgrounds", type: "shopTheme", value: "night",      price: 70, color: "#36476b" },
-  { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 70, color: "#ffdfe8" },
-  { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 70, color: "#c4873a" },
-  { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 70, color: "#7a9ab8" },
+  { id: "theme-cozy",      name: "Cozy",                 desc: "The classic warm shop",               category: "Backgrounds", type: "shopTheme", value: "cozy",       price: 0,   color: "#f3d8b7" },
+  { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Backgrounds", type: "shopTheme", value: "night",      price: 130, color: "#36476b" },
+  { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 130, color: "#ffdfe8" },
+  { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 130, color: "#c4873a" },
+  { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 130, color: "#7a9ab8" },
 ];
 
 const UNLOCKS = [
@@ -88,9 +90,12 @@ const PEARL_SIZE = 20;
 const GAME_CUP_W = 72;
 const GAME_CUP_H = 88;
 
-const SLOT_REWARDS = [10, 5, 2, 1, 2, 5, 10];
-const PLINKO_MAX_PLAYS = 5;
+// Break games are a small once-per-day bonus, not a pearl farm (see CATCH_CAP,
+// gameDoneToday). Rewards are intentionally modest vs. honest focus earning.
+const SLOT_REWARDS = [5, 3, 1, 1, 1, 3, 5];   // edges rare & rewarding, center likely & small
+const PLINKO_MAX_PLAYS = 3;
 const PLINKO_ROWS = 6;
+const CATCH_CAP = 10;   // max pearls a single Catch session can bank
 
 const plinko = {
   playsLeft: PLINKO_MAX_PLAYS,
@@ -98,12 +103,12 @@ const plinko = {
   animId: null
 };
 
-const PONG_MAX_PLAYS = 5;
+const PONG_MAX_PLAYS = 4;
 const PONG_R = 12;
 const PONG_GRAV = 1150;
 const PONG_POWER = 9;      // swipe distance → launch velocity
 const PONG_MAXV = 2500;    // velocity cap
-const PONG_REWARD = 4;     // pearls per successful toss
+const PONG_REWARD = 2;     // pearls per successful toss
 const pong = {
   active: false,
   throwsLeft: PONG_MAX_PLAYS,
@@ -140,6 +145,8 @@ const state = {
   customDuration: 30 * 60,
   base: "classic",
   topping: "pearls",
+  unlockedBases: ["classic"],
+  unlockedToppings: ["pearls"],
   sticker: "Focus",
   skin: "",
   shopTheme: "cozy",
@@ -147,6 +154,8 @@ const state = {
   musicOn: true,
   musicVolume: 0.8,
   sfxVolume: 0.9,
+  ambVolume: 0.5,
+  gameDays: {},          // { catch|plinko|pong: "YYYY-MM-DD" } last-played day
   devMode: false,
   running: false,
   elapsed: 0,
@@ -251,6 +260,7 @@ const els = {
   shopClose:            document.querySelector("#shopClose"),
   shopGrid:             document.querySelector("#shopGrid"),
   shopPearlCount:       document.querySelector("#shopPearlCount"),
+  customizePearlCount:  document.querySelector("#customizePearlCount"),
   customizeSheet:       document.querySelector("#customizeSheet"),
   customizeClose:       document.querySelector("#customizeClose"),
   settingsSheet:        document.querySelector("#settingsSheet"),
@@ -278,6 +288,8 @@ const els = {
   musicVolLabel:        document.querySelector("#musicVolLabel"),
   sfxVol:               document.querySelector("#sfxVol"),
   sfxVolLabel:          document.querySelector("#sfxVolLabel"),
+  ambVol:               document.querySelector("#ambVol"),
+  ambVolLabel:          document.querySelector("#ambVolLabel"),
   devToggle:            document.querySelector("#devToggle"),
   statStreak:           document.querySelector("#statStreak"),
   statTotalTime:        document.querySelector("#statTotalTime"),
@@ -415,6 +427,13 @@ function loadState() {
   state.sticker     = localStorage.getItem("bobaFocusSticker") || "Focus";
   if (!BASES[state.base])       state.base = "classic";       // guard stale/removed keys
   if (!TOPPINGS[state.topping]) state.topping = "pearls";
+  // Unlocked customizations + per-day game limits.
+  state.unlockedBases    = readJSON("bobaFocusUnlockedBases", ["classic"]);
+  state.unlockedToppings = readJSON("bobaFocusUnlockedToppings", ["pearls"]);
+  if (!state.unlockedBases.includes("classic")) state.unlockedBases.push("classic");
+  if (!state.unlockedToppings.includes("pearls")) state.unlockedToppings.push("pearls");
+  state.gameDays = readJSON("bobaFocusGameDays", {});
+  if (!state.gameDays || typeof state.gameDays !== "object") state.gameDays = {};
   state.customDuration = JSON.parse(localStorage.getItem("bobaFocusCustomDuration") || String(30 * 60));
   state.soundOn     = JSON.parse(localStorage.getItem("bobaFocusSoundOn") || "true");
   state.devMode     = JSON.parse(localStorage.getItem("bobaFocusDevMode") || "false");
@@ -431,6 +450,8 @@ function loadState() {
   const sv = localStorage.getItem("bobaFocusSfxVol");
   state.musicVolume = mv !== null ? clampVol01(JSON.parse(mv)) : (state.musicOn ? 0.8 : 0);
   state.sfxVolume   = sv !== null ? clampVol01(JSON.parse(sv)) : (state.soundOn ? 0.9 : 0);
+  const av = localStorage.getItem("bobaFocusAmbVol");
+  state.ambVolume   = av !== null ? clampVol01(JSON.parse(av)) : 0.5;
   state.musicOn = state.musicVolume > 0;   // toggles are now derived from volume
   state.soundOn = state.sfxVolume > 0;
 }
@@ -442,6 +463,16 @@ function clampVol01(v) {
   return Math.max(0, Math.min(1, v));
 }
 
+// Parse a JSON localStorage value, returning a fallback on missing/corrupt data.
+function readJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    const v = JSON.parse(raw);
+    return v == null ? fallback : v;
+  } catch (e) { return fallback; }
+}
+
 function saveState() {
   localStorage.setItem("bobaFocusCollection",  JSON.stringify(state.collection));
   localStorage.setItem("bobaFocusRewards",      JSON.stringify(state.rewards));
@@ -451,6 +482,9 @@ function saveState() {
   localStorage.setItem("bobaFocusSkin",         state.skin);
   localStorage.setItem("bobaFocusBase",         state.base);
   localStorage.setItem("bobaFocusTopping",      state.topping);
+  localStorage.setItem("bobaFocusUnlockedBases",    JSON.stringify(state.unlockedBases));
+  localStorage.setItem("bobaFocusUnlockedToppings", JSON.stringify(state.unlockedToppings));
+  localStorage.setItem("bobaFocusGameDays",     JSON.stringify(state.gameDays));
   localStorage.setItem("bobaFocusTheme",        state.shopTheme);
   localStorage.setItem("bobaFocusSticker",      state.sticker);
   localStorage.setItem("bobaFocusCustomDuration", JSON.stringify(state.customDuration));
@@ -464,6 +498,7 @@ function saveState() {
   localStorage.setItem("bobaFocusMusicOn",      JSON.stringify(state.musicOn));
   localStorage.setItem("bobaFocusMusicVol",     JSON.stringify(state.musicVolume));
   localStorage.setItem("bobaFocusSfxVol",       JSON.stringify(state.sfxVolume));
+  localStorage.setItem("bobaFocusAmbVol",       JSON.stringify(state.ambVolume));
 }
 
 function formatTime(seconds) {
@@ -496,7 +531,7 @@ function minuteLabel(minutes) {
 }
 
 function currentDrinkName() {
-  return `${BASES[state.base].label} + ${TOPPINGS[state.topping]}`;
+  return `${BASES[state.base].label} + ${TOPPINGS[state.topping].label}`;
 }
 
 function progress() {
@@ -534,6 +569,55 @@ function speechForState() {
   return "Hi! Pick a size and I'll start mixing.";
 }
 
+// Tap-to-talk: little personality lines Mr. Tapioca says when you tap him.
+// Keyed by what he's currently doing so it always feels in-context.
+const TAP_LINES = {
+  focus: [
+    "Deep focus mode… shhh 🤫", "Eyes on the prize, friend.", "One pearl at a time!",
+    "I'm shaking up something good.", "Future you says thank you.", "We've got a rhythm going 🎧",
+    "Don't quit — the drink's almost there.", "You + me = unstoppable."
+  ],
+  paused: [
+    "Take your time, I'll keep it cold.", "Psst… your drink's waiting 🧋",
+    "Ready when you are.", "A little break is okay. Then back to it!"
+  ],
+  break: [
+    "Stretch those legs! 🧋", "Break time is sacred.", "Sip, breathe, relax.",
+    "You earned this one.", "Wanna play a quick game? 🎮", "Hydrate, superstar 💧"
+  ],
+  idle: [
+    "Tap tap! Hi there 👋", "What are we sipping today?", "Pick a size, let's brew ✨",
+    "I live for a good study sesh.", "Boba makes everything better.", "Big drinks = big rewards 🌟",
+    "I believe in you, you know.", "Let's make today count!"
+  ]
+};
+
+let lastTapLine = "";
+let tapLineTimer = null;
+
+function tapLineStateKey() {
+  if (state.phase === "break" || state.phase === "break-offer") return "break";
+  if (state.running) return "focus";
+  if (state.elapsed > 0) return "paused";
+  return "idle";
+}
+
+// Show a random in-context line in the speech bubble, then auto-hide it.
+function showMakerLine() {
+  const pool = TAP_LINES[tapLineStateKey()] || TAP_LINES.idle;
+  let line = pool[Math.floor(Math.random() * pool.length)];
+  if (pool.length > 1 && line === lastTapLine) {            // avoid immediate repeats
+    line = pool[(pool.indexOf(line) + 1) % pool.length];
+  }
+  lastTapLine = line;
+  els.makerSpeech.textContent = line;
+  els.makerSpeech.classList.add("show");
+  playSfx("blip");
+  haptic(8);
+  clearTimeout(tapLineTimer);
+  tapLineTimer = setTimeout(() => els.makerSpeech.classList.remove("show"), 3000);
+}
+
 function updateCup() {
   const pct = Math.round(progress() * 100);
   const remaining = modeDuration() - state.elapsed;
@@ -552,7 +636,8 @@ function updateCup() {
   els.shopScene.classList.toggle("skin-awake", !!state.skin);
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
-  els.makerSpeech.textContent = speechForState();
+  // Don't clobber a tap-to-talk line while it's visible.
+  if (!els.makerSpeech.classList.contains("show")) els.makerSpeech.textContent = speechForState();
   els.timerText.textContent = formatTime(remaining);
   els.sessionLabel.textContent = modeLabel();
   els.progressLabel.textContent = `${pct}%`;
@@ -570,6 +655,7 @@ function updateStats() {
   const minutes = totalMinutes();
   const pearls = currentPearls();
   els.pearlCount.textContent  = String(pearls);
+  if (els.customizePearlCount) els.customizePearlCount.textContent = `${pearls} pearls`;
   els.totalTime.textContent   = `${minutes} min`;
   els.completedCount.textContent = `${state.collection.length} ${state.collection.length === 1 ? "drink" : "drinks"}`;
 }
@@ -832,6 +918,9 @@ function clearProgress() {
   state.shopTheme = "cozy";
   state.base = "classic";
   state.topping = "pearls";
+  state.unlockedBases = ["classic"];
+  state.unlockedToppings = ["pearls"];
+  state.gameDays = {};
   renderCustomizeOptions();   // reflect the reset in the Customize sheet
   saveState();
   refreshMaker();
@@ -1150,11 +1239,7 @@ function startBreak() {
   state.breakLastTick = Date.now();
   state.breakTimerId = setInterval(tickBreak, 250);
   scheduleMakerBreakCycle();
-  plinko.playsLeft = PLINKO_MAX_PLAYS;
-  pong.throwsLeft = PONG_MAX_PLAYS;
-  pong.score = 0;   // a fresh break's makes accumulate into one summary across quits/resumes
-  updatePlinkoBtnState();
-  updatePongBtnState();
+  renderBreakGameButtons();   // gate each game by once-per-day availability
   updatePhaseUI();
 }
 
@@ -1313,38 +1398,64 @@ function closeSheets() {
   els.sheetBackdrop.classList.add("hidden");
 }
 
+function isBaseUnlocked(key) {
+  return state.devMode || BASES[key].price === 0 || state.unlockedBases.includes(key);
+}
+function isToppingUnlocked(key) {
+  return state.devMode || TOPPINGS[key].price === 0 || state.unlockedToppings.includes(key);
+}
+
 // Build the Customize sheet's tea-base + topping pickers from the single
-// BASES/TOPPINGS source of truth, so names/colors never drift from the HTML.
+// BASES/TOPPINGS source of truth. Locked items show a pearl price tag.
 function renderCustomizeOptions() {
   if (els.baseGrid) {
-    els.baseGrid.innerHTML = Object.entries(BASES).map(([key, b]) =>
-      `<button class="base-option${state.base === key ? " active" : ""}" data-base="${key}" aria-label="${b.label}">
+    els.baseGrid.innerHTML = Object.entries(BASES).map(([key, b]) => {
+      const locked = !isBaseUnlocked(key);
+      return `<button class="base-option${state.base === key ? " active" : ""}${locked ? " locked" : ""}" data-base="${key}" aria-label="${b.label}${locked ? ` — ${b.price} pearls to unlock` : ""}">
         <span class="base-dot" style="--swatch:${b.color}"></span>
         <span class="base-name">${b.label}</span>
-      </button>`).join("");
+        ${locked ? `<span class="opt-price">⬡ ${b.price}</span>` : ""}
+      </button>`;
+    }).join("");
   }
   if (els.toppingRow) {
-    els.toppingRow.innerHTML = Object.entries(TOPPINGS).map(([key, label]) =>
-      `<button class="choice${state.topping === key ? " active" : ""}" data-topping="${key}">${label}</button>`).join("");
+    els.toppingRow.innerHTML = Object.entries(TOPPINGS).map(([key, t]) => {
+      const locked = !isToppingUnlocked(key);
+      return `<button class="choice${state.topping === key ? " active" : ""}${locked ? " locked" : ""}" data-topping="${key}">${t.label}${locked ? ` <span class="opt-price">⬡${t.price}</span>` : ""}</button>`;
+    }).join("");
   }
 }
 
+// Buy a locked customization with pearls. Returns true if it's now usable.
+function tryUnlock(kind, key, label, price) {
+  if (currentPearls() < price) {
+    playSfx("tap"); haptic(8);
+    showToast(`Need ${price - currentPearls()} more pearls for ${label} 🧋`);
+    return false;
+  }
+  if (!confirm(`Unlock ${label} for ${price} pearls?`)) return false;
+  (kind === "base" ? state.unlockedBases : state.unlockedToppings).push(key);
+  state.spent += price;
+  playSfx("coin"); haptic(10);
+  showToast(`Unlocked ${label}! 🎉`);
+  return true;
+}
+
 function setBase(base) {
+  if (!isBaseUnlocked(base) && !tryUnlock("base", base, BASES[base].label, BASES[base].price)) return;
   state.base = base;
-  document.querySelectorAll("[data-base]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.base === base);
-  });
   saveState();
+  renderCustomizeOptions();   // refresh active + lock states
   renderAll();
   els.makerSpeech.textContent = "Fresh tea base selected.";
 }
 
 function setChoice(type, value) {
+  if (type === "topping" && !isToppingUnlocked(value) &&
+      !tryUnlock("topping", value, TOPPINGS[value].label, TOPPINGS[value].price)) return;
   state[type] = value;
-  document.querySelectorAll(`[data-${type}]`).forEach((button) => {
-    button.classList.toggle("active", button.dataset[type] === value);
-  });
   saveState();
+  renderCustomizeOptions();
   renderAll();
   els.makerSpeech.textContent = "Got it. I will make that drink next.";
 }
@@ -1446,6 +1557,8 @@ function gameLoop(ts) {
 }
 
 function startPearlGame() {
+  if (gameDoneToday("catch")) return;
+  markGamePlayed("catch");
   game.active = true;
   game.score = 0;
   game.timeLeft = 45;
@@ -1469,11 +1582,13 @@ function endPearlGame() {
   game.active = false;
   for (const p of game.pearls) p.el.remove();
   game.pearls = [];
-  state.bonusPearls += game.score;
+  const earned = Math.min(game.score, CATCH_CAP);   // daily bonus is capped
+  state.bonusPearls += earned;
   saveState();
   renderAll();
-  if (game.score > 0) { checkBadges(true); pearlsWonFx(game.score); }   // "Break Champ"
-  els.gameResultText.textContent = "You caught " + game.score + " pearl" + (game.score !== 1 ? "s" : "") + "! +" + game.score + " added to your stash.";
+  if (earned > 0) { checkBadges(true); pearlsWonFx(earned); }   // "Break Champ"
+  const capNote = game.score > CATCH_CAP ? ` (daily max +${CATCH_CAP})` : "";
+  els.gameResultText.textContent = "You caught " + game.score + " pearl" + (game.score !== 1 ? "s" : "") + "! +" + earned + " to your stash" + capNote + ".";
   els.gameResult.style.display = "flex";
 }
 
@@ -1617,30 +1732,44 @@ function plinkoPegs(geo) {
   return pegs;
 }
 
-function updatePlinkoBtnState() {
-  const left = plinko.playsLeft;
-  if (left > 0) {
-    els.playPlinkoBtn.textContent = `Play: Boba Plinko (${left} left)`;
-    els.playPlinkoBtn.disabled = false;
-  } else {
-    els.playPlinkoBtn.textContent = "Boba Plinko (done for break)";
-    els.playPlinkoBtn.disabled = true;
-  }
+// ── Once-per-day break games ──────────────────────────────────────────────
+// Each game can be opened once per calendar day (dev mode bypasses). Opening a
+// game consumes the day; the in-game drops/throws all happen in that session.
+function gameDoneToday(key) {
+  return !state.devMode && state.gameDays[key] === localDateKey(new Date());
+}
+function markGamePlayed(key) {
+  state.gameDays[key] = localDateKey(new Date());
+  saveState();
+  renderBreakGameButtons();
+}
+function renderBreakGameButtons() {
+  updateCatchBtnState();
+  updatePlinkoBtnState();
+  updatePongBtnState();
 }
 
+function updateCatchBtnState() {
+  const done = gameDoneToday("catch");
+  els.playGameBtn.disabled = done;
+  els.playGameBtn.textContent = done ? "Catch the Pearls ✓ back tomorrow" : "Catch the Pearls 🎮";
+}
+function updatePlinkoBtnState() {
+  const done = gameDoneToday("plinko");
+  els.playPlinkoBtn.disabled = done;
+  els.playPlinkoBtn.textContent = done ? "Boba Plinko ✓ back tomorrow" : "Boba Plinko 🎟️";
+}
 function updatePongBtnState() {
-  const left = pong.throwsLeft;
-  if (left > 0) {
-    els.playPongBtn.textContent = `Cup Pong 🥤 (${left} left)`;
-    els.playPongBtn.disabled = false;
-  } else {
-    els.playPongBtn.textContent = "Cup Pong (done for break)";
-    els.playPongBtn.disabled = true;
-  }
+  const done = gameDoneToday("pong");
+  els.playPongBtn.disabled = done;
+  els.playPongBtn.textContent = done ? "Cup Pong ✓ back tomorrow" : "Cup Pong 🥤";
 }
 
 function openPlinko() {
   if (plinko.dropping) return;
+  if (gameDoneToday("plinko")) return;
+  plinko.playsLeft = PLINKO_MAX_PLAYS;   // fresh session for today
+  markGamePlayed("plinko");
   if (plinko.animId) { cancelAnimationFrame(plinko.animId); plinko.animId = null; }
   els.plinkoResult.style.display = "none";
   els.plinkoDropBtn.disabled = plinko.playsLeft <= 0;
@@ -1926,24 +2055,25 @@ function startAmbience(type = state.ambience) {
 
     if (type === "rain") {
       filter.type = "bandpass"; filter.frequency.value = 1400; filter.Q.value = 0.6;
-      ambGain.gain.value = 0.12;
+      ambGain.gain.value = 0.10;
     } else if (type === "brown") {
       filter.type = "lowpass"; filter.frequency.value = 500;
-      ambGain.gain.value = 0.18;
+      ambGain.gain.value = 0.13;
     } else { // ocean — slow swelling waves
       filter.type = "lowpass"; filter.frequency.value = 650;
-      ambGain.gain.value = 0.12;
+      ambGain.gain.value = 0.10;
       lfo = ctx.createOscillator();
       const lfoGain = ctx.createGain();
       lfo.frequency.value = 0.12;
-      lfoGain.gain.value = 0.07;
+      lfoGain.gain.value = 0.06;
       lfo.connect(lfoGain).connect(ambGain.gain);
       lfo.start();
     }
 
+    // master = the ambience volume knob (fades in to state.ambVolume)
     const now = ctx.currentTime;
     master.gain.setValueAtTime(0.0001, now);
-    master.gain.linearRampToValueAtTime(1, now + 1.2);
+    master.gain.linearRampToValueAtTime(Math.max(0.0001, state.ambVolume), now + 1.2);
 
     src.connect(filter).connect(ambGain).connect(master).connect(masterOut(ctx));
     src.start();
@@ -1975,6 +2105,13 @@ function stopAmbience(immediate) {
 function renderAmbiencePicker() {
   document.querySelectorAll(".amb-chip").forEach(c =>
     c.classList.toggle("active", c.dataset.amb === state.ambience));
+}
+
+function setAmbVolume(v) {
+  state.ambVolume = clampVol01(v);
+  if (amb) {   // adjust a currently-playing soundscape live
+    try { amb.master.gain.setTargetAtTime(Math.max(0.0001, state.ambVolume), audio().currentTime, 0.05); } catch (e) {}
+  }
 }
 
 function setAmbience(type) {
@@ -2179,6 +2316,11 @@ function renderVolumeControls() {
     const s = Math.round(state.sfxVolume * 100);
     els.sfxVol.value = s;
     els.sfxVolLabel.textContent = s;
+  }
+  if (els.ambVol) {
+    const a = Math.round(state.ambVolume * 100);
+    els.ambVol.value = a;
+    els.ambVolLabel.textContent = a;
   }
 }
 
@@ -2445,9 +2587,12 @@ function pongFlickVel() {
 }
 
 function openPong() {
-  if (pong.throwsLeft <= 0) return;   // out of throws this break
+  if (gameDoneToday("pong")) return;
+  pong.throwsLeft = PONG_MAX_PLAYS;    // fresh session for today
+  pong.score = 0;
+  markGamePlayed("pong");
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
-  pong.opening = true;                 // score persists across the break (reset in startBreak)
+  pong.opening = true;
   pong.cupDir = 1;
   els.pongResult.style.display = "none";
   els.pongHint.style.display = "";
@@ -2701,6 +2846,22 @@ function wireEvents() {
     }
   });
 
+  // ── Ambience volume slider (Settings) ────────────────────────────────────
+  els.ambVol.addEventListener("input", () => {
+    setAmbVolume(parseInt(els.ambVol.value, 10) / 100);
+    els.ambVolLabel.textContent = Math.round(state.ambVolume * 100);
+    clearTimeout(ambPreviewTimer);
+    // Preview the level if a soundscape is chosen but not currently playing.
+    if (state.ambience !== "off" && !amb) startAmbience(state.ambience);
+  });
+  els.ambVol.addEventListener("change", () => {
+    saveState();
+    clearTimeout(ambPreviewTimer);
+    if (state.ambience !== "off" && !state.running) {
+      ambPreviewTimer = setTimeout(() => { if (!state.running) stopAmbience(); }, 2500);
+    }
+  });
+
   els.devToggle.addEventListener("click", () => {
     state.devMode = !state.devMode;
     // Leaving dev mode shouldn't strand a sub-minute custom timer
@@ -2712,6 +2873,8 @@ function wireEvents() {
     saveState();
     renderDevToggle();
     renderShop();  // every item becomes equippable / reverts to locked
+    renderCustomizeOptions();   // bases/toppings unlock/relock with dev mode
+    if (state.phase === "break") renderBreakGameButtons();   // games unlock/relock
     els.makerSpeech.textContent = state.devMode ? "Dev mode on — everything unlocked." : "Dev mode off.";
   });
 
@@ -2761,6 +2924,9 @@ function wireEvents() {
   els.skipBreakRunningBtn.addEventListener("click", skipBreak);
   els.breakMinus.addEventListener("click", () => adjustBreakDuration(-300));
   els.breakPlus.addEventListener("click", () => adjustBreakDuration(300));
+
+  // ── Tap Mr. Tapioca for a little personality line ────────────────────────
+  els.makerWrap.addEventListener("click", showMakerLine);
 
   // ── Games ────────────────────────────────────────────────────────────────
   els.playGameBtn.addEventListener("click", startPearlGame);

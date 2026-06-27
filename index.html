@@ -83,7 +83,7 @@
         <!-- Boba Plinko game overlay -->
         <div id="plinkoGame" class="plinko-game" style="display:none">
           <div class="game-hud">
-            <span id="plinkoPlaysLeft" class="game-score">5 drops left</span>
+            <span id="plinkoPlaysLeft" class="game-score">3 drops left</span>
             <button id="quitPlinkoBtn" class="game-quit-btn">Quit</button>
           </div>
           <canvas id="plinkoCanvas" class="plinko-canvas"></canvas>
@@ -104,7 +104,7 @@
         <div id="pongGame" class="pong-game" style="display:none">
           <div class="game-hud">
             <span id="pongScore" class="game-score">⬡ 0</span>
-            <span id="pongThrows" class="game-timer">5 left</span>
+            <span id="pongThrows" class="game-timer">4 left</span>
             <button id="quitPongBtn" class="game-quit-btn">Quit</button>
           </div>
           <canvas id="pongCanvas" class="pong-canvas"></canvas>
@@ -194,9 +194,10 @@
           </div>
           <div class="progress-track break-track"><span id="breakProgressBar"></span></div>
         </div>
+        <p class="break-games-note">One play each per day 🎟️</p>
         <button id="playGameBtn" class="start-btn game-launch-btn">Catch the Pearls 🎮</button>
-        <button id="playPlinkoBtn" class="start-btn game-launch-btn">Play: Boba Plinko (5 left)</button>
-        <button id="playPongBtn" class="start-btn game-launch-btn">Cup Pong 🥤 (5 left)</button>
+        <button id="playPlinkoBtn" class="start-btn game-launch-btn">Boba Plinko 🎟️</button>
+        <button id="playPongBtn" class="start-btn game-launch-btn">Cup Pong 🥤</button>
         <button id="skipBreakRunningBtn" class="reset-link">End Break</button>
       </div>
 
@@ -239,6 +240,10 @@
         <div class="sheet-handle"></div>
         <div class="sheet-head">
           <h2>Customize Drink</h2>
+          <div class="pearl-chip small">
+            <img src="assets/Tapioca Currency.png" class="pearl-icon" alt="">
+            <span id="customizePearlCount">0 pearls</span>
+          </div>
           <button class="sheet-close" id="customizeClose" aria-label="Close">✕</button>
         </div>
         <div class="sheet-body">
@@ -276,6 +281,10 @@
               <button class="amb-chip" data-amb="rain">Rain</button>
               <button class="amb-chip" data-amb="brown">Noise</button>
               <button class="amb-chip" data-amb="ocean">Waves</button>
+            </div>
+            <div class="volume-control">
+              <input id="ambVol" class="volume-slider" type="range" min="0" max="100" step="1" value="50" aria-label="Ambience volume">
+              <span id="ambVolLabel" class="volume-val">50</span>
             </div>
           </div>
 
