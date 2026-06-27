@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "mr-tapioca",
+      "name": "tapioca",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "4173"],
-      "port": 4173
+      "runtimeArgs": ["-m", "http.server", "8766"],
+      "port": 8766
     }
   ]
 }

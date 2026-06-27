@@ -314,6 +314,10 @@ body {
   background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0));
   pointer-events: none;
 }
+/* At rest the maker (z-index:9) stands IN FRONT of the counter, fully visible.
+   During a focus session he walks over and tucks BEHIND the counter + cup to
+   stir, so lift the counter (and the cup it holds) above him only while focusing. */
+.scene.is-focusing .work-counter { z-index: 10; }
 
 
 
