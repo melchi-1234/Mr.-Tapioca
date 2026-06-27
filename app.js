@@ -506,6 +506,16 @@ function loadState() {
     // Resume an in-progress drink across app closes
     state.mode        = localStorage.getItem("bobaFocusMode") || "small";
     state.elapsed     = readJSON("bobaFocusElapsed", 0);
+    // If a focus session was actively RUNNING when the app was last killed, credit
+    // the wall-clock time that elapsed since (capped at the session length) so a
+    // true app-kill mid-study doesn't lose progress. We reconstruct it PAUSED (no
+    // surprise auto-play); init completes it if it finished while away.
+    const runningSince = readJSON("bobaFocusRunningSince", 0);
+    if (typeof runningSince === "number" && runningSince > 0) {
+      const extra = Math.max(0, (Date.now() - runningSince) / 1000);
+      state.elapsed = Math.min(modeDuration(), state.elapsed + extra);
+      pendingResume = true;
+    }
     state.onboarded   = readJSON("bobaFocusOnboarded", false);
     state.badges      = readJSON("bobaFocusBadges", []);
     state.dailyGoal   = readJSON("bobaFocusDailyGoal", 60);
@@ -579,6 +589,14 @@ function saveState() {
   localStorage.setItem("bobaFocusMusicVol",     JSON.stringify(state.musicVolume));
   localStorage.setItem("bobaFocusSfxVol",       JSON.stringify(state.sfxVolume));
   localStorage.setItem("bobaFocusAmbVol",       JSON.stringify(state.ambVolume));
+  // Wall-clock anchor: only present while a focus session is actively RUNNING.
+  // If the OS kills the app mid-session, loadState() reads this to credit the time
+  // that passed so study time isn't lost. Removed whenever we're not running.
+  if (state.running && state.phase === "focus") {
+    localStorage.setItem("bobaFocusRunningSince", JSON.stringify(Date.now()));
+  } else {
+    localStorage.removeItem("bobaFocusRunningSince");
+  }
 }
 
 function formatTime(seconds) {
@@ -1189,6 +1207,7 @@ function renderAll() {
 }
 
 let lastPersist = 0;
+let pendingResume = false;   // set in loadState() if a running session needs resuming on launch
 
 function stopTicker() {
   if (state.timerId !== null) {
@@ -3395,6 +3414,13 @@ renderAll();
 setMakerState("idle");
 scheduleFidget();     // start the occasional idle look-around
 checkBadges(false);   // baseline already-earned badges silently (no toast spam on load)
+
+// A focus session that was running when the app was killed is reconstructed paused
+// with its time credited (see loadState). If it actually finished while away, bank
+// it now so the drink + reward aren't lost.
+if (pendingResume && state.phase === "focus" && progress() >= 1) {
+  completeSession();
+}
 
 // First-time visitors get the welcome tour
 if (!state.onboarded) showOnboarding();
