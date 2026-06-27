@@ -2454,7 +2454,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   inset: 0;
   z-index: 20;
   flex-direction: column;
-  background: linear-gradient(180deg, #dCEEF2 0%, #f3e6d6 100%);
+  background: #f3e6d6 url('assets/Pong Background.png') top center / cover no-repeat;
   overflow: hidden;
 }
 .pong-canvas {

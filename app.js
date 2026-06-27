@@ -2784,15 +2784,27 @@ function pongLoop(ts) {
       p.y += p.vy * h;
       if (p.x < PONG_R) { p.x = PONG_R; p.vx = Math.abs(p.vx) * 0.6; }
       if (p.x > d.W - PONG_R) { p.x = d.W - PONG_R; p.vx = -Math.abs(p.vx) * 0.6; }
-      // make: interpolate x at the exact moment y crosses the rim
+      // at the moment it falls through the rim height, decide make / rim-bounce
       if (p.vy > 0 && prevY <= d.mouthY && p.y >= d.mouthY) {
         const f = (d.mouthY - prevY) / (p.y - prevY || 1);
         const crossX = prevX + (p.x - prevX) * f;
-        if (Math.abs(crossX - pong.cupX) < d.mouthHalf - PONG_R) result = "make";
+        const dx = Math.abs(crossX - pong.cupX);
+        if (dx < d.mouthHalf - PONG_R) {
+          result = "make";
+        } else if (dx < d.mouthHalf + PONG_R && !p.bounced) {
+          // clipped the rim — bounce off it (a satisfying near miss)
+          p.bounced = true;
+          p.y = d.mouthY - PONG_R;
+          p.vy = -Math.abs(p.vy) * 0.5;
+          p.vx += (crossX < pong.cupX ? -1 : 1) * 150;
+          playSfx("tap");
+        }
       }
       if (!result && (p.y > d.H + 40 || p.x < -40 || p.x > d.W + 40)) result = "miss";
     }
     if (result === "make") {
+      pong.splash = { x: pong.cupX, y: d.mouthY, r: 0 };   // ring effect at the cup
+      p.x = pong.cupX; p.y = d.mouthY + 24; p.vx = 0; p.vy = 0;   // pearl sinks in
       pong.score++;
       state.bonusPearls += PONG_REWARD;
       saveState();
@@ -2823,11 +2835,28 @@ function drawPong(d) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, d.W, d.H);
 
-  // ── cup ──
   const cx = pong.cupX;
   const topHalf = d.mouthHalf, botHalf = d.mouthHalf - 12;
   const topY = d.mouthY, botY = d.mouthY + d.cupH;
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
+
+  // ── table surface the pearl rests on ──
+  const tableY = d.startY + PONG_R + 4;
+  const tg = ctx.createLinearGradient(0, tableY, 0, d.H);
+  tg.addColorStop(0, "#d8b48c");
+  tg.addColorStop(1, "#c79a73");
+  ctx.fillStyle = tg;
+  ctx.fillRect(0, tableY, d.W, d.H - tableY);
+  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  ctx.fillRect(0, tableY, d.W, 3);
+
+  // ── soft shadow grounding the cup ──
+  ctx.fillStyle = "rgba(45,36,40,0.12)";
+  ctx.beginPath();
+  ctx.ellipse(cx, botY + 6, botHalf + 8, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── cup body ──
+  ctx.fillStyle = "rgba(255,255,255,0.78)";
   ctx.strokeStyle = "rgba(45,36,40,0.85)";
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -2837,32 +2866,62 @@ function drawPong(d) {
   ctx.lineTo(cx - botHalf, botY);
   ctx.closePath();
   ctx.fill(); ctx.stroke();
-  // a little drink + pearls inside
-  ctx.fillStyle = BASES[state.base].color;
-  ctx.globalAlpha = 0.85;
+
+  // drink fill (current tea-base colour) in the lower part of the cup
+  const fillTop = topY + d.cupH * 0.42;
+  const ftHalf = topHalf - (topHalf - botHalf) * 0.42;
+  ctx.save();
   ctx.beginPath();
-  ctx.moveTo(cx - topHalf + 6, topY + d.cupH * 0.45);
-  ctx.lineTo(cx + topHalf - 6, topY + d.cupH * 0.45);
+  ctx.moveTo(cx - ftHalf, fillTop);
+  ctx.lineTo(cx + ftHalf, fillTop);
   ctx.lineTo(cx + botHalf, botY);
   ctx.lineTo(cx - botHalf, botY);
   ctx.closePath();
-  ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = BASES[state.base].color;
+  ctx.globalAlpha = 0.92;
+  ctx.fillRect(cx - topHalf, fillTop, topHalf * 2, d.cupH);
+  // a few boba pearls at the bottom
   ctx.globalAlpha = 1;
-  // rim ellipse
+  ctx.fillStyle = "#2c1d16";
+  for (const o of [-14, 0, 13, -6, 7]) {
+    ctx.beginPath(); ctx.arc(cx + o, botY - 7 - (o % 2 ? 5 : 0), 4, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  // rim: dark ellipse + white gloss highlight
   ctx.strokeStyle = "rgba(45,36,40,0.85)";
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.ellipse(cx, topY, topHalf, 6, 0, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.7)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(cx, topY - 0.5, topHalf - 4, 4, 0, Math.PI * 1.05, Math.PI * 1.95);
+  ctx.stroke();
 
-  // ── aiming guide: flick direction + trajectory preview ──
+  // ── make splash: expanding ring at the cup mouth ──
+  if (pong.splash) {
+    const s = pong.splash;
+    s.r += 3.2;
+    const a = Math.max(0, 1 - s.r / 46);
+    ctx.strokeStyle = `rgba(255,255,255,${0.7 * a})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y, s.r, s.r * 0.4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    if (s.r >= 46) pong.splash = null;
+  }
+
+  // ── aiming guide: trajectory preview (dots fade with distance) ──
   if (pong.phase === "aim" && pong.dragStart && pong.drag) {
     let { vx, vy } = pongFlickVel();
-    // simulate the arc from the pearl's spot
     let px = d.startX, py = d.startY;
-    ctx.fillStyle = "rgba(45,36,40,0.4)";
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 30; i++) {
       px += vx * 0.04; py += vy * 0.04; vy += PONG_GRAV * 0.04;
       if (py > d.H || px < 0 || px > d.W) break;
+      ctx.fillStyle = `rgba(45,36,40,${Math.max(0.08, 0.45 - i * 0.013)})`;
       ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
     }
   }
@@ -2870,8 +2929,13 @@ function drawPong(d) {
   // ── pearl ──
   if (pong.pearl) {
     const p = pong.pearl;
+    // little contact shadow when it's resting on the table
+    if (pong.phase === "aim" || pong.phase === "wait") {
+      ctx.fillStyle = "rgba(45,36,40,0.15)";
+      ctx.beginPath(); ctx.ellipse(p.x, tableY + 2, PONG_R, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    }
     const grad = ctx.createRadialGradient(p.x - 3, p.y - 3, 1, p.x, p.y, PONG_R);
-    grad.addColorStop(0, "rgba(255,255,255,0.8)");
+    grad.addColorStop(0, "rgba(255,255,255,0.85)");
     grad.addColorStop(0.45, "#5b3d46");
     grad.addColorStop(1, "#1a0e14");
     ctx.beginPath(); ctx.arc(p.x, p.y, PONG_R, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill();
