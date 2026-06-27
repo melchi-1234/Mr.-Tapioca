@@ -209,6 +209,7 @@ const els = {
   premiumCopy:          document.querySelector("#premiumCopy"),
   saveRewardBtn:        document.querySelector("#saveRewardBtn"),
   previewRestrictionBtn:document.querySelector("#previewRestrictionBtn"),
+  chooseAppsBtn:        document.querySelector("#chooseAppsBtn"),
   restrictionPreview:   document.querySelector("#restrictionPreview"),
   breakOffer:           document.querySelector("#breakOffer"),
   breakRunningPanel:    document.querySelector("#breakRunningPanel"),
@@ -1129,6 +1130,29 @@ function tick() {
   }
 }
 
+// ── Native distraction-blocker bridge ────────────────────────────────────────
+// Talks to the iOS Screen Time "FocusShield" Capacitor plugin (see native-ios/).
+// On the plain web build the plugin is absent, so every call safely no-ops —
+// the web app keeps working unchanged; real app-blocking only happens once the
+// app is wrapped with Capacitor and the native plugin is present.
+const FocusBlocker = {
+  plugin() {
+    return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FocusShield) || null;
+  },
+  available() { return !!this.plugin(); },
+  async requestAuthorization() {
+    const p = this.plugin(); if (!p) return false;
+    try { const r = await p.requestAuthorization(); return !!(r && r.granted); } catch (e) { return false; }
+  },
+  async pickApps() {
+    const p = this.plugin();
+    if (!p) { showToast("App blocking runs in the installed iPhone app 🧋"); return; }
+    try { await p.pickApps(); } catch (e) {}
+  },
+  async start() { const p = this.plugin(); if (p) { try { await p.startBlocking(); } catch (e) {} } },
+  async stop()  { const p = this.plugin(); if (p) { try { await p.stopBlocking();  } catch (e) {} } },
+};
+
 function startPause() {
   state.autoPaused = false;   // any manual press cancels a pending auto-resume
   if (progress() >= 1 && !state.running) {
@@ -1144,12 +1168,14 @@ function startPause() {
     walkToCupAndMix();        // glide over to the cup, then mix
     startAmbience();          // soundscape on while focusing
     startMusic("focus");      // lo-fi while focusing
+    FocusBlocker.start();     // shield distracting apps for the session (native only)
     stopTicker();
     state.timerId = setInterval(tick, 250);
   } else {
     stopTicker();
     stopAmbience();
     stopMusic();
+    FocusBlocker.stop();      // lift the shield when paused
     walkToStation("idle");    // walk back to his spot
     saveState();              // bank progress whenever the user pauses
   }
@@ -1161,6 +1187,7 @@ function resetSession() {
   stopGame();
   stopAmbience();
   stopMusic();
+  FocusBlocker.stop();
   clearTimeout(state.breakMakerCycleId);
   state.breakMakerCycleId = null;
   clearInterval(state.breakTimerId);
@@ -1184,6 +1211,7 @@ function completeSession() {
   stopTicker();
   stopAmbience();
   stopMusic();
+  FocusBlocker.stop();   // session done — apps free again
   state.running = false;
   state.elapsed = modeDuration();
   state.lastTick = null;
@@ -1277,6 +1305,7 @@ function startBreak() {
   state.breakTimerId = setInterval(tickBreak, 250);
   scheduleMakerBreakCycle();
   renderBreakGameButtons();   // gate each game by once-per-day availability
+  FocusBlocker.stop();        // breaks are free time — lift the shield
   updatePhaseUI();
 }
 
@@ -1636,6 +1665,7 @@ function pauseAndBank() {
   stopTicker();
   stopAmbience();
   stopMusic();
+  FocusBlocker.stop();
   state.running = false;
   state.lastTick = null;
   state.autoPaused = true;   // so returning to the app can auto-resume
@@ -2975,10 +3005,11 @@ function wireEvents() {
     if (btn) setChoice("topping", btn.dataset.topping);
   });
 
-  // ── Blocked apps preview (inside settings sheet) ─────────────────────────
+  // ── App blocking (native picker on iPhone; preview/hint on web) ───────────
   els.previewRestrictionBtn.addEventListener("click", () => {
     els.restrictionPreview.classList.toggle("hidden");
   });
+  els.chooseAppsBtn.addEventListener("click", () => { playSfx("tap"); FocusBlocker.pickApps(); });
 
   // ── Reward dialog ────────────────────────────────────────────────────────
   els.rewardDialog.addEventListener("close", onRewardDialogClose);

@@ -1,0 +1,122 @@
+# Mr. Tapioca → real iPhone app with the Focus-Friend-style app blocker
+
+This is the step-by-step to turn the web app into a real App-Store app whose
+focus mode greys out other apps and shows a "Restricted" screen — exactly like
+Focus Friend. That effect is Apple's **Screen Time / Family Controls** API; the
+starter code for it is already in `native-ios/`.
+
+**How the work splits:**
+- 🟢 **You can do now (even from your phone):** Steps 1–2. These start Apple's
+  slow approval clock, so do them first.
+- 🔵 **We do together at your Mac (Claude writes the code, you run Xcode):** Steps 3–7.
+
+---
+
+## 🟢 Step 1 — Enroll in the Apple Developer Program ($99/yr)
+
+Required to test on a real iPhone and to publish. From your phone or Mac:
+**developer.apple.com → Account → Enroll.** It can take a day or two to activate.
+
+## 🟢 Step 2 — Request the "Family Controls" entitlement (DO THIS EARLY)
+
+App blocking needs a special Apple permission that a human at Apple must approve.
+Approval can take **a few days to a few weeks**, so request it the moment your
+account is active — don't wait until the app is built.
+
+Go to: **developer.apple.com/contact/request/family-controls-distribution**
+
+Paste something like this (edit the brackets):
+
+> **App name:** Mr. Tapioca
+> **What it does:** Mr. Tapioca is a personal focus/study timer. Users grow a
+> virtual boba drink by studying; during a focus session the app uses the Screen
+> Time API to shield distracting apps the *user themselves* selects, helping them
+> stay off social media until their session ends.
+> **Why we need Family Controls (Distribution):** to let users pick their own
+> distracting apps via the FamilyActivityPicker and apply a ManagedSettings
+> shield during focus sessions. All Screen Time data stays on-device; we never
+> transmit or store the user's app selections off the device.
+> **Audience:** individual users practicing self-control (not MDM / not
+> parental control for others).
+
+> Tip: you submit one request, but later each piece (main app + the 3 extensions)
+> needs the entitlement too — same approval covers your team; you just add the
+> capability to each target in Xcode (Step 5).
+
+---
+
+## 🔵 Step 3 — Install the toolchain (one time, on your Mac)
+
+In Terminal, inside this project folder:
+
+```
+npm install
+npx cap add ios
+```
+
+This downloads Capacitor and generates the native `ios/` Xcode project that wraps
+your web app. (Needs Node, Xcode, and CocoaPods installed — we'll sort those out.)
+
+## 🔵 Step 4 — Bundle the web app into the shell
+
+```
+npm run ios:open
+```
+
+That copies your web files into `www/`, syncs them into the iOS app, and opens
+Xcode. From now on, any time I change the web app you just run this again — your
+fast web iteration is preserved.
+
+## 🔵 Step 5 — Add the native blocker (the part that makes the magic)
+
+In Xcode we will:
+
+1. Add the **Family Controls** capability to the app target (Signing &
+   Capabilities → + → Family Controls), and an **App Group**
+   (`group.com.melchior.mrtapioca`).
+2. Add `native-ios/FocusShieldPlugin.swift`, `FocusShieldPlugin.m`, and
+   `SharedSelection.swift` to the **app target**.
+3. Create three **extension targets** (File → New → Target):
+   - **Shield Configuration** → use `ShieldConfigurationExtension.swift` (the boba "Restricted" screen)
+   - **Shield Action** → use `ShieldActionExtension.swift` (the buttons)
+   - **Device Activity Monitor** → use `DeviceActivityMonitorExtension.swift`
+   Add `SharedSelection.swift` + the App Group + Family Controls capability to **each** extension.
+
+I'll walk you through every click — this is the fiddly part, but it's one-time.
+
+## 🔵 Step 6 — Test on your real iPhone
+
+Plug in your iPhone, pick it in Xcode, press ▶. (Screen Time **does not work in
+the simulator** — it must be a real device.) In the app: Settings → **Choose apps
+to block** → pick a couple → start a focus session → try to open one. It should
+grey out and show your boba "Restricted" screen. 🎉
+
+## 🔵 Step 7 — TestFlight → App Store
+
+Once the entitlement (Step 2) is approved, archive in Xcode and upload to
+App Store Connect → TestFlight (try it on your own phone first) → submit for review.
+
+---
+
+## What it will and won't do (so there are no surprises)
+
+- ✅ Greys out + shows a custom "Restricted" screen for apps/categories the user picks.
+- ✅ Turns on instantly when a focus session starts, off when it ends/pauses/breaks.
+- ✅ You can paywall the app picker later (like Focus Friend) — it's just a UI gate.
+- ❌ Can't lock the whole phone or force-quit apps (Apple allows no app to).
+- ❌ Can't see *which* apps the user chose (Apple hides this for privacy) — so the
+  UI can't say "you blocked TikTok," only "X apps blocked."
+- ❌ A determined user can turn Screen Time permission off in iOS Settings.
+
+This is the exact same capability and ceiling every focus app (Focus Friend, Opal,
+one sec) works within. Our edge is the boba reward loop on top.
+
+---
+
+## How the web app already talks to it
+
+`app.js` calls `window.Capacitor.Plugins.FocusShield` via the `FocusBlocker`
+helper: `startBlocking()` on focus start, `stopBlocking()` on pause/break/finish,
+and `pickApps()` from the Settings "Choose apps to block" button. On the plain
+web build the plugin is absent, so those calls safely do nothing — the browser
+version keeps working, and real blocking only kicks in inside the iPhone app.

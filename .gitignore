@@ -4,3 +4,8 @@ node_modules/
 dist/
 build/
 *.log
+
+# Capacitor / iOS build artifacts (generated locally by `npx cap add ios`)
+www/
+ios/
+package-lock.json
