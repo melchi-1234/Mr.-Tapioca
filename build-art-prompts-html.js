@@ -1,9 +1,13 @@
-// Builds ART_PROMPTS.html (a styled, double-click-openable version of
-// ART_PROMPTS.md with copy-to-clipboard buttons on every prompt block).
-// Run: node build-art-prompts-html.js
+// Builds a styled, double-click-openable HTML version of a prompt markdown file,
+// with copy-to-clipboard buttons on every prompt block.
+// Run: node build-art-prompts-html.js [input.md] [output.html]
+//   defaults: ART_PROMPTS.md -> ART_PROMPTS.html
 const fs = require("fs");
 
-const md = fs.readFileSync("ART_PROMPTS.md", "utf8")
+const IN = process.argv[2] || "ART_PROMPTS.md";
+const OUT = process.argv[3] || "ART_PROMPTS.html";
+
+const md = fs.readFileSync(IN, "utf8")
   .replace(/<!--[\s\S]*?-->/g, "")   // drop HTML comments
   .replace(/\r\n/g, "\n");
 
@@ -16,13 +20,31 @@ const inline = (s) => esc(s)
 const lines = md.split("\n");
 let html = "";
 let inCode = false, codeBuf = [], codeId = 0;
-let listOpen = false, quoteOpen = false;
+let listOpen = false, quoteOpen = false, tableBuf = [];
 
 const closeList = () => { if (listOpen) { html += "</ul>\n"; listOpen = false; } };
 const closeQuote = () => { if (quoteOpen) { html += "</blockquote>\n"; quoteOpen = false; } };
+const isTableRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+const isTableSep = (l) => /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(l) && l.includes("-");
+const cells = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+function flushTable() {
+  if (!tableBuf.length) return;
+  const rows = tableBuf; tableBuf = [];
+  let head = null, bodyRows = rows;
+  if (rows.length >= 2 && isTableSep(rows[1])) { head = rows[0]; bodyRows = rows.slice(2); }
+  html += "<table>\n";
+  if (head) html += "<thead><tr>" + cells(head).map((c) => `<th>${inline(c)}</th>`).join("") + "</tr></thead>\n";
+  html += "<tbody>\n";
+  for (const r of bodyRows) {
+    if (isTableSep(r)) continue;
+    html += "<tr>" + cells(r).map((c) => `<td>${inline(c)}</td>`).join("") + "</tr>\n";
+  }
+  html += "</tbody></table>\n";
+}
 
 for (const line of lines) {
   if (line.trim().startsWith("```")) {
+    flushTable();
     if (!inCode) { inCode = true; codeBuf = []; }
     else {
       inCode = false;
@@ -33,6 +55,10 @@ for (const line of lines) {
     continue;
   }
   if (inCode) { codeBuf.push(line); continue; }
+
+  // Accumulate consecutive table rows, flush when the block ends.
+  if (isTableRow(line)) { closeList(); closeQuote(); tableBuf.push(line); continue; }
+  if (tableBuf.length) flushTable();
 
   if (/^#{1,6}\s/.test(line)) {
     closeList(); closeQuote();
@@ -60,6 +86,7 @@ for (const line of lines) {
     html += `<p>${inline(line)}</p>\n`;
   }
 }
+flushTable();
 closeList(); closeQuote();
 
 const page = `<!doctype html>
@@ -86,6 +113,10 @@ const page = `<!doctype html>
         font-weight:800;font-size:.72rem;border-radius:999px;padding:5px 12px;cursor:pointer;}
   .copy.done{background:var(--teal);color:#fff;}
   .top{background:var(--mint);border:2px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:18px;font-size:.92rem;color:var(--mid);}
+  table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.9rem;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--mint);color:var(--ink);font-weight:800;}
+  td:first-child{white-space:nowrap;color:var(--teal);font-weight:700;}
 </style></head>
 <body><div class="wrap">
 <div class="top">🧋 Mr. Tapioca art prompt pack — click <strong>Copy</strong> on any block, paste into Leonardo AI. Generated automatically; edit <code>ART_PROMPTS.md</code> and re-run <code>node build-art-prompts-html.js</code> to refresh.</div>
@@ -103,5 +134,5 @@ document.querySelectorAll(".copy").forEach(b=>b.addEventListener("click",async()
 </script>
 </body></html>`;
 
-fs.writeFileSync("ART_PROMPTS.html", page);
-console.log("Wrote ART_PROMPTS.html:", page.length, "chars; code blocks:", codeId);
+fs.writeFileSync(OUT, page);
+console.log(`Wrote ${OUT}:`, page.length, "chars; code blocks:", codeId);

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mr. Tapioca — Art Prompt Pack</title>
+<style>
+  :root{--bg:#fff7f0;--card:#fffdfa;--ink:#3c2018;--mid:#7a5a4c;--line:#eaddcf;--teal:#158f92;--mint:#dff3ef;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,Inter,system-ui,sans-serif;}
+  .wrap{max-width:820px;margin:0 auto;padding:32px 20px 80px;}
+  h1{font-size:1.9rem;line-height:1.2;margin:.4em 0 .3em;}
+  h2{font-size:1.35rem;margin:1.6em 0 .4em;padding-top:.6em;border-top:2px solid var(--line);}
+  h3{font-size:1.05rem;margin:1.4em 0 .3em;color:var(--teal);}
+  p{margin:.5em 0;} strong{color:var(--ink);}
+  code{background:var(--mint);padding:1px 6px;border-radius:6px;font:0.86em ui-monospace,Menlo,monospace;}
+  blockquote{margin:.6em 0;padding:.4em 14px;border-left:4px solid var(--teal);background:#fff;border-radius:0 10px 10px 0;color:var(--mid);}
+  ul{padding-left:22px;} li{margin:.25em 0;} input[type=checkbox]{margin-right:6px;}
+  hr{border:none;border-top:2px dashed var(--line);margin:2em 0;}
+  .codewrap{position:relative;margin:.5em 0 1.2em;}
+  pre{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:14px 16px;overflow-x:auto;
+      white-space:pre-wrap;word-break:break-word;font:0.84rem/1.5 ui-monospace,Menlo,monospace;color:#46352c;}
+  .copy{position:absolute;top:8px;right:8px;border:2px solid var(--teal);background:var(--mint);color:var(--teal);
+        font-weight:800;font-size:.72rem;border-radius:999px;padding:5px 12px;cursor:pointer;}
+  .copy.done{background:var(--teal);color:#fff;}
+  .top{background:var(--mint);border:2px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:18px;font-size:.92rem;color:var(--mid);}
+  table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.9rem;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--mint);color:var(--ink);font-weight:800;}
+  td:first-child{white-space:nowrap;color:var(--teal);font-weight:700;}
+</style></head>
+<body><div class="wrap">
+<div class="top">🧋 Mr. Tapioca art prompt pack — click <strong>Copy</strong> on any block, paste into Leonardo AI. Generated automatically; edit <code>ART_PROMPTS.md</code> and re-run <code>node build-art-prompts-html.js</code> to refresh.</div>
+<h1>Mr. Tapioca — Quick Skin Kit (the shortcut)</h1>
+<p><strong>Read this first — it saves hours:</strong></p>
+<p>1. <strong>Each skin is ONE image.</strong> You never draw animation frames per skin. The app animates every skin in code (bobbing, walking, the mixing squish) from a single still picture.</p>
+<p>2. <strong>You already have the base character</strong> (<code>assets/Mr. Tapioca.png</code>). You don't regenerate him — you *reuse* him as a reference so every skin comes out matching.</p>
+<p>3. So a skin = <strong>one paste, swap one word, generate.</strong> ~30 seconds each.</p>
+<hr>
+<h2>The whole workflow (per skin)</h2>
+<p>1. In Leonardo, upload <code>assets/Mr. Tapioca.png</code> under <strong>Image Guidance → Character Reference</strong> (strength ~<strong>0.5</strong>). This locks his face, body, colors, and style so you never have to describe them.</p>
+<p>2. Paste <strong>The Template</strong> below and replace <code>[[ACCESSORY]]</code> with one row from the table.</p>
+<p>3. Turn <strong>transparency / background removal ON</strong>, generate, and save with the filename from the table into <code>assets/</code>.</p>
+<p>That's the entire job. No style paragraph to rewrite, no per-skin animation.</p>
+<hr>
+<h2>Paste these two once and keep them</h2>
+<p><strong>Style line</strong> (already baked into the template below):</p>
+<div class="codewrap"><button class="copy" data-target="c0">Copy</button><pre id="c0"><code>kawaii chibi sticker illustration, soft pastel palette of cream, milk-tea brown, blush pink and mint accents, clean semi-flat vector with smooth cel shading and rounded dark-brown outlines, subtle soft gloss, even soft lighting, plain white background</code></pre></div>
+<p><strong>Negative prompt</strong> (paste into the negative field every time):</p>
+<div class="codewrap"><button class="copy" data-target="c1">Copy</button><pre id="c1"><code>text, letters, watermark, signature, realistic photo, 3d render, harsh shadows, busy background, extra characters, duplicate, blurry, low quality, off-model, deformed</code></pre></div>
+<hr>
+<h2>⭐ The Template (this is the trick — reuse it for EVERY skin)</h2>
+<div class="codewrap"><button class="copy" data-target="c2">Copy</button><pre id="c2"><code>The exact same round glossy dark-brown tapioca boba pearl character from the reference image — identical kawaii face, small dot eyes, pink cheek blush, tiny smile, short stub arms, same round proportions and same upright front-facing pose — now [[ACCESSORY]]. One single character, centered, full body, friendly and cute. kawaii chibi sticker illustration, soft pastel palette of cream, milk-tea brown, blush pink and mint accents, clean semi-flat vector with smooth cel shading and rounded dark-brown outlines, subtle soft gloss, even soft lighting, plain white background.</code></pre></div>
+<hr>
+<h2>Swap-in list — replace <code>[[ACCESSORY]]</code>, one image each</h2>
+<p>You already have most of these from before, so <strong>only (re)generate the ones you want to improve or add.</strong> The first three are the "doing too much" ones, rewritten simpler so they read at small size.</p>
+<table>
+<thead><tr><th>Save as</th><th>Replace <code>[[ACCESSORY]]</code> with</th></tr></thead>
+<tbody>
+<tr><td><code>Angel.png</code></td><td>wearing a simple thin gold halo floating above his head and two small soft white feather wings (kept small and tidy, not huge)</td></tr>
+<tr><td><code>Wizard.png</code></td><td>wearing one cute pointed midnight-blue wizard hat with a small star (no staff, no extra robes)</td></tr>
+<tr><td><code>Dragon.png</code></td><td>wearing a cozy green dragon-hood with two tiny rounded horns and little wing nubs (cute, not fierce)</td></tr>
+<tr><td><code>Graduation Cap.png</code></td><td>wearing a small black graduation cap with a gold tassel</td></tr>
+<tr><td><code>Flower Crown.png</code></td><td>wearing a delicate crown of small pastel flowers</td></tr>
+<tr><td><code>Scarf.png</code></td><td>wearing a chunky knitted cream-and-pink scarf</td></tr>
+<tr><td><code>Sunglasses.png</code></td><td>wearing small round dark sunglasses</td></tr>
+<tr><td><code>Strawberry.png</code></td><td>wearing a little red strawberry hat with a green leaf top</td></tr>
+<tr><td><code>Astronaut, blue.png</code></td><td>wearing a rounded white astronaut helmet with a soft blue visor</td></tr>
+<tr><td><code>Ninja.png</code></td><td>wearing a charcoal ninja headband and face wrap with just the eyes showing</td></tr>
+<tr><td><code>Cozy Sweater.png</code></td><td>wearing a soft oversized knit sweater in cream and sage</td></tr>
+<tr><td><code>Headphones.png</code></td><td>wearing big cushioned over-ear headphones in blush pink</td></tr>
+<tr><td><code>Barista Hat.png</code></td><td>wearing a tiny tan barista cap and a small apron</td></tr>
+<tr><td><code>Nightcap.png</code></td><td>wearing a soft droopy sleeping nightcap with a pom-pom, eyes gently closed</td></tr>
+<tr><td><code>Cat Ears Hoodie.png</code></td><td>wearing a pastel hoodie with two little cat ears on the hood</td></tr>
+</tbody></table>
+<blockquote>
+<p>Tip: keep the <strong>same seed</strong> off, but the same <strong>Character Reference image + strength</strong> on, for every skin. That's what keeps them looking like one set.</p>
+</blockquote>
+<hr>
+<h2>Optional polish (skip this to ship faster)</h2>
+<p>You <strong>don't need any of these</strong> — the app already has a cup, currency, and background, and it draws the drink/foam/pearls in code. Only do these if you're feeling ambitious. Same reference image + style line.</p>
+<h3><code>Mixing.png</code> — replace <code>[[ACCESSORY]]</code> style with a pose</h3>
+<div class="codewrap"><button class="copy" data-target="c3">Copy</button><pre id="c3"><code>The exact same boba pearl character from the reference image, happily shaking a boba shaker cup with both stub arms, a little motion, same face and proportions. kawaii chibi sticker illustration, soft pastel palette of cream, milk-tea brown, blush pink and mint accents, clean semi-flat vector with smooth cel shading and rounded dark-brown outlines, subtle soft gloss, even soft lighting, plain white background.</code></pre></div>
+<h3><code>Surprised-Happy.png</code> — celebration pose</h3>
+<div class="codewrap"><button class="copy" data-target="c4">Copy</button><pre id="c4"><code>The exact same boba pearl character from the reference image, jumping with joy, stub arms raised, big happy sparkly eyes, same face and proportions. kawaii chibi sticker illustration, soft pastel palette of cream, milk-tea brown, blush pink and mint accents, clean semi-flat vector with smooth cel shading and rounded dark-brown outlines, subtle soft gloss, even soft lighting, plain white background.</code></pre></div>
+<h3><code>Shop Background.png</code> — illustrated shop wall (full-bleed, transparency OFF, 3:4 tall)</h3>
+<div class="codewrap"><button class="copy" data-target="c5">Copy</button><pre id="c5"><code>A cozy boba tea shop interior backdrop: a warm wooden back wall with a shelf of cute pastel tea jars, a soft daylight window, and a few warm hanging string lights, gentle and uncluttered with empty floor space in the lower third. No characters. kawaii chibi illustration, soft pastel palette of cream, milk-tea brown, blush pink and mint accents, clean semi-flat vector with smooth cel shading and rounded outlines, soft even lighting.</code></pre></div>
+<hr>
+<p><strong>Bottom line:</strong> the only thing worth mass-producing is skins, and they're one template + one word each. Everything else is already handled in code or optional.</p>
+
+</div>
+<script>
+document.querySelectorAll(".copy").forEach(b=>b.addEventListener("click",async()=>{
+  const t=document.getElementById(b.dataset.target);
+  try{await navigator.clipboard.writeText(t.innerText);}catch(e){
+    const r=document.createRange();r.selectNode(t);getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand("copy");getSelection().removeAllRanges();
+  }
+  const o=b.textContent;b.textContent="Copied!";b.classList.add("done");
+  setTimeout(()=>{b.textContent=o;b.classList.remove("done");},1200);
+}));
+</script>
+</body></html>
