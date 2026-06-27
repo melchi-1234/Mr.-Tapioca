@@ -37,33 +37,15 @@ const TOPPINGS = {
   coconut: "Coconut Jelly"
 };
 
-const SHOP_CATEGORIES = ["Tea Base", "Topping", "Cup Sticker", "Character Skin", "Shop Theme"];
-
 const DEFAULTS = {
   base: "classic", topping: "pearls", sticker: "Focus",
   skin: "", shopTheme: "cozy"
 };
 
+// The shop sells character skins + backgrounds only. Tea base & toppings are
+// free personalization in the Customize sheet (not purchasable); cup stickers
+// were cut. (Earlier those lived here as paid items and became orphaned.)
 const SHOP_ITEMS = [
-  { id: "base-taro",       name: "Taro Milk Tea",      desc: "The classic purple",                  category: "Tea Base",    type: "base",      value: "taro",       price: 20, color: "#b58bdc" },
-  { id: "base-matcha",     name: "Matcha Milk Tea",     desc: "Earthy green",                        category: "Tea Base",    type: "base",      value: "matcha",     price: 20, color: "#76a86a" },
-  { id: "base-strawberry", name: "Strawberry Milk Tea", desc: "Sweet pink",                          category: "Tea Base",    type: "base",      value: "strawberry", price: 25, color: "#f07c93" },
-  { id: "base-brownsugar", name: "Brown Sugar Tiger",   desc: "Dark caramel swirl, the trendy one",  category: "Tea Base",    type: "base",      value: "brownsugar", price: 40, color: "#8b4513" },
-  { id: "base-ube",        name: "Ube Dream",           desc: "Deep jewel purple, very aesthetic",   category: "Tea Base",    type: "base",      value: "ube",        price: 40, color: "#6b3d9a" },
-  { id: "base-lavender",   name: "Lavender Mist",       desc: "Soft lilac, feels cottagecore",       category: "Tea Base",    type: "base",      value: "lavender",   price: 45, color: "#c4b5e8" },
-
-  { id: "topping-jelly",   name: "Lychee Jelly",        desc: "Wobbly pink bits",                    category: "Topping",     type: "topping",   value: "jelly",      price: 15, color: "#ee5b7f" },
-  { id: "topping-pudding", name: "Egg Pudding",          desc: "Soft golden cubes",                   category: "Topping",     type: "topping",   value: "pudding",    price: 15, color: "#f7cb59" },
-  { id: "topping-foam",    name: "Cheese Foam",          desc: "The fancy top-tier one",              category: "Topping",     type: "topping",   value: "foam",       price: 25, color: "#fff0c8" },
-  { id: "topping-coconut", name: "Coconut Jelly",        desc: "White, translucent, tropical",        category: "Topping",     type: "topping",   value: "coconut",    price: 30, color: "#e8f5e2" },
-
-  { id: "sticker-finals",  name: "Finals",               desc: "For the grind season",                category: "Cup Sticker", type: "sticker",   value: "Finals",     price: 10, color: "#fff3d4" },
-  { id: "sticker-library", name: "Library",              desc: "Main library character",              category: "Cup Sticker", type: "sticker",   value: "Library",    price: 10, color: "#d4eeff" },
-  { id: "sticker-thesis",  name: "Thesis Era",           desc: "For the real ones",                   category: "Cup Sticker", type: "sticker",   value: "Thesis Era", price: 15, color: "#ffd4ec" },
-  { id: "sticker-main",    name: "Main Character",       desc: "No explanation needed",               category: "Cup Sticker", type: "sticker",   value: "Main Char",  price: 15, color: "#ffe4d4" },
-  { id: "sticker-dnd",     name: "Do Not Disturb",       desc: "Actually leave me alone",             category: "Cup Sticker", type: "sticker",   value: "DND",        price: 15, color: "#f0d4ff" },
-  { id: "sticker-szn",     name: "Study Szn",            desc: "It's giving seasonal",                category: "Cup Sticker", type: "sticker",   value: "Study Szn",  price: 15, color: "#d4ffec" },
-
   // Default skin
   { id: "skin-default",    name: "Mr. Tapioca",    desc: "The original",          category: "Character Skin", type: "skin", value: "",           price: 0,  img: "assets/Mr. Tapioca.png"      },
 
@@ -279,6 +261,7 @@ const els = {
   onboardNext:          document.querySelector("#onboardNext"),
   onboardSkip:          document.querySelector("#onboardSkip"),
   replayIntroBtn:       document.querySelector("#replayIntroBtn"),
+  clearProgressBtn:     document.querySelector("#clearProgressBtn"),
   customStepper:        document.querySelector("#customStepper"),
   customDurationDisplay:document.querySelector("#customDurationDisplay"),
   customMinus:          document.querySelector("#customMinus"),
@@ -719,6 +702,19 @@ function showToast(msg) {
   }, 2600);
 }
 
+// Celebrate pearls won from a break game: pulse the top-bar chip + toast,
+// so winnings register with the same feedback as finishing a drink.
+function pearlsWonFx(n, withToast = true) {
+  if (n <= 0) return;
+  if (withToast) showToast(`⬡ +${n} pearl${n !== 1 ? "s" : ""} added to your stash!`);
+  const chip = document.querySelector(".pearl-chip");
+  if (chip && !prefersReducedMotion()) {
+    chip.classList.remove("pearl-pop");
+    void chip.offsetWidth;
+    chip.classList.add("pearl-pop");
+  }
+}
+
 function renderShelf() {
   if (state.collection.length === 0) {
     els.shelfGrid.innerHTML = `<div class="empty-state">Finish a focus session to start your collection 🧋</div>`;
@@ -781,6 +777,30 @@ function buyItem(itemId) {
 function refreshMaker() {
   currentMakerState = "";
   setMakerState(state.running ? "mixing" : "idle");
+}
+
+// History hygiene: wipe earned progress so test/dev sessions don't skew stats
+// forever. Keeps settings (sound, music, dev mode, daily goal, onboarding).
+function clearProgress() {
+  playSfx("tap");
+  if (state.running || state.elapsed > 0) {
+    alert("Finish or reset your current drink before clearing progress.");
+    return;
+  }
+  if (!confirm("Clear all progress? This permanently deletes your drink shelf, treats, pearls, badges, and shop purchases. Settings are kept.")) return;
+  state.collection = [];
+  state.rewards = [];
+  state.owned = [];
+  state.spent = 0;
+  state.bonusPearls = 0;
+  state.badges = [];
+  state.skin = "";
+  state.shopTheme = "cozy";
+  saveState();
+  refreshMaker();
+  renderAll();
+  showToast("Progress cleared — fresh start! 🧋");
+  playSfx("select");
 }
 
 function equipItem(itemId) {
@@ -1095,6 +1115,7 @@ function startBreak() {
   scheduleMakerBreakCycle();
   plinko.playsLeft = PLINKO_MAX_PLAYS;
   pong.throwsLeft = PONG_MAX_PLAYS;
+  pong.score = 0;   // a fresh break's makes accumulate into one summary across quits/resumes
   updatePlinkoBtnState();
   updatePongBtnState();
   updatePhaseUI();
@@ -1396,7 +1417,7 @@ function endPearlGame() {
   state.bonusPearls += game.score;
   saveState();
   renderAll();
-  if (game.score > 0) checkBadges(true);   // "Break Champ"
+  if (game.score > 0) { checkBadges(true); pearlsWonFx(game.score); }   // "Break Champ"
   els.gameResultText.textContent = "You caught " + game.score + " pearl" + (game.score !== 1 ? "s" : "") + "! +" + game.score + " added to your stash.";
   els.gameResult.style.display = "flex";
 }
@@ -1632,6 +1653,7 @@ function resolvePlinko(geo, x) {
   saveState();
   renderAll();
   checkBadges(true);   // "Break Champ"
+  pearlsWonFx(reward, false);   // pulse the chip (result overlay shows the amount)
   playSfx("blip");
   setTimeout(() => showPlinkoResult(reward), 450);
 }
@@ -2021,7 +2043,10 @@ function musicScheduler() {
     const ctx = audio();
     const cfg = musicTune === "break" ? BREAK_MUSIC : FOCUS_MUSIC;
     const stepDur = 60 / cfg.bpm / 2;
-    while (musicNext < ctx.currentTime + 0.12) {
+    // If the tab was backgrounded the timer gets throttled and musicNext falls
+    // far behind — snap forward instead of replaying a burst of stacked notes.
+    if (musicNext < ctx.currentTime - 0.5) musicNext = ctx.currentTime + 0.05;
+    while (musicNext < ctx.currentTime + 0.15) {
       musicScheduleStep(ctx, cfg, musicStep, musicNext);
       musicNext += stepDur;
       musicStep++;
@@ -2320,6 +2345,7 @@ function resetPongPearl() {
   pong.dragStart = null;
   pong.drag = null;
   pong.phase = "aim";
+  els.pongHint.style.display = "";   // re-show the swipe hint for each throw
 }
 
 // Velocity the current flick would produce (swipe vector × power, capped)
@@ -2335,13 +2361,14 @@ function pongFlickVel() {
 function openPong() {
   if (pong.throwsLeft <= 0) return;   // out of throws this break
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
-  pong.score = 0;
+  pong.opening = true;                 // score persists across the break (reset in startBreak)
   pong.cupDir = 1;
   els.pongResult.style.display = "none";
   els.pongHint.style.display = "";
   els.pongGame.style.display = "flex";
   updatePongHUD();
   requestAnimationFrame(() => {
+    if (!pong.opening) return;         // closed again before this frame ran — don't revive
     // canvas now has real dimensions — centre the cup and place the pearl
     pong.cupX = pongDims().W / 2;
     resetPongPearl();
@@ -2352,6 +2379,7 @@ function openPong() {
 }
 
 function closePong() {
+  pong.opening = false;
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   pong.active = false;
   els.pongGame.style.display = "none";
@@ -2427,6 +2455,7 @@ function pongLoop(ts) {
       playSfx("coin");
       haptic(12);
       checkBadges(true);
+      pearlsWonFx(PONG_REWARD, false);   // pulse the chip on each make
       pongNextThrow(true);
     } else if (result === "miss") {
       playSfx("tap");
@@ -2525,7 +2554,13 @@ function pongPoint(e) {
 function wireEvents() {
   // ── Main timer controls ──────────────────────────────────────────────────
   els.startPauseBtn.addEventListener("click", () => { playSfx("tap"); startPause(); });
-  els.resetBtn.addEventListener("click", () => { playSfx("tap"); resetSession(); });
+  els.resetBtn.addEventListener("click", () => {
+    playSfx("tap");
+    // guard against erasing a partly-filled drink (mirrors the size-switch guard)
+    if (state.elapsed > 0 && progress() < 1 &&
+        !confirm("Reset this drink? Your current progress will be lost.")) return;
+    resetSession();
+  });
 
   // ── Mode / size picker ───────────────────────────────────────────────────
   document.querySelectorAll(".size-btn").forEach(btn => {
@@ -2599,6 +2634,7 @@ function wireEvents() {
   els.onboardBack.addEventListener("click", onboardGoBack);
   els.onboardSkip.addEventListener("click", finishOnboarding);
   els.replayIntroBtn.addEventListener("click", () => { closeSheets(); showOnboarding(); });
+  els.clearProgressBtn.addEventListener("click", clearProgress);
 
   // ── Customize sheet: tea base, topping, shop theme ───────────────────────
   document.querySelectorAll(".swatch").forEach(button => {

@@ -697,6 +697,14 @@ body {
   padding: 5px 12px 5px 6px;
 }
 .pearl-chip.small .pearl-icon { width: 20px; height: 20px; }
+.pearl-chip.pearl-pop {
+  animation: pearlPop 0.45s ease;
+}
+@keyframes pearlPop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.22); box-shadow: 0 4px 16px rgba(72,160,150,0.5); }
+  100% { transform: scale(1); }
+}
 
 /* ── Daily goal progress pill (under the top HUD) ───────────────────────── */
 .daily-goal {
@@ -1629,6 +1637,11 @@ h3 {
   font-weight: 950;
   flex-shrink: 0;
 }
+.settings-action-btn.danger {
+  border-color: var(--danger);
+  background: #fff0f3;
+  color: var(--danger);
+}
 
 /* ── Boba map sheet ─────────────────────────────────────────────────────── */
 .map-body {
@@ -1799,6 +1812,34 @@ h3 {
   color: var(--bark-mid);
   font-size: 0.82rem;
 }
+.soon-badge {
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--teal);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.muted-note {
+  margin: 8px 0;
+  color: var(--bark-mid);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+.ghost-btn {
+  border: 2px solid var(--line);
+  background: rgba(255,255,255,0.6);
+  color: var(--bark);
+  font-weight: 850;
+  font-size: 0.78rem;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.ghost-btn:hover { background: rgba(255,255,255,0.9); }
+.app-locks input:disabled { opacity: 0.8; }
 
 /* ── Shelf & reward lists ───────────────────────────────────────────────── */
 .shelf-grid, .reward-list { display: grid; gap: 8px; }

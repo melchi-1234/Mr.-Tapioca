@@ -251,6 +251,9 @@
             <button class="swatch" data-base="taro" style="--swatch:#b58bdc" aria-label="Taro milk tea"></button>
             <button class="swatch" data-base="matcha" style="--swatch:#76a86a" aria-label="Matcha milk tea"></button>
             <button class="swatch" data-base="strawberry" style="--swatch:#f07c93" aria-label="Strawberry milk tea"></button>
+            <button class="swatch" data-base="brownsugar" style="--swatch:#8b4513" aria-label="Brown sugar milk tea"></button>
+            <button class="swatch" data-base="ube" style="--swatch:#6b3d9a" aria-label="Ube milk tea"></button>
+            <button class="swatch" data-base="lavender" style="--swatch:#c4b5e8" aria-label="Lavender milk tea"></button>
           </div>
 
           <h3 class="section-gap">Topping</h3>
@@ -259,6 +262,7 @@
             <button class="choice" data-topping="jelly">Jelly</button>
             <button class="choice" data-topping="pudding">Pudding</button>
             <button class="choice" data-topping="foam">Foam</button>
+            <button class="choice" data-topping="coconut">Coconut</button>
           </div>
         </div>
       </div>
@@ -372,6 +376,11 @@
             <button id="replayIntroBtn" class="settings-action-btn">Replay</button>
           </div>
 
+          <div class="settings-row">
+            <span class="settings-row-label">🧹 Clear progress <small>wipe shelf, treats &amp; pearls</small></span>
+            <button id="clearProgressBtn" class="settings-action-btn danger">Clear</button>
+          </div>
+
           <div class="section-head compact section-gap">
             <h3>Drink Shelf</h3>
             <span id="totalTime" class="badge">0 min</span>
@@ -386,15 +395,17 @@
 
           <div class="blocked-panel section-gap">
             <div class="section-head compact">
-              <h3>Blocked Apps</h3>
-              <button id="previewRestrictionBtn" class="icon-btn" aria-label="Preview restricted app screen">!</button>
+              <h3>App Blocking</h3>
+              <span class="soon-badge">Coming on iPhone</span>
             </div>
+            <p class="muted-note">On the iPhone app, finishing a drink will lock distracting apps while you focus. Here's a preview:</p>
             <div class="app-locks">
-              <label><input type="checkbox" checked> YouTube</label>
-              <label><input type="checkbox" checked> TikTok</label>
-              <label><input type="checkbox" checked> Instagram</label>
-              <label><input type="checkbox"> Games</label>
+              <label><input type="checkbox" checked disabled> YouTube</label>
+              <label><input type="checkbox" checked disabled> TikTok</label>
+              <label><input type="checkbox" checked disabled> Instagram</label>
+              <label><input type="checkbox" disabled> Games</label>
             </div>
+            <button id="previewRestrictionBtn" class="ghost-btn" style="margin-top:8px;">See what it looks like</button>
             <div id="restrictionPreview" class="restriction-preview hidden" aria-live="polite">
               <strong>Restricted</strong>
               <p>You cannot use YouTube because it is restricted.</p>
