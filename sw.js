@@ -1,7 +1,7 @@
 // Mr. Tapioca service worker — makes the app installable and usable offline.
 // Bump CACHE on every release so installed users get the new app shell
 // (cache-first would otherwise serve them the old index/app.js/styles forever).
-const CACHE = "mr-tapioca-v11";
+const CACHE = "mr-tapioca-v12";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -11,6 +11,9 @@ const SHELL = [
   "app.js",
   "manifest.json",
   "assets/Mr. Tapioca.png",
+  "assets/Pose Mixing.png",
+  "assets/Pose Sleepy.png",
+  "assets/Pose Happy.png",
   "assets/Cup.png",
   "assets/Tapioca Currency.png",
   "assets/Background.png",

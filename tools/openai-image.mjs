@@ -27,11 +27,13 @@ if (!prompt || !outPath) {
 const key = getKey();
 let res;
 try {
+  const bg = process.env.IMG_BG;   // "transparent" | "opaque" | "auto" (optional)
   if (refs.length) {
     const form = new FormData();
     form.append("model", "gpt-image-1");
     form.append("prompt", prompt);
     form.append("size", size);
+    if (bg) form.append("background", bg);
     for (const r of refs) {
       const buf = fs.readFileSync(r);
       form.append("image[]", new Blob([buf], { type: "image/png" }), path.basename(r));
@@ -40,10 +42,12 @@ try {
       method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form,
     });
   } else {
+    const body = { model: "gpt-image-1", prompt, size, n: 1 };
+    if (bg) body.background = bg;
     res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "gpt-image-1", prompt, size, n: 1 }),
+      body: JSON.stringify(body),
     });
   }
 } catch (e) {

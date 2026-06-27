@@ -334,17 +334,16 @@ const SKIN_IMAGES = {
 // is driven by CSS keyframes that key off the img's data-state attribute.
 // (Earlier we cycled cropped frames here; one of the idle crops was mid-blink,
 // which made the eye look like it disappeared.)
-// Removed the base character's emote face-swaps (mixing/sleeping/startled/
-// surprised) for now — every state uses his normal portrait, and the CSS
-// keyframes (keyed off data-state) supply the motion. This keeps the base
-// consistent with the skins (which are single portraits) instead of having
-// "extra" expressions only he had.
+// Base-character pose set, generated on-model from Mr. Tapioca.png via
+// gpt-image-1 (reference edit, transparent). Each focus/break state swaps to the
+// matching pose; the CSS keyframes still add motion on top. (Skins get their own
+// pose sets in a later pass — for now they use their single portrait.)
 const MAKER_STATIC = {
   idle:     "assets/Mr. Tapioca.png",
-  mixing:   "assets/Mr. Tapioca.png",
-  sleeping: "assets/Mr. Tapioca.png",
-  shocked:  "assets/Mr. Tapioca.png",
-  drinking: "assets/Mr. Tapioca.png"
+  mixing:   "assets/Pose Mixing.png",   // focusing — stirring the drink
+  sleeping: "assets/Pose Sleepy.png",   // break — dozing
+  drinking: "assets/Pose Happy.png",    // break — happy/relaxing
+  shocked:  "assets/Mr. Tapioca.png"    // (currently unused)
 };
 
 let currentMakerState = "";
