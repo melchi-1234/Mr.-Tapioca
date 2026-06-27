@@ -102,6 +102,22 @@
             </div>
           </div>
         </div>
+
+        <!-- Cup Pong game overlay -->
+        <div id="pongGame" class="pong-game" style="display:none">
+          <div class="game-hud">
+            <span id="pongScore" class="game-score">⬡ 0</span>
+            <span id="pongThrows" class="game-timer">5 left</span>
+            <button id="quitPongBtn" class="game-quit-btn">Quit</button>
+          </div>
+          <canvas id="pongCanvas" class="pong-canvas"></canvas>
+          <div id="pongHint" class="pong-hint">Drag back from the pearl &amp; release to toss it in 🫧</div>
+          <div id="pongResult" class="pong-result" style="display:none">
+            <p class="eyebrow" id="pongResultEyebrow">Nice toss!</p>
+            <h3 id="pongResultText">You sank 0!</h3>
+            <button id="pongCloseBtn" class="primary">Done</button>
+          </div>
+        </div>
       </section>
 
       <!-- ── Top HUD overlay ──────────────────────────────────────── -->
@@ -183,6 +199,7 @@
         </div>
         <button id="playGameBtn" class="start-btn game-launch-btn">Catch the Pearls 🎮</button>
         <button id="playPlinkoBtn" class="start-btn game-launch-btn">Boba Plinko (5 left)</button>
+        <button id="playPongBtn" class="start-btn game-launch-btn">Cup Pong 🥤</button>
         <button id="skipBreakRunningBtn" class="reset-link">End Break</button>
       </div>
 

@@ -113,6 +113,23 @@ const plinko = {
   animId: null
 };
 
+const PONG_MAX_PLAYS = 5;
+const PONG_R = 11;
+const PONG_GRAV = 1500;
+const PONG_REWARD = 4;     // pearls per successful toss
+const pong = {
+  active: false,
+  throwsLeft: PONG_MAX_PLAYS,
+  score: 0,
+  phase: "aim",           // "aim" | "fly" | "done"
+  pearl: null,            // {x, y, vx, vy, prevY}
+  drag: null,             // {x, y} current pointer while aiming
+  cupX: 0,
+  cupDir: 1,
+  animId: null,
+  lastTs: null
+};
+
 const game = {
   active: false,
   score: 0,
@@ -223,6 +240,17 @@ const els = {
   plinkoResultText:     document.querySelector("#plinkoResultText"),
   plinkoAgainBtn:       document.querySelector("#plinkoAgainBtn"),
   plinkoDoneBtn:        document.querySelector("#plinkoDoneBtn"),
+  playPongBtn:          document.querySelector("#playPongBtn"),
+  pongGame:             document.querySelector("#pongGame"),
+  pongCanvas:           document.querySelector("#pongCanvas"),
+  pongScore:            document.querySelector("#pongScore"),
+  pongThrows:           document.querySelector("#pongThrows"),
+  quitPongBtn:          document.querySelector("#quitPongBtn"),
+  pongHint:             document.querySelector("#pongHint"),
+  pongResult:           document.querySelector("#pongResult"),
+  pongResultEyebrow:    document.querySelector("#pongResultEyebrow"),
+  pongResultText:       document.querySelector("#pongResultText"),
+  pongCloseBtn:         document.querySelector("#pongCloseBtn"),
   shopBtn:              document.querySelector("#shopBtn"),
   customizeBtn:         document.querySelector("#customizeBtn"),
   settingsBtn:          document.querySelector("#settingsBtn"),
@@ -937,6 +965,7 @@ function startPause() {
 
 function resetSession() {
   closePlinko();
+  closePong();
   stopGame();
   stopAmbience();
   clearTimeout(state.breakMakerCycleId);
@@ -1053,6 +1082,7 @@ function startBreak() {
   state.breakTimerId = setInterval(tickBreak, 250);
   scheduleMakerBreakCycle();
   plinko.playsLeft = PLINKO_MAX_PLAYS;
+  pong.throwsLeft = PONG_MAX_PLAYS;
   updatePlinkoBtnState();
   updatePhaseUI();
 }
@@ -1071,6 +1101,7 @@ function tickBreak() {
 
 function endBreak() {
   closePlinko();
+  closePong();
   stopGame();
   clearInterval(state.breakTimerId);
   state.breakTimerId = null;
@@ -1087,6 +1118,7 @@ function endBreak() {
 
 function skipBreak() {
   closePlinko();
+  closePong();
   stopGame();
   clearInterval(state.breakTimerId);
   state.breakTimerId = null;
@@ -2044,6 +2076,216 @@ function finishOnboarding() {
   haptic(10);
 }
 
+// ── Cup Pong: toss a pearl into the cup (slingshot + projectile physics) ──────
+function pongDims() {
+  const W = els.pongCanvas.offsetWidth, H = els.pongCanvas.offsetHeight;
+  return {
+    W, H,
+    startX: W / 2, startY: H - 46,        // where the pearl waits
+    mouthY: H * 0.30,                     // height of the cup rim
+    mouthHalf: 40,                        // half the cup-mouth width
+    cupH: 76,
+    margin: 60
+  };
+}
+
+function updatePongHUD() {
+  els.pongThrows.textContent = `${pong.throwsLeft} left`;
+  els.pongScore.textContent = "⬡ " + pong.score;
+}
+
+function resetPongPearl() {
+  const d = pongDims();
+  pong.pearl = { x: d.startX, y: d.startY, vx: 0, vy: 0, prevY: d.startY };
+  pong.drag = null;
+  pong.phase = "aim";
+}
+
+function openPong() {
+  if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
+  pong.score = 0;
+  pong.cupX = els.pongCanvas.offsetWidth / 2 || 180;
+  pong.cupDir = 1;
+  els.pongResult.style.display = "none";
+  els.pongHint.style.display = "";
+  els.pongGame.style.display = "flex";
+  updatePongHUD();
+  requestAnimationFrame(() => {
+    resetPongPearl();
+    pong.active = true;
+    pong.lastTs = null;
+    pong.animId = requestAnimationFrame(pongLoop);
+  });
+}
+
+function closePong() {
+  if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
+  pong.active = false;
+  els.pongGame.style.display = "none";
+}
+
+function pongLaunch() {
+  if (pong.phase !== "aim" || !pong.drag) return;
+  const d = pongDims();
+  // slingshot: pull back from the pearl, release to fling the opposite way
+  const k = 6.2;
+  let vx = (d.startX - pong.drag.x) * k;
+  let vy = (d.startY - pong.drag.y) * k;
+  const speed = Math.hypot(vx, vy);
+  const max = 1700;
+  if (speed > max) { vx = vx / speed * max; vy = vy / speed * max; }
+  if (speed < 120) { pong.drag = null; return; }   // too soft, ignore
+  pong.pearl.vx = vx; pong.pearl.vy = vy; pong.pearl.prevY = pong.pearl.y;
+  pong.phase = "fly";
+  pong.drag = null;
+  els.pongHint.style.display = "none";
+  playSfx("drop");
+}
+
+function pongNextThrow(made) {
+  pong.throwsLeft--;
+  updatePongHUD();
+  if (pong.throwsLeft <= 0) {
+    pong.phase = "done";
+    setTimeout(endPong, 700);
+  } else {
+    setTimeout(() => { if (pong.active) resetPongPearl(); }, 600);
+    pong.phase = "wait";
+  }
+}
+
+function pongLoop(ts) {
+  if (!pong.active) return;
+  if (pong.lastTs === null) pong.lastTs = ts;
+  const dt = Math.min((ts - pong.lastTs) / 1000, 0.032);
+  pong.lastTs = ts;
+  const d = pongDims();
+
+  // cup drifts side to side
+  const cupSpeed = 70;
+  pong.cupX += pong.cupDir * cupSpeed * dt;
+  if (pong.cupX < d.margin) { pong.cupX = d.margin; pong.cupDir = 1; }
+  if (pong.cupX > d.W - d.margin) { pong.cupX = d.W - d.margin; pong.cupDir = -1; }
+
+  if (pong.phase === "fly" && pong.pearl) {
+    const p = pong.pearl;
+    p.prevY = p.y;
+    p.vy += PONG_GRAV * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    // bounce off side walls so it stays playable
+    if (p.x < PONG_R) { p.x = PONG_R; p.vx = Math.abs(p.vx) * 0.6; }
+    if (p.x > d.W - PONG_R) { p.x = d.W - PONG_R; p.vx = -Math.abs(p.vx) * 0.6; }
+    // make: crossed the rim plane going down, within the mouth
+    if (p.vy > 0 && p.prevY <= d.mouthY && p.y >= d.mouthY &&
+        Math.abs(p.x - pong.cupX) < d.mouthHalf - PONG_R) {
+      pong.score++;
+      state.bonusPearls += PONG_REWARD;
+      saveState();
+      updatePongHUD();
+      playSfx("coin");
+      haptic(12);
+      checkBadges(true);
+      pongNextThrow(true);
+    } else if (p.y > d.H + 40 || p.x < -40 || p.x > d.W + 40) {
+      playSfx("tap");
+      pongNextThrow(false);
+    }
+  }
+
+  drawPong(d);
+  pong.animId = requestAnimationFrame(pongLoop);
+}
+
+function drawPong(d) {
+  const canvas = els.pongCanvas;
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== Math.round(d.W * dpr) || canvas.height !== Math.round(d.H * dpr)) {
+    canvas.width = Math.round(d.W * dpr);
+    canvas.height = Math.round(d.H * dpr);
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, d.W, d.H);
+
+  // ── cup ──
+  const cx = pong.cupX;
+  const topHalf = d.mouthHalf, botHalf = d.mouthHalf - 12;
+  const topY = d.mouthY, botY = d.mouthY + d.cupH;
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.strokeStyle = "rgba(45,36,40,0.85)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx - topHalf, topY);
+  ctx.lineTo(cx + topHalf, topY);
+  ctx.lineTo(cx + botHalf, botY);
+  ctx.lineTo(cx - botHalf, botY);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // a little drink + pearls inside
+  ctx.fillStyle = BASES[state.base].color;
+  ctx.globalAlpha = 0.85;
+  ctx.beginPath();
+  ctx.moveTo(cx - topHalf + 6, topY + d.cupH * 0.45);
+  ctx.lineTo(cx + topHalf - 6, topY + d.cupH * 0.45);
+  ctx.lineTo(cx + botHalf, botY);
+  ctx.lineTo(cx - botHalf, botY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  // rim ellipse
+  ctx.strokeStyle = "rgba(45,36,40,0.85)";
+  ctx.beginPath();
+  ctx.ellipse(cx, topY, topHalf, 6, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // ── aiming guide (slingshot + trajectory preview) ──
+  if (pong.phase === "aim" && pong.drag) {
+    ctx.strokeStyle = "rgba(45,36,40,0.3)";
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath(); ctx.moveTo(d.startX, d.startY); ctx.lineTo(pong.drag.x, pong.drag.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // preview arc
+    let vx = (d.startX - pong.drag.x) * 6.2, vy = (d.startY - pong.drag.y) * 6.2;
+    const sp = Math.hypot(vx, vy), mx = 1700;
+    if (sp > mx) { vx = vx / sp * mx; vy = vy / sp * mx; }
+    let px = d.startX, py = d.startY;
+    ctx.fillStyle = "rgba(45,36,40,0.35)";
+    for (let i = 0; i < 18; i++) {
+      px += vx * 0.045; py += vy * 0.045; vy += PONG_GRAV * 0.045;
+      if (py > d.H) break;
+      ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // ── pearl ──
+  if (pong.pearl) {
+    const p = pong.pearl;
+    const grad = ctx.createRadialGradient(p.x - 3, p.y - 3, 1, p.x, p.y, PONG_R);
+    grad.addColorStop(0, "rgba(255,255,255,0.8)");
+    grad.addColorStop(0.45, "#5b3d46");
+    grad.addColorStop(1, "#1a0e14");
+    ctx.beginPath(); ctx.arc(p.x, p.y, PONG_R, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill();
+  }
+}
+
+function endPong() {
+  pong.active = false;
+  if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
+  const s = pong.score;
+  els.pongResultEyebrow.textContent = s >= 4 ? "Sharp shooter!" : s >= 1 ? "Nice tossing!" : "Tough luck!";
+  els.pongResultText.textContent = `You sank ${s} · +${s * PONG_REWARD} pearls`;
+  els.pongResult.style.display = "flex";
+  if (s > 0) playSfx("success");
+}
+
+// Pointer handlers for aiming (attached once, guarded by pong.active)
+function pongPoint(e) {
+  const r = els.pongCanvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX - r.left, y: t.clientY - r.top };
+}
+
 function wireEvents() {
   // ── Main timer controls ──────────────────────────────────────────────────
   els.startPauseBtn.addEventListener("click", () => { playSfx("tap"); startPause(); });
@@ -2144,6 +2386,32 @@ function wireEvents() {
     els.plinkoDropBtn.disabled = false;
   });
   els.plinkoDoneBtn.addEventListener("click", closePlinko);
+
+  // ── Cup Pong ──────────────────────────────────────────────────────────────
+  els.playPongBtn.addEventListener("click", openPong);
+  els.quitPongBtn.addEventListener("click", closePong);
+  els.pongCloseBtn.addEventListener("click", closePong);
+
+  const pongDown = (e) => {
+    if (!pong.active || pong.phase !== "aim") return;
+    e.preventDefault();
+    pong.drag = pongPoint(e);
+  };
+  const pongMove = (e) => {
+    if (!pong.active || pong.phase !== "aim" || !pong.drag) return;
+    e.preventDefault();
+    pong.drag = pongPoint(e);
+  };
+  const pongUp = (e) => {
+    if (!pong.active) return;
+    if (pong.drag) { e.preventDefault(); pongLaunch(); }
+  };
+  els.pongCanvas.addEventListener("mousedown", pongDown);
+  els.pongCanvas.addEventListener("mousemove", pongMove);
+  window.addEventListener("mouseup", pongUp);
+  els.pongCanvas.addEventListener("touchstart", pongDown, { passive: false });
+  els.pongCanvas.addEventListener("touchmove", pongMove, { passive: false });
+  els.pongCanvas.addEventListener("touchend", pongUp, { passive: false });
 
   // ── Touch controls for pearl game ────────────────────────────────────────
   els.gameArea.addEventListener("touchstart", e => {
