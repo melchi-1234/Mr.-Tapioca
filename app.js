@@ -375,6 +375,20 @@ function celebrate() {
   setTimeout(() => els.shopScene.classList.remove("celebrating"), 1500);
 }
 
+// Idle "fidgets": every so often while he's calmly standing around, he does a
+// little look-around wiggle so he feels alive even when you're not touching him.
+let fidgetTimer = null;
+function scheduleFidget() {
+  clearTimeout(fidgetTimer);
+  fidgetTimer = setTimeout(() => {
+    if (!document.hidden && !prefersReducedMotion() &&
+        currentMakerState === "idle" && !state.running) {
+      pulseMaker("wiggle", 820);
+    }
+    scheduleFidget();
+  }, 6000 + Math.random() * 7000);   // every 6–13s
+}
+
 // ── Walk-to-the-cup choreography ──────────────────────────────────────────────
 // How far right the maker glides so he stands beside the cup. WALK_MS must match
 // the .maker-wrap CSS transition (1050ms); tweak MIX_WALK_X if he stops short.
@@ -612,6 +626,7 @@ function showMakerLine() {
   lastTapLine = line;
   els.makerSpeech.textContent = line;
   els.makerSpeech.classList.add("show");
+  pulseMaker("pop", 420);   // a little hop when tapped
   playSfx("blip");
   haptic(8);
   clearTimeout(tapLineTimer);
@@ -944,6 +959,7 @@ function equipItem(itemId) {
   renderAll();
   playSfx("success");
   haptic(8);
+  pulseMaker("pop", 420);   // happy hop on equip
   checkBadges(true);   // "Stylish" / "Decorator"
   els.makerSpeech.textContent = item.type === "shopTheme"
     ? "Ooh, fresh backdrop."
@@ -3031,6 +3047,7 @@ renderAmbiencePicker();
 
 renderAll();
 setMakerState("idle");
+scheduleFidget();     // start the occasional idle look-around
 checkBadges(false);   // baseline already-earned badges silently (no toast spam on load)
 
 // First-time visitors get the welcome tour
