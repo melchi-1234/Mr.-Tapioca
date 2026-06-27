@@ -330,11 +330,19 @@ const SKIN_IMAGES = {
   "wizard":     "assets/Wizard.png"
 };
 
-// Per-skin pose sets (generated on-model from each skin via gpt-image-1).
-// Keyed by skin value → { mixing, sleeping, drinking } image paths. Any skin/
-// state not listed falls back to that skin's single portrait above, so this is
-// safe to fill in incrementally. Populated by tools/gen-skin-poses output.
-const SKIN_POSES = {};
+// Per-skin pose sets — each generated as a single 2x2 sprite sheet (one render,
+// so the 4 poses share the exact same color) from that skin + the base
+// Mr. Tapioca as references, then sliced (see tools/slice-sheet.py). Keyed by
+// skin value → { mixing, sleeping, drinking }; any missing state falls back to
+// the skin's single portrait above.
+const SKIN_POSES = Object.fromEntries(
+  ["grad-cap", "flower", "scarf", "shades", "strawberry", "astro-blue",
+   "dragon", "ninja", "wizard", "angel", "devil"].map((v) => [v, {
+    mixing:   `assets/poses/${v}-mixing.png`,
+    sleeping: `assets/poses/${v}-sleepy.png`,
+    drinking: `assets/poses/${v}-happy.png`,
+  }])
+);
 
 // Every state uses a single high-res still image; bounce/stir/sleep motion
 // is driven by CSS keyframes that key off the img's data-state attribute.
