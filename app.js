@@ -100,8 +100,8 @@ const UNLOCKS = [
 ];
 
 const PEARL_SIZE = 20;
-const GAME_CUP_W = 80;
-const GAME_CUP_H = 44;
+const GAME_CUP_W = 72;
+const GAME_CUP_H = 88;
 
 const SLOT_REWARDS = [10, 5, 2, 1, 2, 5, 10];
 const PLINKO_MAX_PLAYS = 5;
@@ -114,16 +114,19 @@ const plinko = {
 };
 
 const PONG_MAX_PLAYS = 5;
-const PONG_R = 11;
-const PONG_GRAV = 1500;
+const PONG_R = 12;
+const PONG_GRAV = 1150;
+const PONG_POWER = 9;      // swipe distance → launch velocity
+const PONG_MAXV = 2500;    // velocity cap
 const PONG_REWARD = 4;     // pearls per successful toss
 const pong = {
   active: false,
   throwsLeft: PONG_MAX_PLAYS,
   score: 0,
-  phase: "aim",           // "aim" | "fly" | "done"
+  phase: "aim",           // "aim" | "fly" | "wait" | "done"
   pearl: null,            // {x, y, vx, vy, prevY}
-  drag: null,             // {x, y} current pointer while aiming
+  dragStart: null,        // where the flick began
+  drag: null,             // current pointer while flicking
   cupX: 0,
   cupDir: 1,
   animId: null,
@@ -1892,16 +1895,22 @@ function setAmbience(type) {
 // ── Generative lo-fi music (Web Audio note scheduler, no audio files) ─────────
 function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
-// midi note sets per chord; ~lofi 7th chords. Focus = calm, Break = brighter + beat.
+// Each mood has several SECTIONS (chord progression + pentatonic melody notes)
+// that rotate every `barsPerSection` bars, so the music keeps evolving.
 const FOCUS_MUSIC = {
-  bpm: 64,
-  chords: [[50,53,57,60], [55,58,62,65], [48,52,55,59], [53,57,60,64]],  // Dm7 Gm7 Cmaj7 Fmaj7
-  scale: [50,52,53,55,57,60,62], melodyProb: 0.30, beat: false
+  bpm: 68, barsPerSection: 8, beat: "soft", melodyProb: 0.32,
+  sections: [
+    { chords: [[50,53,57,60],[55,58,62,65],[48,52,55,59],[53,57,60,64]], pent: [50,53,55,57,60,62] }, // Dm7 Gm7 Cmaj7 Fmaj7
+    { chords: [[45,48,52,55],[53,57,60,64],[50,53,57,60],[55,58,62,65]], pent: [45,48,50,52,55,57] }, // Am-ish
+    { chords: [[48,52,55,59],[53,57,60,64],[50,53,57,60],[57,60,64,67]], pent: [48,52,55,57,60,64] }  // Cmaj7 Fmaj7 Dm7 Am7
+  ]
 };
 const BREAK_MUSIC = {
-  bpm: 88,
-  chords: [[48,52,55,59], [57,60,64,67], [53,57,60,64], [55,59,62,65]],  // Cmaj7 Am7 Fmaj7 G7
-  scale: [48,50,52,55,57,60,62,64], melodyProb: 0.42, beat: true
+  bpm: 86, barsPerSection: 8, beat: "full", melodyProb: 0.44,
+  sections: [
+    { chords: [[48,52,55,59],[57,60,64,67],[53,57,60,64],[55,59,62,65]], pent: [48,52,55,57,60,64] }, // Cmaj7 Am7 Fmaj7 G7
+    { chords: [[50,53,57,60],[55,58,62,65],[48,52,55,59],[55,59,62,65]], pent: [50,53,55,57,60,62] }  // Dm7 Gm7 Cmaj7 G7
+  ]
 };
 
 let musicTimer = null, musicNext = 0, musicStep = 0, musicTune = null;
@@ -1912,59 +1921,99 @@ function musicBus(ctx) {
   return musicGain;
 }
 
-function musicVoice(ctx, { freq, t, dur, type = "sine", peak = 0.05, attack = 0.01, release = 0.25 }) {
-  const o = ctx.createOscillator(), g = ctx.createGain();
+function musicVoice(ctx, { freq, t, dur, type = "sine", peak = 0.05, attack = 0.01, release = 0.25, cutoff = 2600 }) {
+  const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+  lp.type = "lowpass"; lp.frequency.value = cutoff;
   o.type = type;
   o.frequency.setValueAtTime(freq, t);
   g.gain.setValueAtTime(0.0001, t);
   g.gain.linearRampToValueAtTime(peak, t + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur + release);
-  o.connect(g).connect(musicBus(ctx));
+  o.connect(g).connect(lp).connect(musicBus(ctx));
   o.start(t); o.stop(t + dur + release + 0.05);
 }
 
-function musicKick(ctx, t) {
+// Warm pad: two slightly-detuned oscillators through a soft lowpass (chorus-y)
+function musicPad(ctx, midi, t, dur) {
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1100;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.03, t + 0.4);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 1.4);
+  g.connect(lp).connect(musicBus(ctx));
+  [-7, 7].forEach(det => {
+    const o = ctx.createOscillator();
+    o.type = "sine"; o.frequency.value = mtof(midi); o.detune.value = det;
+    o.connect(g); o.start(t); o.stop(t + dur + 1.5);
+  });
+}
+
+function musicKick(ctx, t, peak = 0.16) {
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = "sine";
   o.frequency.setValueAtTime(140, t);
   o.frequency.exponentialRampToValueAtTime(50, t + 0.12);
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(0.16, t + 0.01);
+  g.gain.linearRampToValueAtTime(peak, t + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
   o.connect(g).connect(musicBus(ctx));
   o.start(t); o.stop(t + 0.24);
 }
 
-function musicHat(ctx, t) {
+function musicHat(ctx, t, peak = 0.05) {
   if (!musicNoiseBuf) musicNoiseBuf = makeNoiseBuffer(ctx, false);
   const src = ctx.createBufferSource(); src.buffer = musicNoiseBuf;
   const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7500;
   const g = ctx.createGain();
-  g.gain.setValueAtTime(0.05, t);
+  g.gain.setValueAtTime(peak, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
   src.connect(hp).connect(g).connect(musicBus(ctx));
   src.start(t); src.stop(t + 0.06);
 }
 
+// Subtle vinyl crackle — a tiny filtered noise click
+function musicCrackle(ctx, t) {
+  if (!musicNoiseBuf) musicNoiseBuf = makeNoiseBuffer(ctx, false);
+  const src = ctx.createBufferSource(); src.buffer = musicNoiseBuf;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = 0.8;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.018, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+  src.connect(bp).connect(g).connect(musicBus(ctx));
+  src.start(t); src.stop(t + 0.03);
+}
+
 function musicScheduleStep(ctx, cfg, step, t) {
   const stepsPerBar = 8;
   const stepDur = 60 / cfg.bpm / 2;       // eighth notes
-  const chord = cfg.chords[Math.floor(step / stepsPerBar) % cfg.chords.length];
+  const bar = Math.floor(step / stepsPerBar);
+  const section = cfg.sections[Math.floor(bar / cfg.barsPerSection) % cfg.sections.length];
+  const chord = section.chords[bar % section.chords.length];
   const inBar = step % stepsPerBar;
 
-  if (inBar === 0) {  // new bar: soft pad chord + bass root
+  if (inBar === 0) {  // new bar: warm pad chord + bass root
     const barDur = stepDur * stepsPerBar;
-    chord.forEach(m => musicVoice(ctx, { freq: mtof(m + 12), t, dur: barDur * 0.9, type: "sine", peak: 0.03, attack: 0.3, release: 1.2 }));
-    musicVoice(ctx, { freq: mtof(chord[0] - 12), t, dur: barDur * 0.85, type: "triangle", peak: 0.06, attack: 0.02, release: 0.4 });
+    chord.forEach(m => musicPad(ctx, m + 12, t, barDur * 0.9));
+    musicVoice(ctx, { freq: mtof(chord[0] - 12), t, dur: barDur * 0.5, type: "triangle", peak: 0.07, attack: 0.02, release: 0.3, cutoff: 900 });
   }
-  if (inBar % 2 === 0 && Math.random() < cfg.melodyProb) {  // sparse melody on the beat
-    const n = cfg.scale[Math.floor(Math.random() * cfg.scale.length)] + 12;
-    musicVoice(ctx, { freq: mtof(n), t, dur: stepDur * 0.8, type: "triangle", peak: 0.06, attack: 0.01, release: 0.22 });
+  if (inBar === 4) {  // mid-bar bass note (fifth) for a little groove
+    musicVoice(ctx, { freq: mtof(chord[0] - 12 + 7), t, dur: stepDur * 2, type: "triangle", peak: 0.05, attack: 0.02, release: 0.3, cutoff: 900 });
   }
-  if (cfg.beat) {
+  if (inBar % 2 === 0 && Math.random() < cfg.melodyProb) {  // sparse pentatonic melody on the beat
+    const oct = Math.random() < 0.3 ? 24 : 12;
+    const n = section.pent[Math.floor(Math.random() * section.pent.length)] + oct;
+    musicVoice(ctx, { freq: mtof(n), t, dur: stepDur * 0.85, type: "triangle", peak: 0.05, attack: 0.01, release: 0.25, cutoff: 2200 });
+  }
+  // beat (with a touch of swing on the off-beat hats)
+  const swing = stepDur * 0.18;
+  if (cfg.beat === "full") {
     if (step % 4 === 0) musicKick(ctx, t);
-    if (step % 2 === 1) musicHat(ctx, t);
+    if (step % 2 === 1) musicHat(ctx, t + swing);
+  } else if (cfg.beat === "soft") {
+    if (inBar === 0 || inBar === 4) musicKick(ctx, t, 0.10);
+    if (inBar === 2 || inBar === 6) musicHat(ctx, t + swing, 0.035);
   }
+  if (Math.random() < 0.25) musicCrackle(ctx, t);   // vinyl texture
 }
 
 function musicScheduler() {
@@ -2247,16 +2296,16 @@ function finishOnboarding() {
   haptic(10);
 }
 
-// ── Cup Pong: toss a pearl into the cup (slingshot + projectile physics) ──────
+// ── Cup Pong: flick a pearl into the cup (GamePigeon-style, projectile arc) ───
 function pongDims() {
   const W = els.pongCanvas.offsetWidth, H = els.pongCanvas.offsetHeight;
   return {
     W, H,
-    startX: W / 2, startY: H - 46,        // where the pearl waits
-    mouthY: H * 0.30,                     // height of the cup rim
-    mouthHalf: 40,                        // half the cup-mouth width
-    cupH: 76,
-    margin: 60
+    startX: W / 2, startY: H - 38,        // where the pearl waits
+    mouthY: H * 0.32,                     // height of the cup rim
+    mouthHalf: 44,                        // half the cup-mouth width
+    cupH: 84,
+    margin: 56
   };
 }
 
@@ -2268,8 +2317,19 @@ function updatePongHUD() {
 function resetPongPearl() {
   const d = pongDims();
   pong.pearl = { x: d.startX, y: d.startY, vx: 0, vy: 0, prevY: d.startY };
+  pong.dragStart = null;
   pong.drag = null;
   pong.phase = "aim";
+}
+
+// Velocity the current flick would produce (swipe vector × power, capped)
+function pongFlickVel() {
+  if (!pong.dragStart || !pong.drag) return { vx: 0, vy: 0, mag: 0 };
+  let vx = (pong.drag.x - pong.dragStart.x) * PONG_POWER;
+  let vy = (pong.drag.y - pong.dragStart.y) * PONG_POWER;
+  const mag = Math.hypot(vx, vy);
+  if (mag > PONG_MAXV) { vx = vx / mag * PONG_MAXV; vy = vy / mag * PONG_MAXV; }
+  return { vx, vy, mag };
 }
 
 function openPong() {
@@ -2298,19 +2358,17 @@ function closePong() {
 }
 
 function pongLaunch() {
-  if (pong.phase !== "aim" || !pong.drag || pong.throwsLeft <= 0) return;
-  const d = pongDims();
-  // slingshot: pull back from the pearl, release to fling the opposite way
-  const k = 6.2;
-  let vx = (d.startX - pong.drag.x) * k;
-  let vy = (d.startY - pong.drag.y) * k;
-  const speed = Math.hypot(vx, vy);
-  const max = 1700;
-  if (speed > max) { vx = vx / speed * max; vy = vy / speed * max; }
-  if (speed < 120) { pong.drag = null; return; }   // too soft, ignore
-  pong.pearl.vx = vx; pong.pearl.vy = vy; pong.pearl.prevY = pong.pearl.y;
+  if (pong.phase !== "aim" || !pong.drag || pong.throwsLeft <= 0) { pong.dragStart = pong.drag = null; return; }
+  const { vx, vy, mag } = pongFlickVel();
+  if (mag < 250 || vy >= -60) {   // need a real upward flick
+    pong.dragStart = pong.drag = null;
+    return;
+  }
+  pong.pearl.vx = vx;
+  pong.pearl.vy = vy;
+  pong.pearl.prevY = pong.pearl.y;
   pong.phase = "fly";
-  pong.drag = null;
+  pong.dragStart = pong.drag = null;
   els.pongHint.style.display = "none";
   playSfx("drop");
 }
@@ -2422,22 +2480,16 @@ function drawPong(d) {
   ctx.ellipse(cx, topY, topHalf, 6, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // ── aiming guide (slingshot + trajectory preview) ──
-  if (pong.phase === "aim" && pong.drag) {
-    ctx.strokeStyle = "rgba(45,36,40,0.3)";
-    ctx.setLineDash([4, 5]);
-    ctx.beginPath(); ctx.moveTo(d.startX, d.startY); ctx.lineTo(pong.drag.x, pong.drag.y); ctx.stroke();
-    ctx.setLineDash([]);
-    // preview arc
-    let vx = (d.startX - pong.drag.x) * 6.2, vy = (d.startY - pong.drag.y) * 6.2;
-    const sp = Math.hypot(vx, vy), mx = 1700;
-    if (sp > mx) { vx = vx / sp * mx; vy = vy / sp * mx; }
+  // ── aiming guide: flick direction + trajectory preview ──
+  if (pong.phase === "aim" && pong.dragStart && pong.drag) {
+    let { vx, vy } = pongFlickVel();
+    // simulate the arc from the pearl's spot
     let px = d.startX, py = d.startY;
-    ctx.fillStyle = "rgba(45,36,40,0.35)";
-    for (let i = 0; i < 18; i++) {
-      px += vx * 0.045; py += vy * 0.045; vy += PONG_GRAV * 0.045;
-      if (py > d.H) break;
-      ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(45,36,40,0.4)";
+    for (let i = 0; i < 26; i++) {
+      px += vx * 0.04; py += vy * 0.04; vy += PONG_GRAV * 0.04;
+      if (py > d.H || px < 0 || px > d.W) break;
+      ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -2595,18 +2647,19 @@ function wireEvents() {
   els.pongCloseBtn.addEventListener("click", closePong);
 
   const pongDown = (e) => {
-    if (!pong.active || pong.phase !== "aim") return;
+    if (!pong.active || pong.phase !== "aim" || pong.throwsLeft <= 0) return;
     e.preventDefault();
-    pong.drag = pongPoint(e);
+    pong.dragStart = pongPoint(e);
+    pong.drag = pong.dragStart;
   };
   const pongMove = (e) => {
-    if (!pong.active || pong.phase !== "aim" || !pong.drag) return;
+    if (!pong.active || pong.phase !== "aim" || !pong.dragStart) return;
     e.preventDefault();
     pong.drag = pongPoint(e);
   };
   const pongUp = (e) => {
     if (!pong.active) return;
-    if (pong.drag) { e.preventDefault(); pongLaunch(); }
+    if (pong.dragStart) { e.preventDefault(); pongLaunch(); }
   };
   els.pongCanvas.addEventListener("mousedown", pongDown);
   els.pongCanvas.addEventListener("mousemove", pongMove);

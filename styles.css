@@ -2199,19 +2199,10 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 
 .game-cup {
   position: absolute;
-  bottom: 10px;
-  width: 80px; height: 44px;
-  border: 3px solid rgba(45,36,40,0.88);
-  border-radius: 5px 5px 18px 18px;
-  background: rgba(255,255,255,0.55);
-}
-.game-cup::before {
-  content: "";
-  position: absolute;
-  top: 5px; left: 7px;
-  width: 9px; height: 28px;
-  background: rgba(255,255,255,0.4);
-  border-radius: 4px;
+  bottom: 8px;
+  width: 72px; height: 88px;
+  background: url('assets/Cup.png') no-repeat center bottom / contain;
+  filter: drop-shadow(0 3px 4px rgba(60,32,24,0.25));
 }
 
 .game-result {
