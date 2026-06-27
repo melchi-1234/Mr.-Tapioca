@@ -116,14 +116,13 @@ const plinko = {
 const game = {
   active: false,
   score: 0,
-  timeLeft: 60,
+  timeLeft: 45,
+  elapsed: 0,
   lastTime: null,
   spawnTimer: 0,
-  spawnInterval: 1.2,
   pearls: [],
   cupX: 0,
-  cupSpeed: 220,
-  pearlSpeed: 110,
+  cupSpeed: 360,
   animId: null,
   keysLeft: false,
   keysRight: false,
@@ -1264,6 +1263,11 @@ function gameLoop(ts) {
   if (game.lastTime === null) game.lastTime = ts;
   const dt = Math.min((ts - game.lastTime) / 1000, 0.1);
   game.lastTime = ts;
+  game.elapsed += dt;
+
+  // Difficulty ramps up: pearls fall faster and spawn more often over time
+  const fallSpeed = 230 + game.elapsed * 5;             // ~230 → ~450 px/s
+  const spawnInterval = Math.max(0.42, 0.8 - game.elapsed * 0.008);
 
   const areaW = els.gameArea.offsetWidth;
   const areaH = els.gameArea.offsetHeight;
@@ -1276,7 +1280,7 @@ function gameLoop(ts) {
   const caught = [];
   const missed = [];
   for (const p of game.pearls) {
-    p.y += game.pearlSpeed * dt;
+    p.y += fallSpeed * dt;
     p.el.style.top = Math.round(p.y) + "px";
     if (p.y + PEARL_SIZE >= cupTop) {
       const cx = p.x + PEARL_SIZE / 2;
@@ -1302,8 +1306,8 @@ function gameLoop(ts) {
   }
 
   game.spawnTimer += dt;
-  if (game.spawnTimer >= game.spawnInterval) {
-    game.spawnTimer -= game.spawnInterval;
+  if (game.spawnTimer >= spawnInterval) {
+    game.spawnTimer -= spawnInterval;
     spawnPearl();
   }
 
@@ -1321,7 +1325,8 @@ function gameLoop(ts) {
 function startPearlGame() {
   game.active = true;
   game.score = 0;
-  game.timeLeft = 60;
+  game.timeLeft = 45;
+  game.elapsed = 0;
   game.lastTime = null;
   game.spawnTimer = 0;
   game.pearls = [];
@@ -1330,7 +1335,7 @@ function startPearlGame() {
   game.cupX = (els.gameArea.offsetWidth - GAME_CUP_W) / 2;
   els.gameCup.style.left = Math.round(game.cupX) + "px";
   els.gameScore.textContent = "⬡ 0";
-  els.gameTimer.textContent = "1:00";
+  els.gameTimer.textContent = "0:45";
   els.gameResult.style.display = "none";
   els.pearlGame.style.display = "flex";
   game.animId = requestAnimationFrame(gameLoop);
@@ -1475,16 +1480,16 @@ function drawPlinkoPearl(x, y) {
   ctx.fill();
 }
 
-function buildPlinkoWaypoints(decisions, geo) {
-  const { W, slotW, topPad, rowSpacing, H, slotH } = geo;
-  const waypoints = [{ x: W / 2, y: topPad - 8 }];
-  let offset = 0;
+// Peg centres — same formula the board is drawn with, so the sim matches visuals
+function plinkoPegs(geo) {
+  const { W, slotW, topPad, rowSpacing } = geo;
+  const pegs = [];
   for (let r = 0; r < PLINKO_ROWS; r++) {
-    offset += decisions[r] ? slotW / 2 : -slotW / 2;
-    waypoints.push({ x: W / 2 + offset, y: topPad + (r + 1) * rowSpacing });
+    for (let j = 0; j <= r + 1; j++) {
+      pegs.push({ x: W / 2 + (j - (r + 1) / 2) * slotW, y: topPad + r * rowSpacing + rowSpacing / 2 });
+    }
   }
-  waypoints.push({ x: W / 2 + offset, y: H - slotH / 2 });
-  return waypoints;
+  return pegs;
 }
 
 function updatePlinkoBtnState() {
@@ -1520,6 +1525,55 @@ function updatePlinkoHUD() {
   els.plinkoPlaysLeft.textContent = `${left} drop${left !== 1 ? "s" : ""} left`;
 }
 
+const PLINKO_R = 8;          // pearl radius
+const PLINKO_GRAV = 1200;    // px/s^2
+const PLINKO_REST = 0.55;    // bounciness off pegs/walls
+
+// Advance the pearl one physics tick (mutates p = {x,y,vx,vy}); returns true once it
+// has dropped past the last peg row into the slots.
+function plinkoStep(p, pegs, geo, h) {
+  p.vy += PLINKO_GRAV * h;
+  p.x += p.vx * h;
+  p.y += p.vy * h;
+  // walls
+  if (p.x < PLINKO_R) { p.x = PLINKO_R; p.vx = Math.abs(p.vx) * PLINKO_REST; }
+  if (p.x > geo.W - PLINKO_R) { p.x = geo.W - PLINKO_R; p.vx = -Math.abs(p.vx) * PLINKO_REST; }
+  // pegs
+  const min = geo.pegR + PLINKO_R;
+  for (const peg of pegs) {
+    const dx = p.x - peg.x, dy = p.y - peg.y;
+    const d = Math.hypot(dx, dy);
+    if (d < min && d > 0) {
+      const nx = dx / d, ny = dy / d;
+      p.x = peg.x + nx * min;
+      p.y = peg.y + ny * min;
+      const vn = p.vx * nx + p.vy * ny;
+      if (vn < 0) {
+        p.vx -= (1 + PLINKO_REST) * vn * nx;
+        p.vy -= (1 + PLINKO_REST) * vn * ny;
+        p.vx += (Math.random() * 2 - 1) * 45;   // a little chaos so it isn't deterministic
+      }
+    }
+  }
+  return p.y + PLINKO_R >= geo.H - geo.slotH;
+}
+
+function resolvePlinko(geo, x) {
+  plinko.dropping = false;
+  plinko.animId = null;
+  let slot = Math.floor(x / geo.slotW);
+  slot = Math.max(0, Math.min(SLOT_REWARDS.length - 1, slot));
+  drawPlinkoBoard(slot);
+  drawPlinkoPearl((slot + 0.5) * geo.slotW, geo.H - geo.slotH / 2);
+  const reward = SLOT_REWARDS[slot];
+  state.bonusPearls += reward;
+  saveState();
+  renderAll();
+  checkBadges(true);   // "Break Champ"
+  playSfx("blip");
+  setTimeout(() => showPlinkoResult(reward), 450);
+}
+
 function dropPearl() {
   if (plinko.dropping || plinko.playsLeft <= 0) return;
   plinko.dropping = true;
@@ -1531,55 +1585,40 @@ function dropPearl() {
   playSfx("drop");
 
   const geo = getPlinkoGeo();
-  const decisions = Array.from({ length: PLINKO_ROWS }, () => Math.random() < 0.5);
-  const slotIndex = decisions.filter(Boolean).length;
-  const waypoints = buildPlinkoWaypoints(decisions, geo);
+  const pegs = plinkoPegs(geo);
+  const p = {
+    x: geo.W / 2 + (Math.random() * 2 - 1) * 8,
+    y: geo.topPad - 12,
+    vx: (Math.random() * 2 - 1) * 30,
+    vy: 0
+  };
 
-  // Respect reduced-motion: skip the bouncing animation, resolve immediately
+  // Reduced motion: simulate to the result without animating
   if (prefersReducedMotion()) {
-    plinko.dropping = false;
-    drawPlinkoBoard(slotIndex);
-    const reward = SLOT_REWARDS[slotIndex];
-    state.bonusPearls += reward;
-    saveState();
-    renderAll();
-    checkBadges(true);
-    showPlinkoResult(reward);
+    let guard = 0;
+    while (!plinkoStep(p, pegs, geo, 0.016) && guard++ < 4000) {}
+    resolvePlinko(geo, p.x);
     return;
   }
 
-  const SEG_MS = 170;
-  const totalMs = SEG_MS * (waypoints.length - 1);
-  const segCount = waypoints.length - 1;
   const t0 = performance.now();
-
+  let last = t0;
   function frame(ts) {
-    const elapsed = ts - t0;
-    const rawSeg = Math.min(elapsed / SEG_MS, segCount);
-    const seg = Math.min(Math.floor(rawSeg), segCount - 1);
-    const segT = rawSeg - seg;
-    const eased = segT < 0.5 ? 2 * segT * segT : 1 - Math.pow(-2 * segT + 2, 2) / 2;
-    const from = waypoints[seg];
-    const to = waypoints[seg + 1];
+    if (!plinko.dropping) return;
+    const dt = Math.min((ts - last) / 1000, 0.032);
+    last = ts;
+    let landed = false;
+    // fixed sub-steps for stable collisions
+    const sub = 3, h = dt / sub;
+    for (let s = 0; s < sub; s++) { if (plinkoStep(p, pegs, geo, h)) { landed = true; break; } }
     drawPlinkoBoard(-1);
-    drawPlinkoPearl(from.x + (to.x - from.x) * eased, from.y + (to.y - from.y) * eased);
-
-    if (elapsed < totalMs) {
-      plinko.animId = requestAnimationFrame(frame);
+    drawPlinkoPearl(p.x, p.y);
+    if (landed || ts - t0 > 6000) {
+      resolvePlinko(geo, p.x);
     } else {
-      plinko.dropping = false;
-      plinko.animId = null;
-      drawPlinkoBoard(slotIndex);
-      drawPlinkoPearl(waypoints[waypoints.length - 1].x, waypoints[waypoints.length - 1].y);
-      const reward = SLOT_REWARDS[slotIndex];
-      state.bonusPearls += reward;
-      saveState();
-      renderAll();
-      checkBadges(true);   // "Break Champ"
-      setTimeout(() => showPlinkoResult(reward), 600);
+      plinko.animId = requestAnimationFrame(frame);
     }
   }
-
   plinko.animId = requestAnimationFrame(frame);
 }
 
