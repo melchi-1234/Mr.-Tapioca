@@ -567,7 +567,7 @@ const THEME_SKY = {
 function updateThemeColor() {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) return;
-  const color = state.phase === "break" ? "#dbd2f0" : (THEME_SKY[state.shopTheme] || "#d8ede7");
+  const color = state.phase === "break" ? "#c9bfe0" : (THEME_SKY[state.shopTheme] || "#f3e4cf");
   if (meta.content !== color) meta.content = color;
 }
 
@@ -3095,18 +3095,18 @@ function wireEvents() {
     if (e.key === "ArrowRight") game.keysRight = false;
   });
 
-  // ── Backgrounding banks progress; returning auto-resumes (music & all) ────
+  // ── Keep the focus session running while the screen is off / app is away ──
+  // (Locking your phone to study IS focusing — the time should still count, and
+  // the session should complete + offer a break when you come back. Earlier this
+  // paused on hide, so on a phone the auto-lock killed every session before the
+  // break.) We just bank progress on hide and catch up on return.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
-      if (state.running && state.phase === "focus") pauseAndBank();   // sets state.autoPaused
+      if (state.running) saveState();   // persist in case the OS kills the tab
     } else if (document.visibilityState === "visible") {
-      // If we auto-paused on leave, seamlessly pick the session back up
-      if (state.autoPaused && state.phase === "focus" && !state.running &&
-          state.elapsed > 0 && progress() < 1) {
-        state.autoPaused = false;
-        startPause();   // resumes ticker + music + ambience + walk-to-cup
+      if (state.running && state.phase === "focus") {
+        tick();   // catch up the elapsed time spent away; may complete -> break offer
       }
-      state.autoPaused = false;
     }
   });
   // Last-chance save + audio cleanup if the tab/app is actually closed

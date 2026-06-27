@@ -108,15 +108,16 @@ body {
   position: relative;
   width: 100%;
   max-width: 460px;
-  height: 100svh;
-  max-height: 920px;
+  height: 100dvh;            /* fill the whole phone, incl. under the status bar */
   overflow: hidden;
 }
 
-/* Only frame it as a floating "phone" when the window is big enough that the
-   wrap doesn't fill the screen. On an actual phone it stays edge-to-edge. */
+/* Only frame it as a floating "phone" (with a height cap) when the window is big
+   enough that the wrap doesn't fill the screen. On an actual phone it stays
+   edge-to-edge with NO max-height, so there's no white strip top or bottom. */
 @media (min-width: 480px) and (min-height: 940px) {
   .scene-wrap {
+    max-height: 920px;
     border-radius: 28px;
     box-shadow: var(--shadow);
   }
@@ -181,11 +182,7 @@ body {
 .scene[data-theme="rainy"] .speech-bubble { background: #f0f6ff; }
 
 .scene.is-on-break {
-  background:
-    linear-gradient(180deg, #dbd2f0 0 22%, transparent 22%),
-    linear-gradient(180deg, #f4f0ff 0 calc(100% - var(--floor-y)),
-                            #b8a8d8 calc(100% - var(--floor-y)) calc(100% - var(--floor-y) + 26px),
-                            #cbbce8 calc(100% - var(--floor-y) + 26px) 100%);
+  background: #c9bfe0 url('assets/Shop Background Break.png') top center / cover no-repeat;
 }
 .scene.is-on-break .work-counter {
   background: linear-gradient(90deg, rgba(255,255,255,0.15), transparent 36%), #8272aa;
