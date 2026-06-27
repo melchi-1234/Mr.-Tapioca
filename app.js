@@ -407,9 +407,10 @@ function scheduleFidget() {
 }
 
 // ── Walk-to-the-cup choreography ──────────────────────────────────────────────
-// How far right the maker glides so he stands beside the cup. WALK_MS must match
-// the .maker-wrap CSS transition (1050ms); tweak MIX_WALK_X if he stops short.
-const MIX_WALK_X = 158;
+// How far right the maker leans toward the cup to "stir" it. He's now large and
+// stands right beside the cup at rest, so this is a small nudge (not a full walk
+// across the counter). WALK_MS must match the .maker-wrap CSS transition (1050ms).
+const MIX_WALK_X = 28;
 const WALK_MS = 1050;   // keep in sync with the .maker-wrap CSS transition (1050ms)
 let walkTimer = null;
 
