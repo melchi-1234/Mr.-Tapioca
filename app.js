@@ -281,6 +281,7 @@ const els = {
   customMinus:          document.querySelector("#customMinus"),
   customPlus:           document.querySelector("#customPlus"),
   soundToggle:          document.querySelector("#soundToggle"),
+  musicToggle:          document.querySelector("#musicToggle"),
   devToggle:            document.querySelector("#devToggle"),
   statStreak:           document.querySelector("#statStreak"),
   statTotalTime:        document.querySelector("#statTotalTime"),
@@ -421,6 +422,7 @@ function loadState() {
   state.badges      = JSON.parse(localStorage.getItem("bobaFocusBadges") || "[]");
   state.dailyGoal   = JSON.parse(localStorage.getItem("bobaFocusDailyGoal") || "60");
   state.ambience    = localStorage.getItem("bobaFocusAmbience") || "off";
+  state.musicOn     = JSON.parse(localStorage.getItem("bobaFocusMusicOn") || "true");
 }
 
 function saveState() {
@@ -438,6 +440,7 @@ function saveState() {
   localStorage.setItem("bobaFocusBadges",       JSON.stringify(state.badges || []));
   localStorage.setItem("bobaFocusDailyGoal",    JSON.stringify(state.dailyGoal));
   localStorage.setItem("bobaFocusAmbience",     state.ambience);
+  localStorage.setItem("bobaFocusMusicOn",      JSON.stringify(state.musicOn));
 }
 
 function formatTime(seconds) {
@@ -953,11 +956,13 @@ function startPause() {
   if (state.running) {
     walkToCupAndMix();        // glide over to the cup, then mix
     startAmbience();          // soundscape on while focusing
+    startMusic("focus");      // lo-fi while focusing
     stopTicker();
     state.timerId = setInterval(tick, 250);
   } else {
     stopTicker();
     stopAmbience();
+    stopMusic();
     walkToStation("idle");    // walk back to his spot
     saveState();              // bank progress whenever the user pauses
   }
@@ -968,6 +973,7 @@ function resetSession() {
   closePong();
   stopGame();
   stopAmbience();
+  stopMusic();
   clearTimeout(state.breakMakerCycleId);
   state.breakMakerCycleId = null;
   clearInterval(state.breakTimerId);
@@ -990,6 +996,7 @@ function resetSession() {
 function completeSession() {
   stopTicker();
   stopAmbience();
+  stopMusic();
   state.running = false;
   state.elapsed = modeDuration();
   state.lastTick = null;
@@ -1072,6 +1079,7 @@ function startBreakOffer() {
   state.phase = "break-offer";
   els.shopScene.classList.add("is-on-break");
   els.makerSpeech.textContent = "You crushed it. Take a breather.";
+  startMusic("break");   // brighter break tune
   updatePhaseUI();
 }
 
@@ -1103,6 +1111,7 @@ function endBreak() {
   closePlinko();
   closePong();
   stopGame();
+  stopMusic();
   clearInterval(state.breakTimerId);
   state.breakTimerId = null;
   clearTimeout(state.breakMakerCycleId);
@@ -1120,6 +1129,7 @@ function skipBreak() {
   closePlinko();
   closePong();
   stopGame();
+  stopMusic();
   clearInterval(state.breakTimerId);
   state.breakTimerId = null;
   clearTimeout(state.breakMakerCycleId);
@@ -1392,6 +1402,7 @@ function endPearlGame() {
 function pauseAndBank() {
   stopTicker();
   stopAmbience();
+  stopMusic();
   state.running = false;
   state.lastTick = null;
   saveState();
@@ -1844,6 +1855,134 @@ function setAmbience(type) {
       ambPreviewTimer = setTimeout(() => { if (!state.running) stopAmbience(); }, 4000);
     }
   }
+}
+
+// ── Generative lo-fi music (Web Audio note scheduler, no audio files) ─────────
+function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+// midi note sets per chord; ~lofi 7th chords. Focus = calm, Break = brighter + beat.
+const FOCUS_MUSIC = {
+  bpm: 64,
+  chords: [[50,53,57,60], [55,58,62,65], [48,52,55,59], [53,57,60,64]],  // Dm7 Gm7 Cmaj7 Fmaj7
+  scale: [50,52,53,55,57,60,62], melodyProb: 0.30, beat: false
+};
+const BREAK_MUSIC = {
+  bpm: 88,
+  chords: [[48,52,55,59], [57,60,64,67], [53,57,60,64], [55,59,62,65]],  // Cmaj7 Am7 Fmaj7 G7
+  scale: [48,50,52,55,57,60,62,64], melodyProb: 0.42, beat: true
+};
+
+let musicTimer = null, musicNext = 0, musicStep = 0, musicTune = null;
+let musicGain = null, musicNoiseBuf = null;
+
+function musicBus(ctx) {
+  if (!musicGain) { musicGain = ctx.createGain(); musicGain.gain.value = 0.0001; musicGain.connect(ctx.destination); }
+  return musicGain;
+}
+
+function musicVoice(ctx, { freq, t, dur, type = "sine", peak = 0.05, attack = 0.01, release = 0.25 }) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur + release);
+  o.connect(g).connect(musicBus(ctx));
+  o.start(t); o.stop(t + dur + release + 0.05);
+}
+
+function musicKick(ctx, t) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(140, t);
+  o.frequency.exponentialRampToValueAtTime(50, t + 0.12);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.16, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+  o.connect(g).connect(musicBus(ctx));
+  o.start(t); o.stop(t + 0.24);
+}
+
+function musicHat(ctx, t) {
+  if (!musicNoiseBuf) musicNoiseBuf = makeNoiseBuffer(ctx, false);
+  const src = ctx.createBufferSource(); src.buffer = musicNoiseBuf;
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7500;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.05, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+  src.connect(hp).connect(g).connect(musicBus(ctx));
+  src.start(t); src.stop(t + 0.06);
+}
+
+function musicScheduleStep(ctx, cfg, step, t) {
+  const stepsPerBar = 8;
+  const stepDur = 60 / cfg.bpm / 2;       // eighth notes
+  const chord = cfg.chords[Math.floor(step / stepsPerBar) % cfg.chords.length];
+  const inBar = step % stepsPerBar;
+
+  if (inBar === 0) {  // new bar: soft pad chord + bass root
+    const barDur = stepDur * stepsPerBar;
+    chord.forEach(m => musicVoice(ctx, { freq: mtof(m + 12), t, dur: barDur * 0.9, type: "sine", peak: 0.03, attack: 0.3, release: 1.2 }));
+    musicVoice(ctx, { freq: mtof(chord[0] - 12), t, dur: barDur * 0.85, type: "triangle", peak: 0.06, attack: 0.02, release: 0.4 });
+  }
+  if (inBar % 2 === 0 && Math.random() < cfg.melodyProb) {  // sparse melody on the beat
+    const n = cfg.scale[Math.floor(Math.random() * cfg.scale.length)] + 12;
+    musicVoice(ctx, { freq: mtof(n), t, dur: stepDur * 0.8, type: "triangle", peak: 0.06, attack: 0.01, release: 0.22 });
+  }
+  if (cfg.beat) {
+    if (step % 4 === 0) musicKick(ctx, t);
+    if (step % 2 === 1) musicHat(ctx, t);
+  }
+}
+
+function musicScheduler() {
+  try {
+    const ctx = audio();
+    const cfg = musicTune === "break" ? BREAK_MUSIC : FOCUS_MUSIC;
+    const stepDur = 60 / cfg.bpm / 2;
+    while (musicNext < ctx.currentTime + 0.12) {
+      musicScheduleStep(ctx, cfg, musicStep, musicNext);
+      musicNext += stepDur;
+      musicStep++;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function startMusic(which) {
+  if (!state.musicOn) return;
+  if (musicTimer && musicTune === which) return;
+  stopMusic(true);
+  try {
+    const ctx = audio();
+    musicTune = which;
+    musicStep = 0;
+    musicNext = ctx.currentTime + 0.1;
+    const bus = musicBus(ctx);
+    bus.gain.cancelScheduledValues(ctx.currentTime);
+    bus.gain.setValueAtTime(Math.max(0.0001, bus.gain.value), ctx.currentTime);
+    bus.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 1.0);
+    musicTimer = setInterval(musicScheduler, 25);
+    musicScheduler();
+  } catch (e) { /* ignore */ }
+}
+
+function stopMusic(immediate) {
+  if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+  musicTune = null;
+  if (musicGain) {
+    try {
+      const ctx = audio();
+      const now = ctx.currentTime;
+      musicGain.gain.cancelScheduledValues(now);
+      musicGain.gain.setValueAtTime(Math.max(0.0001, musicGain.gain.value), now);
+      musicGain.gain.exponentialRampToValueAtTime(0.0001, now + (immediate ? 0.05 : 0.6));
+    } catch (e) { /* ignore */ }
+  }
+}
+
+function renderMusicToggle() {
+  els.musicToggle.classList.toggle("on", state.musicOn);
+  els.musicToggle.setAttribute("aria-checked", String(state.musicOn));
 }
 
 function renderSoundToggle() {
@@ -2315,6 +2454,20 @@ function wireEvents() {
     if (state.soundOn) sessionChime();  // little preview when turning on
   });
 
+  els.musicToggle.addEventListener("click", () => {
+    state.musicOn = !state.musicOn;
+    saveState();
+    renderMusicToggle();
+    if (state.musicOn) {
+      // start the tune for the current phase (or a short focus preview)
+      if (state.running && state.phase === "focus") startMusic("focus");
+      else if (state.phase === "break" || state.phase === "break-offer") startMusic("break");
+      else { startMusic("focus"); setTimeout(() => { if (!state.running && state.phase === "focus") stopMusic(); }, 6000); }
+    } else {
+      stopMusic();
+    }
+  });
+
   els.devToggle.addEventListener("click", () => {
     state.devMode = !state.devMode;
     // Leaving dev mode shouldn't strand a sub-minute custom timer
@@ -2457,6 +2610,7 @@ document.querySelectorAll(".size-btn").forEach(b => {
 if (els.customStepper) els.customStepper.classList.toggle("hidden", state.mode !== "custom");
 updateCustomDisplay();
 renderSoundToggle();
+renderMusicToggle();
 renderDevToggle();
 renderAmbiencePicker();
 
