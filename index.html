@@ -215,6 +215,10 @@
           <span class="nav-icon nav-pin" aria-hidden="true"></span>
           <span class="pill-label">Map</span>
         </button>
+        <button class="icon-pill" id="friendsBtn" aria-label="Study Squad">
+          <span class="nav-icon nav-people" aria-hidden="true"></span>
+          <span class="pill-label">Squad</span>
+        </button>
         <button class="icon-pill" id="settingsBtn" aria-label="Settings">
           <span class="nav-icon nav-gear" aria-hidden="true"></span>
           <span class="pill-label">Settings</span>
@@ -429,6 +433,35 @@
             <div id="mapStatus" class="map-status">Loading the map…</div>
           </div>
           <div id="mapShopList" class="map-shop-list hidden"></div>
+        </div>
+      </div>
+
+      <!-- ── Study Squad (friends) ────────────────────────────────── -->
+      <div id="friendsSheet" class="sheet hidden" role="dialog" aria-label="Study Squad" aria-modal="true">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+          <h2>Study Squad</h2>
+          <button class="sheet-close" id="friendsClose" aria-label="Close">✕</button>
+        </div>
+        <div class="sheet-body">
+          <div class="squad-me">
+            <img id="squadMeAvatar" class="squad-avatar" src="assets/Mr. Tapioca.png" alt="">
+            <div class="squad-me-info">
+              <button id="squadEditName" class="squad-name-btn">
+                <span id="squadMeName" class="squad-name">You</span>
+                <span class="squad-edit" aria-hidden="true">✏️</span>
+              </button>
+              <div id="squadMeStats" class="squad-stats">0h · 0 drinks · 0🔥</div>
+            </div>
+          </div>
+          <button id="squadShareBtn" class="squad-share">🧋 Invite a friend</button>
+          <p class="squad-hint">Share your code so friends can add you — and paste a friend's code below to add them. Stats refresh whenever they re-share their code.</p>
+          <div class="squad-add">
+            <input id="squadCodeInput" class="squad-input" placeholder="Paste a friend's code…" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button id="squadAddBtn" class="squad-add-btn">Add</button>
+          </div>
+          <div class="squad-board-head">🏆 Leaderboard</div>
+          <div id="squadBoard" class="squad-board"></div>
         </div>
       </div>
 

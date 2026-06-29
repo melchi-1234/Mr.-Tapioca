@@ -155,6 +155,8 @@ const state = {
   sticker: "Focus",
   skin: "",
   shopTheme: "cozy",
+  displayName: "",       // Study Squad profile name
+  friends: [],           // Study Squad: [{id,name,mins,drinks,streak,skin,ts}]
   soundOn: true,
   musicOn: true,
   musicVolume: 0.8,
@@ -275,6 +277,8 @@ const els = {
   mapClose:             document.querySelector("#mapClose"),
   mapPerkBanner:        document.querySelector("#mapPerkBanner"),
   mapShopList:          document.querySelector("#mapShopList"),
+  friendsBtn:           document.querySelector("#friendsBtn"),
+  friendsClose:         document.querySelector("#friendsClose"),
   sheetBackdrop:        document.querySelector("#sheetBackdrop"),
   onboarding:           document.querySelector("#onboarding"),
   onboardImg:           document.querySelector("#onboardImg"),
@@ -487,6 +491,9 @@ function loadState() {
     if (!Array.isArray(state.rewards))    state.rewards = [];
     if (!Array.isArray(state.owned))      state.owned = [];
     state.skin        = localStorage.getItem("bobaFocusSkin") || "";
+    state.displayName = localStorage.getItem("bobaFocusName") || "";
+    state.friends     = readJSON("bobaFocusFriends", []);
+    if (!Array.isArray(state.friends)) state.friends = [];
     // Drink customization + equipped background — persist so they survive reloads.
     state.base        = localStorage.getItem("bobaFocusBase")    || "classic";
     state.topping     = localStorage.getItem("bobaFocusTopping") || "pearls";
@@ -573,6 +580,8 @@ function saveState() {
   localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
   localStorage.setItem("bobaFocusSkin",         state.skin);
+  localStorage.setItem("bobaFocusName",         state.displayName || "");
+  localStorage.setItem("bobaFocusFriends",      JSON.stringify(state.friends || []));
   localStorage.setItem("bobaFocusBase",         state.base);
   localStorage.setItem("bobaFocusTopping",      state.topping);
   localStorage.setItem("bobaFocusUnlockedBases",    JSON.stringify(state.unlockedBases));
@@ -2765,6 +2774,122 @@ function renderShopList(items) {
   });
 }
 
+// ── Study Squad (friends leaderboard via shareable codes — no backend) ────────
+// Friends are exchanged peer-to-peer: you share a code that encodes a snapshot of
+// your stats; a friend pastes it to add you (and vice-versa). Stats refresh when
+// they re-share. ("Live" friends would need accounts + a server — a later step.)
+function squadB64Encode(obj) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).replace(/=+$/, "");
+}
+function squadB64Decode(str) {
+  return JSON.parse(decodeURIComponent(escape(atob(str.replace(/-/g, "+").replace(/_/g, "/")))));
+}
+function myDisplayName() { return (state.displayName && state.displayName.trim()) || "You"; }
+function mySquadStats() {
+  const st = computeStats();
+  return { name: myDisplayName(), mins: st.totalMin, drinks: state.collection.length, streak: st.current, skin: state.skin || "" };
+}
+function encodeMyCode() {
+  const me = mySquadStats();
+  return squadB64Encode({ n: me.name.slice(0, 24), m: me.mins, d: me.drinks, s: me.streak, k: me.skin, t: Date.now() });
+}
+function parseSquadCode(raw) {
+  if (!raw) return null;
+  let str = String(raw).trim();
+  const m = str.match(/sq=([A-Za-z0-9+/_=-]+)/);   // accept a full share link too
+  if (m) str = m[1];
+  str = str.replace(/\s+/g, "");
+  try {
+    const o = squadB64Decode(str);
+    if (!o || typeof o.n !== "string") return null;
+    return {
+      name: (String(o.n).slice(0, 24) || "Friend"),
+      mins: Math.max(0, Number(o.m) || 0),
+      drinks: Math.max(0, Number(o.d) || 0),
+      streak: Math.max(0, Number(o.s) || 0),
+      skin: typeof o.k === "string" ? o.k : "",
+      ts: Number(o.t) || Date.now()
+    };
+  } catch (e) { return null; }
+}
+function addFriendByCode(raw) {
+  const f = parseSquadCode(raw);
+  if (!f) { showToast("Hmm, that code didn't work — copy the whole thing."); return false; }
+  if (f.name.toLowerCase() === myDisplayName().toLowerCase()) { showToast("That's your own code 🧋"); return false; }
+  const existing = state.friends.find((x) => x.name.toLowerCase() === f.name.toLowerCase());
+  if (existing) { Object.assign(existing, f); showToast(`Updated ${f.name}'s stats ✨`); }
+  else { state.friends.push({ id: uuid(), ...f }); playSfx("success"); haptic(12); showToast(`Added ${f.name} to your squad! 🧋`); }
+  saveState();
+  renderSquad();
+  return true;
+}
+function removeFriend(id) {
+  state.friends = state.friends.filter((f) => f.id !== id);
+  saveState();
+  renderSquad();
+}
+function squadAvatar(skin) { return (skin && SKIN_IMAGES[skin]) ? SKIN_IMAGES[skin] : "assets/Mr. Tapioca.png"; }
+function squadRelative(ts) {
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1 day ago";
+  if (days < 7) return days + " days ago";
+  const w = Math.floor(days / 7); return w === 1 ? "1 week ago" : w + " weeks ago";
+}
+function renderSquad() {
+  const me = mySquadStats();
+  const av = document.querySelector("#squadMeAvatar"); if (av) av.src = squadAvatar(me.skin);
+  const nm = document.querySelector("#squadMeName"); if (nm) nm.textContent = me.name;
+  const ms = document.querySelector("#squadMeStats");
+  if (ms) ms.textContent = `${formatFocusTotal(me.mins)} focused · ${me.drinks} drink${me.drinks !== 1 ? "s" : ""} · ${me.streak}🔥`;
+  const board = document.querySelector("#squadBoard"); if (!board) return;
+  const rows = [{ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, me: true }]
+    .concat(state.friends.map((f) => ({ ...f, me: false })));
+  rows.sort((a, b) => b.mins - a.mins);
+  const medal = ["🥇", "🥈", "🥉"];
+  board.innerHTML = rows.map((r, i) => {
+    const rank = medal[i] || `<span class="squad-rank-num">${i + 1}</span>`;
+    const sub = r.me ? "that's you!" : `updated ${squadRelative(r.ts)}`;
+    return `<div class="squad-row${r.me ? " me" : ""}">` +
+      `<span class="squad-rank">${rank}</span>` +
+      `<img class="squad-row-avatar" src="${squadAvatar(r.skin)}" alt="">` +
+      `<span class="squad-row-info">` +
+        `<span class="squad-row-name">${escapeHtml(r.name)}${r.me ? ' <span class="squad-you">YOU</span>' : ""}</span>` +
+        `<span class="squad-row-sub">${formatFocusTotal(r.mins)} · ${escapeHtml(sub)}</span>` +
+      `</span>` +
+      `<span class="squad-row-stats">${r.streak}🔥</span>` +
+      (r.me ? "" : `<button class="squad-remove" data-id="${r.id}" aria-label="Remove ${escapeHtml(r.name)}">✕</button>`) +
+      `</div>`;
+  }).join("");
+  if (!state.friends.length) {
+    board.innerHTML += `<p class="squad-empty">Your squad is just you for now. Invite a friend and add their code to race up the leaderboard! 🏁</p>`;
+  }
+  board.querySelectorAll(".squad-remove").forEach((b) => b.addEventListener("click", () => removeFriend(b.dataset.id)));
+}
+function shareSquadCode() {
+  const code = encodeMyCode();
+  playSfx("open");
+  const text = `🧋 Add me on Mr. Tapioca! Paste my Study Squad code in the app (Squad → Add):\n\n${code}`;
+  if (navigator.share) {
+    navigator.share({ title: "Mr. Tapioca Study Squad", text }).catch(() => {});
+  } else if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => showToast("Code copied — send it to a friend! 🧋"), () => showToast("Couldn't copy — long-press to select."));
+  } else {
+    showToast("Sharing isn't available here.");
+  }
+}
+function editSquadName() {
+  const name = window.prompt("Your squad name:", state.displayName || "");
+  if (name === null) return;
+  state.displayName = name.trim().slice(0, 24);
+  saveState();
+  renderSquad();
+}
+function openFriends() {
+  openSheet("friendsSheet");
+  renderSquad();
+}
+
 // ── First-run onboarding ──────────────────────────────────────────────────────
 
 const ONBOARD_STEPS = [
@@ -3259,6 +3384,21 @@ function wireEvents() {
   els.customizeBtn.addEventListener("click",  () => { playSfx("open"); openSheet("customizeSheet"); });
   els.settingsBtn.addEventListener("click",   () => { playSfx("open"); openSheet("settingsSheet"); });
   els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
+  if (els.friendsBtn) els.friendsBtn.addEventListener("click", () => { playSfx("open"); openFriends(); });
+
+  // ── Study Squad controls ──────────────────────────────────────────────────
+  if (els.friendsClose) els.friendsClose.addEventListener("click", closeSheets);
+  const squadShareBtn = document.querySelector("#squadShareBtn");
+  if (squadShareBtn) squadShareBtn.addEventListener("click", shareSquadCode);
+  const squadEditBtn = document.querySelector("#squadEditName");
+  if (squadEditBtn) squadEditBtn.addEventListener("click", editSquadName);
+  const squadAddBtn = document.querySelector("#squadAddBtn");
+  const squadInput = document.querySelector("#squadCodeInput");
+  if (squadAddBtn && squadInput) {
+    const doAdd = () => { if (addFriendByCode(squadInput.value)) squadInput.value = ""; };
+    squadAddBtn.addEventListener("click", doAdd);
+    squadInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doAdd(); });
+  }
 
   // Top-HUD shortcuts: tap the drink name to Customize, tap the pearl chip for the Shop.
   const drinkLabelEl = document.querySelector(".drink-label");
@@ -3466,6 +3606,16 @@ if (pendingResume && state.phase === "focus" && progress() >= 1) {
 
 // First-time visitors get the welcome tour
 if (!state.onboarded) showOnboarding();
+
+// If opened from a friend's shared Squad link (…#sq=CODE), add them, then clean
+// the URL so a refresh doesn't re-add.
+(function () {
+  const m = location.hash && location.hash.match(/sq=([A-Za-z0-9+/_=-]+)/);
+  if (m) {
+    addFriendByCode(m[1]);
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { location.hash = ""; }
+  }
+})();
 
 // ── PWA: register the service worker so the app installs + works offline ──────
 if ("serviceWorker" in navigator) {

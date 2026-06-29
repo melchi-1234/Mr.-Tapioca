@@ -2701,6 +2701,102 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .sheet-body { padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 24px)); }
 }
 
+/* Bottom-nav "Squad" people icon (matches the other CSS-mask icons) */
+.nav-people {
+  width: 26px; height: 24px;
+  margin-top: 1px;
+  background: currentColor;
+  -webkit-mask: var(--people-mask) center / contain no-repeat;
+  mask: var(--people-mask) center / contain no-repeat;
+  --people-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z'/%3E%3C/svg%3E");
+}
+
+/* ── Study Squad (friends leaderboard) ──────────────────────────────────────── */
+.squad-me {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px; margin-bottom: 12px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fff6e6, var(--cream));
+  border: 2px solid var(--line);
+}
+.squad-avatar {
+  width: 60px; height: 60px; flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 50%; background: #fff;
+  border: 2px solid rgba(60,32,24,0.14);
+}
+.squad-me-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.squad-name-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; padding: 0; color: var(--bark);
+}
+.squad-name { font-size: 1.1rem; font-weight: 950; }
+.squad-edit { font-size: 0.8rem; opacity: 0.7; }
+.squad-stats { font-size: 0.8rem; font-weight: 850; color: var(--bark-mid); }
+
+.squad-share {
+  width: 100%; padding: 14px; margin-bottom: 8px;
+  border: none; border-radius: 999px;
+  background: var(--bark); color: var(--cream);
+  font-size: 0.98rem; font-weight: 950;
+  box-shadow: 0 6px 18px rgba(60,32,24,0.25);
+  transition: transform 80ms;
+}
+.squad-share:active { transform: scale(0.97); }
+.squad-hint { font-size: 0.76rem; font-weight: 750; color: var(--bark-mid); line-height: 1.45; margin: 0 2px 12px; }
+
+.squad-add { display: flex; gap: 8px; margin-bottom: 18px; }
+.squad-input {
+  flex: 1; min-width: 0; padding: 12px 14px;
+  border: 2px solid var(--line); border-radius: 14px;
+  background: var(--cream-90); color: var(--bark);
+  font-size: 0.85rem; font-weight: 700; font-family: inherit;
+}
+.squad-input:focus-visible { outline: none; border-color: var(--teal); }
+.squad-add-btn {
+  flex-shrink: 0; padding: 0 18px;
+  border: 2px solid var(--teal); border-radius: 14px;
+  background: var(--mint); color: var(--bark);
+  font-size: 0.9rem; font-weight: 950;
+}
+
+.squad-board-head {
+  font-size: 0.74rem; font-weight: 950; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--teal); margin: 0 2px 8px;
+}
+.squad-board { display: flex; flex-direction: column; gap: 8px; }
+.squad-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid var(--line); border-radius: 16px;
+  background: var(--cream-90);
+}
+.squad-row.me { border-color: var(--teal); background: var(--mint); }
+.squad-rank { flex-shrink: 0; width: 26px; text-align: center; font-size: 1.1rem; }
+.squad-rank-num { font-size: 0.85rem; font-weight: 950; color: var(--bark-mid); }
+.squad-row-avatar {
+  width: 38px; height: 38px; flex-shrink: 0; object-fit: contain;
+  border-radius: 50%; background: #fff; border: 2px solid rgba(60,32,24,0.12);
+}
+.squad-row-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.squad-row-name {
+  font-size: 0.92rem; font-weight: 900; color: var(--bark);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 6px;
+}
+.squad-you {
+  font-size: 0.56rem; font-weight: 950; letter-spacing: 0.06em;
+  background: var(--teal); color: #fff; padding: 1px 6px; border-radius: 999px; flex-shrink: 0;
+}
+.squad-row-sub { font-size: 0.72rem; font-weight: 800; color: var(--bark-mid); }
+.squad-row-stats { flex-shrink: 0; font-size: 0.82rem; font-weight: 950; color: var(--bark); }
+.squad-remove {
+  flex-shrink: 0; width: 26px; height: 26px; margin-left: 2px;
+  border: none; border-radius: 50%; background: rgba(60,32,24,0.08);
+  color: var(--bark-mid); font-size: 0.8rem; font-weight: 900;
+}
+.squad-empty { font-size: 0.8rem; font-weight: 750; color: var(--bark-mid); text-align: center; line-height: 1.5; padding: 14px 8px 4px; }
+
 /* Short phones (e.g. iPhone SE, 375x667): the full-size scene + control stack
    don't both fit, so the mascot poked into the daily-goal pill and the counter
    crowded the size-picker. Shrink the scene + controls together so everything
