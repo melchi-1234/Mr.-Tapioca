@@ -79,6 +79,8 @@ const SHOP_ITEMS = [
   { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 130, color: "#ffdfe8" },
   { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 130, color: "#c4873a" },
   { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 130, color: "#7a9ab8" },
+  { id: "theme-winter",    name: "Winter Cocoa",         desc: "Snowfall, fairy lights, cozy warmth", category: "Backgrounds", type: "shopTheme", value: "winter",     price: 130, color: "#bcd3e0" },
+  { id: "theme-galaxy",    name: "Galaxy Dream",         desc: "Dreamy pastel cosmos & stars",        category: "Backgrounds", type: "shopTheme", value: "galaxy",     price: 130, color: "#cdbfe6" },
 ];
 
 const UNLOCKS = [
@@ -639,7 +641,9 @@ const THEME_SKY = {
   night:  "#2e3b57",
   sakura: "#f6e0e6",
   autumn: "#f0dcb8",
-  rainy:  "#d6dee6"
+  rainy:  "#d6dee6",
+  winter: "#ece3d4",
+  galaxy: "#efe4d2"
 };
 function updateThemeColor() {
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -1146,6 +1150,8 @@ function renderShop() {
       sakura: "assets/Shop Background Sakura.png",
       autumn: "assets/Shop Background Autumn.png",
       rainy:  "assets/Shop Background Rainy.png",
+      winter: "assets/Shop Background Winter.png",
+      galaxy: "assets/Shop Background Galaxy.png",
     };
     const bg = THEME_BG[item.value];
     // Show the actual backdrop art (color stays as the load fallback).

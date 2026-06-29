@@ -204,6 +204,26 @@ body {
 }
 .scene[data-theme="rainy"] .speech-bubble { background: #f0f6ff; }
 
+.scene[data-theme="winter"] {
+  background: #ece3d4 url('assets/Shop Background Winter.png') top center / cover no-repeat;
+}
+.scene[data-theme="winter"] .work-counter {
+  background: linear-gradient(180deg, #fbfaf7 0, #eef1f1 16px, #e1e7e8 100%);
+  border-color: rgba(60,70,90,0.13);
+  border-top-color: rgba(255,255,255,0.85);
+}
+.scene[data-theme="winter"] .speech-bubble { background: #eef6ff; }
+
+.scene[data-theme="galaxy"] {
+  background: #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
+}
+.scene[data-theme="galaxy"] .work-counter {
+  background: linear-gradient(180deg, #fbf8ff 0, #f2ecf8 16px, #e6def2 100%);
+  border-color: rgba(80,60,120,0.13);
+  border-top-color: rgba(255,255,255,0.85);
+}
+.scene[data-theme="galaxy"] .speech-bubble { background: #f3eeff; }
+
 .scene.is-on-break {
   background: #c9bfe0 url('assets/Shop Background Break.png') top center / cover no-repeat;
 }
