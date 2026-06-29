@@ -272,22 +272,45 @@ body {
   border-top-color: rgba(255,255,255,0.85);
 }
 .scene.is-on-break .speech-bubble { background: #f5f0ff; }
-/* Break = rest: no drink + no shop counter, just a cozy nap. */
+/* Break = rest: no drink + no shop counter, just a cozy nap nook. */
 .scene.is-on-break .cup-stage,
 .scene.is-on-break .work-counter { display: none; }
-/* Cozy nap bed — appears only on break, centered, with the character napping in it. */
+
+/* A rug grounds the nook so the bed + character rest ON a surface (not floating). */
+.break-rug {
+  position: absolute;
+  left: calc(50% - 145px);
+  bottom: calc(var(--floor-y) + 26px);
+  width: 290px; height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 42%, #f4ddef 0%, #e7cae2 60%, #d6b4d1 100%);
+  border: 2.5px solid rgba(80,55,90,0.16);
+  box-shadow: 0 5px 11px rgba(60,32,24,0.12);
+  z-index: 3; display: none; pointer-events: none;
+}
+.scene.is-on-break .break-rug { display: block; }
+
+/* Cozy nap bed, resting its legs on the rug. */
 .break-bed {
   position: absolute;
   left: calc(50% - 120px);
-  bottom: calc(var(--floor-y) + 30px);   /* up in the window nook, clear of the break panel */
+  bottom: calc(var(--floor-y) + 40px);
   width: 240px; height: auto;
   z-index: 4;
   display: none;
   pointer-events: none;
-  filter: drop-shadow(0 5px 8px rgba(60,32,24,0.18));
+  filter: drop-shadow(0 4px 6px rgba(60,32,24,0.16));
 }
 .scene.is-on-break .break-bed { display: block; }
-.scene.is-on-break .maker-wrap { left: calc(50% - 100px); bottom: calc(var(--floor-y) + 52px); }
+
+/* Character: nestled IN the bed by default; .maker-up lowers him onto the rug to
+   wander. Bottom transitions so climbing out / back in animates smoothly. */
+.scene.is-on-break .maker-wrap {
+  left: calc(50% - 100px);
+  bottom: calc(var(--floor-y) + 66px);
+  transition: transform 1050ms cubic-bezier(0.45, 0.05, 0.35, 1), bottom 650ms ease;
+}
+.scene.is-on-break.maker-up .maker-wrap { bottom: calc(var(--floor-y) + 32px); }
 
 /* ── Scene ambiance ────────────────────────────────────────────────────── */
 /* Soft pastel light orbs drifting in the wall zone — gives the empty wall

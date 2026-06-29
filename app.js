@@ -1570,6 +1570,7 @@ function resetSession() {
   state.phase = "focus";
   state.spillPending = false;
   els.shopScene.classList.remove("is-on-break");
+  els.shopScene.classList.remove("maker-up");
   clearTimeout(walkTimer); setWalk(0);
   currentMakerState = ""; setMakerState("idle");
   saveState();   // persist the cleared drink so it doesn't resume on reload
@@ -1721,6 +1722,7 @@ function endBreak() {
   state.breakElapsed = 0;
   state.phase = "focus";
   els.shopScene.classList.remove("is-on-break");
+  els.shopScene.classList.remove("maker-up");
   clearTimeout(walkTimer); setWalk(0);   // walk him back from wherever he wandered
   currentMakerState = ""; setMakerState("idle");
   updatePhaseUI();
@@ -1740,6 +1742,7 @@ function skipBreak() {
   state.breakElapsed = 0;
   state.phase = "focus";
   els.shopScene.classList.remove("is-on-break");
+  els.shopScene.classList.remove("maker-up");
   clearTimeout(walkTimer); setWalk(0);
   currentMakerState = ""; setMakerState("idle");
   updatePhaseUI();
@@ -1775,16 +1778,40 @@ function updatePhaseUI() {
 }
 
 function scheduleMakerBreakCycle() {
-  // Break = relax in place. No walking (it read like he was going to make a drink
-  // mid-break). He just alternates sipping and napping at his spot.
-  const poses = ["drinking", "sleeping"];
-  let idx = 0;
-  setWalk(0);
-  function settle() {
-    setMakerState(poses[idx++ % poses.length]);
-    state.breakMakerCycleId = setTimeout(settle, 5000 + Math.random() * 3500);
+  // Break loop: nap in the bed → occasionally climb out, wander the rug, then
+  // return to bed and nap again. (.maker-up lowers him onto the rug to walk.)
+  const scene = els.shopScene;
+  const next = (fn, ms) => { state.breakMakerCycleId = setTimeout(fn, ms); };
+
+  function nap() {
+    scene.classList.remove("maker-up");
+    setWalk(0);
+    setMakerState("sleeping");
+    next(getUp, 9000 + Math.random() * 7000);   // nap 9–16s
   }
-  settle();
+  function getUp() {
+    if (prefersReducedMotion()) { next(nap, 12000); return; }  // calm users: just keep napping
+    scene.classList.add("maker-up");
+    setMakerState("walking");
+    setWalk(-50);                                // step out of bed to the left
+    next(() => pace(0), WALK_MS);
+  }
+  const route = [50, -42, 28];
+  function pace(i) {
+    if (i >= route.length) { backToBed(); return; }
+    setMakerState("walking");
+    setWalk(route[i]);
+    next(() => {
+      setMakerState("idle");                     // pause + look around
+      next(() => pace(i + 1), 1300 + Math.random() * 1100);
+    }, WALK_MS);
+  }
+  function backToBed() {
+    setMakerState("walking");
+    setWalk(0);                                  // walk back to the bed
+    next(nap, WALK_MS);
+  }
+  nap();
 }
 
 function setMode(mode) {
