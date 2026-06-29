@@ -79,8 +79,8 @@ const SHOP_ITEMS = [
   { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 130, color: "#ffdfe8" },
   { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 130, color: "#c4873a" },
   { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 130, color: "#7a9ab8" },
-  { id: "theme-winter",    name: "Winter Cocoa",         desc: "Snowfall, fairy lights, cozy warmth", category: "Backgrounds", type: "shopTheme", value: "winter",     price: 130, color: "#bcd3e0" },
-  { id: "theme-galaxy",    name: "Galaxy Dream",         desc: "Dreamy pastel cosmos & stars",        category: "Backgrounds", type: "shopTheme", value: "galaxy",     price: 130, color: "#cdbfe6" },
+  { id: "theme-winter",    name: "Winter Cocoa",         desc: "Falling snow, fairy lights, cozy warmth", category: "Backgrounds", type: "shopTheme", value: "winter",     premium: true, color: "#bcd3e0" },
+  { id: "theme-galaxy",    name: "Galaxy Dream",         desc: "Twinkling cosmos & drifting stars",    category: "Backgrounds", type: "shopTheme", value: "galaxy",     premium: true, color: "#cdbfe6" },
 
   // Boosts — repeatable CONSUMABLES (tracked by count, not one-time ownership)
   { id: "boost-freeze",    name: "Streak Freeze",        desc: "Auto-protects your streak if you miss a day", category: "Boosts", type: "consumable", consumableKey: "freezes", price: 35, icon: "🧊" },
@@ -1399,8 +1399,10 @@ function renderShop() {
     if (equipped) {
       action = isDefault
         ? `<span class="shop-equipped-badge">Default</span>`
-        : `<span class="shop-equipped-badge">Equipped</span>
+        : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
            <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+    } else if (item.premium && !state.devMode) {
+      action = `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
@@ -1409,7 +1411,7 @@ function renderShop() {
 
     return `
       <article class="shop-card">
-        <div class="shop-preview">${preview}</div>
+        <div class="shop-preview">${preview}${item.premium ? '<span class="shop-premium-flag">✦</span>' : ""}</div>
         <div><strong>${item.name}</strong><small>${item.desc}</small></div>
         <div class="shop-card-action">${action}</div>
       </article>`;

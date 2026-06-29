@@ -224,6 +224,45 @@ body {
 }
 .scene[data-theme="galaxy"] .speech-bubble { background: #f3eeff; }
 
+/* ── Premium-theme effects (justify the $1.99): stars + snow ──────────────── */
+/* Confined to the upper "sky/window" zone so effects don't clutter the counter,
+   character, or controls in the lower half. */
+.theme-fx { position: absolute; left: 0; right: 0; top: 0; height: 54%; z-index: 1; pointer-events: none; overflow: hidden; }
+.theme-fx::before, .theme-fx::after { content: ""; position: absolute; inset: 0; }
+
+/* GALAXY — drifting, twinkling stars */
+.scene[data-theme="galaxy"] .theme-fx::before {
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(2px 2px at 12% 16%, #fff, transparent),
+    radial-gradient(2px 2px at 27% 40%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 46% 11%, #fff, transparent),
+    radial-gradient(2px 2px at 62% 30%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 77% 20%, #fff, transparent),
+    radial-gradient(2px 2px at 89% 44%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 37% 26%, #fff, transparent),
+    radial-gradient(2px 2px at 8% 38%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 55% 50%, #fff, transparent);
+  animation: star-twinkle 3.4s ease-in-out infinite;
+}
+@keyframes star-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* WINTER — gentle falling snow (two layers at different speeds) */
+.scene[data-theme="winter"] .theme-fx::before,
+.scene[data-theme="winter"] .theme-fx::after {
+  background-repeat: repeat;
+  background-size: 100% 200px;
+  background-image:
+    radial-gradient(2.6px 2.6px at 20% 8px, rgba(255,255,255,0.95), transparent),
+    radial-gradient(2px 2px at 50% 40px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(2.4px 2.4px at 80% 18px, rgba(255,255,255,0.95), transparent),
+    radial-gradient(2px 2px at 35% 90px, rgba(255,255,255,0.85), transparent),
+    radial-gradient(2px 2px at 66% 130px, rgba(255,255,255,0.9), transparent);
+  animation: snow-fall 8s linear infinite;
+}
+.scene[data-theme="winter"] .theme-fx::after { animation-duration: 13s; opacity: 0.7; background-position-x: 45px; }
+@keyframes snow-fall { from { background-position-y: -200px; } to { background-position-y: 0; } }
+
 .scene.is-on-break {
   background: #c9bfe0 url('assets/Shop Background Break.png') top center / cover no-repeat;
 }
@@ -233,6 +272,8 @@ body {
   border-top-color: rgba(255,255,255,0.85);
 }
 .scene.is-on-break .speech-bubble { background: #f5f0ff; }
+/* Break = rest, not brewing — hide the focus drink. */
+.scene.is-on-break .cup-stage { display: none; }
 
 /* ── Scene ambiance ────────────────────────────────────────────────────── */
 /* Soft pastel light orbs drifting in the wall zone — gives the empty wall
@@ -906,19 +947,19 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 2px solid var(--line);
-  border-radius: 24px;
-  padding: 14px 20px 10px;
+  border-radius: 22px;
+  padding: 9px 18px 8px;
   box-shadow: 0 4px 20px rgba(60,32,24,0.15);
 }
 .timer-card.compact {
   width: auto;
-  min-width: 130px;
+  min-width: 124px;
   text-align: center;
-  padding: 12px 20px 8px;
+  padding: 8px 18px 6px;
 }
 
 .timer-time {
-  font-size: 2.8rem;
+  font-size: 2.15rem;
   font-weight: 950;
   color: var(--bark);
   line-height: 1;
