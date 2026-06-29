@@ -2037,9 +2037,32 @@ h3 {
   scroll-snap-align: start;
 }
 .shelf-cup {
+  position: relative;
   width: 30px; height: 40px;
   border: 3px solid rgba(60,32,24,0.7);
   border-radius: 4px 4px 12px 12px;
+  overflow: hidden;   /* clip foam + pearls to the cup */
+}
+/* foam/cream cap riding on top of the tinted drink (inline background = color) */
+.shelf-cup::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 32%;
+  background: rgba(255,255,255,0.55);
+}
+/* a little cluster of tapioca pearls at the bottom */
+.shelf-cup::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 1px;
+  height: 46%;
+  background:
+    radial-gradient(circle at 27% 76%, #2a1a20 0 2.6px, transparent 3.2px),
+    radial-gradient(circle at 54% 83%, #2a1a20 0 2.6px, transparent 3.2px),
+    radial-gradient(circle at 79% 76%, #2a1a20 0 2.6px, transparent 3.2px),
+    radial-gradient(circle at 42% 65%, #2a1a20 0 2.2px, transparent 2.8px),
+    radial-gradient(circle at 66% 65%, #2a1a20 0 2.2px, transparent 2.8px);
 }
 .shelf-item strong {
   font-size: 0.7rem; line-height: 1.12; color: var(--bark);
@@ -2247,27 +2270,52 @@ dialog::backdrop { background: rgba(60,32,24,0.45); }
 .reward-drink {
   --drink-color: var(--tea);
   position: relative;
-  width: 96px;
-  height: 116px;
-  margin: 4px auto 10px;
+  width: 108px;
+  height: 130px;
+  margin: 6px auto 12px;
+}
+/* Warm celebratory glow behind the cup */
+.reward-drink::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 54%;
+  width: 140px; height: 140px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(255,206,112,0.55) 0%, rgba(255,206,112,0) 68%);
+  z-index: 0;
+  pointer-events: none;
 }
 .reward-drink img {
   position: absolute;
   inset: 0;
   width: 100%; height: 100%;
   object-fit: contain;
-  z-index: 2;
+  z-index: 1;   /* cup art BEHIND the fill (its body is opaque) */
 }
+/* A full, glossy drink — foam band on top, a cluster of pearls at the bottom —
+   painted IN FRONT of the opaque cup art so it actually reads as a finished boba
+   (drink-color is set per chosen base in showReward). */
 .reward-drink-fill {
   position: absolute;
-  left: 27%; right: 27%;
-  bottom: 18%;
-  top: 34%;
-  border-radius: 3px 3px 16px 16px;
-  background: var(--drink-color);
-  opacity: 0.92;
-  box-shadow: inset 0 3px 0 rgba(255,255,255,0.3);
-  z-index: 1;
+  left: 26%; right: 26%;
+  top: 31%; bottom: 18%;
+  z-index: 2;
+  border-radius: 4px 4px 13px 13px;
+  background:
+    radial-gradient(circle at 33% 86%, #2a1a20 0 4.5px, transparent 5.5px),
+    radial-gradient(circle at 50% 91%, #2a1a20 0 4.5px, transparent 5.5px),
+    radial-gradient(circle at 67% 86%, #2a1a20 0 4.5px, transparent 5.5px),
+    radial-gradient(circle at 42% 78%, #2a1a20 0 4px, transparent 5px),
+    radial-gradient(circle at 59% 78%, #2a1a20 0 4px, transparent 5px),
+    linear-gradient(180deg, rgba(255,255,255,0.5) 0 13%, var(--drink-color) 13% 100%);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,0.4);
+}
+/* Proud little pop-in when the celebration opens */
+dialog[open] .reward-drink { animation: reward-drink-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes reward-drink-pop {
+  0%   { transform: scale(0.5) translateY(10px); opacity: 0; }
+  60%  { transform: scale(1.08) translateY(0); opacity: 1; }
+  100% { transform: scale(1); }
 }
 
 /* Confetti that pops when the dialog opens */
