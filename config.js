@@ -7,4 +7,7 @@
 // NEVER paste the Supabase "service_role" key here. Only the "anon public" key.
 //
 // Setup guide: SUPABASE_SETUP.md
-window.MRTAP_CLOUD = { url: "", anonKey: "" };
+window.MRTAP_CLOUD = {
+  url: "https://gpayncloeslimhpyskva.supabase.co",
+  anonKey: "sb_publishable_XJArJY06LrUpIluDYfIOkg_C-2b79B4",
+};
