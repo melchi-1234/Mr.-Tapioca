@@ -4057,7 +4057,7 @@ function wireEvents() {
   els.previewRestrictionBtn.addEventListener("click", () => {
     els.restrictionPreview.classList.toggle("hidden");
   });
-  els.chooseAppsBtn.addEventListener("click", () => { playSfx("tap"); FocusBlocker.pickApps(); });
+  els.chooseAppsBtn.addEventListener("click", async () => { playSfx("tap"); await FocusBlocker.requestAuthorization(); FocusBlocker.pickApps(); });
 
   // ── Reward dialog ────────────────────────────────────────────────────────
   els.rewardDialog.addEventListener("close", onRewardDialogClose);
