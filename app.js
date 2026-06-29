@@ -115,6 +115,10 @@ const GOLDEN_VALUE  = 3;
 // Break games are a small once-per-day bonus, not a pearl farm (see CATCH_CAP,
 // gameDoneToday). Rewards are intentionally modest vs. honest focus earning.
 const SLOT_REWARDS = [5, 3, 1, 1, 1, 3, 5];   // edges rare & rewarding, center likely & small
+// Designed landing odds (NOT raw physics): the old peg geometry actually funneled
+// pearls to the high edges (paying ~9.4/day). We now pick a slot from this cozy
+// bell curve and steer the pearl there → edges ~7-9%, center ~20%, ~6.2/day avg.
+const SLOT_WEIGHTS = [4, 10, 17, 18, 17, 10, 4];
 const PLINKO_MAX_PLAYS = 3;
 const PLINKO_ROWS = 6;
 const CATCH_CAP = 10;   // max pearls a single Catch session can bank
@@ -122,11 +126,12 @@ const CATCH_CAP = 10;   // max pearls a single Catch session can bank
 const plinko = {
   playsLeft: PLINKO_MAX_PLAYS,
   dropping: false,
-  animId: null
+  animId: null,
+  targetSlot: 0
 };
 
 const PONG_MAX_PLAYS = 4;
-const PONG_R = 12;
+const PONG_R = 11;         // smaller pearl clears the rim more easily
 const PONG_GRAV = 1150;
 const PONG_POWER = 9;      // swipe distance → launch velocity
 const PONG_MAXV = 2500;    // velocity cap
@@ -141,6 +146,7 @@ const pong = {
   drag: null,             // current pointer while flicking
   cupX: 0,
   cupDir: 1,
+  cupSettle: 0,           // >0 = cup held still (first-throw grace)
   animId: null,
   lastTs: null
 };
@@ -1987,12 +1993,14 @@ function getPlinkoGeo() {
   const W = canvas.offsetWidth;
   const H = canvas.offsetHeight;
   const slotH = 46;
-  const topPad = 18;
-  const pegAreaH = H - topPad - slotH;
+  const topPad = 20;
+  const settleGap = 8;                                   // breathing room above the slots
+  const pegAreaH = H - topPad - slotH - settleGap;
   const rowSpacing = pegAreaH / PLINKO_ROWS;
   const slotW = W / 7;
   const pegR = 5;
-  return { W, H, slotH, topPad, pegAreaH, rowSpacing, slotW, pegR };
+  const lastPegY = topPad + (PLINKO_ROWS - 1) * rowSpacing + rowSpacing / 2;
+  return { W, H, slotH, topPad, pegAreaH, rowSpacing, slotW, pegR, lastPegY };
 }
 
 function drawPlinkoBoard(highlightSlot) {
@@ -2043,13 +2051,22 @@ function drawPlinkoBoard(highlightSlot) {
     ctx.stroke();
   }
 
+  const nowT = performance.now();
   for (let r = 0; r < PLINKO_ROWS; r++) {
     for (let j = 0; j <= r + 1; j++) {
       const px = geo.W / 2 + (j - (r + 1) / 2) * slotW;
       const py = topPad + r * rowSpacing + rowSpacing / 2;
+      const flashedAt = plinkoPegFlash.get(px + "," + py);
+      const glow = flashedAt ? Math.max(0, 1 - (nowT - flashedAt) / 220) : 0;   // 220ms fade
+      if (glow > 0) {
+        ctx.beginPath();
+        ctx.arc(px, py, pegR + 5 * glow, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,224,120,${0.5 * glow})`;   // warm honey halo
+        ctx.fill();
+      }
       ctx.beginPath();
       ctx.arc(px, py, pegR, 0, Math.PI * 2);
-      ctx.fillStyle = "#3c2a2f";
+      ctx.fillStyle = glow > 0 ? "#7a5a3a" : "#3c2a2f";
       ctx.fill();
       ctx.beginPath();
       ctx.arc(px - 1.5, py - 1.5, 2, 0, Math.PI * 2);
@@ -2057,6 +2074,8 @@ function drawPlinkoBoard(highlightSlot) {
       ctx.fill();
     }
   }
+  // Resting pearl waiting at the chute so the board never looks empty (not mid-drop).
+  if (!plinko.dropping) drawPlinkoPearl(geo.W / 2, geo.topPad - 12);
 }
 
 function drawPlinkoPearl(x, y) {
@@ -2125,6 +2144,7 @@ function openPlinko() {
   // NOTE: the daily play is marked on the FIRST drop (see dropPearl), not here,
   // so opening + quitting without dropping doesn't burn the day.
   if (plinko.animId) { cancelAnimationFrame(plinko.animId); plinko.animId = null; }
+  plinkoPegFlash.clear();
   els.plinkoResult.style.display = "none";
   els.plinkoDropBtn.disabled = plinko.playsLeft <= 0;
   els.plinkoDropBtn.textContent = "Drop Pearl";
@@ -2146,12 +2166,41 @@ function updatePlinkoHUD() {
 
 const PLINKO_R = 8;          // pearl radius
 const PLINKO_GRAV = 1200;    // px/s^2
-const PLINKO_REST = 0.55;    // bounciness off pegs/walls
+const PLINKO_REST = 0.45;    // bounciness off pegs/walls (was .55 — less edge bounce-back)
 
-// Advance the pearl one physics tick (mutates p = {x,y,vx,vy}); returns true once it
-// has dropped past the last peg row into the slots.
-function plinkoStep(p, pegs, geo, h) {
+// Live peg-hit feedback during a drop: struck pegs glow briefly + a throttled tick.
+const plinkoPegFlash = new Map();   // "x,y" -> timestamp
+let _lastPlinkoTickAt = 0;
+function onPlinkoPegHit(peg) {
+  plinkoPegFlash.set(peg.x + "," + peg.y, performance.now());
+  const now = performance.now();
+  if (now - _lastPlinkoTickAt > 45) {   // a cluster of hits = one pleasant tick, not a buzz
+    _lastPlinkoTickAt = now;
+    playSfx("tick");
+    haptic(4);
+  }
+}
+
+// Pick the slot this drop lands in, from the designed cozy bell curve.
+function plinkoChooseSlot() {
+  const total = SLOT_WEIGHTS.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total, acc = 0;
+  for (let i = 0; i < SLOT_WEIGHTS.length; i++) { acc += SLOT_WEIGHTS[i]; if (r < acc) return i; }
+  return SLOT_WEIGHTS.length - 1;
+}
+
+// Advance the pearl one physics tick toward targetX (the chosen slot centre). It still
+// bounces off pegs for the look, but a spring that firms up as it descends — plus a hard
+// funnel below the last peg row — commits it to the designed slot. Returns true once it
+// drops into the slots. Mutates p = {x,y,vx,vy}.
+function plinkoStep(p, pegs, geo, h, targetX) {
   p.vy += PLINKO_GRAV * h;
+  // Homing: weak high up (looks natural), firm low (commit to the slot).
+  const span = geo.H - geo.slotH - geo.topPad;
+  const prog = Math.min(1, Math.max(0, (p.y - geo.topPad) / span));
+  const k = 7 + 34 * prog * prog;
+  p.vx += (targetX - p.x) * k * h;
+  if (p.y > geo.lastPegY) { p.vx += (targetX - p.x) * 60 * h; p.vx *= 0.86; }   // funnel
   p.x += p.vx * h;
   p.y += p.vy * h;
   // walls
@@ -2170,10 +2219,10 @@ function plinkoStep(p, pegs, geo, h) {
       if (vn < 0) {
         p.vx -= (1 + PLINKO_REST) * vn * nx;
         p.vy -= (1 + PLINKO_REST) * vn * ny;
-        p.vx += (Math.random() * 2 - 1) * 45;   // a little chaos so it isn't deterministic
+        p.vx += (Math.random() * 2 - 1) * 28;   // a little chaos so it isn't on rails
+        onPlinkoPegHit(peg);
       }
-      // anti-wedge: if it's barely moving while resting on a peg, nudge it off
-      if (Math.abs(p.vx) + Math.abs(p.vy) < 30) p.vx += (Math.random() < 0.5 ? -1 : 1) * 80;
+      if (Math.abs(p.vx) + Math.abs(p.vy) < 30) p.vx += (Math.random() < 0.5 ? -1 : 1) * 60;
     }
   }
   return p.y + PLINKO_R >= geo.H - geo.slotH;
@@ -2184,16 +2233,56 @@ function resolvePlinko(geo, x) {
   plinko.animId = null;
   let slot = Math.floor(x / geo.slotW);
   slot = Math.max(0, Math.min(SLOT_REWARDS.length - 1, slot));
+  const reward = SLOT_REWARDS[slot];
   drawPlinkoBoard(slot);
   drawPlinkoPearl((slot + 0.5) * geo.slotW, geo.H - geo.slotH / 2);
-  const reward = SLOT_REWARDS[slot];
+  plinkoSlotPop(geo, slot, reward);   // kawaii burst over the winning slot
   state.bonusPearls += reward;
   saveState();
   renderAll();
   checkBadges(true);   // "Break Champ"
   pearlsWonFx(reward, false);   // pulse the chip (result overlay shows the amount)
-  playSfx("blip");
-  setTimeout(() => showPlinkoResult(reward), 450);
+  // Layered land sound: thunk first, reward chime scaled to value.
+  playSfx("drop");
+  setTimeout(() => playSfx(reward >= 5 ? "success" : "coin"), 90);
+  haptic(reward >= 5 ? [12, 40, 25] : 8);
+  setTimeout(() => showPlinkoResult(reward), 650);   // let the pop breathe
+}
+
+// A small kawaii burst over the winning slot — honey for a jackpot, blush/mint otherwise.
+function plinkoSlotPop(geo, slot, reward) {
+  if (prefersReducedMotion()) return;
+  const cx = (slot + 0.5) * geo.slotW;
+  const cy = geo.H - geo.slotH - 6;
+  const n = reward >= 5 ? 10 : (reward >= 3 ? 6 : 3);
+  const parts = [];
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (Math.random() * 2 - 1) * 1.0;
+    const sp = 120 + Math.random() * 140;
+    parts.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1 });
+  }
+  const colors = reward >= 5 ? ["#f0bb4f", "#ffe048"] : ["#ef8aa0", "#d9f3ea"];
+  const ctx = els.plinkoCanvas.getContext("2d");
+  let t = performance.now();
+  function tick(now) {
+    if (plinko.dropping) return;   // a new drop started; bail
+    const h = Math.min((now - t) / 1000, 0.032); t = now;
+    drawPlinkoBoard(slot);
+    drawPlinkoPearl(cx, geo.H - geo.slotH / 2);
+    let alive = false;
+    parts.forEach((p, i) => {
+      p.vy += 600 * h; p.x += p.vx * h; p.y += p.vy * h; p.life -= h * 1.6;
+      if (p.life > 0) {
+        alive = true;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = colors[i % colors.length]; ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    });
+    if (alive) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
 
 function dropPearl() {
@@ -2206,20 +2295,25 @@ function dropPearl() {
   updatePlinkoHUD();
   updatePlinkoBtnState();
   playSfx("drop");
+  haptic(6);
 
   const geo = getPlinkoGeo();
   const pegs = plinkoPegs(geo);
+  const targetSlot = plinkoChooseSlot();
+  // jitter the aim point inside the slot so peg rows don't resonate at some widths
+  const targetX = (targetSlot + 0.5) * geo.slotW + (Math.random() * 2 - 1) * geo.slotW * 0.18;
+  plinko.targetSlot = targetSlot;
   const p = {
-    x: geo.W / 2 + (Math.random() * 2 - 1) * 8,
+    x: geo.W / 2 + (Math.random() * 2 - 1) * 6,
     y: geo.topPad - 12,
-    vx: (Math.random() * 2 - 1) * 30,
+    vx: (Math.random() * 2 - 1) * 15,
     vy: 0
   };
 
-  // Reduced motion: simulate to the result without animating (same ~6s budget as the animated path)
+  // Reduced motion: simulate to the result without animating.
   if (prefersReducedMotion()) {
     let guard = 0;
-    while (!plinkoStep(p, pegs, geo, 0.016) && guard++ < 400) {}
+    while (!plinkoStep(p, pegs, geo, 0.016, targetX) && guard++ < 600) {}
     resolvePlinko(geo, p.x);
     return;
   }
@@ -2231,9 +2325,8 @@ function dropPearl() {
     const dt = Math.min((ts - last) / 1000, 0.032);
     last = ts;
     let landed = false;
-    // fixed sub-steps for stable collisions
     const sub = 3, h = dt / sub;
-    for (let s = 0; s < sub; s++) { if (plinkoStep(p, pegs, geo, h)) { landed = true; break; } }
+    for (let s = 0; s < sub; s++) { if (plinkoStep(p, pegs, geo, h, targetX)) { landed = true; break; } }
     drawPlinkoBoard(-1);
     drawPlinkoPearl(p.x, p.y);
     if (landed || ts - t0 > 6000) {
@@ -2247,7 +2340,7 @@ function dropPearl() {
 
 function showPlinkoResult(reward) {
   if (els.plinkoGame.style.display === "none") return;   // user quit before the drop resolved
-  const eyebrows = { 10: "Jackpot!", 5: "Great drop!", 2: "Good drop!", 1: "So close!" };
+  const eyebrows = { 5: "Jackpot! 🧋", 3: "Ooh, nice drop!", 1: "Sweet little sip 🤎" };
   els.plinkoResultEyebrow.textContent = eyebrows[reward] || "Nice drop!";
   els.plinkoResultText.textContent = `+${reward} pearl${reward !== 1 ? "s" : ""}!`;
   if (plinko.playsLeft > 0) {
@@ -2352,6 +2445,12 @@ function playSfx(name) {
                       tone(ctx, { freq: 1319, type: "square", t0: 0.05, dur: 0.10, peak: 0.07 }); break;
       case "blip":    tone(ctx, { freq: 880, type: "sine", dur: 0.05, peak: 0.06 }); break;
       case "drop":    tone(ctx, { freq: 520, freq2: 300, type: "sine", dur: 0.14, peak: 0.10 }); break;
+      case "tick":    tone(ctx, { freq: 660, freq2: 520, type: "triangle", dur: 0.035, peak: 0.045 }); break;
+      case "swish":   tone(ctx, { freq: 1200, freq2: 1700, type: "sine", dur: 0.10, peak: 0.07 });
+                      tone(ctx, { freq: 760,  freq2: 540,  type: "sine", t0: 0.04, dur: 0.16, peak: 0.10 });
+                      tone(ctx, { freq: 320,  freq2: 200,  type: "sine", t0: 0.09, dur: 0.18, peak: 0.08 }); break;
+      case "rimRattle": tone(ctx, { freq: 240, type: "triangle", dur: 0.04, peak: 0.08 });
+                        tone(ctx, { freq: 200, type: "triangle", t0: 0.05, dur: 0.05, peak: 0.06 }); break;
     }
   } catch (e) { /* audio unavailable — ignore */ }
 }
@@ -3121,8 +3220,8 @@ function pongDims() {
   return {
     W, H,
     startX: W / 2, startY: H - 38,        // where the pearl waits
-    mouthY: H * 0.32,                     // height of the cup rim
-    mouthHalf: 44,                        // half the cup-mouth width
+    mouthY: H * 0.34,                     // height of the cup rim (shorter throw)
+    mouthHalf: 50,                        // half the cup-mouth width (78px window, was 64)
     cupH: 84,
     margin: 56
   };
@@ -3140,6 +3239,10 @@ function resetPongPearl() {
   pong.drag = null;
   pong.phase = "aim";
   els.pongHint.style.display = "";   // re-show the swipe hint for each throw
+  // First throw of the session: park the cup dead-centre & still for one beat so
+  // the player learns the mechanic on a gimme (no reward change).
+  pong.cupSettle = 0;
+  if (pong.throwsLeft === PONG_MAX_PLAYS) { pong.cupX = d.W / 2; pong.cupSettle = 0.9; }
 }
 
 // Velocity the current flick would produce (swipe vector × power, capped)
@@ -3222,7 +3325,8 @@ function pongLoop(ts) {
   const d = pongDims();
 
   // cup drifts side to side (held still for reduced-motion users)
-  const cupSpeed = prefersReducedMotion() ? 0 : 70;
+  let cupSpeed = prefersReducedMotion() ? 0 : 52;   // calmer drift (was 70)
+  if (pong.cupSettle > 0) { pong.cupSettle -= dt; cupSpeed = 0; }   // first-throw grace
   pong.cupX += pong.cupDir * cupSpeed * dt;
   if (pong.cupX < d.margin) { pong.cupX = d.margin; pong.cupDir = 1; }
   if (pong.cupX > d.W - d.margin) { pong.cupX = d.W - d.margin; pong.cupDir = -1; }
@@ -3237,8 +3341,8 @@ function pongLoop(ts) {
       p.vy += PONG_GRAV * h;
       p.x += p.vx * h;
       p.y += p.vy * h;
-      if (p.x < PONG_R) { p.x = PONG_R; p.vx = Math.abs(p.vx) * 0.6; }
-      if (p.x > d.W - PONG_R) { p.x = d.W - PONG_R; p.vx = -Math.abs(p.vx) * 0.6; }
+      if (p.x < PONG_R) { p.x = PONG_R; p.vx = Math.abs(p.vx) * 0.45; }
+      if (p.x > d.W - PONG_R) { p.x = d.W - PONG_R; p.vx = -Math.abs(p.vx) * 0.45; }
       // at the moment it falls through the rim height, decide make / rim-bounce
       if (p.vy > 0 && prevY <= d.mouthY && p.y >= d.mouthY) {
         const f = (d.mouthY - prevY) / (p.y - prevY || 1);
@@ -3246,13 +3350,14 @@ function pongLoop(ts) {
         const dx = Math.abs(crossX - pong.cupX);
         if (dx < d.mouthHalf - PONG_R) {
           result = "make";
-        } else if (dx < d.mouthHalf + PONG_R && !p.bounced) {
-          // clipped the rim — bounce off it (a satisfying near miss)
+        } else if (dx < d.mouthHalf + PONG_R * 0.6 && !p.bounced) {
+          // clipped the rim — bounce off it. Narrow band so a clean make is never
+          // stolen by a rim hit (make wins ties).
           p.bounced = true;
           p.y = d.mouthY - PONG_R;
           p.vy = -Math.abs(p.vy) * 0.5;
           p.vx += (crossX < pong.cupX ? -1 : 1) * 150;
-          playSfx("tap");
+          playSfx("rimRattle");
         }
       }
       if (!result && (p.y > d.H + 40 || p.x < -40 || p.x > d.W + 40)) result = "miss";
@@ -3264,8 +3369,8 @@ function pongLoop(ts) {
       state.bonusPearls += PONG_REWARD;
       saveState();
       updatePongHUD();
-      playSfx("coin");
-      haptic(12);
+      playSfx("swish");
+      haptic(18);
       checkBadges(true);
       pearlsWonFx(PONG_REWARD, false);   // pulse the chip on each make
       pongNextThrow(true);
