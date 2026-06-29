@@ -703,7 +703,7 @@ body {
 /* ── Daily goal progress pill (under the top HUD) ───────────────────────── */
 .daily-goal {
   position: absolute;
-  top: 92px;
+  top: 108px;   /* clears the top-HUD pills; env()-aware override below for notches */
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -2744,6 +2744,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 /* ── Media: safe-area insets on iPhone ─────────────────────────────────── */
 @supports (padding-top: env(safe-area-inset-top)) {
   .top-hud { padding-top: max(52px, env(safe-area-inset-top) + 12px); }
+  /* Keep the goal pill BELOW the safe-area-pushed top HUD (notch / Dynamic Island)
+     so they don't overlap — the bug was a fixed top:92px ignoring the inset. */
+  .daily-goal { top: max(108px, calc(env(safe-area-inset-top) + 68px)); }
   .bottom-bar { padding-bottom: max(28px, env(safe-area-inset-bottom) + 12px); }
   /* Keep game HUD/controls clear of the notch + home indicator. */
   .game-hud { padding-top: max(10px, calc(env(safe-area-inset-top) + 6px)); }
@@ -2910,7 +2913,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .maker-wrap { width: 176px; height: 188px; bottom: calc(var(--floor-y) + 12px); }
   .cup-stage { width: 112px; height: 150px; top: -100px; }
   .work-counter { height: 72px; }
-  .daily-goal { top: 84px; }
+  .daily-goal { top: max(104px, calc(env(safe-area-inset-top) + 64px)); }
   .focus-controls { bottom: 90px; gap: 7px; }
   .timer-card { padding: 10px 18px 8px; }
   .timer-time { font-size: 2.4rem; }
