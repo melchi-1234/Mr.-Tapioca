@@ -336,6 +336,8 @@ const els = {
   onboardNext:          document.querySelector("#onboardNext"),
   onboardSkip:          document.querySelector("#onboardSkip"),
   replayIntroBtn:       document.querySelector("#replayIntroBtn"),
+  changeNameBtn:        document.querySelector("#changeNameBtn"),
+  changeNameHint:       document.querySelector("#changeNameHint"),
   clearProgressBtn:     document.querySelector("#clearProgressBtn"),
   customMinus:          document.querySelector("#customMinus"),
   customPlus:           document.querySelector("#customPlus"),
@@ -3524,6 +3526,17 @@ function editSquadName() {
   playSfx("tap");
   showToast("Extra name changes are a small in-app purchase — coming soon. 🧋");
 }
+
+// Settings "Your name" row: reflect the current name + what the next change costs.
+function renderNameRow() {
+  const cur = (state.displayName || "").trim();
+  if (els.changeNameBtn) els.changeNameBtn.textContent = cur ? "Change name" : "Set your name";
+  if (els.changeNameHint) {
+    els.changeNameHint.textContent = cur
+      ? `“${cur}” · ` + ((state.renames || 0) === 0 ? "first change costs 500 🫧" : "next change = in-app purchase")
+      : "free to set";
+  }
+}
 let squadPollId = null;
 function openFriends() {
   openSheet("friendsSheet");
@@ -4072,7 +4085,7 @@ function wireEvents() {
   // ── Bottom bar sheets ────────────────────────────────────────────────────
   els.shopBtn.addEventListener("click",       () => { playSfx("open"); openSheet("shopSheet"); });
   els.customizeBtn.addEventListener("click",  () => { playSfx("open"); openSheet("customizeSheet"); });
-  els.settingsBtn.addEventListener("click",   () => { playSfx("open"); openSheet("settingsSheet"); });
+  els.settingsBtn.addEventListener("click",   () => { playSfx("open"); renderNameRow(); openSheet("settingsSheet"); });
   els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
   if (els.friendsBtn) els.friendsBtn.addEventListener("click", () => { playSfx("open"); openFriends(); });
   if (els.questsBtn) els.questsBtn.addEventListener("click", () => { playSfx("open"); openQuests(); });
@@ -4082,8 +4095,7 @@ function wireEvents() {
   if (els.questsClose) els.questsClose.addEventListener("click", closeSheets);
   const squadShareBtn = document.querySelector("#squadShareBtn");
   if (squadShareBtn) squadShareBtn.addEventListener("click", shareSquadCode);
-  const squadEditBtn = document.querySelector("#squadEditName");
-  if (squadEditBtn) squadEditBtn.addEventListener("click", editSquadName);
+  if (els.changeNameBtn) els.changeNameBtn.addEventListener("click", () => { editSquadName(); renderNameRow(); });
   const squadAddBtn = document.querySelector("#squadAddBtn");
   const squadInput = document.querySelector("#squadCodeInput");
   if (squadAddBtn && squadInput) {
@@ -4123,7 +4135,12 @@ function wireEvents() {
   els.onboardNext.addEventListener("click", onboardAdvance);
   els.onboardBack.addEventListener("click", onboardGoBack);
   els.onboardSkip.addEventListener("click", finishOnboarding);
-  els.replayIntroBtn.addEventListener("click", () => { closeSheets(); showOnboarding(); });
+  els.replayIntroBtn.addEventListener("click", () => {
+    // In dev mode, do a TRUE fresh first-run (blank name + reset economy) for testing.
+    // For normal users it just replays the slides (name stays; no free-rename loophole).
+    if (state.devMode) { state.displayName = ""; state.renames = 0; state.onboarded = false; saveState(); }
+    closeSheets(); showOnboarding();
+  });
   els.clearProgressBtn.addEventListener("click", clearProgress);
 
   // ── Customize sheet: tea base + topping (rendered from BASES/TOPPINGS) ────

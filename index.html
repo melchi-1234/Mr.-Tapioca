@@ -311,6 +311,11 @@
           <button class="sheet-close" id="settingsClose" aria-label="Close">✕</button>
         </div>
         <div class="sheet-body">
+          <div class="settings-row stack">
+            <span class="settings-row-label">🧋 Your name <small id="changeNameHint"></small></span>
+            <button id="changeNameBtn" class="settings-action-btn">Change name</button>
+          </div>
+
           <div class="settings-row">
             <span class="settings-row-label">🎯 Daily goal</span>
             <div class="goal-stepper">
@@ -488,10 +493,7 @@
           <div class="squad-me">
             <img id="squadMeAvatar" class="squad-avatar" src="assets/Mr. Tapioca.png" alt="">
             <div class="squad-me-info">
-              <button id="squadEditName" class="squad-name-btn">
-                <span id="squadMeName" class="squad-name">You</span>
-                <span class="squad-edit" aria-hidden="true">✏️</span>
-              </button>
+              <span id="squadMeName" class="squad-name">You</span>
               <div id="squadMeStats" class="squad-stats">0h · 0 drinks · 0🔥</div>
             </div>
           </div>
