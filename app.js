@@ -609,6 +609,8 @@ function saveState() {
   } else {
     localStorage.removeItem("bobaFocusRunningSince");
   }
+  // Mirror my stats to the cloud Squad when live (debounced, no-op offline).
+  if (window.SquadCloud && SquadCloud.ready) SquadCloud.pushProfile();
 }
 
 function formatTime(seconds) {
@@ -2789,7 +2791,10 @@ function mySquadStats() {
   const st = computeStats();
   return { name: myDisplayName(), mins: st.totalMin, drinks: state.collection.length, streak: st.current, skin: state.skin || "" };
 }
+function squadCloudLive() { return !!(window.SquadCloud && SquadCloud.enabled && SquadCloud.ready); }
 function encodeMyCode() {
+  // Live backend: share the short server friend-code. Offline: a base64 snapshot.
+  if (squadCloudLive() && SquadCloud.myCode()) return SquadCloud.myCode();
   const me = mySquadStats();
   return squadB64Encode({ n: me.name.slice(0, 24), m: me.mins, d: me.drinks, s: me.streak, k: me.skin, t: Date.now() });
 }
@@ -2813,6 +2818,13 @@ function parseSquadCode(raw) {
   } catch (e) { return null; }
 }
 function addFriendByCode(raw) {
+  // Live backend: a friend code is 6 chars (A-Z/2-9). Route to the server.
+  if (squadCloudLive()) {
+    const m = String(raw || "").trim().toUpperCase().match(/[A-Z2-9]{6}/);
+    if (!m) { showToast("Enter your friend's 6-character code."); return false; }
+    SquadCloud.follow(m[0]).then((ok) => { playSfx(ok ? "success" : "tap"); showToast(ok ? "Added to your squad! 🧋" : "No one found with that code."); });
+    return true;
+  }
   const f = parseSquadCode(raw);
   if (!f) { showToast("Hmm, that code didn't work — copy the whole thing."); return false; }
   if (f.name.toLowerCase() === myDisplayName().toLowerCase()) { showToast("That's your own code 🧋"); return false; }
@@ -2830,7 +2842,9 @@ function removeFriend(id) {
 }
 function squadAvatar(skin) { return (skin && SKIN_IMAGES[skin]) ? SKIN_IMAGES[skin] : "assets/Mr. Tapioca.png"; }
 function squadRelative(ts) {
-  const days = Math.floor((Date.now() - ts) / 86400000);
+  const t = typeof ts === "number" ? ts : Date.parse(ts);
+  if (!t) return "recently";
+  const days = Math.floor((Date.now() - t) / 86400000);
   if (days <= 0) return "today";
   if (days === 1) return "1 day ago";
   if (days < 7) return days + " days ago";
@@ -2843,8 +2857,16 @@ function renderSquad() {
   const ms = document.querySelector("#squadMeStats");
   if (ms) ms.textContent = `${formatFocusTotal(me.mins)} focused · ${me.drinks} drink${me.drinks !== 1 ? "s" : ""} · ${me.streak}🔥`;
   const board = document.querySelector("#squadBoard"); if (!board) return;
-  const rows = [{ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, me: true }]
-    .concat(state.friends.map((f) => ({ ...f, me: false })));
+  const live = squadCloudLive();
+  let rows;
+  if (live) {
+    // Server returns self + everyone I follow (already RLS-scoped).
+    rows = SquadCloud.friends.map((f) => ({ id: f.id, name: f.name, mins: f.mins, drinks: f.drinks, streak: f.streak, skin: f.skin, ts: f.ts, me: !!f.me }));
+    if (!rows.some((r) => r.me)) rows.unshift({ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, ts: Date.now(), me: true });
+  } else {
+    rows = [{ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, me: true }]
+      .concat(state.friends.map((f) => ({ ...f, me: false })));
+  }
   rows.sort((a, b) => b.mins - a.mins);
   const medal = ["🥇", "🥈", "🥉"];
   board.innerHTML = rows.map((r, i) => {
@@ -2861,10 +2883,12 @@ function renderSquad() {
       (r.me ? "" : `<button class="squad-remove" data-id="${r.id}" aria-label="Remove ${escapeHtml(r.name)}">✕</button>`) +
       `</div>`;
   }).join("");
-  if (!state.friends.length) {
+  if (rows.filter((r) => !r.me).length === 0) {
     board.innerHTML += `<p class="squad-empty">Your squad is just you for now. Invite a friend and add their code to race up the leaderboard! 🏁</p>`;
   }
-  board.querySelectorAll(".squad-remove").forEach((b) => b.addEventListener("click", () => removeFriend(b.dataset.id)));
+  board.querySelectorAll(".squad-remove").forEach((b) => b.addEventListener("click", () => {
+    if (live) SquadCloud.unfollow(b.dataset.id); else removeFriend(b.dataset.id);
+  }));
 }
 function shareSquadCode() {
   const code = encodeMyCode();
@@ -2888,6 +2912,7 @@ function editSquadName() {
 function openFriends() {
   openSheet("friendsSheet");
   renderSquad();
+  if (window.SquadCloud && SquadCloud.enabled) SquadCloud.fetchFriends();   // refresh live stats
 }
 
 // ── First-run onboarding ──────────────────────────────────────────────────────
@@ -3399,6 +3424,12 @@ function wireEvents() {
     squadAddBtn.addEventListener("click", doAdd);
     squadInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doAdd(); });
   }
+  const deleteAccountBtn = document.querySelector("#deleteAccountBtn");
+  if (deleteAccountBtn) deleteAccountBtn.addEventListener("click", () => {
+    if (!squadCloudLive() && !(window.SquadCloud && SquadCloud.enabled)) return;
+    if (!window.confirm("Delete your cloud account? This removes your profile, friends and stats from the server. Your on-device progress stays on this phone.")) return;
+    SquadCloud.deleteAccount().then(() => { showToast("Cloud account deleted."); renderSquad(); });
+  });
 
   // Top-HUD shortcuts: tap the drink name to Customize, tap the pearl chip for the Shop.
   const drinkLabelEl = document.querySelector(".drink-label");
@@ -3581,6 +3612,13 @@ function wireEvents() {
 loadState();
 saveState();   // self-heal: rewrite any value readJSON had to repair from corrupt data
 wireEvents();
+
+// Live Study Squad backend (only if config.js has Supabase keys; otherwise no-op).
+if (window.SquadCloud && SquadCloud.enabled) {
+  const delRow = document.querySelector("#deleteAccountRow");
+  if (delRow) delRow.classList.remove("hidden");   // account deletion is reachable when cloud is on
+  SquadCloud.init();
+}
 
 // Reflect persisted prefs in the UI before first paint
 document.querySelectorAll(".size-btn").forEach(b => {
