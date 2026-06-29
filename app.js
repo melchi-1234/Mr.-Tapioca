@@ -81,6 +81,9 @@ const SHOP_ITEMS = [
   { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 130, color: "#7a9ab8" },
   { id: "theme-winter",    name: "Winter Cocoa",         desc: "Snowfall, fairy lights, cozy warmth", category: "Backgrounds", type: "shopTheme", value: "winter",     price: 130, color: "#bcd3e0" },
   { id: "theme-galaxy",    name: "Galaxy Dream",         desc: "Dreamy pastel cosmos & stars",        category: "Backgrounds", type: "shopTheme", value: "galaxy",     price: 130, color: "#cdbfe6" },
+
+  // Boosts — repeatable CONSUMABLES (tracked by count, not one-time ownership)
+  { id: "boost-freeze",    name: "Streak Freeze",        desc: "Auto-protects your streak if you miss a day", category: "Boosts", type: "consumable", consumableKey: "freezes", price: 35, icon: "🧊" },
 ];
 
 const UNLOCKS = [
@@ -211,7 +214,9 @@ const state = {
   spillPending: false,
   bonusPearls: 0,
   gamePearls: 0,         // cumulative pearls won from break games (for the "Break Champ" badge)
-  quests: null           // daily quests: { day, active:[{key,prog,done}], bonusClaimed }
+  quests: null,          // daily quests: { day, active:[{key,prog,done}], bonusClaimed }
+  freezes: 0,            // Streak Freeze consumables owned
+  frozenDays: []         // ordinals auto-protected by a consumed freeze (bridge streak gaps)
 };
 
 const els = {
@@ -343,6 +348,7 @@ const els = {
   installDismiss:       document.querySelector("#installDismiss"),
   devToggle:            document.querySelector("#devToggle"),
   statStreak:           document.querySelector("#statStreak"),
+  streakFreezeNote:     document.querySelector("#streakFreezeNote"),
   statTotalTime:        document.querySelector("#statTotalTime"),
   statToday:            document.querySelector("#statToday"),
   statWeek:             document.querySelector("#statWeek"),
@@ -525,6 +531,9 @@ function loadState() {
     state.bonusPearls = readJSON("bobaFocusBonusPearls", 0);
     state.gamePearls  = readJSON("bobaFocusGamePearls", 0);
     state.quests      = readJSON("bobaFocusQuests", null);
+    state.freezes     = readJSON("bobaFocusFreezes", 0);
+    state.frozenDays  = readJSON("bobaFocusFrozenDays", []);
+    if (!Array.isArray(state.frozenDays)) state.frozenDays = [];
     if (!Array.isArray(state.collection)) state.collection = [];
     if (!Array.isArray(state.rewards))    state.rewards = [];
     if (!Array.isArray(state.owned))      state.owned = [];
@@ -619,6 +628,8 @@ function saveState() {
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
   localStorage.setItem("bobaFocusGamePearls",   JSON.stringify(state.gamePearls));
   localStorage.setItem("bobaFocusQuests",       JSON.stringify(state.quests));
+  localStorage.setItem("bobaFocusFreezes",      JSON.stringify(state.freezes));
+  localStorage.setItem("bobaFocusFrozenDays",   JSON.stringify(state.frozenDays));
   localStorage.setItem("bobaFocusSkin",         state.skin);
   localStorage.setItem("bobaFocusName",         state.displayName || "");
   localStorage.setItem("bobaFocusFriends",      JSON.stringify(state.friends || []));
@@ -863,13 +874,19 @@ function keyToOrdinal(k) {
 
 function computeStats() {
   const ordinals = new Set(state.collection.map(d => keyToOrdinal(d.dateKey)));
+  const frozen   = new Set(state.frozenDays || []);   // Streak-Freeze-protected days
   const todayOrd = keyToOrdinal(localDateKey(new Date()));
 
-  // Current streak: must include today or yesterday, then count backwards
+  // Current streak: count consecutive FOCUSED days ending at today/yesterday. A
+  // streak-freeze-protected day BRIDGES a gap (keeps the chain alive) but does not
+  // add to the count — only days you actually focused increment the streak.
   let current = 0;
-  let cursor = ordinals.has(todayOrd) ? todayOrd
-             : ordinals.has(todayOrd - 1) ? todayOrd - 1 : null;
-  while (cursor !== null && ordinals.has(cursor)) { current++; cursor--; }
+  let cursor = todayOrd;
+  if (!ordinals.has(cursor) && !frozen.has(cursor)) cursor--;   // today not done yet → start at yesterday
+  while (ordinals.has(cursor) || frozen.has(cursor)) {
+    if (ordinals.has(cursor)) current++;
+    cursor--;
+  }
 
   // Longest streak across all history
   let longest = 0;
@@ -901,6 +918,11 @@ function renderStats() {
   els.statToday.textContent     = String(s.todayCount);
   els.statWeek.textContent      = String(s.weekCount);
   els.statBest.textContent      = String(s.longest);
+  if (els.streakFreezeNote) {
+    const f = state.freezes || 0;
+    els.streakFreezeNote.textContent = `🧊 ${f} streak freeze${f === 1 ? "" : "s"} ready`;
+    els.streakFreezeNote.classList.toggle("hidden", f === 0);
+  }
 }
 
 // ── Daily focus goal ──────────────────────────────────────────────────────────
@@ -1087,6 +1109,56 @@ function buyItem(itemId) {
   equipItem(itemId);
 }
 
+// ── Consumables (Streak Freeze) ───────────────────────────────────────────────
+// Repeatable, count-based purchases — a separate path from one-time cosmetics so
+// the owned-array model stays untouched.
+const FREEZE_CAP = 3;   // most you can stock at once (keeps it cozy, not abusable)
+function buyConsumable(itemId) {
+  const item = SHOP_ITEMS.find(i => i.id === itemId);
+  if (!item || item.type !== "consumable") return;
+  const key = item.consumableKey;
+  const have = state[key] || 0;
+  if (have >= FREEZE_CAP) { showToast(`You're stocked up — ${FREEZE_CAP} ${item.name}s max 🧊`); playSfx("tap"); return; }
+  if (currentPearls() < item.price) { showToast("Not enough pearls yet — keep focusing! 🧋"); playSfx("tap"); return; }
+  state[key] = have + 1;
+  state.spent += item.price;
+  saveState();
+  playSfx("coin"); haptic(10);
+  showToast(`🧊 ${item.name} ready! You have ${state[key]}.`);
+  renderShop();
+  updateStats();   // refresh the pearl chip
+  renderStats();   // refresh the "N streak freezes ready" note
+}
+
+// Auto-spend freezes to bridge missed days so the current streak survives. Runs on
+// boot + when the app is re-foregrounded. Idempotent: once a gap is bridged the
+// chain top advances, so re-running does nothing until another day is actually missed.
+function reconcileStreakFreezes() {
+  if (!Array.isArray(state.frozenDays)) state.frozenDays = [];
+  if (!state.collection || !state.collection.length) {
+    if (state.frozenDays.length) { state.frozenDays = []; saveState(); }   // no streak → drop orphan freezes
+    return;
+  }
+  const focused = state.collection.map(d => keyToOrdinal(d.dateKey));
+  const frozen = new Set(state.frozenDays);
+  const todayOrd = keyToOrdinal(localDateKey(new Date()));
+  // Top of the CONTIGUOUS chain: the most-recent FOCUSED day, extended up through
+  // any adjacent frozen days. Deriving it from focused days means an orphaned /
+  // non-contiguous frozen ordinal can never act as a false anchor.
+  let top = focused.reduce((m, o) => (o > m ? o : m), -Infinity);
+  while (frozen.has(top + 1)) top++;
+  const needed = (todayOrd - 1) - top;                 // fully-missed days up to (and incl.) yesterday
+  if (needed > 0 && (state.freezes || 0) >= needed) {  // only bridge if we can cover the WHOLE gap
+    for (let d = top + 1; d <= todayOrd - 1; d++) state.frozenDays.push(d);
+    state.freezes -= needed;
+    const left = state.freezes;   // snapshot — toast fires later, after any racing decrement
+    setTimeout(() => { showToast(`🧊 Streak freeze used — your streak is safe! ${left} left`); playSfx("blip"); }, 1200);
+  }
+  // Keep frozenDays bounded + tidy — only recent ordinals matter to the streak walk.
+  state.frozenDays = [...new Set(state.frozenDays)].filter(o => o >= todayOrd - 400 && o <= todayOrd).sort((a, b) => a - b);
+  saveState();
+}
+
 // Re-apply the maker image for the current resting/working state. Needed after
 // a skin change because updateCup no longer drives maker state every tick.
 function refreshMaker() {
@@ -1108,6 +1180,10 @@ function clearProgress() {
   state.owned = [];
   state.spent = 0;
   state.bonusPearls = 0;
+  state.gamePearls = 0;
+  state.freezes = 0;
+  state.frozenDays = [];
+  state.quests = null;
   state.badges = [];
   state.skin = "";
   state.shopTheme = "cozy";
@@ -1160,6 +1236,22 @@ function renderShop() {
 
   const allSkins = SHOP_ITEMS.filter(i => i.type === "skin");
   const themes   = SHOP_ITEMS.filter(i => i.type === "shopTheme");
+  const boosts   = SHOP_ITEMS.filter(i => i.type === "consumable");
+
+  function renderBoostCard(item) {
+    const have   = state[item.consumableKey] || 0;
+    const atCap  = have >= FREEZE_CAP;
+    const canBuy = pearls >= item.price && !atCap;
+    const action = atCap
+      ? `<span class="shop-equipped-badge">Stocked</span>`
+      : `<button class="shop-buy-btn" data-buy-consumable="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
+    return `
+      <article class="shop-card">
+        <div class="shop-preview" style="background:#eaf4f3"><div class="shop-boost-preview">${item.icon || "🧊"}</div></div>
+        <div><strong>${item.name}</strong><small>${item.desc}</small><span class="shop-have">Owned: ${have}/${FREEZE_CAP}</span></div>
+        <div class="shop-card-action">${action}</div>
+      </article>`;
+  }
 
   function renderSkinCard(item) {
     const isDefault = item.id === "skin-default";
@@ -1230,13 +1322,18 @@ function renderShop() {
   }
 
   els.shopGrid.innerHTML =
-    `<h4 class="shop-category-head">Skins</h4>
+    `<h4 class="shop-category-head">Boosts</h4>
+     ${boosts.map(renderBoostCard).join("")}
+     <h4 class="shop-category-head">Skins</h4>
      ${allSkins.map(renderSkinCard).join("")}
      <h4 class="shop-category-head">Backgrounds</h4>
      ${themes.map(renderThemeCard).join("")}`;
 
   els.shopGrid.querySelectorAll("[data-buy]").forEach(btn => {
     btn.addEventListener("click", () => buyItem(btn.dataset.buy));
+  });
+  els.shopGrid.querySelectorAll("[data-buy-consumable]").forEach(btn => {
+    btn.addEventListener("click", () => buyConsumable(btn.dataset.buyConsumable));
   });
   els.shopGrid.querySelectorAll("[data-equip]").forEach(btn => {
     btn.addEventListener("click", () => equipItem(btn.dataset.equip));
@@ -4018,6 +4115,8 @@ function wireEvents() {
       if (state.running && state.phase === "focus") {
         tick();   // catch up the elapsed time spent away; may complete -> break offer
       }
+      reconcileStreakFreezes();   // returning after a missed day → auto-protect the streak
+      renderStats();
     }
   });
   // Last-chance save + audio cleanup if the tab/app is actually closed
@@ -4049,6 +4148,7 @@ renderVolumeControls();
 renderDevToggle();
 renderAmbiencePicker();
 
+reconcileStreakFreezes();   // spend freezes to bridge any missed days before first paint
 renderAll();
 setMakerState("idle");
 scheduleFidget();     // start the occasional idle look-around
