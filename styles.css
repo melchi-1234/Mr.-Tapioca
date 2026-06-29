@@ -495,8 +495,9 @@ body {
   gap: 4px;
   z-index: 10;
 }
-.scene.is-on-break .break-zzz { opacity: 1; }
-.scene.skin-awake .break-zzz { display: none; }   /* skins have no sleeping pose */
+/* The base nap art (Sleeping.png) has zzz drawn in; show the floating zzz only for
+   SKINS (their sleepy art has none) and only while he's actually napping. */
+.scene.is-napping.skin-awake .break-zzz { opacity: 1; }
 .break-zzz span {
   font-style: italic;
   font-weight: 950;

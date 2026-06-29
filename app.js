@@ -392,7 +392,11 @@ const SKIN_IMAGES = {
 // Mr. Tapioca as references, then sliced (see tools/slice-sheet.py). Keyed by
 // skin value → { mixing, sleeping, drinking }; any missing state falls back to
 // the skin's single portrait above.
-const SKIN_POSES = {};   // reverted: skins use their original portrait + code motion (no drift)
+// skin value → per-state pose art. Only the SLEEPING pose is wired (the drawn
+// closed-eye art in assets/poses/ is on-model); mixing/idle keep the single
+// portrait + CSS motion to avoid the off-model "wrong-way" drift we saw before.
+const SKIN_POSES = {};
+Object.keys(SKIN_IMAGES).forEach((k) => { SKIN_POSES[k] = { sleeping: `assets/poses/${k}-sleepy.png` }; });
 
 // Every state uses a single high-res still image; bounce/stir/sleep motion
 // is driven by CSS keyframes that key off the img's data-state attribute.
@@ -405,7 +409,7 @@ const SKIN_POSES = {};   // reverted: skins use their original portrait + code m
 const MAKER_STATIC = {
   idle:     "assets/Mr. Tapioca.png",
   mixing:   "assets/Mr. Tapioca.png",
-  sleeping: "assets/Mr. Tapioca.png",
+  sleeping: "assets/Sleeping.png",        // real eyes-closed nap pose (was the awake portrait)
   drinking: "assets/Mr. Tapioca.png",
   shocked:  "assets/Mr. Tapioca.png"
 };
@@ -418,6 +422,7 @@ function setMakerState(stateName) {
 
   const img = els.focusMakerCharacter;
   img.dataset.state = stateName;
+  els.shopScene.classList.toggle("is-napping", stateName === "sleeping");
 
   // The CSS keyframes (keyed off data-state) animate whatever image is shown,
   // so motion works for every skin. An equipped skin is a single portrait, so
@@ -1766,29 +1771,16 @@ function updatePhaseUI() {
 }
 
 function scheduleMakerBreakCycle() {
+  // Break = relax in place. No walking (it read like he was going to make a drink
+  // mid-break). He just alternates sipping and napping at his spot.
   const poses = ["drinking", "sleeping"];
   let idx = 0;
-
+  setWalk(0);
   function settle() {
     setMakerState(poses[idx++ % poses.length]);
-    state.breakMakerCycleId = setTimeout(cycle, 5000 + Math.random() * 3500);
+    state.breakMakerCycleId = setTimeout(settle, 5000 + Math.random() * 3500);
   }
-
-  function cycle() {
-    // Gently pace near his station (LEFT side, well away from the cup at ~158 so
-    // it doesn't look like he's walking to make a drink during the break), then
-    // settle into a drink/nap pose.
-    if (!prefersReducedMotion() && Math.random() < 0.5) {
-      setWalk(Math.round(Math.random() * 60));   // small pace, stays left of the cup
-      setMakerState("walking");
-      state.breakMakerCycleId = setTimeout(settle, WALK_MS);
-    } else {
-      setWalk(0);   // back to his spot
-      settle();
-    }
-  }
-
-  cycle();
+  settle();
 }
 
 function setMode(mode) {
