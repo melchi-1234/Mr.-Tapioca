@@ -2916,6 +2916,21 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .streak-freeze-note.hidden { display: none; }
 .shop-boost-preview { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 2.6rem; }
 .shop-have { display: block; margin-top: 3px; font-size: 0.66rem; font-weight: 850; color: var(--teal); }
+
+/* ── Weekly insights recap ─────────────────────────────────────────────── */
+.insights-card { margin: 12px 0 4px; padding: 14px; border-radius: 18px; background: var(--mint); border: 2px solid var(--line); }
+.insight-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.insight-title { font-size: 0.92rem; font-weight: 950; color: var(--bark); }
+.insight-delta { font-size: 0.64rem; font-weight: 900; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.insight-delta.up      { background: rgba(47,158,110,0.18); color: #2f9e6e; }
+.insight-delta.down    { background: rgba(220,76,100,0.16); color: var(--danger); }
+.insight-delta.neutral { background: rgba(60,32,24,0.08); color: var(--bark-mid); }
+.insight-stats { display: flex; gap: 8px; }
+.insight-stat { flex: 1; text-align: center; background: rgba(255,255,255,0.62); border-radius: 12px; padding: 8px 4px; }
+.is-val { display: block; font-size: 1.1rem; font-weight: 950; color: var(--bark); }
+.is-lab { display: block; font-size: 0.58rem; font-weight: 850; color: var(--bark-mid); text-transform: uppercase; letter-spacing: 0.02em; }
+.insight-line { margin: 9px 0 0; font-size: 0.76rem; font-weight: 800; color: var(--bark-mid); line-height: 1.4; }
+.insight-line strong { color: var(--bark); }
 .squad-row-stats { flex-shrink: 0; font-size: 0.82rem; font-weight: 950; color: var(--bark); }
 .squad-remove {
   flex-shrink: 0; width: 26px; height: 26px; margin-left: 2px;

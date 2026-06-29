@@ -999,6 +999,62 @@ function renderWeekChart() {
   els.weekTotal.textContent = formatFocusTotal(total);
 }
 
+// ── Weekly insights (narrative recap from the focus history) ──────────────────
+const WEEKDAY_FULL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function computeInsights() {
+  const todayOrd = keyToOrdinal(localDateKey(new Date()));
+  const byDay = {};
+  for (const d of state.collection) {
+    const o = keyToOrdinal(d.dateKey);
+    byDay[o] = (byDay[o] || 0) + d.minutes;
+  }
+  let thisWeek = 0, lastWeek = 0, daysActive = 0, bestOrd = null, bestMin = 0;
+  for (let o = todayOrd - 6; o <= todayOrd; o++) {
+    const m = byDay[o] || 0;
+    thisWeek += m;
+    if (m > 0) { daysActive++; if (m > bestMin) { bestMin = m; bestOrd = o; } }
+  }
+  for (let o = todayOrd - 13; o <= todayOrd - 7; o++) lastWeek += (byDay[o] || 0);
+  const sessions = state.collection.filter(d => {
+    const o = keyToOrdinal(d.dateKey); return o >= todayOrd - 6 && o <= todayOrd;
+  }).length;
+  const avg = daysActive ? Math.round(thisWeek / daysActive) : 0;
+  const delta = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : null;
+  const bestDay = bestOrd != null ? WEEKDAY_FULL[new Date(bestOrd * 86400000).getUTCDay()] : null;
+  return { thisWeek, lastWeek, daysActive, sessions, avg, delta, bestDay, bestMin };
+}
+
+function renderInsights() {
+  const el = document.querySelector("#weekInsights");
+  if (!el) return;
+  const i = computeInsights();
+  if (i.thisWeek === 0) {
+    el.innerHTML = `<p class="insight-line">No focus yet this week — start a session to fill your first cup! 🧋</p>`;
+    return;
+  }
+  let deltaHtml;
+  if (i.delta === null)     deltaHtml = `<span class="insight-delta neutral">first week ✨</span>`;
+  else if (i.delta > 0)     deltaHtml = `<span class="insight-delta up">▲ ${i.delta}% vs last week</span>`;
+  else if (i.delta < 0)     deltaHtml = `<span class="insight-delta down">▼ ${Math.abs(i.delta)}% vs last week</span>`;
+  else                      deltaHtml = `<span class="insight-delta neutral">same as last week</span>`;
+
+  const streak = computeStats().current;
+  let momentum;
+  if (streak >= 5)            momentum = `🔥 ${streak}-day streak — you're on a roll!`;
+  else if (todayMinutes() === 0) momentum = `A quick session today keeps the momentum going ✨`;
+  else                        momentum = `Nice focus today — keep it flowing 🧋`;
+
+  el.innerHTML =
+    `<div class="insight-head"><span class="insight-title">📊 Your week</span>${deltaHtml}</div>` +
+    `<div class="insight-stats">` +
+      `<div class="insight-stat"><span class="is-val">${formatFocusTotal(i.thisWeek)}</span><span class="is-lab">focused</span></div>` +
+      `<div class="insight-stat"><span class="is-val">${i.daysActive}</span><span class="is-lab">day${i.daysActive !== 1 ? "s" : ""} active</span></div>` +
+      `<div class="insight-stat"><span class="is-val">${formatFocusTotal(i.avg)}</span><span class="is-lab">daily avg</span></div>` +
+    `</div>` +
+    (i.bestDay ? `<p class="insight-line">Best day this week: <strong>${i.bestDay}</strong> · ${formatFocusTotal(i.bestMin)} 🏆</p>` : "") +
+    `<p class="insight-line">${momentum}</p>`;
+}
+
 // ── Achievements / badges ────────────────────────────────────────────────────
 const BADGES = [
   { id: "first-sip",   icon: "🧋", name: "First Sip",      desc: "Finish a drink",        test: () => state.collection.length >= 1 },
@@ -1369,6 +1425,7 @@ function renderAll() {
   renderStats();
   renderDailyGoal();
   renderWeekChart();
+  renderInsights();
   renderBadges();
   renderShelf();
   renderRewards();
