@@ -418,6 +418,101 @@ const MAKER_STATIC = {
 
 let currentMakerState = "";
 
+// ── Sprite engine ────────────────────────────────────────────────────────────
+// OPTIONAL frame-by-frame animation. Drop a horizontal sprite-strip PNG at
+// assets/sprites/<skin>/<state>.png, declare it in assets/sprites/sprites.json,
+// and the maker animates real frames via a pure-CSS steps() background scroll
+// (no per-frame JS). Anything not declared OR not yet decoded falls back, byte
+// for byte, to the static portrait + CSS motion below — so a missing, typo'd, or
+// malformed sheet degrades silently to today's behaviour. See assets/SPRITES.md.
+const TRANSPARENT_1PX =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+const SpriteEngine = {
+  sheets: { skins: {} },
+  defaults: { fps: 10, loop: true },
+  ready: {},          // "skin/state" -> true once that sheet has decoded cleanly
+  loaded: false,
+  async load() {
+    let data = null;
+    try {
+      const res = await fetch("assets/sprites/sprites.json", { cache: "no-cache" });
+      if (res.ok) data = await res.json();
+    } catch (e) { /* no manifest → stay in static mode, silently */ }
+    this.loaded = true;
+    if (!data || typeof data !== "object" || !data.skins) return;
+    this.sheets = data;
+    if (data.defaults) this.defaults = Object.assign({}, this.defaults, data.defaults);
+    // Preload + decode each referenced sheet so the first play never flashes and
+    // the service worker can runtime-cache it. Mark ready only on a clean decode.
+    Object.keys(data.skins).forEach((skin) => {
+      const states = data.skins[skin] || {};
+      Object.keys(states).forEach((st) => {
+        const entry = states[st];
+        if (!entry || !entry.sheet) return;
+        const key = skin + "/" + st;
+        const img = new Image();
+        const mark = () => {
+          if (SpriteEngine.ready[key]) return;
+          SpriteEngine.ready[key] = true;
+          SpriteEngine._refresh();
+        };
+        img.onload = mark;                 // reliable readiness signal
+        img.onerror = () => {};            // missing/broken sheet → stays unready → fallback
+        img.src = "assets/sprites/" + entry.sheet;
+        // decode() avoids a first-play flash, but is only an enhancement — onload
+        // already marks ready, so a hung/rejected decode() never blocks animation.
+        if (img.decode) img.decode().then(mark).catch(() => {});
+      });
+    });
+  },
+  // Re-apply the live state so a just-decoded sheet upgrades in place mid-session.
+  _refresh() {
+    const cur = currentMakerState;
+    if (!cur || !els.focusMakerCharacter) return;
+    currentMakerState = "";
+    setMakerState(cur);
+  },
+  _entry(skin, st) {
+    const s = this.sheets.skins || {};
+    return (s[skin] && s[skin][st]) || null;
+  },
+  // Resolve to THIS skin's own sheet only (a sprite carries the character's
+  // identity, so we never substitute the base character for an equipped skin —
+  // that would put it off-model). No sheet → null → caller draws the skin's
+  // static portrait. "base" is just the no-skin default character's key.
+  resolve(skin, st) {
+    const e = this._entry(skin, st);
+    return (e && e.sheet && this.ready[skin + "/" + st]) ? e : null;
+  },
+  apply(img, entry) {
+    const frames = Math.max(1, entry.frames || 1);
+    const fps = entry.fps || this.defaults.fps || 10;
+    const loop = (entry.loop !== undefined) ? entry.loop : this.defaults.loop;
+    img.src = TRANSPARENT_1PX;                 // blank the <img> bitmap; the bg paints frames
+    img.style.backgroundImage = 'url("assets/sprites/' + entry.sheet + '")';
+    img.style.backgroundSize = (frames * 100) + "% 100%";   // strip = N×element wide
+    img.classList.add("is-sprite");
+    // Set the animation inline (literal frame count → steps() always parses; clean
+    // restart on every state change). steps(N, jump-none) lands one whole frame per
+    // stop, including the last, so an N-frame strip shows all N frames evenly.
+    img.style.animation = "none";
+    void img.offsetWidth;                      // force reflow so it restarts from frame 0
+    if (frames <= 1 || prefersReducedMotion()) {
+      img.style.animation = "none";            // single frame / calm mode → hold frame 0
+    } else {
+      img.style.animation = "sprite-play " + (frames / fps).toFixed(3) + "s steps(" +
+        frames + ", jump-none) " + (loop ? "infinite" : "1") + (loop ? "" : " forwards");
+    }
+  },
+  clear(img) {
+    if (!img.classList.contains("is-sprite")) return;
+    img.classList.remove("is-sprite");
+    img.style.backgroundImage = "";
+    img.style.backgroundSize = "";
+    img.style.animation = "";                  // hand motion back to the CSS data-state keyframes
+  }
+};
+
 function setMakerState(stateName) {
   if (stateName === currentMakerState) return;
   currentMakerState = stateName;
@@ -425,6 +520,12 @@ function setMakerState(stateName) {
   const img = els.focusMakerCharacter;
   img.dataset.state = stateName;
   els.shopScene.classList.toggle("is-napping", stateName === "sleeping");
+
+  // Sprite mode: if a strip is declared + decoded for this (skin, state), animate
+  // real frames. Otherwise clear sprite mode and fall through to the static art.
+  const entry = SpriteEngine.resolve(state.skin || "base", stateName);
+  if (entry) { SpriteEngine.apply(img, entry); return; }
+  SpriteEngine.clear(img);
 
   // The CSS keyframes (keyed off data-state) animate whatever image is shown,
   // so motion works for every skin. An equipped skin is a single portrait, so
@@ -4358,6 +4459,7 @@ renderAmbiencePicker();
 reconcileStreakFreezes();   // spend freezes to bridge any missed days before first paint
 renderAll();
 setMakerState("idle");
+SpriteEngine.load();  // non-blocking: upgrades to frame animation once sheets decode
 scheduleFidget();     // start the occasional idle look-around
 checkBadges(false);   // baseline already-earned badges silently (no toast spam on load)
 

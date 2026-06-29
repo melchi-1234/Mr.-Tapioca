@@ -230,24 +230,56 @@ body {
 .theme-fx { position: absolute; left: 0; right: 0; top: 0; height: 54%; z-index: 1; pointer-events: none; overflow: hidden; }
 .theme-fx::before, .theme-fx::after { content: ""; position: absolute; inset: 0; }
 
-/* GALAXY — drifting, twinkling stars */
+/* GALAXY ($1.99) — glowing twinkling stars + a drifting multi-colour nebula +
+   an occasional shooting star. All confined to the sky zone (.theme-fx). */
 .scene[data-theme="galaxy"] .theme-fx::before {
   background-repeat: no-repeat;
   background-image:
-    radial-gradient(2px 2px at 12% 16%, #fff, transparent),
+    radial-gradient(2.5px 2.5px at 12% 16%, #fff, transparent),
     radial-gradient(2px 2px at 27% 40%, #fff, transparent),
     radial-gradient(1.5px 1.5px at 46% 11%, #fff, transparent),
-    radial-gradient(2px 2px at 62% 30%, #fff, transparent),
+    radial-gradient(2.5px 2.5px at 62% 30%, #e7d8ff, transparent),
     radial-gradient(1.5px 1.5px at 77% 20%, #fff, transparent),
-    radial-gradient(2px 2px at 89% 44%, #fff, transparent),
+    radial-gradient(2px 2px at 89% 44%, #d7ecff, transparent),
     radial-gradient(1.5px 1.5px at 37% 26%, #fff, transparent),
     radial-gradient(2px 2px at 8% 38%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 55% 50%, #fff, transparent);
+    radial-gradient(1.5px 1.5px at 55% 50%, #fff, transparent),
+    radial-gradient(3px 3px at 18% 31%, #fff, transparent),
+    radial-gradient(2.5px 2.5px at 70% 8%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 33% 47%, #ffe9f6, transparent),
+    radial-gradient(2px 2px at 93% 27%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 5% 12%, #fff, transparent);
+  filter: drop-shadow(0 0 3px rgba(255,255,255,0.7));
   animation: star-twinkle 3.4s ease-in-out infinite;
 }
-@keyframes star-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes star-twinkle { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+.scene[data-theme="galaxy"] .theme-fx::after {
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(60% 46% at 22% 32%, rgba(149,94,224,0.42), transparent 70%),
+    radial-gradient(55% 42% at 80% 20%, rgba(78,138,232,0.38), transparent 70%),
+    radial-gradient(52% 44% at 56% 60%, rgba(228,118,201,0.30), transparent 72%);
+  mix-blend-mode: screen;
+  animation: nebula-drift 16s ease-in-out infinite alternate;
+}
+@keyframes nebula-drift {
+  from { transform: translate3d(-2%, 0, 0) scale(1.03); opacity: 0.75; }
+  to   { transform: translate3d(3%, 1.5%, 0) scale(1.12); opacity: 1; }
+}
+/* Shooting star — parked off-screen most of the cycle, then streaks across.
+   Animates background-POSITION only (no opacity) so the stars/nebula aren't faded. */
+.scene[data-theme="galaxy"] .theme-fx {
+  background-repeat: no-repeat;
+  background-image: linear-gradient(118deg, transparent 0 42%, rgba(255,255,255,0.95) 49% 51%, transparent 58%);
+  background-size: 92px 2.5px;
+  animation: shooting-star 7s ease-in infinite;
+}
+@keyframes shooting-star {
+  0%, 72% { background-position: -130px 10%; }
+  100%    { background-position: 118% 52%; }
+}
 
-/* WINTER — gentle falling snow (two layers at different speeds) */
+/* WINTER ($1.99) — denser falling snow (two drifting layers) + a soft aurora. */
 .scene[data-theme="winter"] .theme-fx::before,
 .scene[data-theme="winter"] .theme-fx::after {
   background-repeat: repeat;
@@ -257,11 +289,29 @@ body {
     radial-gradient(2px 2px at 50% 40px, rgba(255,255,255,0.9), transparent),
     radial-gradient(2.4px 2.4px at 80% 18px, rgba(255,255,255,0.95), transparent),
     radial-gradient(2px 2px at 35% 90px, rgba(255,255,255,0.85), transparent),
-    radial-gradient(2px 2px at 66% 130px, rgba(255,255,255,0.9), transparent);
+    radial-gradient(2px 2px at 66% 130px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1.8px 1.8px at 10% 160px, rgba(255,255,255,0.85), transparent),
+    radial-gradient(2.2px 2.2px at 90% 70px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1.6px 1.6px at 45% 178px, rgba(255,255,255,0.8), transparent);
   animation: snow-fall 8s linear infinite;
 }
 .scene[data-theme="winter"] .theme-fx::after { animation-duration: 13s; opacity: 0.7; background-position-x: 45px; }
 @keyframes snow-fall { from { background-position-y: -200px; } to { background-position-y: 0; } }
+/* Soft shimmering aurora across the top of the sky. background-POSITION shimmer
+   only (no opacity anim — that would fade the snow layers above it). */
+.scene[data-theme="winter"] .theme-fx {
+  background-repeat: no-repeat;
+  background-image:
+    linear-gradient(180deg, rgba(150,232,205,0.20), transparent 42%),
+    radial-gradient(70% 55% at 32% -8%, rgba(132,205,250,0.26), transparent 70%),
+    radial-gradient(60% 48% at 76% -4%, rgba(201,162,240,0.20), transparent 72%);
+  background-size: 150% 100%, 100% 100%, 100% 100%;
+  animation: aurora-shimmer 11s ease-in-out infinite alternate;
+}
+@keyframes aurora-shimmer {
+  from { background-position: 0% 0%, 0 0, 0 0; }
+  to   { background-position: 45% 0%, 0 0, 0 0; }
+}
 
 .scene.is-on-break {
   background: #c9bfe0 url('assets/Shop Background Break.png') top center / cover no-repeat;
@@ -457,10 +507,25 @@ body {
 .maker-img[data-state="sleeping"]{ animation: maker-sleep  3.6s ease-in-out infinite; }
 .maker-img[data-state="drinking"]{ animation: maker-drink  1.4s ease-in-out infinite; }
 .maker-img[data-state="shocked"] { animation: maker-shock  0.5s ease-out forwards; }
+
+/* ── Sprite mode (real frame animation; see SpriteEngine + assets/SPRITES.md) ──
+   When a sprite strip is active the engine blanks the <img> bitmap and paints the
+   strip as a background; this rule + an INLINE `animation` (set in JS with a literal
+   frame count) scroll one whole frame at a time. The inline animation overrides the
+   transform keyframes above, so the strip alone carries the motion. background-size
+   is also set inline (N×100%). The 86% mask still applies → feet fade into the lip. */
+.maker-img.is-sprite {
+  background-repeat: no-repeat;
+  background-position: 0% 0%;
+  image-rendering: auto;
+}
+@keyframes sprite-play { from { background-position-x: 0%; } to { background-position-x: 100%; } }
+
 /* Skins keep their real portrait while napping → a consistent "dozing" treatment
    (gentle lean + slow breathing + slight dim) instead of off-model closed-eye art.
-   The base character uses its real eyes-closed Sleeping.png and is unaffected. */
-.scene.is-napping.skin-awake .maker-img {
+   The base character uses its real eyes-closed Sleeping.png and is unaffected.
+   Never run on a real sleeping SPRITE (its strip already carries the breathing). */
+.scene.is-napping.skin-awake .maker-img:not(.is-sprite) {
   animation: maker-doze 3.8s ease-in-out infinite;
   filter: brightness(0.9) saturate(0.95);
 }
@@ -1097,6 +1162,26 @@ body {
   padding: 0 20px;
 }
 .break-panel.hidden { display: none; }
+
+/* Compact running break panel so the cozy bed/rug nook stays fully visible and
+   GROUNDED above it. (It used to be a tall 3-button column that blanketed the
+   bed's base + the floor, so the mascot read as floating.) */
+#breakRunningPanel { gap: 7px; }
+#breakRunningPanel .timer-card { padding: 8px 18px 7px; }
+#breakRunningPanel .timer-time { font-size: 1.7rem; }
+#breakRunningPanel .break-games-note { margin: 0; }
+.break-games-row { display: flex; gap: 8px; width: 100%; }
+.break-games-row .game-launch-btn {
+  flex: 1; min-width: 0;
+  padding: 9px 4px;
+  font-size: 0.82rem;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  line-height: 1.1;
+}
+.break-games-row .g-emoji { font-size: 1.15rem; line-height: 1; }
+/* Lift the whole nook (rug + bed + mascot all share --floor-y) clear of the
+   compacted panel so the bed visibly rests on the rug instead of floating. */
+.scene.is-on-break { --floor-y: clamp(380px, 44vh, 460px); }
 
 .break-title {
   color: var(--cream);
@@ -3019,6 +3104,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
    fits with breathing room. (Taller phones keep the full-size layout.) */
 @media (max-height: 720px) {
   :root { --floor-y: 290px; }
+  /* Keep the break nook lifted clear of the compact panel, but lower than on tall
+     phones so the bed doesn't crowd the top HUD on short screens. */
+  .scene.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }
   .maker-wrap { width: 176px; height: 188px; bottom: calc(var(--floor-y) + 12px); }
   .cup-stage { width: 112px; height: 150px; top: -100px; }
   .work-counter { height: 72px; }
