@@ -233,6 +233,7 @@ const els = {
   sessionLabel:         document.querySelector("#sessionLabel"),
   progressLabel:        document.querySelector("#progressLabel"),
   timerText:            document.querySelector("#timerText"),
+  timerCard:            document.querySelector("#timerCard"),
   startPauseBtn:        document.querySelector("#startPauseBtn"),
   resetBtn:             document.querySelector("#resetBtn"),
   drinkName:            document.querySelector("#drinkName"),
@@ -1790,6 +1791,7 @@ function setMode(mode) {
   if (els.customStepper) {
     els.customStepper.classList.toggle("hidden", mode !== "custom");
   }
+  if (els.timerCard) els.timerCard.classList.toggle("custom-adjust", mode === "custom");
   updateCustomDisplay();
   resetSession();
 }
@@ -4214,6 +4216,7 @@ document.querySelectorAll(".size-btn").forEach(b => {
   b.classList.toggle("active", b.dataset.mode === state.mode);
 });
 if (els.customStepper) els.customStepper.classList.toggle("hidden", state.mode !== "custom");
+if (els.timerCard) els.timerCard.classList.toggle("custom-adjust", state.mode === "custom");
 updateCustomDisplay();
 renderVolumeControls();
 renderDevToggle();

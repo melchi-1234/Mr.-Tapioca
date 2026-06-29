@@ -27,9 +27,10 @@
         <div class="cafe-glow" aria-hidden="true">
           <span></span><span></span><span></span>
         </div>
-        <div id="makerSpeech" class="speech-bubble">Mr. Tapioca is ready to make your focus drink.</div>
         <div id="makerWrap" class="maker-wrap">
           <img id="focusMakerCharacter" class="maker-img" src="assets/Mr. Tapioca.png" alt="Mr. Tapioca">
+          <!-- Speech bubble lives INSIDE the wrap so it travels with him as he walks. -->
+          <div id="makerSpeech" class="speech-bubble">Mr. Tapioca is ready to make your focus drink.</div>
         </div>
         <div class="work-counter">
           <div class="cup-stage">
@@ -178,13 +179,14 @@
             Custom<small>set</small>
           </button>
         </div>
-        <div id="customStepper" class="custom-stepper hidden">
-          <button id="customMinus" class="adj-btn small-adj" aria-label="Less time">−</button>
-          <span id="customDurationDisplay" class="custom-duration">30 min</span>
-          <button id="customPlus" class="adj-btn small-adj" aria-label="More time">+</button>
-        </div>
         <div class="timer-card" id="timerCard">
-          <div class="timer-time" id="timerText">00:30</div>
+          <!-- In Custom mode the −/+ flank the time IN-CARD, so picking Custom adds
+               no extra row (which used to push the controls up over the character). -->
+          <div class="timer-time-row">
+            <button id="customMinus" class="adj-btn time-adj" aria-label="Less time">−</button>
+            <div class="timer-time" id="timerText">00:30</div>
+            <button id="customPlus" class="adj-btn time-adj" aria-label="More time">+</button>
+          </div>
           <div class="timer-meta">
             <span id="sessionLabel">Tasting Cup</span>
             <span id="progressLabel">0%</span>
