@@ -101,7 +101,7 @@ const CUP_CATCH_INSET = 12;   // px trimmed off each side of the visual width
 const CUP_LIP_Y       = 16;   // catch line sits at the rim, not the cup bottom
 
 // Catch tuning — a ~28s skill sprint, good run ≈ 10-18 catches (not 30+).
-const CATCH_DURATION  = 28;
+const CATCH_DURATION  = 20;
 const CATCH_FALL_BASE = 300;  // px/s at t=0 (was 230)
 const CATCH_FALL_RAMP = 16;   // px/s added per elapsed second (was 5)
 const CATCH_SPAWN_BASE = 0.95;// s between spawns at start (was 0.8)
@@ -109,7 +109,10 @@ const CATCH_SPAWN_MIN  = 0.50;// fastest spawn (was 0.42)
 const CATCH_SPAWN_RAMP = 0.018;// spawn tightening per second (was 0.008)
 const CATCH_CUP_SPEED  = 460;  // arrow-key px/s (was 360) — cup is wider, must keep up
 const GOLDEN_CHANCE = 0.12;    // golden pearl: worth 3, sparkles
-const ICE_CHANCE    = 0.16;    // ice cube: catching it breaks your combo
+const ICE_CHANCE    = 0.12;    // ice cube: catching it breaks your combo
+const BOMB_CHANCE   = 0.11;    // 💣 bomb: catching it costs points + breaks combo — DODGE
+const BOMB_PENALTY  = 3;       // points lost for catching a bomb
+const BOMB_SIZE     = 30;      // chunky + unmistakable
 const GOLDEN_VALUE  = 3;
 
 // Break games are a small once-per-day bonus, not a pearl farm (see CATCH_CAP,
@@ -1758,12 +1761,14 @@ function spawnPearl() {
   let kind = "normal";
   const r = Math.random();
   if (r < ICE_CHANCE) kind = "ice";
-  else if (r < ICE_CHANCE + GOLDEN_CHANCE) kind = "golden";
+  else if (r < ICE_CHANCE + BOMB_CHANCE) kind = "bomb";
+  else if (r < ICE_CHANCE + BOMB_CHANCE + GOLDEN_CHANCE) kind = "golden";
 
-  const size = kind === "ice" ? ICE_SIZE : PEARL_SIZE;
+  const size = kind === "ice" ? ICE_SIZE : (kind === "bomb" ? BOMB_SIZE : PEARL_SIZE);
   const x = Math.random() * (els.gameArea.offsetWidth - size);
   const el = document.createElement("div");
   el.className = "falling-pearl falling-" + kind;
+  if (kind === "bomb") el.textContent = "💣";
   el.style.width = size + "px";
   el.style.height = size + "px";
   el.style.left = x + "px";
@@ -1819,12 +1824,17 @@ function gameLoop(ts) {
   }
 
   // Resolve catches: pearls score, golden score more, ice penalises.
-  let gained = 0, gotGold = false, gotIce = false, gotPearl = false;
+  let gained = 0, gotGold = false, gotIce = false, gotPearl = false, gotBomb = false;
   for (const p of caught) {
     if (p.kind === "ice") {
       gotIce = true;
       game.combo = 0;                 // ice breaks the streak
       pearlBurst(p, "ice");
+    } else if (p.kind === "bomb") {
+      gotBomb = true;
+      game.combo = 0;                 // bombs HURT: lose points + break the streak
+      game.score = Math.max(0, game.score - BOMB_PENALTY);
+      pearlBurst(p, "bomb");
     } else {
       const val = p.kind === "golden" ? GOLDEN_VALUE : 1;
       gained += val;
@@ -1836,17 +1846,18 @@ function gameLoop(ts) {
     }
     p.el.remove();
   }
-  // A missed normal/golden pearl resets the combo (skill pressure); a missed ice is fine.
-  for (const p of missed) { if (p.kind !== "ice") game.combo = 0; }
+  // A missed normal/golden resets the combo (skill pressure); missing ice/bombs is GOOD (you dodged).
+  for (const p of missed) { if (p.kind === "normal" || p.kind === "golden") game.combo = 0; }
 
   if (gained > 0) {
     game.score += gained;
-    els.gameScore.textContent = "⬡ " + game.score;
     bumpCup();
     if (gotGold) { playSfx("coin"); haptic(14); } else { playSfx("blip"); haptic(6); }
     flashCombo();
   }
-  if (gotIce) { playSfx("drop"); flashMiss(); haptic([8, 30, 8]); }
+  if (gotIce)  { playSfx("drop"); flashMiss(); haptic([8, 30, 8]); }
+  if (gotBomb) { playSfx("buzz"); flashMiss(); haptic([14, 45, 14, 45]); }
+  if (gained > 0 || gotBomb) els.gameScore.textContent = "⬡ " + game.score;
 
   game.spawnTimer += dt;
   if (game.spawnTimer >= spawnInterval) {
@@ -1929,7 +1940,7 @@ function pearlBurst(p, kind) {
   const y = p.y;
   const tag = document.createElement("div");
   tag.className = "catch-float catch-float-" + kind;
-  tag.textContent = kind === "ice" ? "brr!" : (kind === "golden" ? "+3" : "+1");
+  tag.textContent = kind === "ice" ? "brr!" : kind === "bomb" ? "💥" : (kind === "golden" ? "+3" : "+1");
   tag.style.left = x + "px";
   tag.style.top  = y + "px";
   area.appendChild(tag);
@@ -2451,6 +2462,7 @@ function playSfx(name) {
                       tone(ctx, { freq: 320,  freq2: 200,  type: "sine", t0: 0.09, dur: 0.18, peak: 0.08 }); break;
       case "rimRattle": tone(ctx, { freq: 240, type: "triangle", dur: 0.04, peak: 0.08 });
                         tone(ctx, { freq: 200, type: "triangle", t0: 0.05, dur: 0.05, peak: 0.06 }); break;
+      case "buzz":    tone(ctx, { freq: 180, freq2: 80, type: "sawtooth", dur: 0.20, peak: 0.13 }); break;
     }
   } catch (e) { /* audio unavailable — ignore */ }
 }
@@ -3747,19 +3759,20 @@ function wireEvents() {
   els.pongCanvas.addEventListener("touchmove", pongMove, { passive: false });
   els.pongCanvas.addEventListener("touchend", pongUp, { passive: false });
 
-  // ── Touch controls for pearl game ────────────────────────────────────────
-  els.gameArea.addEventListener("touchstart", e => {
-    e.preventDefault();
-    game.touchStartX = e.touches[0].clientX;
-    game.touchStartCupX = game.cupX;
-  }, { passive: false });
-  els.gameArea.addEventListener("touchmove", e => {
-    e.preventDefault();
-    if (!game.active) return;
-    const dx = e.touches[0].clientX - game.touchStartX;
-    game.cupX = Math.max(0, Math.min(els.gameArea.offsetWidth - GAME_CUP_W, game.touchStartCupX + dx));
-    els.gameCup.style.left = Math.round(game.cupX) + "px";
-  }, { passive: false });
+  // ── On-screen press-and-hold arrows for Catch ─────────────────────────────
+  // (Replaces drag-the-cup, which made it trivial to teleport the cup onto every
+  // pearl. Now you hold ‹ / › and the cup glides at a fixed speed — real control.)
+  function holdArrow(btn, dir) {
+    if (!btn) return;
+    const press = (e) => { e.preventDefault(); if (dir === "L") game.keysLeft = true; else game.keysRight = true; };
+    const release = () => { game.keysLeft = game.keysLeft && dir !== "L"; game.keysRight = game.keysRight && dir !== "R"; };
+    btn.addEventListener("pointerdown", press);
+    btn.addEventListener("pointerup", release);
+    btn.addEventListener("pointerleave", release);
+    btn.addEventListener("pointercancel", release);
+  }
+  holdArrow(document.querySelector("#catchLeft"), "L");
+  holdArrow(document.querySelector("#catchRight"), "R");
 
   // ── Keyboard controls (pearl game) ───────────────────────────────────────
   // Only hijack the arrow keys while the Catch game is actually running; otherwise
