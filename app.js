@@ -216,7 +216,8 @@ const state = {
   gamePearls: 0,         // cumulative pearls won from break games (for the "Break Champ" badge)
   quests: null,          // daily quests: { day, active:[{key,prog,done}], bonusClaimed }
   freezes: 0,            // Streak Freeze consumables owned
-  frozenDays: []         // ordinals auto-protected by a consumed freeze (bridge streak gaps)
+  frozenDays: [],        // ordinals auto-protected by a consumed freeze (bridge streak gaps)
+  renames: 0             // paid name changes done (0 = next costs 500 pearls, ≥1 = real money)
 };
 
 const els = {
@@ -329,6 +330,7 @@ const els = {
   onboardEmoji:         document.querySelector("#onboardEmoji"),
   onboardTitle:         document.querySelector("#onboardTitle"),
   onboardBody:          document.querySelector("#onboardBody"),
+  onboardNameInput:     document.querySelector("#onboardNameInput"),
   onboardDots:          document.querySelector("#onboardDots"),
   onboardBack:          document.querySelector("#onboardBack"),
   onboardNext:          document.querySelector("#onboardNext"),
@@ -535,6 +537,7 @@ function loadState() {
     state.freezes     = readJSON("bobaFocusFreezes", 0);
     state.frozenDays  = readJSON("bobaFocusFrozenDays", []);
     if (!Array.isArray(state.frozenDays)) state.frozenDays = [];
+    state.renames     = readJSON("bobaFocusRenames", 0);
     if (!Array.isArray(state.collection)) state.collection = [];
     if (!Array.isArray(state.rewards))    state.rewards = [];
     if (!Array.isArray(state.owned))      state.owned = [];
@@ -631,6 +634,7 @@ function saveState() {
   localStorage.setItem("bobaFocusQuests",       JSON.stringify(state.quests));
   localStorage.setItem("bobaFocusFreezes",      JSON.stringify(state.freezes));
   localStorage.setItem("bobaFocusFrozenDays",   JSON.stringify(state.frozenDays));
+  localStorage.setItem("bobaFocusRenames",      JSON.stringify(state.renames));
   localStorage.setItem("bobaFocusSkin",         state.skin);
   localStorage.setItem("bobaFocusName",         state.displayName || "");
   localStorage.setItem("bobaFocusFriends",      JSON.stringify(state.friends || []));
@@ -1510,6 +1514,7 @@ function startPause() {
     FocusBlocker.start();     // shield distracting apps for the session (native only)
     stopTicker();
     state.timerId = setInterval(tick, 250);
+    saveState();              // persist running state + push "🟢 Focusing" status to the Squad
   } else {
     stopTicker();
     stopAmbience();
@@ -1838,6 +1843,7 @@ function openSheet(id) {
 function closeSheets() {
   document.querySelectorAll(".sheet").forEach(s => s.classList.add("hidden"));
   els.sheetBackdrop.classList.add("hidden");
+  clearInterval(squadPollId); squadPollId = null;   // stop live-status polling
   // Stop any audio PREVIEW the Settings sliders started (it otherwise lingers a
   // few seconds after the sheet is gone). Leave real session/break audio alone.
   clearTimeout(musicPreviewTimer);
@@ -3475,17 +3481,62 @@ function shareSquadCode() {
     showToast("Sharing isn't available here.");
   }
 }
+const RENAME_PEARL_COST = 500;
 function editSquadName() {
-  const name = window.prompt("Your squad name:", state.displayName || "");
-  if (name === null) return;
-  state.displayName = name.trim().slice(0, 24);
-  saveState();
-  renderSquad();
+  const current = (state.displayName || "").trim();
+
+  // No name yet (e.g. skipped onboarding) → the first set is FREE.
+  if (!current) {
+    const name = window.prompt("Pick your boba shop name:", "");
+    if (name === null) return;
+    const n = name.trim().slice(0, 24);
+    if (!n) return;
+    state.displayName = n;
+    saveState(); renderSquad(); updateStats();
+    playSfx("success"); haptic(10);
+    showToast(`Nice to meet you, ${escapeHtml(n)}! 🧋`);
+    return;
+  }
+
+  const renames = state.renames || 0;
+
+  // First change → costs 500 pearls.
+  if (renames === 0) {
+    if (currentPearls() < RENAME_PEARL_COST) {
+      showToast(`A name change costs ${RENAME_PEARL_COST} 🫧 — keep focusing to earn them!`);
+      playSfx("tap"); return;
+    }
+    if (!confirm(`Change your name for ${RENAME_PEARL_COST} pearls?\n\nHeads up: any change after this one becomes a small in-app purchase.`)) return;
+    const name = window.prompt("Your new name:", current);
+    if (name === null) return;
+    const n = name.trim().slice(0, 24);
+    if (!n || n === current) return;
+    state.spent += RENAME_PEARL_COST;
+    state.displayName = n;
+    state.renames = 1;
+    saveState(); renderSquad(); updateStats();
+    playSfx("coin"); haptic(14);
+    showToast(`Renamed to ${escapeHtml(n)} · −${RENAME_PEARL_COST} 🫧 ✨`);
+    return;
+  }
+
+  // Second change onward → real money (in-app purchase; placeholder until IAP is wired).
+  playSfx("tap");
+  showToast("Extra name changes are a small in-app purchase — coming soon. 🧋");
 }
+let squadPollId = null;
 function openFriends() {
   openSheet("friendsSheet");
   renderSquad();
-  if (window.SquadCloud && SquadCloud.enabled) SquadCloud.fetchFriends();   // refresh live stats
+  if (window.SquadCloud && SquadCloud.enabled) {
+    SquadCloud.fetchFriends();   // refresh live stats now…
+    // …then keep refreshing while the sheet is open so friends' current statuses
+    // (🟢 Focusing / 🌸 break / Online) update live without reopening. Cleared in closeSheets.
+    clearInterval(squadPollId);
+    squadPollId = setInterval(() => {
+      if (window.SquadCloud && SquadCloud.ready) SquadCloud.fetchFriends();
+    }, 12000);
+  }
 }
 
 // ── First-run onboarding ──────────────────────────────────────────────────────
@@ -3495,6 +3546,11 @@ const ONBOARD_STEPS = [
     img: "assets/Mr. Tapioca.png",
     title: "Meet Mr. Tapioca",
     body: "Your cozy study buddy. He brews boba while you focus — and you can tap him anytime to say hi. 🧋"
+  },
+  {
+    img: "assets/Mr. Tapioca.png",
+    title: "His little story",
+    body: "Legend says Mr. Tapioca was the last lonely pearl at the bottom of a forgotten cup — until someone's focus brought him to life. Now he runs a tiny boba shop that only opens when you study. Every minute you focus, he brews one more drink. ✨"
   },
   {
     img: "assets/Cup.png",
@@ -3515,6 +3571,12 @@ const ONBOARD_STEPS = [
     emoji: "🗺️",
     title: "Real boba rewards",
     body: "The dream: finish big drinks to unlock discounts at real boba shops near you. Tap Map to look around!"
+  },
+  {
+    name: true,
+    img: "assets/Mr. Tapioca.png",
+    title: "What should I call you?",
+    body: "Pick a name for your boba shop — it's how friends see you on the Study Squad leaderboard."
   }
 ];
 
@@ -3546,15 +3608,37 @@ function renderOnboardStep() {
   els.onboardTitle.textContent = step.title;
   els.onboardBody.textContent = step.body;
 
+  // Name-creation step: reveal the text input + focus it.
+  const isName = !!step.name;
+  if (els.onboardNameInput) {
+    els.onboardNameInput.classList.toggle("hidden", !isName);
+    if (isName) {
+      els.onboardNameInput.value = state.displayName || "";
+      setTimeout(() => { try { els.onboardNameInput.focus(); } catch (e) {} }, 220);
+    }
+  }
+
   els.onboardDots.innerHTML = ONBOARD_STEPS
     .map((_, i) => `<span class="${i === onboardStep ? "on" : ""}"></span>`)
     .join("");
 
   els.onboardBack.classList.toggle("hidden", onboardStep === 0);
-  els.onboardNext.textContent = onboardStep === ONBOARD_STEPS.length - 1 ? "Let's go! 🧋" : "Next";
+  els.onboardNext.textContent = isName ? "That's me! 🧋"
+    : (onboardStep === ONBOARD_STEPS.length - 1 ? "Let's go! 🧋" : "Next");
 }
 
 function onboardAdvance() {
+  // If we're leaving the name step, save the chosen name (free — this is the
+  // initial set; later changes cost pearls, then real money — see editSquadName).
+  const step = ONBOARD_STEPS[onboardStep];
+  if (step && step.name && els.onboardNameInput) {
+    const n = (els.onboardNameInput.value || "").trim().slice(0, 24);
+    if (n) {
+      state.displayName = n;
+      saveState();
+      if (window.SquadCloud && SquadCloud.ready) SquadCloud.pushProfile();
+    }
+  }
   if (onboardStep >= ONBOARD_STEPS.length - 1) {
     finishOnboarding();
   } else {
