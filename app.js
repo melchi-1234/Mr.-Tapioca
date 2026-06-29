@@ -3094,6 +3094,10 @@ function renderSquad() {
   if (ms) ms.textContent = `${formatFocusTotal(me.mins)} focused · ${me.drinks} drink${me.drinks !== 1 ? "s" : ""} · ${me.streak}🔥`;
   const board = document.querySelector("#squadBoard"); if (!board) return;
   const live = squadCloudLive();
+  const hint = document.querySelector("#squadHint");
+  if (hint) hint.textContent = live
+    ? "Share your code so friends can add you — and paste a friend's code below to add them. Everyone's stats and status sync live. 🟢"
+    : "Share your code so friends can add you — and paste a friend's code below to add them. Stats refresh whenever they re-share their code.";
   let rows;
   if (live) {
     // Server returns self + everyone I follow (already RLS-scoped).
