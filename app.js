@@ -335,8 +335,6 @@ const els = {
   onboardSkip:          document.querySelector("#onboardSkip"),
   replayIntroBtn:       document.querySelector("#replayIntroBtn"),
   clearProgressBtn:     document.querySelector("#clearProgressBtn"),
-  customStepper:        document.querySelector("#customStepper"),
-  customDurationDisplay:document.querySelector("#customDurationDisplay"),
   customMinus:          document.querySelector("#customMinus"),
   customPlus:           document.querySelector("#customPlus"),
   musicVol:             document.querySelector("#musicVol"),
@@ -1788,11 +1786,7 @@ function setMode(mode) {
   document.querySelectorAll(".size-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.mode === mode);
   });
-  if (els.customStepper) {
-    els.customStepper.classList.toggle("hidden", mode !== "custom");
-  }
   if (els.timerCard) els.timerCard.classList.toggle("custom-adjust", mode === "custom");
-  updateCustomDisplay();
   resetSession();
 }
 
@@ -3316,6 +3310,7 @@ function renderQuests() {
   const allDone = state.quests.active.every((a) => a.done);
   const cards = state.quests.active.map((a) => {
     const def = questDef(a.key);
+    if (!def) return "";   // defensive: skip a quest whose key no longer exists
     const pct = Math.min(100, Math.round((a.prog / def.target) * 100));
     const sub = a.done ? "Done!" : `${a.prog} / ${def.target}${def.unit || ""}`;
     return `<div class="quest-card${a.done ? " done" : ""}">` +
@@ -3913,8 +3908,8 @@ function wireEvents() {
   els.customPlus.addEventListener("click",  () => { playSfx("select"); adjustCustomDuration(CUSTOM_STEP); });
 
   // ── Daily goal stepper (Settings) ─────────────────────────────────────────
-  els.goalMinus.addEventListener("click", () => { playSfx("select"); adjustDailyGoal(-GOAL_STEP); });
-  els.goalPlus.addEventListener("click",  () => { playSfx("select"); adjustDailyGoal(GOAL_STEP); });
+  els.goalMinus.addEventListener("click", () => { playSfx("select"); haptic(4); adjustDailyGoal(-GOAL_STEP); });
+  els.goalPlus.addEventListener("click",  () => { playSfx("select"); haptic(4); adjustDailyGoal(GOAL_STEP); });
 
   // ── Focus ambience picker (Settings) ──────────────────────────────────────
   document.querySelectorAll(".amb-chip").forEach(chip => {
@@ -4215,9 +4210,7 @@ if (window.SquadCloud && SquadCloud.enabled) {
 document.querySelectorAll(".size-btn").forEach(b => {
   b.classList.toggle("active", b.dataset.mode === state.mode);
 });
-if (els.customStepper) els.customStepper.classList.toggle("hidden", state.mode !== "custom");
 if (els.timerCard) els.timerCard.classList.toggle("custom-adjust", state.mode === "custom");
-updateCustomDisplay();
 renderVolumeControls();
 renderDevToggle();
 renderAmbiencePicker();

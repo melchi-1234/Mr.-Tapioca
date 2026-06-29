@@ -552,8 +552,28 @@
           <span>🎉</span><span>✨</span><span>🧋</span><span>💛</span><span>⭐</span><span>🎉</span><span>✨</span>
         </div>
         <div id="rewardDrink" class="reward-drink">
-          <img src="assets/Cup.png" alt="">
-          <span class="reward-drink-fill"></span>
+          <!-- Same crafted SVG cup as the focus screen, shown FULL (a finished drink),
+               tinted to the chosen tea via --drink-color set in showReward(). -->
+          <svg class="reward-cup-svg" viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs><clipPath id="rewardCupClip"><path d="M26,60 L33,151 Q34,156 39,156 L81,156 Q86,156 87,151 L94,60 Z"/></clipPath></defs>
+            <path class="cup-body-fill" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58 Z"/>
+            <g clip-path="url(#rewardCupClip)">
+              <rect class="reward-liquid" x="22" y="60" width="76" height="96"/>
+              <g class="cup-pearls">
+                <circle cx="42" cy="152" r="4.6"/><circle cx="52" cy="153" r="4.6"/><circle cx="62" cy="152" r="4.6"/>
+                <circle cx="72" cy="153" r="4.6"/><circle cx="82" cy="152" r="4.6"/>
+                <circle cx="47" cy="146" r="4.6"/><circle cx="57" cy="147" r="4.6"/>
+                <circle cx="67" cy="146" r="4.6"/><circle cx="77" cy="147" r="4.6"/>
+              </g>
+              <path class="cup-sheen" d="M33,66 q-2,45 3,88" fill="none"/>
+            </g>
+            <path class="cup-outline" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58" fill="none"/>
+            <path class="cup-straw" d="M71,9 L80,11 L70,120 L61,118 Z"/>
+            <path class="cup-straw-hl" d="M71,9 L80,11 L78,20 L72,18 Z"/>
+            <path class="cup-lid" d="M18,58 L18,53 Q18,50 21,50 L99,50 Q102,50 102,53 L102,58 Z"/>
+            <path class="cup-dome" d="M23,50 C23,30 39,24 60,24 C81,24 97,30 97,50 Z"/>
+            <ellipse class="cup-dome-hl" cx="46" cy="36" rx="9" ry="4"/>
+          </svg>
         </div>
         <p class="eyebrow">Drink complete!</p>
         <h2 id="rewardTitle">Nice work! 🎉</h2>

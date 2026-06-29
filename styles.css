@@ -882,29 +882,6 @@ body {
   box-shadow: inset 0 0 0 1.5px rgba(60,32,24,0.16), 0 2px 6px rgba(60,32,24,0.12);
 }
 
-/* Custom duration stepper (shown only when Custom is selected) */
-.custom-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  background: var(--cream-90);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 2px solid var(--line);
-  border-radius: 999px;
-  padding: 5px 10px;
-  box-shadow: 0 2px 10px rgba(60,32,24,0.14);
-}
-.custom-stepper.hidden { display: none; }
-.custom-duration {
-  min-width: 78px;
-  text-align: center;
-  font-size: 0.95rem;
-  font-weight: 950;
-  color: var(--bark);
-  font-variant-numeric: tabular-nums;
-}
 .adj-btn.small-adj {
   width: 40px; height: 40px;
   font-size: 1.2rem;
@@ -2298,31 +2275,9 @@ dialog::backdrop { background: rgba(60,32,24,0.45); }
   z-index: 0;
   pointer-events: none;
 }
-.reward-drink img {
-  position: absolute;
-  inset: 0;
-  width: 100%; height: 100%;
-  object-fit: contain;
-  z-index: 1;   /* cup art BEHIND the fill (its body is opaque) */
-}
-/* A full, glossy drink — foam band on top, a cluster of pearls at the bottom —
-   painted IN FRONT of the opaque cup art so it actually reads as a finished boba
-   (drink-color is set per chosen base in showReward). */
-.reward-drink-fill {
-  position: absolute;
-  left: 26%; right: 26%;
-  top: 31%; bottom: 18%;
-  z-index: 2;
-  border-radius: 4px 4px 13px 13px;
-  background:
-    radial-gradient(circle at 33% 86%, #2a1a20 0 4.5px, transparent 5.5px),
-    radial-gradient(circle at 50% 91%, #2a1a20 0 4.5px, transparent 5.5px),
-    radial-gradient(circle at 67% 86%, #2a1a20 0 4.5px, transparent 5.5px),
-    radial-gradient(circle at 42% 78%, #2a1a20 0 4px, transparent 5px),
-    radial-gradient(circle at 59% 78%, #2a1a20 0 4px, transparent 5px),
-    linear-gradient(180deg, rgba(255,255,255,0.5) 0 13%, var(--drink-color) 13% 100%);
-  box-shadow: inset 0 2px 0 rgba(255,255,255,0.4);
-}
+/* Crafted SVG cup, shown full — matches the focus-screen cup. */
+.reward-cup-svg { position: relative; z-index: 1; width: 100%; height: 100%; display: block; overflow: visible; }
+.reward-liquid { fill: var(--drink-color, #c98a5e); }
 /* Proud little pop-in when the celebration opens */
 dialog[open] .reward-drink { animation: reward-drink-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 @keyframes reward-drink-pop {
@@ -2824,10 +2779,11 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 .squad-me-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .squad-name-btn {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 6px;
   background: none; border: none; padding: 0; color: var(--bark);
+  max-width: 100%; min-width: 0;
 }
-.squad-name { font-size: 1.1rem; font-weight: 950; }
+.squad-name { font-size: 1.1rem; font-weight: 950; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .squad-edit { font-size: 0.8rem; opacity: 0.7; }
 .squad-stats { font-size: 0.8rem; font-weight: 850; color: var(--bark-mid); }
 
