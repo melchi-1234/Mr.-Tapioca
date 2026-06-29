@@ -3692,7 +3692,7 @@ function pongDims() {
     W, H,
     startX: W / 2, startY: H - 38,        // where the pearl waits
     mouthY: H * 0.34,                     // height of the cup rim (shorter throw)
-    mouthHalf: 50,                        // half the cup-mouth width (78px window, was 64)
+    mouthHalf: 54,                        // half the cup-mouth width (more forgiving makes)
     cupH: 84,
     margin: 56
   };
@@ -3796,7 +3796,7 @@ function pongLoop(ts) {
   const d = pongDims();
 
   // cup drifts side to side (held still for reduced-motion users)
-  let cupSpeed = prefersReducedMotion() ? 0 : 52;   // calmer drift (was 70)
+  let cupSpeed = prefersReducedMotion() ? 0 : 44;   // calmer drift (easier to time)
   if (pong.cupSettle > 0) { pong.cupSettle -= dt; cupSpeed = 0; }   // first-throw grace
   pong.cupX += pong.cupDir * cupSpeed * dt;
   if (pong.cupX < d.margin) { pong.cupX = d.margin; pong.cupDir = 1; }
@@ -3887,51 +3887,51 @@ function drawPong(d) {
   ctx.ellipse(cx, botY + 6, botHalf + 8, 7, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // ── cup body ──
-  ctx.fillStyle = "rgba(255,255,255,0.78)";
-  ctx.strokeStyle = "rgba(45,36,40,0.85)";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(cx - topHalf, topY);
-  ctx.lineTo(cx + topHalf, topY);
-  ctx.lineTo(cx + botHalf, botY);
-  ctx.lineTo(cx - botHalf, botY);
-  ctx.closePath();
-  ctx.fill(); ctx.stroke();
+  // ── cup body (rounded, glossy boba cup with an OPEN top for tossing) ──
+  const cupBodyPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx - topHalf, topY);
+    ctx.lineTo(cx - botHalf, botY - 9);
+    ctx.quadraticCurveTo(cx - botHalf, botY, cx - botHalf + 9, botY);   // rounded base
+    ctx.lineTo(cx + botHalf - 9, botY);
+    ctx.quadraticCurveTo(cx + botHalf, botY, cx + botHalf, botY - 9);
+    ctx.lineTo(cx + topHalf, topY);
+    ctx.closePath();
+  };
+  const bodyGrad = ctx.createLinearGradient(cx - topHalf, 0, cx + topHalf, 0);
+  bodyGrad.addColorStop(0,   "rgba(255,255,255,0.92)");
+  bodyGrad.addColorStop(0.5, "rgba(255,255,255,0.60)");
+  bodyGrad.addColorStop(1,   "rgba(255,255,255,0.82)");
+  cupBodyPath(); ctx.fillStyle = bodyGrad; ctx.fill();
 
-  // drink fill (current tea-base colour) in the lower part of the cup
-  const fillTop = topY + d.cupH * 0.42;
-  const ftHalf = topHalf - (topHalf - botHalf) * 0.42;
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(cx - ftHalf, fillTop);
-  ctx.lineTo(cx + ftHalf, fillTop);
-  ctx.lineTo(cx + botHalf, botY);
-  ctx.lineTo(cx - botHalf, botY);
-  ctx.closePath();
-  ctx.clip();
-  ctx.fillStyle = BASES[state.base].color;
-  ctx.globalAlpha = 0.92;
+  // drink fill (current tea-base colour) in the lower part, clipped to the body
+  const fillTop = topY + d.cupH * 0.40;
+  ctx.save(); cupBodyPath(); ctx.clip();
+  ctx.fillStyle = BASES[state.base].color; ctx.globalAlpha = 0.95;
   ctx.fillRect(cx - topHalf, fillTop, topHalf * 2, d.cupH);
-  // a few boba pearls at the bottom
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = "#2c1d16";
-  for (const o of [-14, 0, 13, -6, 7]) {
-    ctx.beginPath(); ctx.arc(cx + o, botY - 7 - (o % 2 ? 5 : 0), 4, 0, Math.PI * 2); ctx.fill();
-  }
+  ctx.globalAlpha = 0.28; ctx.fillStyle = "#fff";          // drink surface sheen
+  ctx.fillRect(cx - topHalf, fillTop, topHalf * 2, 3);
+  ctx.globalAlpha = 1; ctx.fillStyle = "#2a1d22";          // boba pearls clustered at the base
+  const pearls = [[-16,0],[-6,2],[5,0],[15,2],[-11,-8],[1,-7],[11,-8]];
+  for (const [ox, oy] of pearls) { ctx.beginPath(); ctx.arc(cx + ox, botY - 9 + oy, 4.4, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  for (const [ox, oy] of pearls) { ctx.beginPath(); ctx.arc(cx + ox - 1.3, botY - 10.3 + oy, 1.2, 0, Math.PI * 2); ctx.fill(); }
+  // glossy vertical highlight
+  ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(cx - topHalf * 0.6, topY + 12); ctx.lineTo(cx - botHalf * 0.55, botY - 14); ctx.stroke();
   ctx.restore();
 
-  // rim: dark ellipse + white gloss highlight
-  ctx.strokeStyle = "rgba(45,36,40,0.85)";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(cx, topY, topHalf, 6, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(255,255,255,0.7)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(cx, topY - 0.5, topHalf - 4, 4, 0, Math.PI * 1.05, Math.PI * 1.95);
-  ctx.stroke();
+  // body outline
+  cupBodyPath();
+  ctx.strokeStyle = "rgba(45,36,40,0.9)"; ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.stroke();
+
+  // ── open mouth: inner-shadow ellipse (you can see "into" it) + rim lip + gloss ──
+  ctx.fillStyle = "rgba(45,36,40,0.16)";
+  ctx.beginPath(); ctx.ellipse(cx, topY, topHalf - 2, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(45,36,40,0.9)"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(cx, topY, topHalf, 7, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.ellipse(cx, topY + 1, topHalf - 5, 5, 0, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
 
   // ── make splash: expanding ring at the cup mouth ──
   if (pong.splash) {
