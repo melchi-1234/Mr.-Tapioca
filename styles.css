@@ -566,121 +566,39 @@ body {
   animation: cup-spill 1.0s cubic-bezier(0.3,0,0.6,0.8) forwards;
 }
 
-/* The Cup.png art sits BEHIND the liquid because the body in the PNG is
-   fully opaque cream/pink — liquid placed behind it would be invisible.
-   Putting the fill in front and clipping it to the body interior shape
-   makes the cup visibly fill as the timer runs. */
-.cup-art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  z-index: 1;
-  pointer-events: none;
-}
+/* ── Crafted SVG boba cup ──────────────────────────────────────────────────
+   The liquid (#liquid rect) is clipped to the cup's exact interior path, so the
+   fill hugs the tapered walls instead of being a rectangle behind a PNG. */
+.cup-svg { width: 100%; height: 100%; display: block; overflow: visible; }
 
-/* Liquid clip area: sits on top of the cup body, tapered to match the
-   cup's narrowing shape and rounded at the bottom to follow the cup base. */
-.cup-fill-area {
-  position: absolute;
-  left: 27%;
-  right: 27%;
-  top: 39%;
-  bottom: 19%;
-  overflow: hidden;
-  border-radius: 3px 3px 18px 18px;
-  z-index: 2;
-}
+.cup-body-fill { fill: rgba(255,255,255,0.34); }
+.cup-outline  { stroke: var(--bark); stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
 
-.cup-liquid {
-  position: absolute;
-  inset: auto 0 0;
-  height: var(--fill);
-  min-height: 0;
-  background:
-    linear-gradient(0deg, rgba(45,36,40,0.14), transparent 38%),
-    var(--drink-color);
-  opacity: 0.94;
-  /* a soft sheen at the liquid surface + subtle depth at the base */
-  box-shadow:
-    inset 0 3px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -10px 14px rgba(45, 36, 40, 0.12);
-  transition: height 420ms ease;
-}
-.cup-liquid::before {
-  content: "";
-  position: absolute; inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.24), transparent);
-  animation: tea-shine 3.6s ease-in-out infinite;
-}
+/* Liquid + surface: geometry (y/height/fill/cy) is set every tick in updateCup. */
+#liquid       { transition: y 480ms ease, height 480ms ease, fill 300ms ease; }
+.liq-surface  { fill: #fff; opacity: 0.22; transition: cy 480ms ease, opacity 300ms ease; }
+.cup-sheen    { stroke: #fff; stroke-width: 5; opacity: 0.16; stroke-linecap: round; }
 
-/* Cheese/cream foam cap — a creamy layer that rides the liquid SURFACE
-   (bottom:var(--fill)) and paints above the brown pearls, which stay brown.
-   It's a sibling of .cup-liquid so it never collapses with a near-empty cup;
-   .has-fill gates it off entirely when the cup is empty. */
-.foam-cap {
-  display: none;
-  position: absolute;
-  left: 0; right: 0;
-  bottom: clamp(0px, var(--fill), calc(100% - 15px));
-  height: 15px;
-  z-index: 3;
-  border-radius: 9px 9px 11px 11px;
-  background:
-    radial-gradient(circle at 22% 64%, rgba(255,255,255,0.95) 0 3.5px, transparent 4.5px),
-    radial-gradient(circle at 52% 52%, rgba(255,255,255,0.85) 0 4.5px, transparent 5.5px),
-    radial-gradient(circle at 80% 64%, rgba(255,255,255,0.9) 0 3.5px, transparent 4.5px),
-    linear-gradient(180deg, #fffaf0 0 42%, #ffeecb 100%);
-  box-shadow:
-    inset 0 2px 0 rgba(255,255,255,0.85),
-    0 2px 3px rgba(170,130,60,0.22);
-  transition: bottom 420ms ease;
-}
+/* Toppings sit at the bottom; recolor the cluster per choice. */
+.cup-pearls circle      { fill: #2a1d22; }
+.cup-pearl-shine circle { fill: #fff; opacity: 0.4; }
+.cup-frame[data-topping="jelly"]   .cup-pearls circle { fill: rgba(238,91,127,0.82); }
+.cup-frame[data-topping="pudding"] .cup-pearls circle { fill: #f7cb59; }
+.cup-frame[data-topping="coconut"] .cup-pearls circle { fill: rgba(228,248,228,0.95); }
+.cup-frame[data-topping="jelly"]   .cup-pearl-shine,
+.cup-frame[data-topping="pudding"] .cup-pearl-shine,
+.cup-frame[data-topping="coconut"] .cup-pearl-shine { display: none; }
 
-.pearl {
-  position: absolute;
-  bottom: 6px;
-  width: 11px; height: 11px;
-  border-radius: 50%;
-  background: #30232a;
-  box-shadow: inset -3px -3px 0 rgba(0,0,0,0.28);
-}
-.p1 { left: 18%; }
-.p2 { left: 36%; bottom: 16px; }
-.p3 { left: 56%; }
-.p4 { left: 72%; bottom: 22px; }
-.p5 { left: 30%; bottom: 30px; }
-.p6 { left: 54%; bottom: 38px; }
+/* Cheese/cream foam cap — a band riding the liquid surface, only for foam. */
+.foam-band { fill: #fff3d6; display: none; }
+.cup-frame[data-topping="foam"].has-fill .foam-band { display: block; }
 
-.scene.is-focusing .pearl { animation: topping-bob 1.35s ease-in-out infinite; }
-.scene.is-focusing .p2,
-.scene.is-focusing .p5 { animation-delay: 0.25s; }
-
-.cup-frame[data-topping="jelly"] .pearl {
-  width: 14px; height: 10px;
-  border-radius: 5px;
-  background: rgba(238,91,127,0.76);
-  box-shadow: inset -3px -3px 0 rgba(147,37,66,0.22);
-  transform: rotate(-10deg);
-}
-.cup-frame[data-topping="pudding"] .pearl {
-  width: 15px; height: 11px;
-  border-radius: 4px;
-  background: #f7cb59;
-  box-shadow: inset -3px -3px 0 rgba(132,87,22,0.22);
-  transform: rotate(8deg);
-}
-/* Foam is additive: show the cream cap but keep the boba pearls brown.
-   Only once the cup has liquid, so an empty cup never shows a stray strip. */
-.cup-frame[data-topping="foam"].has-fill .foam-cap { display: block; }
-.cup-frame[data-topping="coconut"] .pearl {
-  width: 14px; height: 10px;
-  border-radius: 5px;
-  background: rgba(228,248,228,0.92);
-  box-shadow: inset -2px -2px 0 rgba(80,150,80,0.18);
-  transform: rotate(6deg);
-}
+/* Straw + lid + dome */
+.cup-straw    { fill: var(--rose); stroke: var(--bark); stroke-width: 2.2; stroke-linejoin: round; }
+.cup-straw-hl { fill: #fff; opacity: 0.5; }
+.cup-lid      { fill: var(--cream); stroke: var(--bark); stroke-width: 2.4; stroke-linejoin: round; }
+.cup-dome     { fill: rgba(255,255,255,0.5); stroke: var(--bark); stroke-width: 2.4; stroke-linejoin: round; }
+.cup-dome-hl  { fill: #fff; opacity: 0.55; }
 
 .cup-sticker {
   position: absolute;

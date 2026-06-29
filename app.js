@@ -223,6 +223,8 @@ const els = {
   shopScene:            document.querySelector("#shopScene"),
   focusCup:             document.querySelector("#focusCup"),
   liquid:               document.querySelector("#liquid"),
+  liqSurface:           document.querySelector("#liqSurface"),
+  foamBand:             document.querySelector("#foamBand"),
   focusSticker:         document.querySelector("#focusSticker"),
   focusMakerCharacter:  document.querySelector("#focusMakerCharacter"),
   makerWrap:            document.querySelector("#makerWrap"),
@@ -823,13 +825,25 @@ function showMakerLine() {
   tapLineTimer = setTimeout(() => els.makerSpeech.classList.remove("show"), 3000);
 }
 
+// SVG interior y-range the liquid sweeps between (matches the #cupClip path).
+const CUP_LIQ_TOP = 60, CUP_LIQ_BOT = 156;
 function updateCup() {
-  const pct = Math.round(progress() * 100);
+  const frac = Math.max(0, Math.min(1, progress()));
+  const pct = Math.round(frac * 100);
   const remaining = modeDuration() - state.elapsed;
-  // --fill lives on the cup-frame so BOTH the liquid (height) and the foam cap
-  // (which rides the surface at bottom:var(--fill)) can read it.
-  els.focusCup.style.setProperty("--fill", `${pct}%`);
-  els.liquid.style.setProperty("--drink-color", BASES[state.base].color);
+  // Drive the SVG liquid: surface rises from the cup base toward the rim, clipped
+  // to the exact interior shape so it follows the tapered walls.
+  const surfaceY = CUP_LIQ_BOT - (CUP_LIQ_BOT - CUP_LIQ_TOP) * frac;
+  if (els.liquid) {
+    els.liquid.setAttribute("y", surfaceY.toFixed(1));
+    els.liquid.setAttribute("height", (CUP_LIQ_BOT - surfaceY).toFixed(1));
+    els.liquid.setAttribute("fill", BASES[state.base].color);
+  }
+  if (els.liqSurface) {
+    els.liqSurface.setAttribute("cy", (surfaceY + 1).toFixed(1));
+    els.liqSurface.style.opacity = frac > 0.02 ? "" : "0";   // hide the meniscus when empty
+  }
+  if (els.foamBand) els.foamBand.setAttribute("y", Math.max(CUP_LIQ_TOP, surfaceY - 3).toFixed(1));
   els.focusCup.classList.toggle("has-fill", pct > 0);
   els.progressBar.style.width = `${pct}%`;
   els.focusCup.dataset.topping = state.topping;
