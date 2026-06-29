@@ -3006,16 +3006,32 @@ function squadB64Decode(str) {
   return JSON.parse(decodeURIComponent(escape(atob(str.replace(/-/g, "+").replace(/_/g, "/")))));
 }
 function myDisplayName() { return (state.displayName && state.displayName.trim()) || "You"; }
+// Live activity status for the Study Squad.
+function myStatusKey() {
+  if (state.running && state.phase === "focus") return "focusing";
+  if (state.phase === "break" || state.phase === "break-offer") return "break";
+  return "idle";
+}
 function mySquadStats() {
   const st = computeStats();
-  return { name: myDisplayName(), mins: st.totalMin, drinks: state.collection.length, streak: st.current, skin: state.skin || "" };
+  return { name: myDisplayName(), mins: st.totalMin, drinks: state.collection.length, streak: st.current, skin: state.skin || "", status: myStatusKey() };
+}
+// Presence shown on a squad row: live focusing/break if their data is fresh
+// (<7 min), otherwise "active <relative>". Your own row is always live.
+function squadPresence(status, ts, isMe) {
+  const t = typeof ts === "number" ? ts : Date.parse(ts);
+  const fresh = isMe || (t && (Date.now() - t) < 7 * 60000);
+  if (fresh && status === "focusing") return { cls: "focusing", label: "🟢 Focusing now" };
+  if (fresh && status === "break")    return { cls: "break", label: "🌸 On a break" };
+  if (isMe) return { cls: "idle", label: "⚪ Online" };
+  return { cls: "away", label: "active " + squadRelative(ts) };
 }
 function squadCloudLive() { return !!(window.SquadCloud && SquadCloud.enabled && SquadCloud.ready); }
 function encodeMyCode() {
   // Live backend: share the short server friend-code. Offline: a base64 snapshot.
   if (squadCloudLive() && SquadCloud.myCode()) return SquadCloud.myCode();
   const me = mySquadStats();
-  return squadB64Encode({ n: me.name.slice(0, 24), m: me.mins, d: me.drinks, s: me.streak, k: me.skin, t: Date.now() });
+  return squadB64Encode({ n: me.name.slice(0, 24), m: me.mins, d: me.drinks, s: me.streak, k: me.skin, st: me.status, t: Date.now() });
 }
 function parseSquadCode(raw) {
   if (!raw) return null;
@@ -3032,6 +3048,7 @@ function parseSquadCode(raw) {
       drinks: Math.max(0, Number(o.d) || 0),
       streak: Math.max(0, Number(o.s) || 0),
       skin: typeof o.k === "string" ? o.k : "",
+      status: typeof o.st === "string" ? o.st : "idle",
       ts: Number(o.t) || Date.now()
     };
   } catch (e) { return null; }
@@ -3080,23 +3097,23 @@ function renderSquad() {
   let rows;
   if (live) {
     // Server returns self + everyone I follow (already RLS-scoped).
-    rows = SquadCloud.friends.map((f) => ({ id: f.id, name: f.name, mins: f.mins, drinks: f.drinks, streak: f.streak, skin: f.skin, ts: f.ts, me: !!f.me }));
-    if (!rows.some((r) => r.me)) rows.unshift({ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, ts: Date.now(), me: true });
+    rows = SquadCloud.friends.map((f) => ({ id: f.id, name: f.name, mins: f.mins, drinks: f.drinks, streak: f.streak, skin: f.skin, ts: f.ts, status: f.status, me: !!f.me }));
+    if (!rows.some((r) => r.me)) rows.unshift({ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, ts: Date.now(), status: me.status, me: true });
   } else {
-    rows = [{ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, me: true }]
+    rows = [{ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, status: me.status, me: true }]
       .concat(state.friends.map((f) => ({ ...f, me: false })));
   }
   rows.sort((a, b) => b.mins - a.mins);
   const medal = ["🥇", "🥈", "🥉"];
   board.innerHTML = rows.map((r, i) => {
     const rank = medal[i] || `<span class="squad-rank-num">${i + 1}</span>`;
-    const sub = r.me ? "that's you!" : `updated ${squadRelative(r.ts)}`;
+    const pres = squadPresence(r.status, r.ts, r.me);
     return `<div class="squad-row${r.me ? " me" : ""}">` +
       `<span class="squad-rank">${rank}</span>` +
       `<img class="squad-row-avatar" src="${squadAvatar(r.skin)}" alt="">` +
       `<span class="squad-row-info">` +
         `<span class="squad-row-name">${escapeHtml(r.name)}${r.me ? ' <span class="squad-you">YOU</span>' : ""}</span>` +
-        `<span class="squad-row-sub">${formatFocusTotal(r.mins)} · ${escapeHtml(sub)}</span>` +
+        `<span class="squad-row-sub">${formatFocusTotal(r.mins)} · <span class="squad-pres squad-pres-${pres.cls}">${pres.label}</span></span>` +
       `</span>` +
       `<span class="squad-row-stats">${r.streak}🔥</span>` +
       (r.me ? "" : `<button class="squad-remove" data-id="${r.id}" aria-label="Remove ${escapeHtml(r.name)}">✕</button>`) +

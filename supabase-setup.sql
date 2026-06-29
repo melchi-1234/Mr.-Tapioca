@@ -24,6 +24,7 @@ create table if not exists public.profiles (
   focus_minutes integer     not null default 0  check (focus_minutes between 0 and 100000000),
   drinks        integer     not null default 0  check (drinks between 0 and 100000),
   streak        integer     not null default 0  check (streak between 0 and 100000),
+  status        text        not null default 'idle' check (status in ('idle','focusing','break')),
   friend_code   text        not null unique     check (friend_code ~ '^[A-Z2-9]{6}$'),
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -182,9 +183,9 @@ grant execute on function public.add_friend_by_code(text) to authenticated;
 -- 13. RPC: leaderboard = self + everyone I follow (single RLS-safe call) ------
 create or replace function public.get_my_friends()
 returns table (id uuid, display_name text, skin text, focus_minutes integer,
-               drinks integer, streak integer, is_me boolean, updated_at timestamptz)
+               drinks integer, streak integer, status text, is_me boolean, updated_at timestamptz)
 language sql security definer stable set search_path = public as $$
-  select pr.id, pr.display_name, pr.skin, pr.focus_minutes, pr.drinks, pr.streak,
+  select pr.id, pr.display_name, pr.skin, pr.focus_minutes, pr.drinks, pr.streak, pr.status,
          (pr.id = auth.uid()) as is_me, pr.updated_at
   from public.profiles pr
   where pr.id = auth.uid()
@@ -200,7 +201,8 @@ grant execute on function public.get_my_friends() to authenticated;
 --   (see FUTURE HARDENING). drinks/streak are clamped to sane growth too.
 create or replace function public.set_my_profile(
   p_display_name text default null, p_skin text default null,
-  p_focus_minutes integer default null, p_drinks integer default null, p_streak integer default null
+  p_focus_minutes integer default null, p_drinks integer default null, p_streak integer default null,
+  p_status text default null
 ) returns void language plpgsql security definer set search_path = public as $$
 declare v_me uuid := auth.uid(); v_fm int; v_dr int; v_st int;
 begin
@@ -214,11 +216,12 @@ begin
                            else least(greatest(p_focus_minutes, v_fm), v_fm + 1440) end,
                       v_fm),
     drinks        = coalesce(least(greatest(p_drinks, v_dr), v_dr + 100), v_dr),
-    streak        = coalesce(greatest(0, least(p_streak, 100000)), v_st)
+    streak        = coalesce(greatest(0, least(p_streak, 100000)), v_st),
+    status        = case when p_status in ('idle','focusing','break') then p_status else status end
   where id = v_me;
 end; $$;
-revoke all on function public.set_my_profile(text,text,integer,integer,integer) from public, anon;
-grant execute on function public.set_my_profile(text,text,integer,integer,integer) to authenticated;
+revoke all on function public.set_my_profile(text,text,integer,integer,integer,text) from public, anon;
+grant execute on function public.set_my_profile(text,text,integer,integer,integer,text) to authenticated;
 
 -- 15. RPC: rotate my friend code / remove a follower -------------------------
 create or replace function public.rotate_friend_code()

@@ -76,4 +76,49 @@ Hi — college student here, building a study app that rewards students with bob
 
 ---
 
-_Skipped as big chains (not a fit for one-founding-partner-per-neighborhood): Taichi (Ithaca), Ding Tea, The Alley, GangnamCha, Junbi, Teapresso Bar._
+# Added 2026-06-29
+
+## Honolulu / Oʻahu, HI
+
+### QQ Tea House (QQ Tea & Vegetarian House)
+**Instagram:** @qqteahousehi · **Phone:** (808) 941-6688 · 931 University Ave #109 (by UH Mānoa) · _no public email — family-run, single location_
+
+**Instagram DM:**
+Hey! I'm Melchi, a college student (at Cornell) and the founder of Mr. Tapioca — a study app where students earn a real boba reward by actually studying. Your University Ave tea house is about the closest boba to UH Mānoa — and a vegan-friendly hidden gem on top of it — which is exactly the student crowd I built this for. I'd love to make QQ Tea House a founding boba partner: it's free, you pick the reward (a free topping or small discount), and I steer studying students your way + feature you on our in-app map. Could I show you the app over a quick video call this week? 🧋
+
+**Phone / in-person opener:**
+Hi — I'm a college student building a study app that rewards students with boba right by UH Mānoa. I'd love to make QQ Tea House a free founding partner; could I do a quick 10-minute video demo with the owner this week?
+
+---
+
+### Coffee or Tea? (McCully)
+**Instagram:** @coffeeorteahawaii · **Phone:** (808) 942-4357 · 1960 Kapiolani Blvd #106, McCully Shopping Center (≈10-min walk to UH Mānoa) · _no public email_
+_Local brand with ~4 Oʻahu locations (McCully, Pearl Kai, Waipio, Kailua) — pitch the McCully store specifically as the campus founding partner._
+
+**Instagram DM:**
+Hey! I'm Melchi, a college student (at Cornell) and the founder of Mr. Tapioca — a study app where students earn a real boba reward by actually studying. Coffee or Tea? has been the OG milk-tea spot since '99, and your McCully shop sits right in the UH Mānoa study orbit — I'd love to make it our founding boba partner for the neighborhood: free to join, you set the reward (a free topping or small discount), and I send studying students your way + feature you on our in-app map. Could I show you the app over a quick video call this week? 🧋
+
+**Phone / in-person opener:**
+Hi — college student here, building a study app that rewards students with boba near UH Mānoa. Could I show whoever runs the McCully shop a quick 10-minute demo this week? I'd love to make Coffee or Tea? a free founding partner.
+
+---
+
+## Collegetown / Ithaca, NY
+
+### Saigon Kitchen
+**Instagram:** verify handle before DMing (the @saigonmilktea account looks like a different business) · **Phone:** (607) 257-8881 · 526 W State St (West End, ≈15-min walk from the Commons) · family-owned (Lam family)
+_⚠️ Verify they still pour bubble tea first — recent reviews say they dropped the boba smoothies. If boba is gone, skip._
+
+**Instagram DM (only if a valid handle is confirmed):**
+Hi! I'm Melchi, a Cornell student and founder of Mr. Tapioca — a study app where students earn a real boba reward by actually studying. If you're still pouring bubble tea, I'd love to make Saigon Kitchen a free founding partner: you pick the reward, and I send studying students your way + put you on our in-app boba map. Could I stop in for a 10-minute demo this week? 🧋
+
+**Phone / in-person opener (primary):**
+Hi — Cornell student here, building a study app that rewards students with boba. Do you still serve bubble tea? If so, I'd love to make Saigon Kitchen a free founding partner — could I show the owner a quick 10-minute demo this week?
+
+---
+
+_Skipped as big chains (not a fit for one-founding-partner-per-neighborhood): Taichi (Ithaca), Kung Fu Tea (Ithaca), Ding Tea, The Alley, GangnamCha, Junbi, Teapresso Bar._
+
+_Skipped — closed / temporarily closed (as of mid-2026): Mango Mango (Collegetown), Rabbit Rabbit Tea, Honeyboba, Little Sweet, Uni Sweets._
+
+_Noted but not drafted — weak walk-in fit (farmers-market / pop-up / very limited storefront hours): BoTea (Ala Moana — strong hook, the original grilled-cheese-&-boba sandwich, but mostly markets), Boba Bros (farmers markets only)._

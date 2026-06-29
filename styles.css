@@ -2941,6 +2941,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   background: var(--teal); color: #fff; padding: 1px 6px; border-radius: 999px; flex-shrink: 0;
 }
 .squad-row-sub { font-size: 0.72rem; font-weight: 800; color: var(--bark-mid); }
+.squad-pres-focusing { color: #2f9e6e; font-weight: 950; }   /* live: focusing */
+.squad-pres-break    { color: #d06fa0; font-weight: 950; }   /* live: on a break */
+.squad-pres-idle, .squad-pres-away { color: var(--bark-mid); }
 .squad-row-stats { flex-shrink: 0; font-size: 0.82rem; font-weight: 950; color: var(--bark); }
 .squad-remove {
   flex-shrink: 0; width: 26px; height: 26px; margin-left: 2px;

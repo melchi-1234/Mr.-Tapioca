@@ -69,6 +69,7 @@
         p_focus_minutes: Math.max(0, Math.round(me.mins) || 0),
         p_drinks: Math.max(0, me.drinks || 0),
         p_streak: Math.max(0, me.streak || 0),
+        p_status: me.status || "idle",
       });
     } catch (_) { /* keep going */ }
   };
@@ -86,7 +87,7 @@
     if (error) return;   // keep last-good render
     SquadCloud.friends = (data || []).map((r) => ({
       id: r.id, name: r.display_name, mins: r.focus_minutes,
-      drinks: r.drinks, streak: r.streak, skin: r.skin, ts: r.updated_at, me: !!r.is_me,
+      drinks: r.drinks, streak: r.streak, skin: r.skin, ts: r.updated_at, status: r.status, me: !!r.is_me,
     }));
     if (typeof renderSquad === "function") renderSquad();
   };
