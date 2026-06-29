@@ -272,8 +272,22 @@ body {
   border-top-color: rgba(255,255,255,0.85);
 }
 .scene.is-on-break .speech-bubble { background: #f5f0ff; }
-/* Break = rest, not brewing — hide the focus drink. */
-.scene.is-on-break .cup-stage { display: none; }
+/* Break = rest: no drink + no shop counter, just a cozy nap. */
+.scene.is-on-break .cup-stage,
+.scene.is-on-break .work-counter { display: none; }
+/* Cozy nap bed — appears only on break, centered, with the character napping in it. */
+.break-bed {
+  position: absolute;
+  left: calc(50% - 120px);
+  bottom: calc(var(--floor-y) + 30px);   /* up in the window nook, clear of the break panel */
+  width: 240px; height: auto;
+  z-index: 4;
+  display: none;
+  pointer-events: none;
+  filter: drop-shadow(0 5px 8px rgba(60,32,24,0.18));
+}
+.scene.is-on-break .break-bed { display: block; }
+.scene.is-on-break .maker-wrap { left: calc(50% - 100px); bottom: calc(var(--floor-y) + 52px); }
 
 /* ── Scene ambiance ────────────────────────────────────────────────────── */
 /* Soft pastel light orbs drifting in the wall zone — gives the empty wall
