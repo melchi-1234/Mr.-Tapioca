@@ -274,6 +274,7 @@ const els = {
   mapBtn:               document.querySelector("#mapBtn"),
   mapClose:             document.querySelector("#mapClose"),
   mapPerkBanner:        document.querySelector("#mapPerkBanner"),
+  mapShopList:          document.querySelector("#mapShopList"),
   sheetBackdrop:        document.querySelector("#sheetBackdrop"),
   onboarding:           document.querySelector("#onboarding"),
   onboardImg:           document.querySelector("#onboardImg"),
@@ -2709,24 +2710,59 @@ function buildMap(lat, lng, real) {
   // Only pull real nearby shops when we actually have the user's location.
   if (!real) {
     setMapStatus("Turn on location to see real boba shops near you.");
+    renderShopList([]);
     return;
   }
   setMapStatus("Finding real boba spots near you…");
   fetchRealBobaShops(lat, lng)
     .then(shops => {
-      if (!shops.length) { setMapStatus("No boba spots listed within ~4 km — try a city area."); return; }
+      if (!shops.length) { setMapStatus("No boba spots listed within ~4 km — try a city area."); renderShopList([]); return; }
       setMapStatus("");
-      shops.slice(0, 60).forEach(shop => {
-        const dist = formatDistance(haversine(lat, lng, shop.lat, shop.lng));
-        L.marker([shop.lat, shop.lng], { icon: bobaPin("🧋", "") })
+      const items = shops.slice(0, 60).map(shop => {
+        const dist = haversine(lat, lng, shop.lat, shop.lng);
+        const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin("🧋", "") })
           .addTo(mapObj)
           .bindPopup(
             `<div class="map-pop-name">${escapeHtml(shop.name)}</div>` +
-            `<div class="map-pop-meta">${dist} away · real boba shop</div>`
+            `<div class="map-pop-meta">${formatDistance(dist)} away · real boba shop</div>`
           );
+        return { shop, dist, marker };
       });
+      renderShopList(items);
     })
     .catch(() => setMapStatus("Couldn't load nearby shops — close and reopen the map to retry."));
+}
+
+// Scannable list of the nearby real shops under the map; tapping one pans the map
+// to it and opens its popup.
+function renderShopList(items) {
+  const el = els.mapShopList;
+  if (!el) return;
+  if (!items || !items.length) { el.innerHTML = ""; el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  el.innerHTML =
+    `<div class="map-list-head">${items.length} boba spot${items.length !== 1 ? "s" : ""} nearby</div>` +
+    items.map((it, i) =>
+      `<button type="button" class="map-shop-item" data-i="${i}">` +
+        `<span class="map-shop-emoji">🧋</span>` +
+        `<span class="map-shop-text">` +
+          `<span class="map-shop-name">${escapeHtml(it.shop.name)}</span>` +
+          `<span class="map-shop-dist">${formatDistance(it.dist)} away</span>` +
+        `</span>` +
+        `<span class="map-shop-go" aria-hidden="true">›</span>` +
+      `</button>`
+    ).join("");
+  el.querySelectorAll(".map-shop-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const it = items[+btn.dataset.i];
+      if (!it) return;
+      playSfx("tap");
+      mapObj.setView([it.shop.lat, it.shop.lng], 17, { animate: true });
+      it.marker.openPopup();
+      const mapEl = document.querySelector("#map");
+      if (mapEl) mapEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  });
 }
 
 // ── First-run onboarding ──────────────────────────────────────────────────────
