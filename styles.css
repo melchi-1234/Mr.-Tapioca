@@ -379,6 +379,17 @@ body {
 .maker-img[data-state="sleeping"]{ animation: maker-sleep  3.6s ease-in-out infinite; }
 .maker-img[data-state="drinking"]{ animation: maker-drink  1.4s ease-in-out infinite; }
 .maker-img[data-state="shocked"] { animation: maker-shock  0.5s ease-out forwards; }
+/* Skins keep their real portrait while napping → a consistent "dozing" treatment
+   (gentle lean + slow breathing + slight dim) instead of off-model closed-eye art.
+   The base character uses its real eyes-closed Sleeping.png and is unaffected. */
+.scene.is-napping.skin-awake .maker-img {
+  animation: maker-doze 3.8s ease-in-out infinite;
+  filter: brightness(0.9) saturate(0.95);
+}
+@keyframes maker-doze {
+  0%, 100% { transform: rotate(-6deg) translateY(0); }
+  50%      { transform: rotate(-6deg) translateY(-3px); }
+}
 
 /* Idle: soft breathing, then a little hop with squash-and-stretch — reads as
    "alive" even though each skin is a single still image. */

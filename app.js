@@ -392,11 +392,13 @@ const SKIN_IMAGES = {
 // Mr. Tapioca as references, then sliced (see tools/slice-sheet.py). Keyed by
 // skin value → { mixing, sleeping, drinking }; any missing state falls back to
 // the skin's single portrait above.
-// skin value → per-state pose art. Only the SLEEPING pose is wired (the drawn
-// closed-eye art in assets/poses/ is on-model); mixing/idle keep the single
-// portrait + CSS motion to avoid the off-model "wrong-way" drift we saw before.
+// Skins keep their ONE real portrait for every state. The drawn per-skin "sleepy"
+// art in assets/poses/ was AI-generated separately and doesn't match the awake
+// portraits (e.g. the astronaut's helmet is totally different), so we DON'T swap to
+// it — instead skins get a consistent "dozing" CSS treatment (lean + breathe + dim +
+// zzz) while napping (see .is-napping.skin-awake in styles.css). The BASE character
+// still uses its real eyes-closed Sleeping.png (that one is on-model).
 const SKIN_POSES = {};
-Object.keys(SKIN_IMAGES).forEach((k) => { SKIN_POSES[k] = { sleeping: `assets/poses/${k}-sleepy.png` }; });
 
 // Every state uses a single high-res still image; bounce/stir/sleep motion
 // is driven by CSS keyframes that key off the img's data-state attribute.
