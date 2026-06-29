@@ -2435,8 +2435,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .game-score, .game-timer { font-size: 1.05rem; font-weight: 950; color: var(--bark); }
 .game-timer { font-variant-numeric: tabular-nums; }
 .game-quit-btn {
-  min-height: 30px;
-  padding: 0 12px;
+  min-height: 44px;            /* Apple 44px min tap target */
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 16px;
   border: 2px solid rgba(60,32,24,0.3);
   border-radius: 999px;
   background: rgba(253,245,236,0.9);
@@ -2770,6 +2771,8 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .plinko-controls { padding-bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px)); }
   .pong-hint { padding-bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px)); }
   .sheet-body { padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 24px)); }
+  /* Catch's on-screen arrows must clear the home indicator gesture zone. */
+  .catch-arrow { bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px)); }
 }
 
 /* Bottom-nav "Squad" people icon (matches the other CSS-mask icons) */

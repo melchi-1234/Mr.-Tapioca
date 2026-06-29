@@ -593,6 +593,17 @@ function loadState() {
     state.ambVolume   = av !== null ? clampVol01(readJSON("bobaFocusAmbVol", 0.5)) : 0.5;
     state.musicOn = state.musicVolume > 0;   // toggles are now derived from volume
     state.soundOn = state.sfxVolume > 0;
+    // Heal any non-finite / negative numbers from corrupt storage so the economy +
+    // timer arithmetic can never silently break (e.g. NaN pearls, NaN duration).
+    const num = (v, d, min = 0) => (typeof v === "number" && isFinite(v) && v >= min) ? v : d;
+    state.spent          = num(state.spent, 0);
+    state.bonusPearls    = num(state.bonusPearls, 0);
+    state.gamePearls     = num(state.gamePearls, 0);
+    state.freezes        = num(state.freezes, 0);
+    state.renames        = num(state.renames, 0);
+    state.elapsed        = num(state.elapsed, 0);
+    state.dailyGoal      = num(state.dailyGoal, 60, 1);
+    state.customDuration = num(state.customDuration, 30 * 60, 1);
   } catch (e) {
     console.warn("loadState failed — using defaults", e);
   }
@@ -1267,6 +1278,7 @@ function clearProgress() {
   state.unlockedBases = ["classic"];
   state.unlockedToppings = ["pearls"];
   state.gameDays = {};
+  state.renames = 0;          // pearls wiped → reset the name-change economy too
   renderCustomizeOptions();   // reflect the reset in the Customize sheet
   saveState();
   refreshMaker();
@@ -1494,8 +1506,11 @@ const FocusBlocker = {
     if (!p) { showToast("App blocking runs in the installed iPhone app 🧋"); return; }
     try { await p.pickApps(); } catch (e) {}
   },
-  async start() { const p = this.plugin(); if (p) { try { await p.startBlocking(); } catch (e) {} } },
-  async stop()  { const p = this.plugin(); if (p) { try { await p.stopBlocking();  } catch (e) {} } },
+  _want: false,
+  // _want tracks the DESIRED shield state so a slow native start() that resolves
+  // AFTER a stop() can't leave apps blocked once the session is over.
+  async start() { this._want = true;  const p = this.plugin(); if (!p) return; try { await p.startBlocking(); if (!this._want) await p.stopBlocking(); } catch (e) {} },
+  async stop()  { this._want = false; const p = this.plugin(); if (!p) return; try { await p.stopBlocking(); } catch (e) {} },
 };
 
 function startPause() {
@@ -1832,6 +1847,7 @@ function updateCustomDisplay() {
 let lastSheetTrigger = null;   // element to return focus to when a sheet closes
 
 function openSheet(id) {
+  clearInterval(squadPollId); squadPollId = null;   // stop squad polling when switching sheets
   lastSheetTrigger = document.activeElement;
   document.querySelectorAll(".sheet").forEach(s => s.classList.add("hidden"));
   const sheet = document.getElementById(id);
