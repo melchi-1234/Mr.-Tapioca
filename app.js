@@ -209,7 +209,9 @@ const state = {
   breakLastTick: null,
   breakMakerCycleId: null,
   spillPending: false,
-  bonusPearls: 0
+  bonusPearls: 0,
+  gamePearls: 0,         // cumulative pearls won from break games (for the "Break Champ" badge)
+  quests: null           // daily quests: { day, active:[{key,prog,done}], bonusClaimed }
 };
 
 const els = {
@@ -311,6 +313,8 @@ const els = {
   mapShopList:          document.querySelector("#mapShopList"),
   friendsBtn:           document.querySelector("#friendsBtn"),
   friendsClose:         document.querySelector("#friendsClose"),
+  questsBtn:            document.querySelector("#questsBtn"),
+  questsClose:          document.querySelector("#questsClose"),
   sheetBackdrop:        document.querySelector("#sheetBackdrop"),
   onboarding:           document.querySelector("#onboarding"),
   onboardImg:           document.querySelector("#onboardImg"),
@@ -519,6 +523,8 @@ function loadState() {
     state.owned       = readJSON("bobaFocusOwned",       []);
     state.spent       = readJSON("bobaFocusSpent",       0);
     state.bonusPearls = readJSON("bobaFocusBonusPearls", 0);
+    state.gamePearls  = readJSON("bobaFocusGamePearls", 0);
+    state.quests      = readJSON("bobaFocusQuests", null);
     if (!Array.isArray(state.collection)) state.collection = [];
     if (!Array.isArray(state.rewards))    state.rewards = [];
     if (!Array.isArray(state.owned))      state.owned = [];
@@ -611,6 +617,8 @@ function saveState() {
   localStorage.setItem("bobaFocusOwned",        JSON.stringify(state.owned));
   localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
+  localStorage.setItem("bobaFocusGamePearls",   JSON.stringify(state.gamePearls));
+  localStorage.setItem("bobaFocusQuests",       JSON.stringify(state.quests));
   localStorage.setItem("bobaFocusSkin",         state.skin);
   localStorage.setItem("bobaFocusName",         state.displayName || "");
   localStorage.setItem("bobaFocusFriends",      JSON.stringify(state.friends || []));
@@ -968,7 +976,7 @@ const BADGES = [
   { id: "master",      icon: "🎓", name: "Master Student", desc: "50 hours total",        test: () => totalMinutes() >= 3000 },
   { id: "stylish",     icon: "✨", name: "Stylish",        desc: "Equip a skin",          test: () => !!state.skin },
   { id: "decorator",   icon: "🏠", name: "Decorator",      desc: "Change the background",  test: () => state.shopTheme !== "cozy" },
-  { id: "break-champ", icon: "🎮", name: "Break Champ",    desc: "Win pearls in a game",  test: () => state.bonusPearls > 0 }
+  { id: "break-champ", icon: "🎮", name: "Break Champ",    desc: "Win pearls in a game",  test: () => (state.gamePearls || 0) > 0 }
 ];
 
 // Returns the number of newly-unlocked badges (so callers can stagger their own toasts)
@@ -1254,6 +1262,8 @@ function renderAll() {
   renderShelf();
   renderRewards();
   renderShop();
+  renderQuests();
+  updateQuestBadge();
 }
 
 let lastPersist = 0;
@@ -1424,6 +1434,11 @@ function completeSession() {
   state.rewards.unshift(reward);
   saveState();
   renderAll();
+  // Daily Quests: credit this completed focus session
+  bumpQuest("focusMin", minutes);
+  bumpQuest("sessions", 1);
+  bumpQuest("drinks", 1);
+  if (now.getHours() < 12) bumpQuest("earlyFocus", 1);
   sessionChime();
   haptic([14, 40, 24]);   // celebratory buzz pattern
   showReward(reward);
@@ -1879,6 +1894,7 @@ function gameLoop(ts) {
 function startPearlGame() {
   if (gameDoneToday("catch")) return;
   markGamePlayed("catch");
+  bumpQuest("gamesPlayed", 1);
   game.active = true;
   game.score = 0;
   game.caught = 0;
@@ -1912,9 +1928,13 @@ function endPearlGame() {
   // hit the cap with fewer catches — that's the skill payoff).
   const earned = Math.min(game.score, CATCH_CAP);   // daily bonus is capped
   state.bonusPearls += earned;
+  state.gamePearls += earned;
   saveState();
   renderAll();
   if (earned > 0) { checkBadges(true); pearlsWonFx(earned); }   // "Break Champ"
+  // Daily Quests: credit pearls caught + best combo this run
+  bumpQuest("catchPearls", game.caught);
+  bumpQuest("catchCombo", game.bestCombo);
   const capNote = game.score > CATCH_CAP ? ` (daily max +${CATCH_CAP})` : "";
   const grade = game.bestCombo >= 8 ? "Boba master! 🏆"
               : game.bestCombo >= 5 ? "Smooth catching! ✨"
@@ -2249,6 +2269,7 @@ function resolvePlinko(geo, x) {
   drawPlinkoPearl((slot + 0.5) * geo.slotW, geo.H - geo.slotH / 2);
   plinkoSlotPop(geo, slot, reward);   // kawaii burst over the winning slot
   state.bonusPearls += reward;
+  state.gamePearls += reward;
   saveState();
   renderAll();
   checkBadges(true);   // "Break Champ"
@@ -2299,7 +2320,7 @@ function plinkoSlotPop(geo, slot, reward) {
 function dropPearl() {
   if (plinko.dropping || plinko.playsLeft <= 0) return;
   plinko.dropping = true;
-  if (plinko.playsLeft === PLINKO_MAX_PLAYS) markGamePlayed("plinko");   // burn the day on first real drop
+  if (plinko.playsLeft === PLINKO_MAX_PLAYS) { markGamePlayed("plinko"); bumpQuest("gamesPlayed", 1); }   // burn the day on first real drop
   plinko.playsLeft--;
   els.plinkoDropBtn.disabled = true;
   els.plinkoResult.style.display = "none";
@@ -2830,6 +2851,7 @@ function setMapStatus(msg) {
 
 function openMap() {
   openSheet("mapSheet");
+  bumpQuest("mapOpen", 1);   // Daily Quest: peek at the boba map
   if (mapObj) { setTimeout(() => mapObj.invalidateSize(), 250); return; }
   setMapStatus("Loading the map…");
   ensureLeaflet()
@@ -3005,6 +3027,152 @@ function squadB64Encode(obj) {
 function squadB64Decode(str) {
   return JSON.parse(decodeURIComponent(escape(atob(str.replace(/-/g, "+").replace(/_/g, "/")))));
 }
+// ── DAILY QUESTS ─────────────────────────────────────────────────────────────
+// Three cozy challenges that refresh each local day (one focus, one make, one
+// play). Progress is tracked off existing events via bumpQuest(track, amount);
+// rewards auto-grant on completion (no claim step), and finishing all three pays
+// a bonus. Fully on-device — no backend.
+const QUEST_BONUS = 4;   // pearls for finishing all 3 in a day
+const QUEST_POOL = {
+  focus: [
+    { key: "focus25",  icon: "⏳", title: "Focus for 25 minutes",      target: 25, reward: 3, track: "focusMin",   unit: "m" },
+    { key: "focus45",  icon: "🕰️", title: "Focus for 45 minutes",      target: 45, reward: 5, track: "focusMin",   unit: "m" },
+    { key: "sessions2",icon: "🍵", title: "Finish 2 focus sessions",   target: 2,  reward: 4, track: "sessions" },
+    { key: "earlyBird",icon: "🌅", title: "Focus before noon",         target: 1,  reward: 3, track: "earlyFocus" },
+  ],
+  make: [
+    { key: "drink1",   icon: "🧋", title: "Complete a boba",           target: 1,  reward: 3, track: "drinks" },
+    { key: "drink2",   icon: "🧋", title: "Complete 2 bobas",          target: 2,  reward: 5, track: "drinks" },
+  ],
+  play: [
+    { key: "catch10",  icon: "🫧", title: "Catch 10 pearls",           target: 10, reward: 3, track: "catchPearls" },
+    { key: "combo5",   icon: "🔥", title: "Hit a 5× combo in Catch",   target: 5,  reward: 3, track: "catchCombo", mode: "max" },
+    { key: "pong2",    icon: "🥤", title: "Sink 2 cups in Cup Pong",   target: 2,  reward: 3, track: "pongMakes" },
+    { key: "playGame", icon: "🎮", title: "Play a break mini-game",    target: 1,  reward: 2, track: "gamesPlayed" },
+    { key: "map1",     icon: "🗺️", title: "Peek at the boba map",      target: 1,  reward: 2, track: "mapOpen" },
+  ],
+};
+const ALL_QUESTS = [...QUEST_POOL.focus, ...QUEST_POOL.make, ...QUEST_POOL.play];
+function questDef(key) { return ALL_QUESTS.find((q) => q.key === key); }
+function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// Make sure state.quests holds a valid set for TODAY; regenerate at midnight.
+function ensureTodayQuests() {
+  const today = localDateKey(new Date());
+  const q = state.quests;
+  // Validate shape too — a structurally-broken entry (missing prog/done) would
+  // otherwise produce NaN progress and a quest that can never complete.
+  const valid = q && q.day === today && Array.isArray(q.active) && q.active.length === 3
+    && q.active.every((a) => questDef(a.key) && Number.isFinite(a.prog) && typeof a.done === "boolean")
+    && typeof q.bonusClaimed === "boolean";
+  if (valid) { reconcileQuestBonus(); return; }
+  state.quests = {
+    day: today,
+    active: [pickOne(QUEST_POOL.focus), pickOne(QUEST_POOL.make), pickOne(QUEST_POOL.play)]
+              .map((def) => ({ key: def.key, prog: 0, done: false })),
+    bonusClaimed: false,
+  };
+  saveState();
+}
+
+// Defensive: if all three are done but the bonus was never paid (corrupt/migrated
+// storage, or a done-flag set outside onQuestComplete), pay it exactly once.
+function reconcileQuestBonus() {
+  const q = state.quests;
+  if (q && !q.bonusClaimed && q.active.length === 3 && q.active.every((a) => a.done)) {
+    q.bonusClaimed = true;
+    state.bonusPearls += QUEST_BONUS;
+    saveState();
+  }
+}
+
+// Advance any active quest tracking `track`. amount is added (or maxed for combo).
+function bumpQuest(track, amount = 1) {
+  if (!amount && amount !== 0) return;
+  ensureTodayQuests();
+  let completedAny = false;
+  for (const a of state.quests.active) {
+    const def = questDef(a.key);
+    if (!def || def.track !== track || a.done) continue;
+    if (def.mode === "max") a.prog = Math.max(a.prog, amount);
+    else a.prog = Math.min(def.target, a.prog + amount);
+    if (a.prog >= def.target) {
+      a.prog = def.target;
+      a.done = true;
+      completedAny = true;
+      onQuestComplete(def);
+    }
+  }
+  saveState();
+  if (completedAny) { renderAll(); }     // refresh pearl chip + quest panel
+  else { renderQuests(); updateQuestBadge(); }
+}
+
+function onQuestComplete(def) {
+  state.bonusPearls += def.reward;
+  playSfx("success"); haptic([12, 40, 18]);
+  pearlsWonFx(def.reward, false);        // pop the pearl chip (no toast)
+  showToast(`🎯 Quest done — ${def.title}! +${def.reward} 🫧`);
+  // All three finished today? Pay the bonus once.
+  if (!state.quests.bonusClaimed && state.quests.active.every((a) => a.done)) {
+    state.quests.bonusClaimed = true;
+    state.bonusPearls += QUEST_BONUS;
+    setTimeout(() => {
+      if (typeof celebrate === "function") celebrate();
+      playSfx("coin");
+      showToast(`✨ All daily quests done! +${QUEST_BONUS} 🫧 bonus`);
+    }, 900);
+  }
+}
+
+function questsRemaining() {
+  if (!state.quests || state.quests.day !== localDateKey(new Date())) return 3;
+  return state.quests.active.filter((a) => !a.done).length;
+}
+
+// Little count badge on the nav Quests pill.
+function updateQuestBadge() {
+  const badge = document.querySelector("#questBadge");
+  if (!badge) return;
+  const n = questsRemaining();
+  badge.textContent = String(n);
+  badge.classList.toggle("hidden", n === 0);
+}
+
+function renderQuests() {
+  const list = document.querySelector("#questsList");
+  if (!list) return;
+  ensureTodayQuests();
+  const allDone = state.quests.active.every((a) => a.done);
+  const cards = state.quests.active.map((a) => {
+    const def = questDef(a.key);
+    const pct = Math.min(100, Math.round((a.prog / def.target) * 100));
+    const sub = a.done ? "Done!" : `${a.prog} / ${def.target}${def.unit || ""}`;
+    return `<div class="quest-card${a.done ? " done" : ""}">` +
+      `<span class="quest-icon">${a.done ? "✅" : def.icon}</span>` +
+      `<span class="quest-info">` +
+        `<span class="quest-title">${escapeHtml(def.title)}</span>` +
+        `<span class="quest-track"><span class="quest-fill" style="width:${pct}%"></span></span>` +
+        `<span class="quest-sub">${sub}</span>` +
+      `</span>` +
+      `<span class="quest-reward${a.done ? " claimed" : ""}">+${def.reward} 🫧</span>` +
+    `</div>`;
+  }).join("");
+  const bonus = `<div class="quests-bonus${allDone ? " lit" : ""}">` +
+    (allDone
+      ? `✨ All done! +${QUEST_BONUS} 🫧 bonus claimed`
+      : `Finish all 3 today for a <strong>+${QUEST_BONUS} 🫧</strong> bonus`) +
+    `</div>`;
+  list.innerHTML = cards + bonus;
+}
+
+function openQuests() {
+  ensureTodayQuests();
+  renderQuests();
+  updateQuestBadge();
+  openSheet("questsSheet");
+}
+
 function myDisplayName() { return (state.displayName && state.displayName.trim()) || "You"; }
 // Live activity status for the Study Squad.
 function myStatusKey() {
@@ -3337,7 +3505,7 @@ function pongLaunch() {
 }
 
 function pongNextThrow(made) {
-  if (pong.throwsLeft === PONG_MAX_PLAYS) markGamePlayed("pong");   // burn the day on first real throw
+  if (pong.throwsLeft === PONG_MAX_PLAYS) { markGamePlayed("pong"); bumpQuest("gamesPlayed", 1); }   // burn the day on first real throw
   pong.throwsLeft = Math.max(0, pong.throwsLeft - 1);
   updatePongHUD();
   updatePongBtnState();
@@ -3400,6 +3568,7 @@ function pongLoop(ts) {
       p.x = pong.cupX; p.y = d.mouthY + 24; p.vx = 0; p.vy = 0;   // pearl sinks in
       pong.score++;
       state.bonusPearls += PONG_REWARD;
+      state.gamePearls += PONG_REWARD;
       saveState();
       updatePongHUD();
       playSfx("swish");
@@ -3540,6 +3709,7 @@ function endPong() {
   pong.active = false;
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   const s = pong.score;
+  if (s > 0) bumpQuest("pongMakes", s);   // Daily Quest: sink cups in Cup Pong
   els.pongResultEyebrow.textContent = s >= 4 ? "Sharp shooter!" : s >= 1 ? "Nice tossing!" : "Tough luck!";
   els.pongResultText.textContent = `You sank ${s} · +${s * PONG_REWARD} pearls`;
   els.pongResult.style.display = "flex";
@@ -3656,9 +3826,11 @@ function wireEvents() {
   els.settingsBtn.addEventListener("click",   () => { playSfx("open"); openSheet("settingsSheet"); });
   els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
   if (els.friendsBtn) els.friendsBtn.addEventListener("click", () => { playSfx("open"); openFriends(); });
+  if (els.questsBtn) els.questsBtn.addEventListener("click", () => { playSfx("open"); openQuests(); });
 
   // ── Study Squad controls ──────────────────────────────────────────────────
   if (els.friendsClose) els.friendsClose.addEventListener("click", closeSheets);
+  if (els.questsClose) els.questsClose.addEventListener("click", closeSheets);
   const squadShareBtn = document.querySelector("#squadShareBtn");
   if (squadShareBtn) squadShareBtn.addEventListener("click", shareSquadCode);
   const squadEditBtn = document.querySelector("#squadEditName");

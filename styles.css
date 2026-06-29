@@ -1181,6 +1181,27 @@ body {
 }
 .icon-pill:active { transform: scale(0.95); }
 .pill-label { font-size: 0.58rem; font-weight: 950; color: var(--bark); letter-spacing: 0.01em; }
+.icon-pill { position: relative; }
+
+/* Daily-quests nav icon: a little clipboard with a check */
+.nav-quest { border: 2.5px solid currentColor; border-radius: 6px; background: #ffd9b0; }
+.nav-quest::before {
+  content: ""; position: absolute; left: 8px; top: 5px;
+  width: 6px; height: 11px;
+  border: solid var(--teal); border-width: 0 3px 3px 0;
+  transform: rotate(40deg);
+}
+/* Count badge on the Quests pill (remaining quests today) */
+.nav-badge {
+  position: absolute; top: 1px; right: 5px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 999px; background: var(--rose); color: #fff;
+  font-size: 0.62rem; font-weight: 950;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--cream);
+  box-shadow: 0 1px 4px rgba(60,32,24,0.3);
+}
+.nav-badge.hidden { display: none; }
 
 /* Cute CSS icons for the bottom bar */
 .nav-icon {
@@ -2944,6 +2965,33 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .squad-pres-focusing { color: #2f9e6e; font-weight: 950; }   /* live: focusing */
 .squad-pres-break    { color: #d06fa0; font-weight: 950; }   /* live: on a break */
 .squad-pres-idle, .squad-pres-away { color: var(--bark-mid); }
+
+/* ── Daily Quests panel ────────────────────────────────────────────────── */
+.quests-intro { font-size: 0.82rem; font-weight: 800; color: var(--bark-mid); line-height: 1.45; margin: 0 0 14px; }
+.quests-list { display: flex; flex-direction: column; gap: 12px; }
+.quest-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 14px;
+  border: 2px solid var(--line); border-radius: 18px;
+  background: rgba(255,255,255,0.7);
+  transition: background 240ms ease, border-color 240ms ease;
+}
+.quest-card.done { background: var(--mint); border-color: var(--teal); }
+.quest-icon { font-size: 1.55rem; width: 34px; text-align: center; flex: none; }
+.quest-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.quest-title { font-size: 0.9rem; font-weight: 900; color: var(--bark); }
+.quest-track { height: 8px; border: 1.5px solid var(--line); border-radius: 999px; background: rgba(60,32,24,0.07); overflow: hidden; }
+.quest-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg,#f08aa0,#f0bb4f,#75c8bd); transition: width 420ms ease; }
+.quest-card.done .quest-fill { background: var(--teal); }
+.quest-sub { font-size: 0.68rem; font-weight: 850; color: var(--bark-mid); }
+.quest-reward { flex: none; font-size: 0.82rem; font-weight: 950; color: var(--bark); background: var(--gold); padding: 5px 9px; border-radius: 999px; white-space: nowrap; }
+.quest-reward.claimed { background: var(--teal); color: #fff; }
+.quests-bonus {
+  margin-top: 6px; text-align: center;
+  font-size: 0.8rem; font-weight: 850; color: var(--bark-mid);
+  padding: 12px; border: 2px dashed var(--line); border-radius: 16px;
+}
+.quests-bonus.lit { background: var(--mint); border-color: var(--teal); border-style: solid; color: var(--bark); }
 .squad-row-stats { flex-shrink: 0; font-size: 0.82rem; font-weight: 950; color: var(--bark); }
 .squad-remove {
   flex-shrink: 0; width: 26px; height: 26px; margin-left: 2px;

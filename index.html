@@ -209,6 +209,11 @@
 
       <!-- ── Bottom navigation bar ────────────────────────────────── -->
       <nav class="bottom-bar">
+        <button class="icon-pill" id="questsBtn" aria-label="Daily quests">
+          <span class="nav-icon nav-quest" aria-hidden="true"></span>
+          <span class="pill-label">Quests</span>
+          <span id="questBadge" class="nav-badge hidden">3</span>
+        </button>
         <button class="icon-pill" id="shopBtn" aria-label="Shop">
           <span class="nav-icon nav-bag" aria-hidden="true"></span>
           <span class="pill-label">Shop</span>
@@ -473,6 +478,19 @@
           </div>
           <div class="squad-board-head">🏆 Leaderboard</div>
           <div id="squadBoard" class="squad-board"></div>
+        </div>
+      </div>
+
+      <!-- ── Daily Quests ─────────────────────────────────────────── -->
+      <div id="questsSheet" class="sheet hidden" role="dialog" aria-label="Daily Quests" aria-modal="true">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+          <h2>🎯 Daily Quests</h2>
+          <button class="sheet-close" id="questsClose" aria-label="Close">✕</button>
+        </div>
+        <div class="sheet-body">
+          <p class="quests-intro">Three fresh challenges every day. Finish them for pearls — they reset at midnight. 🧋</p>
+          <div id="questsList" class="quests-list"></div>
         </div>
       </div>
 
