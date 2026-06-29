@@ -67,14 +67,18 @@
         <div id="pearlGame" class="pearl-game" style="display:none">
           <div class="game-hud">
             <span id="gameScore" class="game-score">⬡ 0</span>
-            <span id="gameTimer" class="game-timer">0:45</span>
+            <span id="gameTimer" class="game-timer">0:28</span>
             <button id="quitGameBtn" class="game-quit-btn">Quit</button>
           </div>
           <div id="gameArea" class="game-area">
-            <div id="gameCup" class="game-cup"></div>
+            <div id="gameCombo" class="game-combo" aria-hidden="true"></div>
+            <div id="gameCup" class="game-cup" aria-hidden="true">
+              <div class="cup-mouth"></div>
+              <div class="cup-body"><span class="cup-face">◡‿◡</span></div>
+            </div>
           </div>
           <div id="gameResult" class="game-result" style="display:none">
-            <p class="eyebrow">Time's up!</p>
+            <p class="eyebrow" id="gameResultEyebrow">Time's up!</p>
             <h3 id="gameResultText">You caught 0 pearls!</h3>
             <button id="gameCloseBtn" class="primary">Sweet!</button>
           </div>

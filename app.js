@@ -91,9 +91,26 @@ const UNLOCKS = [
   { minutes: 360, label: "Cheese foam" }
 ];
 
-const PEARL_SIZE = 20;
-const GAME_CUP_W = 72;
-const GAME_CUP_H = 88;
+const PEARL_SIZE = 26;        // bigger, reads as a real boba pearl
+const ICE_SIZE   = 30;        // junk to dodge — chunky ice cube
+const GAME_CUP_W = 104;       // wide cute bowl-cup (was a too-small 72px PNG)
+const GAME_CUP_H = 76;
+// Catch hitbox: only the OPEN MOUTH of the cup counts, inset from the rim so
+// the catch reads honestly (pearl must drop INTO the cup, not graze the edge).
+const CUP_CATCH_INSET = 12;   // px trimmed off each side of the visual width
+const CUP_LIP_Y       = 16;   // catch line sits at the rim, not the cup bottom
+
+// Catch tuning — a ~28s skill sprint, good run ≈ 10-18 catches (not 30+).
+const CATCH_DURATION  = 28;
+const CATCH_FALL_BASE = 300;  // px/s at t=0 (was 230)
+const CATCH_FALL_RAMP = 16;   // px/s added per elapsed second (was 5)
+const CATCH_SPAWN_BASE = 0.95;// s between spawns at start (was 0.8)
+const CATCH_SPAWN_MIN  = 0.50;// fastest spawn (was 0.42)
+const CATCH_SPAWN_RAMP = 0.018;// spawn tightening per second (was 0.008)
+const CATCH_CUP_SPEED  = 460;  // arrow-key px/s (was 360) — cup is wider, must keep up
+const GOLDEN_CHANCE = 0.12;    // golden pearl: worth 3, sparkles
+const ICE_CHANCE    = 0.16;    // ice cube: catching it breaks your combo
+const GOLDEN_VALUE  = 3;
 
 // Break games are a small once-per-day bonus, not a pearl farm (see CATCH_CAP,
 // gameDoneToday). Rewards are intentionally modest vs. honest focus earning.
@@ -130,19 +147,23 @@ const pong = {
 
 const game = {
   active: false,
-  score: 0,
-  timeLeft: 45,
+  score: 0,            // total pearl value caught (golden counts as GOLDEN_VALUE)
+  caught: 0,           // count of catches (for combo / "you caught N" copy)
+  combo: 0,            // current streak of consecutive catches
+  bestCombo: 0,
+  timeLeft: CATCH_DURATION,
   elapsed: 0,
   lastTime: null,
   spawnTimer: 0,
   pearls: [],
   cupX: 0,
-  cupSpeed: 360,
+  cupSpeed: CATCH_CUP_SPEED,
   animId: null,
   keysLeft: false,
   keysRight: false,
   touchStartX: 0,
-  touchStartCupX: 0
+  touchStartCupX: 0,
+  cupBumpUntil: 0      // ms timestamp: cup squash-pop animation end
 };
 
 const state = {
@@ -232,9 +253,11 @@ const els = {
   pearlGame:            document.querySelector("#pearlGame"),
   gameArea:             document.querySelector("#gameArea"),
   gameCup:              document.querySelector("#gameCup"),
+  gameCombo:            document.querySelector("#gameCombo"),
   gameScore:            document.querySelector("#gameScore"),
   gameTimer:            document.querySelector("#gameTimer"),
   gameResult:           document.querySelector("#gameResult"),
+  gameResultEyebrow:    document.querySelector("#gameResultEyebrow"),
   gameResultText:       document.querySelector("#gameResultText"),
   playGameBtn:          document.querySelector("#playGameBtn"),
   quitGameBtn:          document.querySelector("#quitGameBtn"),
@@ -1725,13 +1748,22 @@ function stopGame() {
 }
 
 function spawnPearl() {
-  const x = Math.random() * (els.gameArea.offsetWidth - PEARL_SIZE);
+  // Decide type: ice (dodge) > golden (bonus) > normal.
+  let kind = "normal";
+  const r = Math.random();
+  if (r < ICE_CHANCE) kind = "ice";
+  else if (r < ICE_CHANCE + GOLDEN_CHANCE) kind = "golden";
+
+  const size = kind === "ice" ? ICE_SIZE : PEARL_SIZE;
+  const x = Math.random() * (els.gameArea.offsetWidth - size);
   const el = document.createElement("div");
-  el.className = "falling-pearl";
+  el.className = "falling-pearl falling-" + kind;
+  el.style.width = size + "px";
+  el.style.height = size + "px";
   el.style.left = x + "px";
-  el.style.top = (-PEARL_SIZE) + "px";
+  el.style.top = (-size) + "px";
   els.gameArea.appendChild(el);
-  game.pearls.push({ el, x, y: -PEARL_SIZE });
+  game.pearls.push({ el, x, y: -size, size, kind });
 }
 
 function gameLoop(ts) {
@@ -1741,13 +1773,18 @@ function gameLoop(ts) {
   game.lastTime = ts;
   game.elapsed += dt;
 
-  // Difficulty ramps up: pearls fall faster and spawn more often over time
-  const fallSpeed = 230 + game.elapsed * 5;             // ~230 → ~450 px/s
-  const spawnInterval = Math.max(0.42, 0.8 - game.elapsed * 0.008);
+  // Difficulty ramps up: pearls fall faster and spawn more often over time.
+  // Faster base + steeper ramp keeps a good run honest (~10-18 catches, not 30+).
+  const fallSpeed = CATCH_FALL_BASE + game.elapsed * CATCH_FALL_RAMP;  // 300 → ~750 px/s
+  const spawnInterval = Math.max(CATCH_SPAWN_MIN, CATCH_SPAWN_BASE - game.elapsed * CATCH_SPAWN_RAMP);
 
   const areaW = els.gameArea.offsetWidth;
   const areaH = els.gameArea.offsetHeight;
-  const cupTop = areaH - GAME_CUP_H - 10;
+  // Catch line at the cup's RIM (its open mouth), not its base.
+  const cupRimY = areaH - GAME_CUP_H - 10 + CUP_LIP_Y;
+  // Honest hitbox: trim the rim so a pearl must fall INTO the mouth.
+  const catchL = game.cupX + CUP_CATCH_INSET;
+  const catchR = game.cupX + GAME_CUP_W - CUP_CATCH_INSET;
 
   if (game.keysLeft)  game.cupX = Math.max(0, game.cupX - game.cupSpeed * dt);
   if (game.keysRight) game.cupX = Math.min(areaW - GAME_CUP_W, game.cupX + game.cupSpeed * dt);
@@ -1755,31 +1792,55 @@ function gameLoop(ts) {
 
   const caught = [];
   const missed = [];
+  const cupFloorY = cupRimY + GAME_CUP_H;   // below the cup = unrecoverable miss
   for (const p of game.pearls) {
+    const prevBottom = p.y + p.size;
     p.y += fallSpeed * dt;
     p.el.style.top = Math.round(p.y) + "px";
-    if (p.y + PEARL_SIZE >= cupTop) {
-      const cx = p.x + PEARL_SIZE / 2;
-      if (cx >= game.cupX && cx <= game.cupX + GAME_CUP_W) {
-        caught.push(p);
-      } else if (p.y > areaH) {
-        missed.push(p);
-      }
-    } else if (p.y > areaH) {
-      missed.push(p);
+    const bottom = p.y + p.size;
+    const cx = p.x + p.size / 2;
+    // Crossed the rim line this frame (robust to big dt during frame stutter)
+    // and still above the cup floor → it lands IN the mouth if aligned.
+    if (prevBottom < cupRimY + 6 && bottom >= cupRimY && bottom <= cupFloorY) {
+      if (cx >= catchL && cx <= catchR) { caught.push(p); continue; }
     }
+    if (p.y > areaH) missed.push(p);
   }
 
-  for (const p of caught) p.el.remove();
   for (const p of missed) p.el.remove();
   if (caught.length || missed.length) {
     game.pearls = game.pearls.filter(p => !caught.includes(p) && !missed.includes(p));
   }
-  if (caught.length) {
-    game.score += caught.length;
-    els.gameScore.textContent = "⬡ " + game.score;
-    playSfx("blip");
+
+  // Resolve catches: pearls score, golden score more, ice penalises.
+  let gained = 0, gotGold = false, gotIce = false, gotPearl = false;
+  for (const p of caught) {
+    if (p.kind === "ice") {
+      gotIce = true;
+      game.combo = 0;                 // ice breaks the streak
+      pearlBurst(p, "ice");
+    } else {
+      const val = p.kind === "golden" ? GOLDEN_VALUE : 1;
+      gained += val;
+      game.caught += 1;
+      game.combo += 1;
+      game.bestCombo = Math.max(game.bestCombo, game.combo);
+      if (p.kind === "golden") gotGold = true; else gotPearl = true;
+      pearlBurst(p, p.kind);
+    }
+    p.el.remove();
   }
+  // A missed normal/golden pearl resets the combo (skill pressure); a missed ice is fine.
+  for (const p of missed) { if (p.kind !== "ice") game.combo = 0; }
+
+  if (gained > 0) {
+    game.score += gained;
+    els.gameScore.textContent = "⬡ " + game.score;
+    bumpCup();
+    if (gotGold) { playSfx("coin"); haptic(14); } else { playSfx("blip"); haptic(6); }
+    flashCombo();
+  }
+  if (gotIce) { playSfx("drop"); flashMiss(); haptic([8, 30, 8]); }
 
   game.spawnTimer += dt;
   if (game.spawnTimer >= spawnInterval) {
@@ -1803,15 +1864,19 @@ function startPearlGame() {
   markGamePlayed("catch");
   game.active = true;
   game.score = 0;
-  game.timeLeft = 45;
+  game.caught = 0;
+  game.combo = 0;
+  game.bestCombo = 0;
+  game.timeLeft = CATCH_DURATION;
   game.elapsed = 0;
   game.lastTime = null;
   game.spawnTimer = 0;
   game.pearls = [];
   game.keysLeft = false;
   game.keysRight = false;
+  game.cupBumpUntil = 0;
   els.gameScore.textContent = "⬡ 0";
-  els.gameTimer.textContent = "0:45";
+  els.gameTimer.textContent = "0:" + String(CATCH_DURATION).padStart(2, "0");
   els.gameResult.style.display = "none";
   els.pearlGame.style.display = "flex";
   // Show the overlay BEFORE measuring, or offsetWidth is 0 (display:none) and the
@@ -1826,14 +1891,57 @@ function endPearlGame() {
   game.active = false;
   for (const p of game.pearls) p.el.remove();
   game.pearls = [];
+  // Reward is the capped daily bonus, scaled by SCORE (golden pearls help you
+  // hit the cap with fewer catches — that's the skill payoff).
   const earned = Math.min(game.score, CATCH_CAP);   // daily bonus is capped
   state.bonusPearls += earned;
   saveState();
   renderAll();
   if (earned > 0) { checkBadges(true); pearlsWonFx(earned); }   // "Break Champ"
   const capNote = game.score > CATCH_CAP ? ` (daily max +${CATCH_CAP})` : "";
-  els.gameResultText.textContent = "You caught " + game.score + " pearl" + (game.score !== 1 ? "s" : "") + "! +" + earned + " to your stash" + capNote + ".";
+  const grade = game.bestCombo >= 8 ? "Boba master! 🏆"
+              : game.bestCombo >= 5 ? "Smooth catching! ✨"
+              : game.caught >= 1    ? "Nice run!" : "Maybe next time!";
+  els.gameResultEyebrow.textContent = grade;
+  els.gameResultText.textContent =
+    "You caught " + game.caught + " pearl" + (game.caught !== 1 ? "s" : "") +
+    " (best streak ×" + game.bestCombo + "). +" + earned + " to your stash" + capNote + ".";
   els.gameResult.style.display = "flex";
+}
+
+// ── Catch feel/juice helpers ──────────────────────────────────────────────
+// Squash-pop the cup when it catches something.
+function bumpCup() {
+  els.gameCup.classList.remove("cup-bump");
+  void els.gameCup.offsetWidth;            // restart the CSS animation
+  els.gameCup.classList.add("cup-bump");
+}
+// A little burst at the catch point: "+1" / "+3" / "ice!" floater + splash dots.
+function pearlBurst(p, kind) {
+  const area = els.gameArea;
+  const x = p.x + p.size / 2;
+  const y = p.y;
+  const tag = document.createElement("div");
+  tag.className = "catch-float catch-float-" + kind;
+  tag.textContent = kind === "ice" ? "brr!" : (kind === "golden" ? "+3" : "+1");
+  tag.style.left = x + "px";
+  tag.style.top  = y + "px";
+  area.appendChild(tag);
+  setTimeout(() => tag.remove(), 650);
+}
+// Flash the live combo counter when a streak is building.
+function flashCombo() {
+  if (game.combo < 2) { els.gameCombo.classList.remove("show"); return; }
+  els.gameCombo.textContent = "×" + game.combo + " combo!";
+  els.gameCombo.classList.remove("show");
+  void els.gameCombo.offsetWidth;
+  els.gameCombo.classList.add("show");
+}
+// Brief red vignette when ice is caught.
+function flashMiss() {
+  els.gameArea.classList.remove("area-flash");
+  void els.gameArea.offsetWidth;
+  els.gameArea.classList.add("area-flash");
 }
 
 // Leaving mid-session no longer spills the whole drink (long drinks are meant
