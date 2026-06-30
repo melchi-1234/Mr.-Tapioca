@@ -1603,8 +1603,16 @@ function tick() {
 // the web app keeps working unchanged; real app-blocking only happens once the
 // app is wrapped with Capacitor and the native plugin is present.
 const FocusBlocker = {
+  _plugin: null,
   plugin() {
-    return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FocusShield) || null;
+    if (this._plugin) return this._plugin;
+    const cap = window.Capacitor;
+    // Capacitor 6: a custom native plugin is obtained via registerPlugin() — the
+    // legacy Capacitor.Plugins.<name> map no longer auto-populates custom plugins.
+    if (cap && typeof cap.registerPlugin === "function") {
+      try { this._plugin = cap.registerPlugin("FocusShield"); return this._plugin; } catch (e) {}
+    }
+    return (cap && cap.Plugins && cap.Plugins.FocusShield) || null;   // legacy fallback
   },
   available() { return !!this.plugin(); },
   async requestAuthorization() {
@@ -4484,10 +4492,24 @@ if (!state.onboarded) showOnboarding();
 })();
 
 // ── PWA: register the service worker so the app installs + works offline ──────
+// ONLY on the web. Inside the native (Capacitor) app the SW is pure downside: it
+// caches app.js and can keep serving a stale copy across rebuilds, silently
+// breaking native-plugin wiring. So in the native app we skip it AND tear down
+// anything a previous build registered + clear its caches.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  });
+  const inNativeApp = !!(window.Capacitor &&
+    (typeof window.Capacitor.isNativePlatform === "function"
+      ? window.Capacitor.isNativePlatform()
+      : window.Capacitor.Plugins));
+  if (inNativeApp) {
+    navigator.serviceWorker.getRegistrations()
+      .then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+    if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {});
+  } else {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
 }
 
 // ── PWA install prompt (Android real prompt + iOS Add-to-Home-Screen hint) ───

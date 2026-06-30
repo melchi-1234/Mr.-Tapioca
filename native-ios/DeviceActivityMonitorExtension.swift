@@ -1,5 +1,6 @@
 import DeviceActivity
 import ManagedSettings
+import FamilyControls
 
 // Optional but recommended: lets blocking survive even if the main app is killed,
 // and enables scheduled blocks later. Lives in its own "Device Activity Monitor"

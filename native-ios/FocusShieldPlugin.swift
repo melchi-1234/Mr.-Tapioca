@@ -7,7 +7,17 @@ import SwiftUI
 // Goes in the MAIN app target. Requires the "Family Controls" capability +
 // the com.apple.developer.family-controls entitlement on this target.
 @objc(FocusShieldPlugin)
-public class FocusShieldPlugin: CAPPlugin {
+public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
+    // Capacitor 6 exposes a custom plugin to JS via these CAPBridgedPlugin members.
+    // The legacy FocusShieldPlugin.m CAP_PLUGIN macro alone does NOT register on v6.
+    public let identifier = "FocusShieldPlugin"
+    public let jsName = "FocusShield"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pickApps", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startBlocking", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopBlocking", returnType: CAPPluginReturnPromise),
+    ]
 
     private let store = ManagedSettingsStore()
 
