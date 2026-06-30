@@ -4524,10 +4524,18 @@ function isiOS() {
 function installDismissed() {
   return localStorage.getItem("bobaFocusInstallDismissed") === "1";
 }
+// Inside the native (Capacitor) app the "Add to Home Screen" hint is meaningless —
+// the app is already installed — so never show the install banner there.
+function isNativeApp() {
+  return !!(window.Capacitor &&
+    (typeof window.Capacitor.isNativePlatform === "function"
+      ? window.Capacitor.isNativePlatform()
+      : window.Capacitor.Plugins));
+}
 
 function showInstallBanner(kind) {
   if (!els.installBanner) return;
-  if (isStandalone() || installDismissed() || !state.onboarded) return;   // don't stack on the welcome tour
+  if (isNativeApp() || isStandalone() || installDismissed() || !state.onboarded) return;   // don't stack on the welcome tour
   if (kind === "ios") {
     els.installText.textContent = "Add to Home Screen: tap Share, then “Add to Home Screen.”";
     els.installBtn.style.display = "none";
