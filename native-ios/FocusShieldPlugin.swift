@@ -54,8 +54,14 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // Turn the shield ON for the current focus session.
     @objc func startBlocking(_ call: CAPPluginCall) {
-        applyShield(SharedSelection.load())
-        call.resolve()
+        let selection = SharedSelection.load()
+        // "active" is true only if the user actually picked apps/categories to block —
+        // the web app uses this to reward focusing WITH the shield up.
+        let active = !(selection.applicationTokens.isEmpty
+            && selection.categoryTokens.isEmpty
+            && selection.webDomainTokens.isEmpty)
+        if active { applyShield(selection) }
+        call.resolve(["active": active])
     }
 
     // Turn the shield OFF (session over / paused / break).

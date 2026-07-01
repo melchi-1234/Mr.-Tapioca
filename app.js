@@ -121,6 +121,7 @@ const GOLDEN_VALUE  = 3;
 // Break games are a small once-per-day bonus, not a pearl farm (see CATCH_CAP,
 // gameDoneToday). Rewards are intentionally modest vs. honest focus earning.
 const SLOT_REWARDS = [5, 3, 1, 1, 1, 3, 5];   // edges rare & rewarding, center likely & small
+const REWARD_UNBLOCKED_FRACTION = 0.5;        // native focus with NO apps blocked earns half pearls (web = full)
 // Designed landing odds (NOT raw physics): the old peg geometry actually funneled
 // pearls to the high edges (paying ~9.4/day). We now pick a slot from this cozy
 // bell curve and steer the pearl there → edges ~7-9%, center ~20%, ~6.2/day avg.
@@ -213,6 +214,7 @@ const state = {
   breakMakerCycleId: null,
   spillPending: false,
   bonusPearls: 0,
+  blockPenalty: 0,       // pearls withheld for completing native focus sessions with no apps blocked
   gamePearls: 0,         // cumulative pearls won from break games (for the "Break Champ" badge)
   quests: null,          // daily quests: { day, active:[{key,prog,done}], bonusClaimed }
   freezes: 0,            // Streak Freeze consumables owned
@@ -642,6 +644,7 @@ function loadState() {
     state.owned       = readJSON("bobaFocusOwned",       []);
     state.spent       = readJSON("bobaFocusSpent",       0);
     state.bonusPearls = readJSON("bobaFocusBonusPearls", 0);
+    state.blockPenalty = readJSON("bobaFocusBlockPenalty", 0);
     state.gamePearls  = readJSON("bobaFocusGamePearls", 0);
     state.quests      = readJSON("bobaFocusQuests", null);
     state.freezes     = readJSON("bobaFocusFreezes", 0);
@@ -706,6 +709,7 @@ function loadState() {
     const num = (v, d, min = 0) => (typeof v === "number" && isFinite(v) && v >= min) ? v : d;
     state.spent          = num(state.spent, 0);
     state.bonusPearls    = num(state.bonusPearls, 0);
+    state.blockPenalty   = num(state.blockPenalty, 0);
     state.gamePearls     = num(state.gamePearls, 0);
     state.freezes        = num(state.freezes, 0);
     state.renames        = num(state.renames, 0);
@@ -751,6 +755,7 @@ function saveState() {
   localStorage.setItem("bobaFocusOwned",        JSON.stringify(state.owned));
   localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
+  localStorage.setItem("bobaFocusBlockPenalty", JSON.stringify(state.blockPenalty));
   localStorage.setItem("bobaFocusGamePearls",   JSON.stringify(state.gamePearls));
   localStorage.setItem("bobaFocusQuests",       JSON.stringify(state.quests));
   localStorage.setItem("bobaFocusFreezes",      JSON.stringify(state.freezes));
@@ -853,7 +858,7 @@ function modeLabel() {
 }
 
 function currentPearls() {
-  return Math.floor(totalMinutes() / 15) + state.bonusPearls - state.spent;
+  return Math.floor(totalMinutes() / 15) + state.bonusPearls - state.spent - state.blockPenalty;
 }
 
 function speechForState() {
@@ -1374,6 +1379,7 @@ function clearProgress() {
   state.owned = [];
   state.spent = 0;
   state.bonusPearls = 0;
+  state.blockPenalty = 0;
   state.gamePearls = 0;
   state.freezes = 0;
   state.frozenDays = [];
@@ -1625,10 +1631,20 @@ const FocusBlocker = {
     try { await p.pickApps(); } catch (e) {}
   },
   _want: false,
+  _active: false,   // did the native shield actually engage (real apps picked) this session?
   // _want tracks the DESIRED shield state so a slow native start() that resolves
   // AFTER a stop() can't leave apps blocked once the session is over.
-  async start() { this._want = true;  const p = this.plugin(); if (!p) return; try { await p.startBlocking(); if (!this._want) await p.stopBlocking(); } catch (e) {} },
-  async stop()  { this._want = false; const p = this.plugin(); if (!p) return; try { await p.stopBlocking(); } catch (e) {} },
+  async start() {
+    this._want = true;
+    const p = this.plugin(); if (!p) { this._active = false; return; }
+    try {
+      const r = await p.startBlocking();      // native returns { active } — true only if apps were picked
+      this._active = !!(r && r.active) && this._want;
+      if (!this._want) await p.stopBlocking();
+    } catch (e) { this._active = false; }
+  },
+  async stop()  { this._want = false; this._active = false; const p = this.plugin(); if (!p) return; try { await p.stopBlocking(); } catch (e) {} },
+  wasActive() { return this._active; },   // was a real shield up during this focus session?
 };
 
 function startPause() {
@@ -1641,6 +1657,7 @@ function startPause() {
   state.running = !state.running;
   state.lastTick = state.running ? Date.now() : null;
   updateCup();
+  refreshSessionChrome();     // hide/show the daily-goal pill as the session starts/pauses
 
   if (state.running) {
     walkToCupAndMix();        // glide over to the cup, then mix
@@ -1691,6 +1708,9 @@ function completeSession() {
   // Idempotency guard: once banked, elapsed is 0 and we're not running, so a
   // second call (e.g. reload mid-reward-dialog then re-press) can't double-bank.
   if (state.elapsed <= 0 && !state.running) return;
+  // Capture whether a real app-shield was up THIS session before we lift it below.
+  // On the web build blocking is impossible, so treat web as "full" (never penalized).
+  const wasBlocked = FocusBlocker.available() ? FocusBlocker.wasActive() : true;
   stopTicker();
   stopAmbience();
   stopMusic();
@@ -1716,9 +1736,19 @@ function completeSession() {
     dateKey: localDateKey(now)
   };
 
-  // Pearls are floor(totalMinutes/15); show how many THIS drink added
+  // Pearls are floor(totalMinutes/15). Scale by whether apps were blocked: full when a
+  // shield was up (or on web, where blocking isn't possible), half when a native user
+  // chose NOT to block — a nudge to actually use the blocker. Any completed session
+  // earns at least 1 pearl (so a 5-min Tasting Cup never shows a deflating "+0").
   const oldTotal = totalMinutes();
-  const pearlsEarned = Math.floor((oldTotal + minutes) / 15) - Math.floor(oldTotal / 15);
+  const fullPearls = Math.floor((oldTotal + minutes) / 15) - Math.floor(oldTotal / 15);
+  const pearlsEarned = Math.max(1, Math.ceil(fullPearls * (wasBlocked ? 1 : REWARD_UNBLOCKED_FRACTION)));
+  // Reconcile against the minutes-derived balance (currentPearls): bank a top-up
+  // (the min-1 guarantee) as bonus pearls, or withhold the unblocked shortfall as a
+  // persistent penalty that currentPearls() subtracts.
+  const pearlDelta = pearlsEarned - fullPearls;
+  if (pearlDelta > 0) state.bonusPearls += pearlDelta;
+  else if (pearlDelta < 0) state.blockPenalty += -pearlDelta;
 
   // Did this drink push today across the daily goal?
   const goalWasUnmet = todayMinutes() < state.dailyGoal;
@@ -1883,44 +1913,30 @@ function updatePhaseUI() {
   els.breakOffer.classList.toggle("hidden", !isOffer);
   els.breakRunningPanel.classList.toggle("hidden", !isBreak);
 
+  refreshSessionChrome();
   updateBreakDisplay();
 }
 
-function scheduleMakerBreakCycle() {
-  // Break loop: nap in the bed → occasionally climb out, wander the rug, then
-  // return to bed and nap again. (.maker-up lowers him onto the rug to walk.)
-  const scene = els.shopScene;
-  const next = (fn, ms) => { state.breakMakerCycleId = setTimeout(fn, ms); };
+// Declutter: while a focus session is actively running OR during a break, hide
+// non-essential chrome (the floating daily-goal pill, which otherwise collides
+// with the speech bubble on short phones). Everything returns when idle/paused.
+function refreshSessionChrome() {
+  const on = state.running || state.phase === "break";
+  els.shopScene.classList.toggle("is-session", on);
+  // The daily-goal pill lives on .scene-wrap (sibling of .scene), so mark that too.
+  if (els.shopScene.parentElement) els.shopScene.parentElement.classList.toggle("is-session", on);
+}
 
-  function nap() {
-    scene.classList.remove("maker-up");
-    setWalk(0);
-    setMakerState("sleeping");
-    next(getUp, 9000 + Math.random() * 7000);   // nap 9–16s
-  }
-  function getUp() {
-    if (prefersReducedMotion()) { next(nap, 12000); return; }  // calm users: just keep napping
-    scene.classList.add("maker-up");
-    setMakerState("walking");
-    setWalk(-50);                                // step out of bed to the left
-    next(() => pace(0), WALK_MS);
-  }
-  const route = [50, -42, 28];
-  function pace(i) {
-    if (i >= route.length) { backToBed(); return; }
-    setMakerState("walking");
-    setWalk(route[i]);
-    next(() => {
-      setMakerState("idle");                     // pause + look around
-      next(() => pace(i + 1), 1300 + Math.random() * 1100);
-    }, WALK_MS);
-  }
-  function backToBed() {
-    setMakerState("walking");
-    setWalk(0);                                  // walk back to the bed
-    next(nap, WALK_MS);
-  }
-  nap();
+function scheduleMakerBreakCycle() {
+  // Break = rest. He simply naps in the bed and breathes (via @keyframes maker-sleep).
+  // No pacing/walking on break: with no real walk-cycle frames wired up, walking only
+  // ever rendered as a stiff side-to-side "waddle" of the standing portrait, and
+  // wandering off the bed made the scene feel busy. Calm and asleep reads far better.
+  clearTimeout(state.breakMakerCycleId);
+  state.breakMakerCycleId = null;
+  els.shopScene.classList.remove("maker-up");
+  setWalk(0);
+  setMakerState("sleeping");
 }
 
 function setMode(mode) {
@@ -3644,7 +3660,7 @@ function editSquadName() {
     state.displayName = n;
     saveState(); renderSquad(); updateStats();
     playSfx("success"); haptic(10);
-    showToast(`Nice to meet you, ${escapeHtml(n)}! 🧋`);
+    showToast(`Nice to meet you, ${n}! 🧋`);
     return;
   }
 
@@ -3666,7 +3682,7 @@ function editSquadName() {
     state.renames = 1;
     saveState(); renderSquad(); updateStats();
     playSfx("coin"); haptic(14);
-    showToast(`Renamed to ${escapeHtml(n)} · −${RENAME_PEARL_COST} 🫧 ✨`);
+    showToast(`Renamed to ${n} · −${RENAME_PEARL_COST} 🫧 ✨`);
     return;
   }
 

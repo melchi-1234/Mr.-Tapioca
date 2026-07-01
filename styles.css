@@ -326,41 +326,40 @@ body {
 .scene.is-on-break .cup-stage,
 .scene.is-on-break .work-counter { display: none; }
 
-/* A rug grounds the nook so the bed + character rest ON a surface (not floating). */
+/* A rug that STRADDLES the floor line (bottom just below --floor-y) so the bed +
+   character read as resting on the floor, not hovering above it. Soft contact
+   shadow instead of a crisp border sells the ground contact. */
 .break-rug {
   position: absolute;
-  left: calc(50% - 145px);
-  bottom: calc(var(--floor-y) + 26px);
-  width: 290px; height: 40px;
+  left: calc(50% - 150px);
+  bottom: calc(var(--floor-y) - 6px);
+  width: 300px; height: 34px;
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 42%, #f4ddef 0%, #e7cae2 60%, #d6b4d1 100%);
-  border: 2.5px solid rgba(80,55,90,0.16);
-  box-shadow: 0 5px 11px rgba(60,32,24,0.12);
+  box-shadow: 0 3px 10px rgba(60,32,24,0.22), inset 0 1px 0 rgba(255,255,255,0.35);
   z-index: 3; display: none; pointer-events: none;
 }
 .scene.is-on-break .break-rug { display: block; }
 
-/* Cozy nap bed, resting its legs on the rug. */
+/* Cozy nap bed. Bed.png has NO transparent bottom padding, so it's seated low
+   (legs on the rug's near edge) with a tight contact shadow — no more floating. */
 .break-bed {
   position: absolute;
   left: calc(50% - 120px);
-  bottom: calc(var(--floor-y) + 40px);
+  bottom: calc(var(--floor-y) + 12px);
   width: 240px; height: auto;
   z-index: 4;
   display: none;
   pointer-events: none;
-  filter: drop-shadow(0 4px 6px rgba(60,32,24,0.16));
+  filter: drop-shadow(0 3px 3px rgba(60,32,24,0.28));
 }
 .scene.is-on-break .break-bed { display: block; }
 
-/* Character: nestled IN the bed by default; .maker-up lowers him onto the rug to
-   wander. Bottom transitions so climbing out / back in animates smoothly. */
+/* Character simply naps IN the bed on break (no walking/pacing anymore). */
 .scene.is-on-break .maker-wrap {
   left: calc(50% - 100px);
-  bottom: calc(var(--floor-y) + 66px);
-  transition: transform 1050ms cubic-bezier(0.45, 0.05, 0.35, 1), bottom 650ms ease;
+  bottom: calc(var(--floor-y) + 46px);
 }
-.scene.is-on-break.maker-up .maker-wrap { bottom: calc(var(--floor-y) + 32px); }
 
 /* ── Scene ambiance ────────────────────────────────────────────────────── */
 /* Soft pastel light orbs drifting in the wall zone — gives the empty wall
@@ -643,11 +642,11 @@ body {
 /* Sleepy z's near the maker's head during a break */
 .break-zzz {
   right: auto;
-  left: 118px;
-  bottom: calc(var(--floor-y) + 196px);
+  left: calc(50% + 24px);          /* track the CENTERED nook (was pinned at 118px) so it stays by his head */
+  bottom: calc(var(--floor-y) + 180px);
   display: flex;
   gap: 4px;
-  z-index: 10;
+  z-index: 9;                      /* above the mascot, below the break panel (z-index:10) */
 }
 /* The base nap art (Sleeping.png) has zzz drawn in; show the floating zzz only for
    SKINS (their sleepy art has none) and only while he's actually napping. */
@@ -856,6 +855,9 @@ body {
 }
 
 /* ── Daily goal progress pill (under the top HUD) ───────────────────────── */
+/* Declutter: hidden while a focus session runs or during a break (it otherwise
+   collides with the speech bubble on short phones). Returns when idle/paused. */
+.scene-wrap.is-session .daily-goal { display: none; }
 .daily-goal {
   position: absolute;
   top: 108px;   /* clears the top-HUD pills; env()-aware override below for notches */
@@ -993,7 +995,9 @@ body {
 /* ── Focus controls overlay ─────────────────────────────────────────────── */
 .focus-controls {
   position: absolute;
-  bottom: 108px; left: 0; right: 0;
+  /* add the home-indicator inset so the Reset link clears the bottom nav (which
+     grows with safe-area) on notched iPhones — otherwise the nav covered it. */
+  bottom: calc(108px + env(safe-area-inset-bottom)); left: 0; right: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -3111,7 +3115,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .cup-stage { width: 112px; height: 150px; top: -100px; }
   .work-counter { height: 72px; }
   .daily-goal { top: max(104px, calc(env(safe-area-inset-top) + 64px)); }
-  .focus-controls { bottom: 90px; gap: 7px; }
+  .focus-controls { bottom: calc(90px + env(safe-area-inset-bottom)); gap: 7px; }
   .timer-card { padding: 10px 18px 8px; }
   .timer-time { font-size: 2.4rem; }
   .start-btn { padding: 13px 28px; }
