@@ -375,6 +375,11 @@
           </div>
 
           <div class="settings-row">
+            <span class="settings-row-label">🎯 Feature tour <small>what every button does</small></span>
+            <button id="featureTourBtn" class="settings-action-btn">Show me</button>
+          </div>
+
+          <div class="settings-row">
             <span class="settings-row-label">🧹 Clear progress <small>wipe shelf, treats &amp; pearls</small></span>
             <button id="clearProgressBtn" class="settings-action-btn danger">Clear</button>
           </div>
@@ -535,6 +540,22 @@
       <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
 
       <!-- ── First-run onboarding ─────────────────────────────────── -->
+      <!-- ── Feature tour (spotlight coach marks) ─────────────────────── -->
+      <div id="coachTour" class="coach-overlay hidden" role="dialog" aria-modal="true" aria-label="Feature tour">
+        <div id="coachHole" class="coach-hole"></div>
+        <div id="coachTip" class="coach-tip">
+          <h3 id="coachTitle"></h3>
+          <p id="coachText"></p>
+          <div class="coach-foot">
+            <div id="coachDots" class="coach-dots" aria-hidden="true"></div>
+            <div class="coach-btns">
+              <button id="coachSkip" type="button" class="coach-skip">Skip</button>
+              <button id="coachNext" type="button" class="coach-next">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="onboarding" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Welcome">
         <div class="onboard-card">
           <button id="onboardSkip" class="onboard-skip">Skip</button>
@@ -594,8 +615,9 @@
         </div>
         <div id="partnerReward" class="partner"></div>
         <form method="dialog" class="dialog-actions">
-          <button id="saveRewardBtn" class="primary" value="save">Save to Treat Jar</button>
-          <button class="quiet" value="close">Close</button>
+          <!-- The drink + reward are already banked by completeSession(); this
+               just celebrates and closes (two identical-outcome buttons confused). -->
+          <button id="saveRewardBtn" class="primary" value="save">Sweet! Saved to my Treat Jar 🧋</button>
         </form>
       </div>
     </dialog>

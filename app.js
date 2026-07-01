@@ -3945,7 +3945,117 @@ function finishOnboarding() {
   localStorage.setItem("bobaFocusOnboarded", "true");
   playSfx("success");
   haptic(10);
+  // First-run only: after the story intro, walk through what every button does.
+  if (!localStorage.getItem("bobaFocusTourDone")) setTimeout(startFeatureTour, 700);
 }
+
+// ── Feature tour: spotlight coach marks over the real UI ─────────────────────
+// Dims the app and highlights one control at a time with a short explanation.
+// Auto-runs once after onboarding; replayable from Settings → Feature tour.
+const TOUR_STEPS = [
+  { sel: null, title: "Welcome to your boba shop! 🧋",
+    text: "Quick tour of what everything does? Takes 30 seconds. You can replay it anytime from Settings." },
+  { sel: [".size-picker"], title: "Pick a drink size",
+    text: "Taste is 5 minutes, Small is 2 hours, Large is 6. Custom sets any length. Bigger drinks earn bigger rewards, and you can finish them across multiple sittings." },
+  { sel: ["#startPauseBtn"], title: "Start focusing",
+    text: "Mr. Tapioca starts mixing your boba while you work. The cup fills as you focus." },
+  { sel: [".pearl-chip"], title: "Tapioca pearls",
+    text: "Your currency. Every 15 focused minutes earns a pearl. On iPhone, blocking your distracting apps earns the full amount." },
+  { sel: ["#questsBtn"], title: "Daily quests",
+    text: "Three small goals a day for bonus pearls. Clear all three for an extra bonus." },
+  { sel: ["#shopBtn"], title: "The Shop",
+    text: "Spend pearls on character skins and shop backgrounds. A couple of fancy ones are premium." },
+  { sel: ["#customizeBtn"], title: "Customize your drink",
+    text: "Change the tea base and toppings. New flavors unlock with pearls." },
+  { sel: ["#mapBtn"], title: "Boba map",
+    text: "Real bubble-tea shops near you. Finished drinks will earn real perks at partner shops." },
+  { sel: ["#friendsBtn"], title: "Study Squad",
+    text: "Swap invite codes with friends and see each other focusing live." },
+  { sel: ["#settingsBtn"], title: "Settings, the important one ⭐",
+    text: "This is where you choose apps to BLOCK during focus sessions (the whole point!). Also sounds, your name, and this tour." },
+];
+let tourStep = 0;
+let tourOn = false;
+
+function startFeatureTour() {
+  closeSheets();
+  const dlg = document.querySelector("#rewardDialog");
+  if (dlg && dlg.open) dlg.close();
+  tourOn = true;
+  tourStep = 0;
+  document.querySelector("#coachTour").classList.remove("hidden");
+  renderTourStep();
+  playSfx("open");
+}
+
+function endFeatureTour(done) {
+  tourOn = false;
+  document.querySelector("#coachTour").classList.add("hidden");
+  localStorage.setItem("bobaFocusTourDone", "1");
+  playSfx(done ? "success" : "tap");
+  if (done) haptic(10);
+}
+
+function renderTourStep() {
+  const s = TOUR_STEPS[tourStep];
+  const overlay = document.querySelector("#coachTour");
+  const hole = document.querySelector("#coachHole");
+  const tip = document.querySelector("#coachTip");
+  const oRect = overlay.getBoundingClientRect();
+
+  let target = null;
+  if (s.sel) for (const q of s.sel) { target = document.querySelector(q); if (target) break; }
+
+  // The hole's giant box-shadow does the dimming. With no target (welcome card)
+  // we shrink it to a point mid-screen so the shadow still dims everything.
+  const pad = 8;
+  if (target) {
+    const r = target.getBoundingClientRect();
+    hole.style.left = (r.left - oRect.left - pad) + "px";
+    hole.style.top = (r.top - oRect.top - pad) + "px";
+    hole.style.width = (r.width + pad * 2) + "px";
+    hole.style.height = (r.height + pad * 2) + "px";
+    hole.classList.add("lit");
+  } else {
+    hole.style.left = "50%";
+    hole.style.top = "40%";
+    hole.style.width = "0px";
+    hole.style.height = "0px";
+    hole.classList.remove("lit");
+  }
+
+  document.querySelector("#coachTitle").textContent = s.title;
+  document.querySelector("#coachText").textContent = s.text;
+  document.querySelector("#coachDots").innerHTML =
+    TOUR_STEPS.map((_, i) => `<span class="coach-dot${i === tourStep ? " on" : ""}"></span>`).join("");
+  document.querySelector("#coachNext").textContent =
+    tourStep >= TOUR_STEPS.length - 1 ? "Done 🧋" : "Next";
+
+  // Place the card above or below the spotlight, clamped inside the overlay.
+  requestAnimationFrame(() => {
+    const th = tip.offsetHeight, tw = tip.offsetWidth;
+    let top;
+    if (!target) {
+      top = (oRect.height - th) / 2;
+    } else {
+      const r = target.getBoundingClientRect();
+      const holeTop = r.top - oRect.top, holeBot = holeTop + r.height;
+      top = (holeTop > oRect.height / 2) ? holeTop - th - 20 : holeBot + 20;
+      top = Math.max(12, Math.min(top, oRect.height - th - 12));
+    }
+    tip.style.top = top + "px";
+    tip.style.left = Math.max(12, (oRect.width - tw) / 2) + "px";
+  });
+}
+
+document.querySelector("#coachNext").addEventListener("click", () => {
+  if (tourStep >= TOUR_STEPS.length - 1) { endFeatureTour(true); return; }
+  tourStep++;
+  renderTourStep();
+  playSfx("select");
+});
+document.querySelector("#coachSkip").addEventListener("click", () => endFeatureTour(false));
+window.addEventListener("resize", () => { if (tourOn) renderTourStep(); });
 
 // ── Cup Pong: flick a pearl into the cup (GamePigeon-style, projectile arc) ───
 function pongDims() {
@@ -4410,6 +4520,11 @@ function wireEvents() {
     // For normal users it just replays the slides (name stays; no free-rename loophole).
     if (state.devMode) { state.displayName = ""; state.renames = 0; state.onboarded = false; saveState(); }
     closeSheets(); showOnboarding();
+  });
+  const featureTourBtn = document.querySelector("#featureTourBtn");
+  if (featureTourBtn) featureTourBtn.addEventListener("click", () => {
+    playSfx("tap");
+    setTimeout(startFeatureTour, 200);   // let the sheet close first so targets are visible
   });
   els.clearProgressBtn.addEventListener("click", clearProgress);
 

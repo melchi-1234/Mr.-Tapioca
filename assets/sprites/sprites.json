@@ -5,6 +5,8 @@
   "defaults": { "fps": 10, "loop": true },
   "skins": {
     "base": {
+      "idle":     { "sheet": "base/idle.png",     "frames": 4, "fps": 2 },
+      "mixing":   { "sheet": "base/mixing.png",   "frames": 4, "fps": 5 },
       "sleeping": { "sheet": "base/sleeping.png", "frames": 4, "fps": 2.5 }
     }
   }
