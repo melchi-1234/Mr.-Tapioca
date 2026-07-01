@@ -1,4 +1,4 @@
-# Mr. Tapioca — Manual Outreach (Instagram / phone / in-person)
+# Mr. Tapioca: Manual Outreach (Instagram / phone / in-person)
 
 Shops without a public email. Copy-paste the DM, tweak the first line if you
 learn something new, send from your own IG/phone, then mark them in

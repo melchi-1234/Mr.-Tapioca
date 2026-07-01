@@ -1,4 +1,4 @@
-# Mr. Tapioca — Boba Shop Outreach
+# Mr. Tapioca: Boba Shop Outreach
 
 Copy, fill in the `[brackets]`, send from your own email. Shortest possible
 version of the pitch: students earn a boba reward by actually studying, and
