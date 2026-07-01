@@ -52,6 +52,16 @@ while I'm there either way.
 Melchi
 [Phone] · [Email]
 
+> **Shop not in Ithaca?** (You're tied to Ithaca right now with the research
+> position, so anything outside walking distance — like the Oʻahu list —
+> gets the remote ask instead:)
+> - The ask: *"Could I show you the app over a quick 10-minute video call
+>   this week? Whatever time works around your rushes."*
+> - Drop "I'll buy a drink while I'm there" unless it's true. For hometown
+>   shops, *"first drink's on me next time I'm home"* works and is honest.
+> - Opener still needs a real line — for home-turf shops, something like
+>   *"your shop was my study spot every summer"* beats anything generic.
+
 ---
 
 ## 2. The short version (owners who skim / DMs)
@@ -73,7 +83,8 @@ Hi [Name] — bumping this in case it got buried.
 
 Short version: free to join, you choose the reward, and my study app sends
 students who just earned a boba to your shop. Happy to come by during a slow
-hour and show you in person.
+hour and show you in person *(remote shops: "happy to do a quick call
+whenever's slow on your end")*.
 
 Even a "not interested" is genuinely helpful — thanks either way!
 
@@ -88,11 +99,13 @@ Melchi
 Hi [Name] — I won't keep filling your inbox after this one.
 
 If a free way to get studying students into [Shop Name] sounds interesting,
-I'd still love to show you the app — 10 minutes, I'll come to you. If the
-timing's just bad, reply "later" and I'll check back in a couple months.
-And if it's a no, no hard feelings.
+I'd still love to show you the app — 10 minutes, I'll come to you *(remote:
+"a 10-minute call, whenever suits you")*. If the timing's just bad, reply
+"later" and I'll check back in a couple months. And if it's a no, no hard
+feelings.
 
-Either way I'll still be in for my usual. 🧋
+Either way I'll still be in for my usual. 🧋 *(local shops only — drop this
+line if you've never actually ordered there)*
 
 Melchi
 [Phone]
