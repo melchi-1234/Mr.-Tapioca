@@ -1,111 +1,125 @@
-# Mr. Tapioca — Boba Shop Outreach Kit
+# Mr. Tapioca — Boba Shop Outreach
 
-Cold-email copy for pitching boba shops on becoming a **partner** in Mr. Tapioca.
-Personalize the `[BRACKETS]`, send from your own email, and start with shops near
-campuses/libraries. Owners are busy — keep it short, lead with what they get.
+Copy, fill in the `[brackets]`, send from your own email. Shortest possible
+version of the pitch: *students earn a boba reward by actually studying, and
+they redeem it at your counter. Free for the shop.*
 
-**The one-line pitch:** *Mr. Tapioca is a study app where students earn a real boba reward by actually studying — and we send those students, ready to buy, straight to your shop. Free to join.*
-
----
-
-## Subject lines (A/B test a few)
-
-- `A way to fill your slow study hours with paying students`
-- `Free way to bring studying students into [Shop Name]`
-- `Partner idea for [Shop Name] — students who studied for their boba`
-- `Turning study time into foot traffic for [Shop Name]`
-- `Quick idea: be [Neighborhood]'s official study-reward boba shop`
-- `[First Name] — 30 seconds, a partnership for [Shop Name]`
+Rule of thumb: sound like a student who likes their shop, not a startup.
+One personal line up top does more than any pitch.
 
 ---
 
-## 1. Primary cold email (the workhorse)
+## Subject lines (pick one, keep it boring-honest)
 
-**Subject:** Free way to bring studying students into [Shop Name]
-
-Hi [Owner / Manager name],
-
-I'm [Your Name], the founder of **Mr. Tapioca** — a study app with a fun twist: students grow a virtual boba drink by *actually studying*. The longer they focus, the bigger the drink, and when they finish a big one (2–6 hours of real study) they earn a **reward they can redeem at a real boba shop.**
-
-That's where [Shop Name] comes in. I'd love to make you a **launch partner.** Here's the deal for you:
-
-- **You get qualified foot traffic.** Every student who walks in just spent hours studying and chose *your* shop to celebrate. That's a customer who's already decided to buy.
-- **You set the reward.** A free topping, 10–15% off, buy-one-get-one — whatever works for your margins. You only ever give it to someone standing at your counter, so it's a guaranteed sale, never a giveaway.
-- **You're on the map.** Partner shops get a ⭐ on our in-app boba map, so students searching for boba nearby see you first.
-- **It costs you nothing to join.** No setup fee, no monthly fee, no hardware. Founding partners stay free.
-- **It builds a habit.** Students come back to "earn" their next drink, then return to redeem it — a loyalty loop pointed at your door.
-
-I'm only signing **one boba shop per neighborhood** as a founding partner, and I'd love that to be [Shop Name].
-
-Could I buy you a drink and show you the app for 15 minutes this week? Or if it's easier, I can set up a no-cost 30-day pilot and you can watch the students show up before deciding anything.
-
-Thanks for the time — genuinely a fan of [Shop Name]. 🧋
-
-[Your Name]
-[Phone] · [Email] · [app link]
+- `student app idea for [Shop Name]`
+- `I built a study app that ends at your counter`
+- `free partnership idea (from a [Shop Name] regular)`
+- `boba reward app — want [Shop Name] on it?`
 
 ---
 
-## 2. Ultra-short version (for owners who skim)
+## 1. The main email
 
-**Subject:** Quick idea for [Shop Name]
+**Subject:** student app idea for [Shop Name]
 
-Hi [Name] — I run **Mr. Tapioca**, a study app where students earn a real boba reward for hitting study goals. I'd love to make [Shop Name] our **founding partner in [Neighborhood]**: you set the reward (a free topping or small discount), we send you students who *just finished studying and want boba*, and joining is **free.** You're only ever rewarding a customer who's already at your counter.
+Hi [Name],
 
-15-minute demo this week? I'll come to you. 🧋
+I'm Melchi — a Cornell student, and [Shop Name] regular. [One real line
+about their shop: "The brown sugar milk tea got me through finals" / "your
+Dancong teas are unreal."]
 
-[Your Name] · [Phone] · [app link]
+I built an app called Mr. Tapioca. It's a study timer where a little tapioca
+character mixes you a virtual boba while you focus — study longer, the drink
+gets bigger. When you finish a big one (that's 2–6 hours of actual studying),
+the app gives you a reward you redeem at a real boba shop.
 
----
+I'd love that shop to be you. How it works on your end:
 
-## 3. Follow-up #1 (3–4 days after no reply)
+- You pick the reward — a free topping, 10% off, whatever makes sense.
+  It's only redeemable in person, so you're never discounting anyone who
+  wasn't already standing at your counter.
+- You get a ⭐ on the app's boba map, which points students to your shop.
+- It's free. No fees, no hardware, no contract. If it does nothing for you,
+  you've lost nothing.
 
-**Subject:** Re: Free way to bring studying students into [Shop Name]
+Being honest: the app is brand new, so I can't promise you a flood of
+customers on day one. What I can promise is that every student it does send
+you just studied for hours and is walking in specifically to buy a drink.
 
-Hi [Name], floating this back to the top in case it got buried.
+Could I come by for 10 minutes this week and show you? I'll buy a drink
+while I'm there either way.
 
-Quick version: **free partnership**, you set the reward, and Mr. Tapioca steers studying students to [Shop Name] when they've earned a drink — plus a ⭐ on our in-app map so nearby students find you.
-
-Even a quick "not right now" helps me plan. But if you're open to it, I can have [Shop Name] live as a founding partner this week. Want me to send the 1-page rundown?
-
-Thanks!
-[Your Name] · [Phone]
-
----
-
-## 4. Follow-up #2 (the friendly breakup, ~1 week later)
-
-**Subject:** Should I give the [Neighborhood] spot to someone else?
-
-Hi [Name] — I don't want to keep cluttering your inbox, so this is my last note. 🙂
-
-I'm holding the **founding-partner spot for [Neighborhood]** open a little longer because I'd genuinely love it to be [Shop Name]. It's free, you set the offer, and you only reward customers who show up.
-
-If now's not the time, totally understood — just reply "later" and I'll check back in a couple months. Otherwise I'll open the spot to other shops nearby.
-
-Either way, thanks for the boba. 🧋
-[Your Name] · [Phone] · [app link]
+Melchi
+[Phone] · [Email]
 
 ---
 
-## 5. In-person / Instagram DM script (boba shops reply fast to these)
+## 2. The short version (owners who skim / DMs)
 
-Hey! I'm [Your Name] — local founder building **Mr. Tapioca**, a study app where students earn a real boba reward by studying. I'm signing one founding boba partner per area and would love it to be you: it's free, you pick the reward (free topping, small discount), and I send studying students your way + feature you on our map. Could I show you the app for 10 min sometime this week? 🧋
+Hey! I'm Melchi, a Cornell student. I built a study app called Mr. Tapioca —
+you earn a boba reward by actually studying, then redeem it at a real shop.
+I'd love that shop to be [Shop Name]: you pick the reward (free topping,
+small discount — in-person redemption only), you get a spot on the in-app
+boba map, and it's completely free. Can I come show you? 10 minutes, and
+I'm buying a drink anyway. 🧋
 
 ---
 
-## 6. One-paragraph blurb (for a flyer, link preview, or pitch deck)
+## 3. Follow-up (3–4 days, no reply)
 
-**Mr. Tapioca turns study time into your foot traffic.** Students grow a virtual boba by focusing; finishing a big study goal earns a real reward they redeem at a partner shop. You set the offer, you only ever reward customers who walk in, you're featured on our in-app boba map — and joining is free. It's a loyalty loop that points motivated, ready-to-buy students straight at your counter.
+**Subject:** Re: student app idea for [Shop Name]
+
+Hi [Name] — bumping this in case it got buried.
+
+Short version: free to join, you choose the reward, and my study app sends
+students who just earned a boba to your shop. Happy to come by during a slow
+hour and show you in person.
+
+Even a "not interested" is genuinely helpful — thanks either way!
+
+Melchi
+
+---
+
+## 4. Last follow-up (about a week later)
+
+**Subject:** last one from me, promise
+
+Hi [Name] — I won't keep filling your inbox after this one.
+
+If a free way to get studying students into [Shop Name] sounds interesting,
+I'd still love to show you the app — 10 minutes, I'll come to you. If the
+timing's just bad, reply "later" and I'll check back in a couple months.
+And if it's a no, no hard feelings.
+
+Either way I'll still be in for my usual. 🧋
+
+Melchi
+[Phone]
+
+---
+
+## 5. One-paragraph blurb (flyer / link preview / whoever asks)
+
+Mr. Tapioca is a study app where students grow a virtual boba by focusing —
+finish a big study session and you've earned a real reward at a partner
+boba shop. Shops choose their own reward, only ever redeem it in person,
+get featured on the in-app boba map, and pay nothing to join.
 
 ---
 
 ## Sending tips
 
-- **Who to contact:** owner or manager, not the general info@ if you can find a name (check Instagram, Google, or just ask in person). Personalized > blasted.
-- **Where to start:** shops within walking distance of universities, high schools, and libraries — that's where your studying users already are.
-- **Best channel:** Instagram DM and in-person often beat email for small boba shops. Use the same copy, shortened.
-- **Personalize the first line:** mention their actual drink, location, or vibe ("your brown sugar boba is unreal"). It dramatically lifts replies.
-- **Make the ask tiny:** a 15-min demo or a free pilot — never "sign this contract."
-- **Lead with their upside, not your app.** Foot traffic and zero risk first; the cute mechanics second.
-- **Track it:** send in small batches, note who replies, follow up twice, then move on.
+- **Find a name.** Owner or manager beats info@. Check Instagram or just ask
+  at the counter. If you can't find one, "Hi!" is fine — don't force it.
+- **The first line is the whole game.** Mention their actual drink or their
+  actual location. If you've never been, go once first — it makes the email
+  true and it makes it better.
+- **DMs and walking in beat email** for small shops. Use the short version.
+- **Ask small.** 10 minutes, you come to them, you buy a drink. Never
+  "let's hop on a call to discuss the partnership."
+- **Be honest that it's new.** Owners can smell inflated numbers. "Brand new,
+  you'd be one of the first shops on it" builds more trust than pretending
+  you have traction.
+- **Small batches, track replies** in `OUTREACH_TRACKER.csv`, follow up
+  twice max, then move on.

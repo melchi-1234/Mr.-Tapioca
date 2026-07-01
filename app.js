@@ -1647,6 +1647,29 @@ const FocusBlocker = {
   wasActive() { return this._active; },   // was a real shield up during this focus session?
 };
 
+// Lock Screen / Dynamic Island live countdown (a native iOS "Live Activity").
+// Shows the remaining focus time without opening the app. No-ops on the web
+// build and on iPhones where the FocusWidget extension isn't installed yet.
+const FocusActivity = {
+  plugin() {
+    const cap = window.Capacitor;
+    return (cap && cap.Plugins && cap.Plugins.FocusActivity) || null;
+  },
+  async start() {
+    const p = this.plugin(); if (!p) return;
+    const remainingMs = Math.max(0, (modeDuration() - state.elapsed) * 1000);
+    if (remainingMs <= 0) return;
+    try {
+      await p.start({
+        endsAt: Date.now() + remainingMs,
+        startedAt: Date.now() - state.elapsed * 1000,   // progress bar spans the whole drink
+        drinkName: currentDrinkName()
+      });
+    } catch (e) {}
+  },
+  async stop() { const p = this.plugin(); if (!p) return; try { await p.stop(); } catch (e) {} }
+};
+
 function startPause() {
   state.autoPaused = false;   // any manual press cancels a pending auto-resume
   if (progress() >= 1 && !state.running) {
@@ -1664,6 +1687,7 @@ function startPause() {
     startAmbience();          // soundscape on while focusing
     startMusic("focus");      // lo-fi while focusing
     FocusBlocker.start();     // shield distracting apps for the session (native only)
+    FocusActivity.start();    // live countdown on the Lock Screen / Dynamic Island
     stopTicker();
     state.timerId = setInterval(tick, 250);
     saveState();              // persist running state + push "🟢 Focusing" status to the Squad
@@ -1672,6 +1696,7 @@ function startPause() {
     stopAmbience();
     stopMusic();
     FocusBlocker.stop();      // lift the shield when paused
+    FocusActivity.stop();     // clear the Lock Screen countdown
     walkToStation("idle");    // walk back to his spot
     saveState();              // bank progress whenever the user pauses
   }
@@ -1684,6 +1709,7 @@ function resetSession() {
   stopAmbience();
   stopMusic();
   FocusBlocker.stop();
+  FocusActivity.stop();
   clearTimeout(state.breakMakerCycleId);
   state.breakMakerCycleId = null;
   clearInterval(state.breakTimerId);
@@ -1714,7 +1740,8 @@ function completeSession() {
   stopTicker();
   stopAmbience();
   stopMusic();
-  FocusBlocker.stop();   // session done — apps free again
+  FocusBlocker.stop();    // session done — apps free again
+  FocusActivity.stop();   // clear the Lock Screen countdown
   state.running = false;
   // Reset elapsed to 0 NOW (before saveState) so the finished drink is fully
   // banked and a reload can't resurrect it at 100% and re-award it.
@@ -3178,11 +3205,20 @@ function ensureLeaflet() {
   return leafletPromise;
 }
 
-function setMapStatus(msg) {
+function setMapStatus(msg, retryFn) {
   const el = document.getElementById("mapStatus");
   if (!el) return;
-  if (msg) { el.textContent = msg; el.classList.remove("hidden"); }
-  else     { el.classList.add("hidden"); }
+  if (!msg) { el.classList.add("hidden"); return; }
+  el.textContent = msg;
+  if (retryFn) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "map-retry";
+    btn.textContent = "Try again";
+    btn.addEventListener("click", () => { playSfx("tap"); retryFn(); });
+    el.appendChild(btn);
+  }
+  el.classList.remove("hidden");
 }
 
 function openMap() {
@@ -3241,33 +3277,87 @@ function escapeHtml(s) {
 
 // Query OpenStreetMap's free Overpass API for REAL bubble-tea shops near a
 // point. CORS-enabled, no key. Returns [{name, lat, lng}] sorted by distance.
-function fetchRealBobaShops(lat, lng, radius = 4000) {
-  const q = `[out:json][timeout:20];(` +
-    `nwr["cuisine"="bubble_tea"](around:${radius},${lat},${lng});` +
-    `nwr["shop"="bubble_tea"](around:${radius},${lat},${lng});` +
-    `nwr["name"~"boba|bubble tea|tapioca|milk tea",i](around:${radius},${lat},${lng});` +
-    `);out center 60;`;
-  return fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "data=" + encodeURIComponent(q)
-  })
-    .then(r => { if (!r.ok) throw new Error("overpass " + r.status); return r.json(); })
-    .then(data => {
-      const seen = new Set(), shops = [];
-      for (const el of (data.elements || [])) {
-        const name = el.tags && el.tags.name;
-        const slat = el.lat != null ? el.lat : (el.center && el.center.lat);
-        const slng = el.lon != null ? el.lon : (el.center && el.center.lon);
-        if (!name || slat == null || slng == null) continue;
-        const key = name.toLowerCase() + "@" + slat.toFixed(4) + "," + slng.toFixed(4);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        shops.push({ name, lat: slat, lng: slng });
-      }
-      shops.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng));
-      return shops;
-    });
+//
+// Hardened after real-world failures: the public Overpass servers regularly
+// time out or 504 under load, AND a timed-out query still returns HTTP 200
+// with empty elements + a "remark" — which used to render as "no boba nearby"
+// even in boba-dense cities. So we: (1) try several mirror servers in order,
+// (2) treat a runtime/timeout remark as a failure, not an empty result,
+// (3) scope the name search to food/drink places so the query is fast enough
+// to not time out, (4) match cuisine as a list (OSM uses "bubble_tea;taiwanese")
+// plus well-known chains that don't have "boba" in their name,
+// (5) cache results for 24h per ~1km cell so reopening the map is instant.
+const OVERPASS_SERVERS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+];
+const BOBA_NAME_RE = "boba|bubble ?tea|milk ?tea|tapioca|gong ?cha|kung ?fu ?tea|" +
+  "share ?tea|chatime|happy ?lemon|tiger ?sugar|ding ?tea|vivi|yi ?fang|tpumps|" +
+  "7 ?leaves|omomo|coco|quickly|teaspoon|tastea";
+
+function overpassQuery(lat, lng, radius) {
+  return `[out:json][timeout:25];(` +
+    `nwr["cuisine"~"bubble_tea"](around:${radius},${lat},${lng});` +
+    `nwr["shop"~"bubble_tea|beverages|tea"](around:${radius},${lat},${lng});` +
+    `nwr["amenity"~"cafe|fast_food|restaurant|ice_cream"]["name"~"${BOBA_NAME_RE}",i](around:${radius},${lat},${lng});` +
+    `);out center 80;`;
+}
+
+function fetchRealBobaShops(lat, lng, radius = 6000) {
+  // 24h cache keyed by ~1km cell — makes reopening instant and rides out API flakiness.
+  const cacheKey = "bobaShops:" + lat.toFixed(2) + "," + lng.toFixed(2);
+  try {
+    const hit = JSON.parse(localStorage.getItem(cacheKey));
+    if (hit && Date.now() - hit.t < 86400000 && Array.isArray(hit.shops) && hit.shops.length) {
+      return Promise.resolve(hit.shops);
+    }
+  } catch (e) {}
+
+  const body = "data=" + encodeURIComponent(overpassQuery(lat, lng, radius));
+  const tryServer = (i) => {
+    if (i >= OVERPASS_SERVERS.length) return Promise.reject(new Error("all overpass mirrors failed"));
+    const ctrl = ("AbortController" in window) ? new AbortController() : null;
+    const kill = ctrl ? setTimeout(() => ctrl.abort(), 30000) : null;
+    return fetch(OVERPASS_SERVERS[i], {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      signal: ctrl ? ctrl.signal : undefined
+    })
+      .then(r => { if (!r.ok) throw new Error("overpass " + r.status); return r.json(); })
+      .then(data => {
+        // A timed-out query is HTTP 200 + empty elements + a "remark" — that's a
+        // failure, NOT "no shops here". Fall through to the next mirror.
+        if (data.remark && /error|timed? ?out/i.test(data.remark) && !(data.elements || []).length) {
+          throw new Error("overpass remark: " + data.remark);
+        }
+        return data;
+      })
+      .catch(err => { if (kill) clearTimeout(kill); throw err; })
+      .then(data => { if (kill) clearTimeout(kill); return data; })
+      .catch(() => tryServer(i + 1));
+  };
+
+  return tryServer(0).then(data => {
+    const seen = new Set(), shops = [];
+    for (const el of (data.elements || [])) {
+      const name = el.tags && el.tags.name;
+      const slat = el.lat != null ? el.lat : (el.center && el.center.lat);
+      const slng = el.lon != null ? el.lon : (el.center && el.center.lon);
+      if (!name || slat == null || slng == null) continue;
+      const key = name.toLowerCase() + "@" + slat.toFixed(4) + "," + slng.toFixed(4);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      shops.push({ name, lat: slat, lng: slng });
+    }
+    shops.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng));
+    if (shops.length) {
+      try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), shops: shops.slice(0, 80) })); } catch (e) {}
+    }
+    return shops;
+  });
 }
 
 function buildMap(lat, lng, real) {
@@ -3301,10 +3391,24 @@ function buildMap(lat, lng, real) {
     renderShopList([]);
     return;
   }
+  loadNearbyShops(lat, lng);
+}
+
+// Fetch + render the real nearby shops. Separate from buildMap so the
+// "Try again" button can re-run just this part without rebuilding the map.
+let shopMarkers = [];
+function loadNearbyShops(lat, lng) {
   setMapStatus("Finding real boba spots near you…");
+  shopMarkers.forEach(m => { try { mapObj.removeLayer(m); } catch (e) {} });
+  shopMarkers = [];
   fetchRealBobaShops(lat, lng)
     .then(shops => {
-      if (!shops.length) { setMapStatus("No boba spots listed within ~4 km — try a city area."); renderShopList([]); return; }
+      if (!shops.length) {
+        setMapStatus("No boba spots listed within ~6 km. OpenStreetMap may not have your local shops mapped yet.",
+          () => loadNearbyShops(lat, lng));
+        renderShopList([]);
+        return;
+      }
       setMapStatus("");
       const items = shops.slice(0, 60).map(shop => {
         const dist = haversine(lat, lng, shop.lat, shop.lng);
@@ -3314,11 +3418,13 @@ function buildMap(lat, lng, real) {
             `<div class="map-pop-name">${escapeHtml(shop.name)}</div>` +
             `<div class="map-pop-meta">${formatDistance(dist)} away · real boba shop</div>`
           );
+        shopMarkers.push(marker);
         return { shop, dist, marker };
       });
       renderShopList(items);
     })
-    .catch(() => setMapStatus("Couldn't load nearby shops — close and reopen the map to retry."));
+    .catch(() => setMapStatus("The free map service is busy right now — give it a minute.",
+      () => loadNearbyShops(lat, lng)));
 }
 
 // Scannable list of the nearby real shops under the map; tapping one pans the map
