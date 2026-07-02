@@ -3318,3 +3318,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   50%      { transform: translateX(var(--walk)) rotate(3deg); }
   75%      { transform: translateX(var(--walk)) rotate(-2deg); }
 }
+
+/* Daily-goal pill removed from the scene (2026-07, owner request — it read as
+   clutter). The goal itself still works: set it in Settings, progress lives in
+   the stats dashboard, and the "goal reached" toast still fires. Element +
+   update code kept so this is a one-line revert. */
+#dailyGoal { display: none !important; }
