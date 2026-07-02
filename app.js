@@ -4258,14 +4258,10 @@ const TOUR_STEPS = [
     text: "Three small goals a day for bonus pearls. Clear all three for an extra bonus." },
   { sel: ["#shopBtn"], title: "The Shop",
     text: "Spend pearls on character skins and shop backgrounds. A couple of fancy ones are premium." },
-  { sel: ["#customizeBtn"], title: "Customize your drink",
-    text: "Change the tea base and toppings. New flavors unlock with pearls." },
   { sel: ["#mapBtn"], title: "Boba map",
     text: "Real bubble-tea shops near you. Finished drinks will earn real perks at partner shops." },
-  { sel: ["#friendsBtn"], title: "Study Squad",
-    text: "Swap invite codes with friends and see each other focusing live." },
-  { sel: ["#settingsBtn"], title: "Settings, the important one ⭐",
-    text: "This is where you choose apps to BLOCK during focus sessions (the whole point!). Also sounds, your name, and this tour." },
+  { sel: ["#moreBtn"], title: "Everything else lives here ⭐",
+    text: "Customize your drink, join a Study Squad, and open Settings — where you pick apps to BLOCK during focus (the whole point!). Tap the drink name anytime to customize." },
 ];
 let tourStep = 0;
 let tourOn = false;
@@ -4778,6 +4774,11 @@ function wireEvents() {
   els.shopBtn.addEventListener("click",       () => { playSfx("open"); openSheet("shopSheet"); });
   els.customizeBtn.addEventListener("click",  () => { playSfx("open"); openSheet("customizeSheet"); });
   els.settingsBtn.addEventListener("click",   () => { playSfx("open"); renderNameRow(); openSheet("settingsSheet"); });
+  // "More" sheet: the calm home for Customize / Squad / Settings (nav went 6 -> 4)
+  const moreBtn = document.getElementById("moreBtn");
+  if (moreBtn) moreBtn.addEventListener("click", () => { playSfx("open"); openSheet("moreSheet"); });
+  const moreClose = document.getElementById("moreClose");
+  if (moreClose) moreClose.addEventListener("click", closeSheets);
   els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
   if (els.friendsBtn) els.friendsBtn.addEventListener("click", () => { playSfx("open"); openFriends(); });
   if (els.questsBtn) els.questsBtn.addEventListener("click", () => { playSfx("open"); openQuests(); });

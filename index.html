@@ -248,23 +248,41 @@
           <span class="nav-icon nav-bag" aria-hidden="true"></span>
           <span class="pill-label">Shop</span>
         </button>
-        <button class="icon-pill" id="customizeBtn" aria-label="Customize drink">
-          <span class="nav-icon nav-palette" aria-hidden="true"></span>
-          <span class="pill-label">Customize</span>
-        </button>
         <button class="icon-pill" id="mapBtn" aria-label="Boba map">
           <span class="nav-icon nav-pin" aria-hidden="true"></span>
           <span class="pill-label">Map</span>
         </button>
-        <button class="icon-pill" id="friendsBtn" aria-label="Study Squad">
-          <span class="nav-icon nav-people" aria-hidden="true"></span>
-          <span class="pill-label">Squad</span>
-        </button>
-        <button class="icon-pill" id="settingsBtn" aria-label="Settings">
-          <span class="nav-icon nav-gear" aria-hidden="true"></span>
-          <span class="pill-label">Settings</span>
+        <button class="icon-pill" id="moreBtn" aria-label="More">
+          <span class="nav-icon nav-more" aria-hidden="true">⋯</span>
+          <span class="pill-label">More</span>
         </button>
       </nav>
+
+      <!-- ── "More" sheet: the calm home for everything that isn't daily ── -->
+      <div id="moreSheet" class="sheet hidden" role="dialog" aria-label="More" aria-modal="true">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+          <h2>More</h2>
+          <button class="sheet-close" id="moreClose" aria-label="Close">✕</button>
+        </div>
+        <div class="sheet-body">
+          <button class="more-row" id="customizeBtn" aria-label="Customize drink">
+            <span class="nav-icon nav-palette" aria-hidden="true"></span>
+            <span class="more-row-text">Customize drink<small>base, toppings, name</small></span>
+            <span class="more-row-chev" aria-hidden="true">›</span>
+          </button>
+          <button class="more-row" id="friendsBtn" aria-label="Study Squad">
+            <span class="nav-icon nav-people" aria-hidden="true"></span>
+            <span class="more-row-text">Study Squad<small>focus with friends</small></span>
+            <span class="more-row-chev" aria-hidden="true">›</span>
+          </button>
+          <button class="more-row" id="settingsBtn" aria-label="Settings">
+            <span class="nav-icon nav-gear" aria-hidden="true"></span>
+            <span class="more-row-text">Settings<small>sound, goals, progress</small></span>
+            <span class="more-row-chev" aria-hidden="true">›</span>
+          </button>
+        </div>
+      </div>
 
       <!-- ── Install prompt (PWA) ─────────────────────────────────────── -->
       <div id="installBanner" class="install-banner" role="status" aria-live="polite" aria-label="Install Mr. Tapioca" hidden>
