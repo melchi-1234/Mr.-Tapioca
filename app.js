@@ -215,6 +215,8 @@ const state = {
   spillPending: false,
   bonusPearls: 0,
   blockPenalty: 0,       // pearls withheld for completing native focus sessions with no apps blocked
+  shieldWasUp: false,    // persisted "shield engaged this session" — survives an app kill so a
+                         // session that finishes while away still earns FULL pearls at boot
   gamePearls: 0,         // cumulative pearls won from break games (for the "Break Champ" badge)
   quests: null,          // daily quests: { day, active:[{key,prog,done}], bonusClaimed }
   freezes: 0,            // Streak Freeze consumables owned
@@ -645,6 +647,7 @@ function loadState() {
     state.spent       = readJSON("bobaFocusSpent",       0);
     state.bonusPearls = readJSON("bobaFocusBonusPearls", 0);
     state.blockPenalty = readJSON("bobaFocusBlockPenalty", 0);
+    state.shieldWasUp  = readJSON("bobaFocusShieldUp", false) === true;
     state.gamePearls  = readJSON("bobaFocusGamePearls", 0);
     state.quests      = readJSON("bobaFocusQuests", null);
     state.freezes     = readJSON("bobaFocusFreezes", 0);
@@ -756,6 +759,7 @@ function saveState() {
   localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
   localStorage.setItem("bobaFocusBlockPenalty", JSON.stringify(state.blockPenalty));
+  localStorage.setItem("bobaFocusShieldUp",     JSON.stringify(state.shieldWasUp === true));
   localStorage.setItem("bobaFocusGamePearls",   JSON.stringify(state.gamePearls));
   localStorage.setItem("bobaFocusQuests",       JSON.stringify(state.quests));
   localStorage.setItem("bobaFocusFreezes",      JSON.stringify(state.freezes));
@@ -1645,9 +1649,17 @@ const FocusBlocker = {
       const r = await p.startBlocking();      // native returns { active } — true only if apps were picked
       this._active = !!(r && r.active) && this._want;
       if (!this._want) await p.stopBlocking();
+      // Persist the engaged flag: if iOS kills the app mid-session and the
+      // drink finishes while away, boot-time completeSession still knows the
+      // shield was honestly up (in-memory _active resets to false on relaunch).
+      if (this._active && !state.shieldWasUp) { state.shieldWasUp = true; saveState(); }
     } catch (e) { this._active = false; }
   },
-  async stop()  { this._want = false; this._active = false; const p = this.plugin(); if (!p) return; try { await p.stopBlocking(); } catch (e) {} },
+  async stop()  {
+    this._want = false; this._active = false;
+    if (state.shieldWasUp) { state.shieldWasUp = false; saveState(); }
+    const p = this.plugin(); if (!p) return; try { await p.stopBlocking(); } catch (e) {}
+  },
   wasActive() { return this._active; },   // was a real shield up during this focus session?
 };
 
@@ -1740,7 +1752,12 @@ function completeSession() {
   if (state.elapsed <= 0 && !state.running) return;
   // Capture whether a real app-shield was up THIS session before we lift it below.
   // On the web build blocking is impossible, so treat web as "full" (never penalized).
-  const wasBlocked = FocusBlocker.available() ? FocusBlocker.wasActive() : true;
+  // wasActive() covers the live session; state.shieldWasUp covers a session
+  // that completed while the app was killed (relaunch wiped the in-memory flag
+  // but the persisted one survived). Read BEFORE the stop() below clears both.
+  const wasBlocked = FocusBlocker.available()
+    ? (FocusBlocker.wasActive() || state.shieldWasUp === true)
+    : true;
   stopTicker();
   stopAmbience();
   stopMusic();
