@@ -441,17 +441,23 @@ body {
 .work-counter {
   position: absolute;
   left: 16px; right: 16px;
-  bottom: var(--floor-y);
-  height: 84px;
+  /* The bar TOP stays at floor-y + 84 (so the cup rests on it and the maker
+     stands behind it), but the front now drops all the way to the floor. This
+     makes it read as a real cafe counter instead of a cream tray floating in
+     mid-air — the old fixed-height slab looked ungrounded on the abstract
+     themes (galaxy/night) and on tall/desktop windows where the illustrated
+     floor gets cropped away. */
+  bottom: 0;
+  height: calc(var(--floor-y) + 84px);
   z-index: 8;
   border: 1.5px solid rgba(60,32,24,0.12);
+  border-bottom: none;
   border-top-color: rgba(255,255,255,0.85);
-  border-radius: 22px 22px 18px 18px;
+  border-radius: 22px 22px 0 0;
   background: linear-gradient(180deg, #fffaf2 0, #fbf1e3 16px, #f3e3cd 100%);
   box-shadow:
     inset 0 1.5px 0 rgba(255,255,255,0.9),
-    0 12px 26px rgba(60,32,24,0.16),
-    0 2px 0 rgba(60,32,24,0.05);
+    0 -6px 20px rgba(60,32,24,0.06);
 }
 .work-counter::after {
   content: "";
@@ -3147,7 +3153,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .scene.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }
   .maker-wrap { width: 176px; height: 188px; bottom: calc(var(--floor-y) + 12px); }
   .cup-stage { width: 112px; height: 150px; top: -100px; }
-  .work-counter { height: 72px; }
+  .work-counter { height: calc(var(--floor-y) + 72px); }
   .daily-goal { top: max(104px, calc(env(safe-area-inset-top) + 64px)); }
   .focus-controls { bottom: calc(90px + env(safe-area-inset-bottom)); gap: 7px; }
   .timer-card { padding: 10px 18px 8px; }
