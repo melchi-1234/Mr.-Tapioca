@@ -131,6 +131,15 @@ body {
      floor rise on tall windows so the counter+maker group doesn't strand a
      big empty gap above it; on a phone it stays near the bottom (~290px). */
   --floor-y: clamp(360px, 40vh, 430px);
+  /* Every theme MUST keep a floor under the counter. The themed rules below
+     layer this gradient over their art — without it, tall windows crop the
+     art's baked-in floor away and the counter looks like it floats mid-air. */
+  --floor-a: #cf9d7b;   /* floor stripe (front edge) */
+  --floor-b: #e6c8a0;   /* floor fill */
+  --floor-grad: linear-gradient(180deg,
+      transparent 0 calc(100% - var(--floor-y)),
+      var(--floor-a) calc(100% - var(--floor-y)) calc(100% - var(--floor-y) + 26px),
+      var(--floor-b) calc(100% - var(--floor-y) + 26px) 100%);
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -149,12 +158,16 @@ body {
 /* Cozy (default) theme: the illustrated boba-shop backdrop (shelf, window,
    lights) instead of the flat gradient. Character/counter/cup sit on top. */
 .scene[data-theme="cozy"] {
-  background: #f3e4cf url('assets/Shop Background.png') top center / cover no-repeat;
+  background: var(--floor-grad) no-repeat,
+              #f3e4cf url('assets/Shop Background.png') top center / cover no-repeat;
 }
 .cafe-glow { display: none; }   /* every theme now has an illustrated backdrop */
 
 .scene[data-theme="night"] {
-  background: #2e3b57 url('assets/Shop Background Night.png') top center / cover no-repeat;
+  --floor-a: #3a3450;
+  --floor-b: #4a4364;
+  background: var(--floor-grad) no-repeat,
+              #2e3b57 url('assets/Shop Background Night.png') top center / cover no-repeat;
 }
 .scene[data-theme="night"] .speech-bubble { background: #fff0be; }
 .scene[data-theme="night"] .work-counter {
@@ -176,7 +189,10 @@ body {
 }
 
 .scene[data-theme="sakura"] {
-  background: #f6e0e6 url('assets/Shop Background Sakura.png') top center / cover no-repeat;
+  --floor-a: #d9a3ae;
+  --floor-b: #ecc6cd;
+  background: var(--floor-grad) no-repeat,
+              #f6e0e6 url('assets/Shop Background Sakura.png') top center / cover no-repeat;
 }
 .scene[data-theme="sakura"] .work-counter {
   background: linear-gradient(180deg, #fff6f6 0, #fdebed 16px, #f6dbe0 100%);
@@ -185,7 +201,10 @@ body {
 }
 
 .scene[data-theme="autumn"] {
-  background: #f0dcb8 url('assets/Shop Background Autumn.png') top center / cover no-repeat;
+  --floor-a: #c08b5a;
+  --floor-b: #dcae7e;
+  background: var(--floor-grad) no-repeat,
+              #f0dcb8 url('assets/Shop Background Autumn.png') top center / cover no-repeat;
 }
 .scene[data-theme="autumn"] .work-counter {
   background: linear-gradient(180deg, #fdf3e3 0, #f6e6cb 16px, #ecd1a8 100%);
@@ -195,7 +214,10 @@ body {
 .scene[data-theme="autumn"] .speech-bubble { background: #fff8e8; }
 
 .scene[data-theme="rainy"] {
-  background: #d6dee6 url('assets/Shop Background Rainy.png') top center / cover no-repeat;
+  --floor-a: #9aa5ae;
+  --floor-b: #b9c2c9;
+  background: var(--floor-grad) no-repeat,
+              #d6dee6 url('assets/Shop Background Rainy.png') top center / cover no-repeat;
 }
 .scene[data-theme="rainy"] .work-counter {
   background: linear-gradient(180deg, #f7f6f3 0, #ede9e1 16px, #ddd6c9 100%);
@@ -205,7 +227,10 @@ body {
 .scene[data-theme="rainy"] .speech-bubble { background: #f0f6ff; }
 
 .scene[data-theme="winter"] {
-  background: #ece3d4 url('assets/Shop Background Winter.png') top center / cover no-repeat;
+  --floor-a: #aebfc7;
+  --floor-b: #cfdce2;
+  background: var(--floor-grad) no-repeat,
+              #ece3d4 url('assets/Shop Background Winter.png') top center / cover no-repeat;
 }
 .scene[data-theme="winter"] .work-counter {
   background: linear-gradient(180deg, #fbfaf7 0, #eef1f1 16px, #e1e7e8 100%);
@@ -215,7 +240,10 @@ body {
 .scene[data-theme="winter"] .speech-bubble { background: #eef6ff; }
 
 .scene[data-theme="galaxy"] {
-  background: #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
+  --floor-a: #b9a8d6;
+  --floor-b: #cfc2e6;
+  background: var(--floor-grad) no-repeat,
+              #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
 }
 .scene[data-theme="galaxy"] .work-counter {
   background: linear-gradient(180deg, #fbf8ff 0, #f2ecf8 16px, #e6def2 100%);
@@ -441,23 +469,17 @@ body {
 .work-counter {
   position: absolute;
   left: 16px; right: 16px;
-  /* The bar TOP stays at floor-y + 84 (so the cup rests on it and the maker
-     stands behind it), but the front now drops all the way to the floor. This
-     makes it read as a real cafe counter instead of a cream tray floating in
-     mid-air — the old fixed-height slab looked ungrounded on the abstract
-     themes (galaxy/night) and on tall/desktop windows where the illustrated
-     floor gets cropped away. */
-  bottom: 0;
-  height: calc(var(--floor-y) + 84px);
+  bottom: var(--floor-y);
+  height: 84px;
   z-index: 8;
   border: 1.5px solid rgba(60,32,24,0.12);
-  border-bottom: none;
   border-top-color: rgba(255,255,255,0.85);
-  border-radius: 22px 22px 0 0;
+  border-radius: 22px 22px 18px 18px;
   background: linear-gradient(180deg, #fffaf2 0, #fbf1e3 16px, #f3e3cd 100%);
   box-shadow:
     inset 0 1.5px 0 rgba(255,255,255,0.9),
-    0 -6px 20px rgba(60,32,24,0.06);
+    0 12px 26px rgba(60,32,24,0.16),
+    0 2px 0 rgba(60,32,24,0.05);
 }
 .work-counter::after {
   content: "";
@@ -3153,7 +3175,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .scene.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }
   .maker-wrap { width: 176px; height: 188px; bottom: calc(var(--floor-y) + 12px); }
   .cup-stage { width: 112px; height: 150px; top: -100px; }
-  .work-counter { height: calc(var(--floor-y) + 72px); }
+  .work-counter { height: 72px; }
   .daily-goal { top: max(104px, calc(env(safe-area-inset-top) + 64px)); }
   .focus-controls { bottom: calc(90px + env(safe-area-inset-bottom)); gap: 7px; }
   .timer-card { padding: 10px 18px 8px; }
