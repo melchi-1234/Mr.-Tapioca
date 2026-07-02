@@ -803,25 +803,17 @@ body {
 }
 .top-hud > * { pointer-events: auto; }
 
-.drink-label {
-  display: flex;
-  align-items: center;
-  background: var(--cream-90);
-  color: var(--bark);
-  font-size: 0.82rem;
-  font-weight: 900;
-  padding: 7px 14px;
-  border: 2px solid var(--line);
-  border-radius: 999px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(60,32,24,0.18);
-  max-width: 64%;
-}
-.drink-label #drinkName {
+/* Declutter (2026-07): the drink-name pill moved INTO the timer card
+   (#sessionLabel). The top HUD now holds only the pearl chip, so the cozy
+   scene gets the whole top of the screen. Markup kept for easy revert. */
+.drink-label { display: none; }
+
+/* The drink name in the timer card: one tidy ellipsized line, tappable. */
+#sessionLabel {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 70%;
 }
 
 .pearl-chip {
@@ -2569,9 +2561,34 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 
 .dialog-actions {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
   gap: 10px;
   margin-top: 16px;
+}
+.dialog-actions form { display: contents; }
+
+/* Share = the hero action on the reward card (caramel), Save = quieter. */
+.reward-card .secondary {
+  min-height: 52px;
+  padding: 0 20px;
+  border: 2px solid var(--bark);
+  border-radius: 999px;
+  background: var(--gold, #d99e5c);
+  color: var(--bark);
+  font-weight: 950;
+  font-size: 1rem;
+  box-shadow: 3px 3px 0 rgba(60,32,24,0.16);
+  transition: transform 90ms ease, box-shadow 180ms;
+}
+.reward-card .secondary:active { transform: scale(0.95); }
+.reward-card .secondary:disabled { opacity: 0.7; }
+.reward-card .primary {
+  background: transparent;
+  color: var(--bark-mid);
+  border-color: rgba(60,32,24,0.22);
+  box-shadow: none;
 }
 
 .primary {

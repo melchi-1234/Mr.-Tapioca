@@ -614,11 +614,16 @@
           <span id="rewardPearls">+0 pearls</span>
         </div>
         <div id="partnerReward" class="partner"></div>
-        <form method="dialog" class="dialog-actions">
-          <!-- The drink + reward are already banked by completeSession(); this
-               just celebrates and closes (two identical-outcome buttons confused). -->
-          <button id="saveRewardBtn" class="primary" value="save">Sweet! Saved to my Treat Jar 🧋</button>
-        </form>
+        <div class="dialog-actions">
+          <!-- Share generates a cute card (native share sheet on iOS, download on
+               desktop). It sits OUTSIDE the method=dialog form so tapping it does
+               not close the modal. -->
+          <button id="shareRewardBtn" type="button" class="secondary">Share my drink 🧋</button>
+          <form method="dialog">
+            <!-- The drink + reward are already banked by completeSession(). -->
+            <button id="saveRewardBtn" class="primary" value="save">Saved to my Treat Jar</button>
+          </form>
+        </div>
       </div>
     </dialog>
 

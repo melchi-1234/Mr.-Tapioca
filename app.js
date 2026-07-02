@@ -988,13 +988,17 @@ function updateCup() {
   // Don't clobber a tap-to-talk line while it's visible.
   if (!els.makerSpeech.classList.contains("show")) els.makerSpeech.textContent = speechForState();
   els.timerText.textContent = formatTime(remaining);
-  els.sessionLabel.textContent = modeLabel();
+  // Declutter: the drink name lives IN the timer card now (the old top-left
+  // pill is hidden — size is already shown by the active picker button).
+  els.sessionLabel.textContent = currentDrinkName();
   els.progressLabel.textContent = `${pct}%`;
   els.startPauseBtn.textContent = state.running ? "Pause"
     : pct === 100 ? "Seal & Save"
     : state.elapsed > 0 ? "Resume"
     : "Start Focus";
   els.startPauseBtn.classList.toggle("is-running", state.running);
+  // Reset is dead weight until there's actually something to reset.
+  els.resetBtn.classList.toggle("hidden", state.elapsed <= 0 && !state.running);
   els.drinkName.textContent = currentDrinkName();
   updateTabTitle(remaining);
 }
@@ -1791,6 +1795,8 @@ function completeSession() {
     title: "You deserve to go get one in-person!",
     copy: `${size} earned from ${minuteLabel(minutes)}.`,
     size,
+    name: drink.name,       // for the shareable card
+    minutes,                // for the shareable card
     pearls: pearlsEarned,
     partner
   };
@@ -1815,7 +1821,156 @@ function completeSession() {
   }
 }
 
+// ── Shareable "I finished a drink" card ──────────────────────────────────────
+// The single most important growth lever: turn a finished focus session into a
+// cute image the user WANTS to post. Rendered on a canvas (no deps), shared via
+// the native share sheet on mobile, downloaded as a PNG on desktop.
+let lastReward = null;
+
+function canvasRoundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = src;
+  });
+}
+
+async function buildShareCard(reward) {
+  const W = 1080, H = 1350;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const c = cv.getContext("2d");
+  const bark = "#3d2117", cream = "#fffaf3", muted = "#9a7c68", caramel = "#d99e5c";
+  const drinkColor = (BASES[state.base] && BASES[state.base].color) || caramel;
+
+  // Warm cozy backdrop
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#fceee0"); g.addColorStop(1, "#f3d9bf");
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+
+  // Soft floating pearls in the corners for texture
+  c.fillStyle = "rgba(61,33,23,0.05)";
+  [[120,180,60],[980,260,90],[940,1120,70],[110,1180,50],[860,700,40]]
+    .forEach(([x, y, r]) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); });
+
+  // Main card
+  const pad = 64, cardY = 132, cardW = W - pad * 2, cardH = H - 264;
+  c.save();
+  c.shadowColor = "rgba(61,33,23,0.18)"; c.shadowBlur = 40; c.shadowOffsetY = 18;
+  canvasRoundRect(c, pad, cardY, cardW, cardH, 60);
+  c.fillStyle = cream; c.fill();
+  c.restore();
+  canvasRoundRect(c, pad, cardY, cardW, cardH, 60);
+  c.lineWidth = 5; c.strokeStyle = "#ecdecb"; c.stroke();
+
+  c.textAlign = "center";
+
+  // Eyebrow
+  c.fillStyle = caramel;
+  c.font = "800 34px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("FOCUS COMPLETE", W / 2, cardY + 96);
+
+  // Character (current skin, else base) — grounded, generous size
+  try {
+    const charSrc = (state.skin && SKIN_IMAGES[state.skin]) ? SKIN_IMAGES[state.skin] : "assets/Mr. Tapioca.png";
+    const im = await loadImage(charSrc);
+    const cs = 470;
+    c.drawImage(im, W / 2 - cs / 2, cardY + 120, cs, cs);
+  } catch (e) { /* image optional — card still reads well without it */ }
+
+  // Headline: the time focused (the flex)
+  c.fillStyle = bark;
+  c.font = "900 104px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText(shareTimePhrase(reward.minutes), W / 2, cardY + 730);
+
+  c.fillStyle = muted;
+  c.font = "600 40px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("of focus, one boba at a time", W / 2, cardY + 792);
+
+  // Drink name chip
+  const chipText = reward.name || "Boba drink";
+  c.font = "800 38px system-ui, -apple-system, Segoe UI, sans-serif";
+  const tw = Math.min(c.measureText(chipText).width, cardW - 200);
+  const chipW = tw + 96, chipH = 84, chipX = W / 2 - chipW / 2, chipY = cardY + 838;
+  canvasRoundRect(c, chipX, chipY, chipW, chipH, 42);
+  c.fillStyle = "#fbeede"; c.fill();
+  c.lineWidth = 4; c.strokeStyle = drinkColor; c.stroke();
+  c.beginPath(); c.arc(chipX + 44, chipY + chipH / 2, 15, 0, 7); c.fillStyle = drinkColor; c.fill();
+  c.fillStyle = bark;
+  c.save(); canvasRoundRect(c, chipX + 70, chipY, chipW - 90, chipH, 0); c.clip();
+  c.textAlign = "left";
+  c.fillText(chipText, chipX + 74, chipY + 55);
+  c.restore();
+  c.textAlign = "center";
+
+  // Streak + total stats row
+  const streak = state.streak || 0;
+  const totalDrinks = (state.collection && state.collection.length) || 0;
+  c.fillStyle = bark;
+  c.font = "900 56px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText(`🔥 ${streak}`, W / 2 - 150, cardY + 1030);
+  c.fillText(`🧋 ${totalDrinks}`, W / 2 + 150, cardY + 1030);
+  c.fillStyle = muted;
+  c.font = "600 30px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("day streak", W / 2 - 150, cardY + 1076);
+  c.fillText("drinks brewed", W / 2 + 150, cardY + 1076);
+
+  // Brand footer
+  c.fillStyle = bark;
+  c.font = "900 46px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("Mr. Tapioca 🧋", W / 2, H - 96);
+  c.fillStyle = muted;
+  c.font = "600 30px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("the focus timer that brews boba", W / 2, H - 52);
+
+  return new Promise((resolve) => cv.toBlob(resolve, "image/png"));
+}
+
+function shareTimePhrase(mins) {
+  if (!mins || mins < 1) return "Focused";
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h} hour${h !== 1 ? "s" : ""}`;
+}
+
+async function shareDrink(reward) {
+  const btn = document.getElementById("shareRewardBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Making your card…"; }
+  try {
+    const blob = await buildShareCard(reward);
+    if (!blob) throw new Error("no blob");
+    const file = new File([blob], "mr-tapioca-focus.png", { type: "image/png" });
+    const text = `${shareTimePhrase(reward.minutes)} of focus with Mr. Tapioca 🧋`;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: "Mr. Tapioca", text });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "mr-tapioca-focus.png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast("Saved your card — post it anywhere 🧋");
+    }
+  } catch (e) {
+    if (!(e && e.name === "AbortError")) showToast("Couldn't make the card — try again.");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Share my drink 🧋"; }
+  }
+}
+
 function showReward(reward) {
+  lastReward = reward;
   els.rewardTitle.textContent  = `${reward.size} complete! 🎉`;
   els.rewardCopy.textContent   = reward.copy;
   els.rewardPearls.textContent = `+${reward.pearls} pearl${reward.pearls !== 1 ? "s" : ""}`;
@@ -4630,8 +4785,9 @@ function wireEvents() {
     SquadCloud.deleteAccount().then(() => { showToast("Cloud account deleted."); renderSquad(); });
   });
 
-  // Top-HUD shortcuts: tap the drink name to Customize, tap the pearl chip for the Shop.
-  const drinkLabelEl = document.querySelector(".drink-label");
+  // Shortcuts: tap the drink name (now in the timer card) to Customize,
+  // tap the pearl chip for the Shop.
+  const drinkLabelEl = document.querySelector("#sessionLabel");
   if (drinkLabelEl) {
     drinkLabelEl.style.cursor = "pointer";
     drinkLabelEl.setAttribute("role", "button");
@@ -4700,6 +4856,13 @@ function wireEvents() {
 
   // ── Tap Mr. Tapioca for a little personality line ────────────────────────
   els.makerWrap.addEventListener("click", showMakerLine);
+
+  // ── Share the finished-drink card ────────────────────────────────────────
+  const shareBtn = document.getElementById("shareRewardBtn");
+  if (shareBtn) shareBtn.addEventListener("click", () => {
+    playSfx("tap");
+    if (lastReward) shareDrink(lastReward);
+  });
 
   // ── Games ────────────────────────────────────────────────────────────────
   els.playGameBtn.addEventListener("click", startPearlGame);
