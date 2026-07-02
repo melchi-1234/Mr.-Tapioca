@@ -24,6 +24,12 @@
         "sheet": "base/sleeping.png",
         "frames": 12,
         "fps": 3
+      },
+      "walking": {
+        "sheet": "base/walking.png",
+        "frames": 6,
+        "fps": 8,
+        "loop": true
       }
     },
     "grad-cap": {
