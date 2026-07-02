@@ -1,7 +1,7 @@
 // Mr. Tapioca service worker — makes the app installable and usable offline.
 // Bump CACHE on every release so installed users get the new app shell
 // (cache-first would otherwise serve them the old index/app.js/styles forever).
-const CACHE = "mr-tapioca-v80";
+const CACHE = "mr-tapioca-v81";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -58,16 +58,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Same-origin GETs only. The app shell (navigations + html/js/css) uses
-// stale-while-revalidate so it loads instantly from cache yet refreshes in the
-// background — installed users pick up new releases without a hard reload.
-// Everything else (images, etc.) is cache-first and cached as used.
+// Same-origin GETs only, cache-first from the versioned precache; misses are
+// fetched and cached as used. Release updates arrive atomically via the CACHE
+// version bump (see the fetch comment below).
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
-
-  const path = new URL(req.url).pathname;
-  const isShell = req.mode === "navigate" || path.endsWith("/") || /\.(html|js|css)$/.test(path);
 
   const cacheCopy = (res) => {
     if (res && res.status === 200 && res.type === "basic") {
@@ -77,17 +73,15 @@ self.addEventListener("fetch", (event) => {
     return res;
   };
 
-  if (isShell) {
-    event.respondWith(
-      caches.match(req).then((cached) => {
-        const network = fetch(req).then(cacheCopy).catch(() => cached);
-        return cached || network;   // instant cache, refresh behind the scenes
-      })
-    );
-  } else {
-    event.respondWith(
-      caches.match(req).then((cached) =>
-        cached || fetch(req).then(cacheCopy).catch(() => cached))
-    );
-  }
+  // Cache-first for EVERYTHING, no background rewrites. Why: refreshing shell
+  // files one-at-a-time into a live cache created a MIXED-VERSION app (new
+  // index.html + old app.js) that then boots offline forever. Updates ship
+  // atomically instead: every release bumps CACHE, install precaches the whole
+  // shell fresh (cache:"no-cache"), activate swaps it in one piece.
+  // ignoreSearch: an app URL carrying a query string (?utm=..., share-link
+  // redirects) must still hit the cached shell when offline.
+  event.respondWith(
+    caches.match(req, { ignoreSearch: true }).then((cached) =>
+      cached || fetch(req).then(cacheCopy).catch(() => cached))
+  );
 });

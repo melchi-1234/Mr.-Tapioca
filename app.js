@@ -446,35 +446,50 @@ const SpriteEngine = {
     if (!data || typeof data !== "object" || !data.skins) return;
     this.sheets = data;
     if (data.defaults) this.defaults = Object.assign({}, this.defaults, data.defaults);
-    // Preload + decode each referenced sheet so the first play never flashes and
-    // the service worker can runtime-cache it. Mark ready only on a clean decode.
-    Object.keys(data.skins).forEach((skin) => {
-      const states = data.skins[skin] || {};
-      Object.keys(states).forEach((st) => {
-        const entry = states[st];
-        if (!entry || !entry.sheet) return;
-        const key = skin + "/" + st;
-        const img = new Image();
-        const mark = () => {
-          if (SpriteEngine.ready[key]) return;
-          SpriteEngine.ready[key] = true;
-          SpriteEngine._refresh();
-        };
-        img.onload = mark;                 // reliable readiness signal
-        img.onerror = () => {};            // missing/broken sheet → stays unready → fallback
-        img.src = "assets/sprites/" + entry.sheet;
-        // decode() avoids a first-play flash, but is only an enhancement — onload
-        // already marks ready, so a hung/rejected decode() never blocks animation.
-        if (img.decode) img.decode().then(mark).catch(() => {});
-      });
+    // Preload ONLY what can render right now: the base character + the equipped
+    // skin. Decoding every skin's sheet up front was ~14MB of pixels at boot —
+    // the other skins preload the moment they're equipped (ensureSkin below).
+    const equipped = localStorage.getItem("bobaFocusSkin") || "";
+    this.ensureSkin("base");
+    if (equipped && equipped !== "base") this.ensureSkin(equipped);
+  },
+  // Preload + decode one skin's sheets so its first play never flashes and the
+  // service worker runtime-caches them. Mark ready only on a clean load.
+  _loading: {},
+  ensureSkin(skin) {
+    const states = (this.sheets.skins || {})[skin] || {};
+    Object.keys(states).forEach((st) => {
+      const entry = states[st];
+      if (!entry || !entry.sheet) return;
+      const key = skin + "/" + st;
+      if (this.ready[key] || this._loading[key]) return;
+      this._loading[key] = true;
+      const img = new Image();
+      const mark = () => {
+        if (SpriteEngine.ready[key]) return;
+        SpriteEngine.ready[key] = true;
+        SpriteEngine._refresh();
+      };
+      img.onload = mark;                 // reliable readiness signal
+      img.onerror = () => {};            // missing/broken sheet → stays unready → fallback
+      img.src = "assets/sprites/" + entry.sheet;
+      // decode() avoids a first-play flash, but is only an enhancement — onload
+      // already marks ready, so a hung/rejected decode() never blocks animation.
+      if (img.decode) img.decode().then(mark).catch(() => {});
     });
   },
-  // Re-apply the live state so a just-decoded sheet upgrades in place mid-session.
+  // Re-apply the live state so a just-decoded sheet upgrades in place.
+  // Debounced: a burst of decodes at boot re-applied (and restarted) the live
+  // animation once PER SHEET — visible stutter on slow first loads.
+  _refreshT: null,
   _refresh() {
-    const cur = currentMakerState;
-    if (!cur || !els.focusMakerCharacter) return;
-    currentMakerState = "";
-    setMakerState(cur);
+    clearTimeout(this._refreshT);
+    this._refreshT = setTimeout(() => {
+      const cur = currentMakerState;
+      if (!cur || !els.focusMakerCharacter) return;
+      currentMakerState = "";
+      setMakerState(cur);
+    }, 120);
   },
   _entry(skin, st) {
     const s = this.sheets.skins || {};
@@ -545,13 +560,15 @@ function setMakerState(stateName) {
 }
 
 // Play a one-shot reaction class on the maker (pop / celebrate) without
-// disturbing its looping idle/mixing animation.
+// disturbing its looping idle/mixing animation. Applied to the WRAP, not the
+// img — the sprite engine sets the img's animation inline, which would
+// override (i.e. silently kill) any class-based animation on the img itself.
 function pulseMaker(cls, ms) {
-  const img = els.focusMakerCharacter;
-  img.classList.remove(cls);
-  void img.offsetWidth;        // force reflow so the animation restarts
-  img.classList.add(cls);
-  setTimeout(() => img.classList.remove(cls), ms);
+  const wrap = els.makerWrap;
+  wrap.classList.remove(cls);
+  void wrap.offsetWidth;       // force reflow so the animation restarts
+  wrap.classList.add(cls);
+  setTimeout(() => wrap.classList.remove(cls), ms);
 }
 
 // Happy hop + a burst of treats over the scene
@@ -601,13 +618,22 @@ function walkToCupAndMix() {
     if (wrap && cup) {
       const cupRect = cup.getBoundingClientRect();
       const wrapRect = wrap.getBoundingClientRect();
-      const curWalk = parseFloat(getComputedStyle(wrap).getPropertyValue("--walk")) || 0;
+      // MID-TRANSITION FIX: --walk holds the TARGET, but wrapRect reflects the
+      // CURRENT visual position. Mixing the two (old code) made a pause→quick
+      // resume land him short of the cup, stirring the air. Derive the actual
+      // rendered translateX from the transform matrix instead, so
+      // walk = currentVisualX + (gap to cup) is exact from any mid-walk point.
+      let visualX = 0;
+      try {
+        const t = getComputedStyle(wrap).transform;
+        if (t && t !== "none") visualX = new DOMMatrixReadOnly(t).m41;
+      } catch (e) {
+        visualX = parseFloat(getComputedStyle(wrap).getPropertyValue("--walk")) || 0;
+      }
       // Land the maker box's right edge near the cup's centre so he stands right
-      // beside the cup and leans in to stir (cup's right half stays visible). The
-      // base art has internal padding, so aiming at the cup centre — not its left
-      // edge — makes his visible arm actually reach the cup.
+      // beside the cup and leans in to stir (cup's right half stays visible).
       const targetRight = cupRect.left + cupRect.width * 0.45;
-      const walk = Math.max(0, curWalk + (targetRight - wrapRect.right));
+      const walk = Math.max(0, visualX + (targetRight - wrapRect.right));
       setWalk(walk);
     } else {
       setWalk(MIX_WALK_X);   // fallback if rects unavailable
@@ -635,7 +661,15 @@ function walkToStation(restState = "idle") {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function loadState() {
+// Cross-tab identity + sync plumbing (see the "storage" listener in wireEvents):
+// two contexts sharing localStorage (browser tab + installed PWA window) used to
+// silently clobber each other's saves — last writer won, banked drinks vanished.
+const TAB_ID = Math.random().toString(36).slice(2, 8);
+let tabEverRan = false;      // did THIS tab ever run a focus session?
+let stateSyncTimer = null;
+
+function loadState(opts) {
+  const liveSync = !!(opts && opts.liveSync);
   // Every value is read through readJSON (per-key try/catch + fallback) so ONE
   // corrupt bobaFocus* key can't throw and brick the whole app at boot — the rest
   // still load. An outer try/catch is a final backstop. After a load, the call
@@ -682,13 +716,24 @@ function loadState() {
     state.devMode     = readJSON("bobaFocusDevMode", false);
     // Resume an in-progress drink across app closes
     state.mode        = localStorage.getItem("bobaFocusMode") || "small";
+    // Guard stale/removed mode keys (same treatment base/topping get above):
+    // an unknown mode runs the timer fine (30-min fallback) but completeSession's
+    // modeLabel() throws — the finished drink gets stuck in a banking crash-loop.
+    if (state.mode !== "custom" && !MODES[state.mode]) state.mode = "small";
     state.elapsed     = readJSON("bobaFocusElapsed", 0);
+    // Heal elapsed BEFORE the away-credit below — corrupt storage here would
+    // otherwise either drop the earned credit (NaN) or auto-bank a full drink
+    // at boot (a huge number).
+    if (!(typeof state.elapsed === "number" && isFinite(state.elapsed) && state.elapsed >= 0)) state.elapsed = 0;
+    state.elapsed = Math.min(state.elapsed, modeDuration());
     // If a focus session was actively RUNNING when the app was last killed, credit
     // the wall-clock time that elapsed since (capped at the session length) so a
     // true app-kill mid-study doesn't lose progress. We reconstruct it PAUSED (no
     // surprise auto-play); init completes it if it finished while away.
     const runningSince = readJSON("bobaFocusRunningSince", 0);
-    if (typeof runningSince === "number" && runningSince > 0) {
+    if (!liveSync &&   // on a cross-tab refresh the session is LIVE elsewhere — don't consume its anchor
+        typeof runningSince === "number" && isFinite(runningSince) &&
+        runningSince > 0 && runningSince <= Date.now()) {
       const extra = Math.max(0, (Date.now() - runningSince) / 1000);
       state.elapsed = Math.min(modeDuration(), state.elapsed + extra);
       pendingResume = true;
@@ -696,6 +741,9 @@ function loadState() {
     state.onboarded   = readJSON("bobaFocusOnboarded", false);
     state.badges      = readJSON("bobaFocusBadges", []);
     state.dailyGoal   = readJSON("bobaFocusDailyGoal", 60);
+    state.breakDuration = readJSON("bobaFocusBreakDuration", 600);
+    if (!(typeof state.breakDuration === "number" && isFinite(state.breakDuration)) ||
+        state.breakDuration < 300 || state.breakDuration > 1200) state.breakDuration = 600;
     state.ambience    = localStorage.getItem("bobaFocusAmbience") || "off";
     state.musicOn     = readJSON("bobaFocusMusicOn", true);
     // Volumes (0–1). Fall back to the legacy on/off toggles for returning users.
@@ -787,14 +835,21 @@ function saveState() {
   localStorage.setItem("bobaFocusMusicVol",     JSON.stringify(state.musicVolume));
   localStorage.setItem("bobaFocusSfxVol",       JSON.stringify(state.sfxVolume));
   localStorage.setItem("bobaFocusAmbVol",       JSON.stringify(state.ambVolume));
+  localStorage.setItem("bobaFocusBreakDuration", JSON.stringify(state.breakDuration));
   // Wall-clock anchor: only present while a focus session is actively RUNNING.
   // If the OS kills the app mid-session, loadState() reads this to credit the time
   // that passed so study time isn't lost. Removed whenever we're not running.
   if (state.running && state.phase === "focus") {
     localStorage.setItem("bobaFocusRunningSince", JSON.stringify(Date.now()));
-  } else {
+    tabEverRan = true;
+  } else if (tabEverRan) {
+    // Multi-tab guard: only the tab that actually RAN the session may clear the
+    // anchor. A second idle tab (whose boot-save runs unconditionally) would
+    // otherwise delete a live session's crash-recovery credit.
     localStorage.removeItem("bobaFocusRunningSince");
   }
+  // Cross-tab sync beacon — written LAST so listeners see a settled snapshot.
+  try { localStorage.setItem("bobaFocusSaveStamp", String(Date.now()) + ":" + TAB_ID); } catch (e) {}
   // Mirror my stats to the cloud Squad when live (debounced, no-op offline).
   if (window.SquadCloud && SquadCloud.ready) SquadCloud.pushProfile();
 }
@@ -858,7 +913,8 @@ function modeLabel() {
   if (state.mode === "custom") {
     return `Custom · ${fmtDuration(state.customDuration)}`;
   }
-  return MODES[state.mode].label;
+  // Belt-and-braces: never throw at banking time even if mode is somehow bad
+  return (MODES[state.mode] || MODES.small).label;
 }
 
 function currentPearls() {
@@ -1369,6 +1425,9 @@ function reconcileStreakFreezes() {
 // Re-apply the maker image for the current resting/working state. Needed after
 // a skin change because updateCup no longer drives maker state every tick.
 function refreshMaker() {
+  // Lazy sprite loading: kick off this skin's sheet decode on equip (no-op if
+  // already ready/loading); falls back to the static portrait until decoded.
+  if (SpriteEngine.loaded) SpriteEngine.ensureSkin(state.skin || "base");
   currentMakerState = "";
   setMakerState(state.running ? "mixing" : "idle");
 }
@@ -1594,7 +1653,9 @@ function tick() {
     state.lastTick = now;
   }
 
-  const delta = (now - state.lastTick) / 1000;
+  // Clamp negative deltas: a backward clock change (DST, NTP sync, manual)
+  // must not DRAIN focus progress the user already earned.
+  const delta = Math.max(0, (now - state.lastTick) / 1000);
   state.lastTick = now;
   state.elapsed = Math.min(modeDuration(), state.elapsed + delta);
   updateCup();
@@ -1987,6 +2048,10 @@ async function shareDrink(reward) {
 }
 
 function showReward(reward) {
+  // A session finishing MID-TOUR would open this dialog in the top layer above
+  // the coach overlay, leaving the tour spotlighting hidden controls behind it.
+  // The reward moment wins; the tour can be replayed from Settings.
+  if (tourOn) endFeatureTour(false);
   lastReward = reward;
   els.rewardTitle.textContent  = `${reward.size} complete! 🎉`;
   els.rewardCopy.textContent   = reward.copy;
@@ -2038,7 +2103,7 @@ function startBreak() {
 
 function tickBreak() {
   const now = Date.now();
-  const delta = (now - state.breakLastTick) / 1000;
+  const delta = Math.max(0, (now - state.breakLastTick) / 1000);   // clock-back safe
   state.breakLastTick = now;
   state.breakElapsed = Math.min(state.breakDuration, state.breakElapsed + delta);
   updateBreakDisplay();
@@ -2091,6 +2156,7 @@ function adjustBreakDuration(delta) {
   const min = 5 * 60;
   const max = 20 * 60;
   state.breakDuration = Math.min(max, Math.max(min, state.breakDuration + delta));
+  saveState();   // remember the preferred break length across sessions
   updateBreakDisplay();
 }
 
@@ -2388,10 +2454,10 @@ function gameLoop(ts) {
     } else {
       const val = p.kind === "golden" ? GOLDEN_VALUE : 1;
       gained += val;
-      // Burn the daily play on the FIRST pearl actually caught, not on opening
-      // the game — matches Plinko/Pong. A phone call or misclick at the start
-      // shouldn't forfeit the whole day's bonus.
-      if (game.caught === 0) markGamePlayed("catch");
+      // Burn the daily play (and pay the quest) on the FIRST pearl actually
+      // caught, not on opening the game — matches Plinko/Pong. A phone call or
+      // misclick at the start shouldn't forfeit the whole day's bonus.
+      if (game.caught === 0) { markGamePlayed("catch"); bumpQuest("gamesPlayed", 1); }
       game.caught += 1;
       game.combo += 1;
       game.bestCombo = Math.max(game.bestCombo, game.combo);
@@ -2432,8 +2498,7 @@ function gameLoop(ts) {
 
 function startPearlGame() {
   if (gameDoneToday("catch")) return;
-  // (daily play is burned on the first caught pearl, not here)
-  bumpQuest("gamesPlayed", 1);
+  // (daily play + quest credit are earned on the first caught pearl, not here)
   game.active = true;
   game.score = 0;
   game.caught = 0;
@@ -4267,6 +4332,13 @@ let tourStep = 0;
 let tourOn = false;
 
 function startFeatureTour() {
+  // The tour spotlights focus-screen controls; during a break / break-offer
+  // those are display:none and the spotlight would pulse over nothing. Defer
+  // instead of pointing at the void.
+  if (state.phase !== "focus" || els.shopScene.classList.contains("is-on-break")) {
+    showToast("Finish your break first, then the tour can point at everything 🧋");
+    return;
+  }
   closeSheets();
   const dlg = document.querySelector("#rewardDialog");
   if (dlg && dlg.open) dlg.close();
@@ -4275,14 +4347,37 @@ function startFeatureTour() {
   document.querySelector("#coachTour").classList.remove("hidden");
   renderTourStep();
   playSfx("open");
+  // Keyboard must not reach the app underneath (Tab+Enter could start a
+  // session under the overlay). Trap focus on the tour's two buttons.
+  document.addEventListener("keydown", tourKeyTrap, true);
+  document.querySelector("#coachNext").focus();
 }
 
 function endFeatureTour(done) {
   tourOn = false;
   document.querySelector("#coachTour").classList.add("hidden");
+  document.removeEventListener("keydown", tourKeyTrap, true);
   localStorage.setItem("bobaFocusTourDone", "1");
   playSfx(done ? "success" : "tap");
   if (done) haptic(10);
+}
+
+function tourKeyTrap(e) {
+  if (!tourOn) return;
+  if (e.key === "Escape") { e.preventDefault(); endFeatureTour(false); return; }
+  const next = document.querySelector("#coachNext");
+  const skip = document.querySelector("#coachSkip");
+  if (e.key === "Tab") {
+    e.preventDefault();
+    (document.activeElement === next ? skip : next).focus();
+    return;
+  }
+  // Any other key: keep it inside the tour (block space/enter on app controls)
+  if (document.activeElement !== next && document.activeElement !== skip &&
+      (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    next.focus();
+  }
 }
 
 function renderTourStep() {
@@ -4994,6 +5089,23 @@ function wireEvents() {
       renderStats();
     }
   });
+  // ── Cross-tab sync: when ANOTHER tab/PWA window saves, refresh this idle
+  // tab's snapshot so its next save can't clobber the other tab's progress
+  // (banked drinks, pearls, live elapsed). The actively-running tab keeps
+  // authority and ignores the beacon.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "bobaFocusSaveStamp" || !e.newValue) return;
+    if (String(e.newValue).endsWith(":" + TAB_ID)) return;   // our own write echoed back
+    if (state.running || state.phase !== "focus") return;    // we're the live/busy tab
+    clearTimeout(stateSyncTimer);
+    stateSyncTimer = setTimeout(() => {
+      if (state.running || state.phase !== "focus") return;
+      loadState({ liveSync: true });
+      renderAll();
+      updateCup();
+    }, 350);
+  });
+
   // Last-chance save + audio cleanup if the tab/app is actually closed
   window.addEventListener("pagehide", () => {
     if (state.phase === "focus") saveState();
@@ -5048,10 +5160,11 @@ if (state.onboarded && !localStorage.getItem("bobaFocusTourDone") &&
   setTimeout(startFeatureTour, 900);
 }
 
-// Safety: if no session is running, no app shield should be up. Heals the
-// stuck-shield case where iOS killed the app mid-session and the Screen Time
-// block outlived it. No-op on web and when nothing is shielded.
-if (!state.running) FocusBlocker.stop();
+// Safety: if no session is running, no app shield should be up and no
+// lock-screen countdown should be live. Heals the stuck-shield and stale
+// Live Activity cases where iOS killed the app mid-session and the block /
+// countdown outlived it. No-ops on web and when nothing is active.
+if (!state.running) { FocusBlocker.stop(); FocusActivity.stop(); }
 
 // If opened from a friend's shared Squad link (…#sq=CODE), add them, then clean
 // the URL so a refresh doesn't re-add.
