@@ -1536,7 +1536,9 @@ function renderShop() {
         : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
            <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
     } else if (item.premium && !state.devMode) {
-      action = `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
+      action = IAP.available()
+        ? `<button class="shop-preview-btn" data-iap="${item.id}">✦ ${IAP.prices[item.id] || "$1.99"}</button>`
+        : `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
@@ -1576,7 +1578,9 @@ function renderShop() {
         : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
            <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
     } else if (item.premium && !state.devMode) {
-      action = `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
+      action = IAP.available()
+        ? `<button class="shop-preview-btn" data-iap="${item.id}">✦ ${IAP.prices[item.id] || "$1.99"}</button>`
+        : `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
@@ -1612,6 +1616,18 @@ function renderShop() {
     btn.addEventListener("click", () => {
       const item = SHOP_ITEMS.find(i => i.id === btn.dataset.premium);
       if (item) showPremiumPreview(item.name, "$1.99");
+    });
+  });
+  // Real App Store purchase (native only)
+  els.shopGrid.querySelectorAll("[data-iap]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      playSfx("tap");
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = "…";
+      try { await IAP.buy(btn.dataset.iap); }
+      catch (e) { showToast("Purchase didn't go through — you weren't charged."); }
+      finally { btn.disabled = false; btn.textContent = label; renderShop(); }
     });
   });
   els.shopGrid.querySelectorAll("[data-unequip]").forEach(btn => {
@@ -1745,6 +1761,74 @@ const FocusActivity = {
     } catch (e) {}
   },
   async stop() { const p = this.plugin(); if (!p) return; try { await p.stop(); } catch (e) {} }
+};
+
+// ── Real App Store purchases (StoreKit 2 via the native IAP plugin) ──────────
+// Premium skins/backgrounds are non-consumable IAPs on iPhone. On the web the
+// plugin is absent → the shop keeps its "get the iPhone app" preview dialog.
+const IAP = {
+  PREFIX: "com.melchior.mrtapioca.",
+  prices: {},          // itemId -> localized display price ("$1.99", "€1,99"…)
+  plugin() {
+    const cap = window.Capacitor;
+    return (cap && cap.Plugins && cap.Plugins.IAP) || null;
+  },
+  available() { return !!this.plugin(); },
+  productId(itemId) { return this.PREFIX + itemId.replace("-", "."); },
+  itemId(productId) { return productId.startsWith(this.PREFIX)
+    ? productId.slice(this.PREFIX.length).replace(".", "-") : null; },
+  premiumItems() { return SHOP_ITEMS.filter(i => i.premium); },
+  async init() {
+    const p = this.plugin(); if (!p) return;
+    try {
+      const ids = this.premiumItems().map(i => this.productId(i.id));
+      const r = await p.getProducts({ ids });
+      for (const prod of (r && r.products) || []) {
+        const item = this.itemId(prod.id);
+        if (item && prod.price) this.prices[item] = prod.price;
+      }
+      renderShop();   // swap $1.99 placeholders for real localized prices
+    } catch (e) {}
+  },
+  grant(itemId) {
+    if (!SHOP_ITEMS.some(i => i.id === itemId && i.premium)) return false;
+    if (state.owned.includes(itemId)) return false;
+    state.owned.push(itemId);
+    return true;
+  },
+  async buy(itemId) {
+    const p = this.plugin(); if (!p) return { state: "unavailable" };
+    const r = await p.purchase({ id: this.productId(itemId) });
+    if (r && r.state === "purchased") {
+      if (this.grant(itemId)) { saveState(); renderShop(); }
+      playSfx("success"); haptic([12, 30, 18]);
+      const item = SHOP_ITEMS.find(i => i.id === itemId);
+      showToast(`✦ ${item ? item.name : "Purchase"} unlocked!`);
+    } else if (r && r.state === "pending") {
+      showToast("Purchase pending approval — it'll unlock automatically.");
+    }
+    return r || { state: "unknown" };
+  },
+  async restoreAll(interactive) {
+    const p = this.plugin(); if (!p) return 0;
+    try {
+      const r = await p.restore();
+      let granted = 0;
+      for (const pid of (r && r.owned) || []) {
+        const item = this.itemId(pid);
+        if (item && this.grant(item)) granted++;
+      }
+      if (granted) { saveState(); renderShop(); }
+      if (interactive) {
+        showToast(granted ? `✦ Restored ${granted} purchase${granted !== 1 ? "s" : ""}!`
+                          : "No purchases to restore on this Apple ID.");
+      }
+      return granted;
+    } catch (e) {
+      if (interactive) showToast("Couldn't reach the App Store — try again.");
+      return 0;
+    }
+  }
 };
 
 function startPause() {
@@ -2268,7 +2352,7 @@ function openSheet(id) {
   els.sheetBackdrop.classList.remove("hidden");
   // a11y: move focus into the sheet (first control, else the sheet itself)
   const f = sheet.querySelector("button:not([disabled]), [href], input, select, textarea");
-  (f || sheet).focus();
+  try { (f || sheet).focus({ preventScroll: true }); } catch (e) { (f || sheet).focus(); }
 }
 
 function closeSheets() {
@@ -2284,7 +2368,9 @@ function closeSheets() {
     stopAmbience(true);
   }
   // a11y: restore focus to whatever opened the sheet
-  if (lastSheetTrigger && typeof lastSheetTrigger.focus === "function") lastSheetTrigger.focus();
+  if (lastSheetTrigger && typeof lastSheetTrigger.focus === "function") {
+    try { lastSheetTrigger.focus({ preventScroll: true }); } catch (e) { lastSheetTrigger.focus(); }
+  }
   lastSheetTrigger = null;
 }
 
@@ -3599,12 +3685,51 @@ const BOBA_NAME_RE = "boba|bubble ?tea|milk ?tea|tapioca|gong ?cha|kung ?fu ?tea
 function overpassQuery(lat, lng, radius) {
   // cuisine=bubble_tea is the gold-standard tag. shop=beverages/tea alone is
   // NOT boba (beer markets, loose-leaf tea shops) — those need a boba-ish name.
-  return `[out:json][timeout:25];(` +
-    `nwr["cuisine"~"bubble_tea"](around:${radius},${lat},${lng});` +
-    `nwr["shop"="bubble_tea"](around:${radius},${lat},${lng});` +
-    `nwr["shop"~"beverages|tea"]["name"~"${BOBA_NAME_RE}",i](around:${radius},${lat},${lng});` +
-    `nwr["amenity"~"cafe|fast_food|restaurant|ice_cream|juice_bar"]["name"~"${BOBA_NAME_RE}",i](around:${radius},${lat},${lng});` +
-    `);out center 80;`;
+  // One global [bbox:] instead of four around:-scans: hits the spatial index
+  // once, far cheaper on busy public mirrors (fewer timeouts).
+  const dLat = radius / 111320;
+  const dLng = radius / (111320 * Math.cos(lat * Math.PI / 180));
+  const box = `${lat - dLat},${lng - dLng},${lat + dLat},${lng + dLng}`;
+  return `[out:json][timeout:25][bbox:${box}];(` +
+    `nwr["cuisine"~"bubble_tea"];` +
+    `nwr["shop"="bubble_tea"];` +
+    `nwr["shop"~"beverages|tea"]["name"~"${BOBA_NAME_RE}",i];` +
+    `nwr["amenity"~"cafe|fast_food|restaurant|ice_cream|juice_bar"]["name"~"${BOBA_NAME_RE}",i];` +
+    `);out center 120;`;
+}
+
+// Hand-verified boba spots that OpenStreetMap is missing (checked against the
+// 2026 Ithaca student guides / Yelp / the shops' own sites). OSM's small-town
+// coverage is thin — this guarantees the launch market is complete no matter
+// what the live query returns, and it's the seed of the future partner list.
+// Add new cities as { name, lat, lng } — merge + dedupe below handles overlap
+// if mappers later add these shops to OSM.
+const CURATED_SHOPS = [
+  { name: "Taichi Bubble Tea",  lat: 42.43013, lng: -76.50853 },   // 740 S Meadow St, Ithaca
+  { name: "Panda Tea Lounge",   lat: 42.44192, lng: -76.48724 },   // 407 Eddy St, Collegetown
+];
+
+function curatedNear(lat, lng, radius) {
+  return CURATED_SHOPS
+    .filter(s => haversine(lat, lng, s.lat, s.lng) <= radius)
+    .map(s => ({ name: s.name, lat: s.lat, lng: s.lng }));
+}
+
+// Merge curated spots into a result list, skipping any the live data already
+// has (same-ish name, or anything within ~120 m — the shop just got mapped).
+function mergeCurated(shops, lat, lng, radius) {
+  const out = shops.slice();
+  for (const c of curatedNear(lat, lng, radius)) {
+    // Dense blocks (Collegetown!) have distinct shops <120m apart, so bare
+    // proximity must be TIGHT; same-name matching gets a looser radius.
+    const dup = out.some(s => {
+      const d = haversine(s.lat, s.lng, c.lat, c.lng);
+      const sameName = s.name.toLowerCase().includes(c.name.toLowerCase().slice(0, 9));
+      return d < 40 || (sameName && d < 250);
+    });
+    if (!dup) out.push(c);
+  }
+  return out;
 }
 
 function fetchRealBobaShops(lat, lng, radius = 6000) {
@@ -3665,6 +3790,9 @@ function fetchRealBobaShops(lat, lng, radius = 6000) {
       seen.add(key);
       shops.push({ name, lat: slat, lng: slng });
     }
+    // Hand-verified spots OSM doesn't know about yet (launch-market guarantee)
+    const shopsAll = mergeCurated(shops, lat, lng, radius);
+    shops.length = 0; Array.prototype.push.apply(shops, shopsAll);
     shops.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng));
     // Cache only COMPLETE answers — a partial must not poison this cell for 24h.
     if (shops.length && !data._partial) {
@@ -3756,24 +3884,38 @@ function loadNearbyShops(lat, lng) {
       } else {
         setMapStatus("");
       }
-      const items = shops.slice(0, 60).map(shop => {
-        const dist = haversine(lat, lng, shop.lat, shop.lng);
-        const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin("🧋", "") })
-          .addTo(mapObj)
-          .bindPopup(
-            `<div class="map-pop-name">${escapeHtml(shop.name)}</div>` +
-            `<div class="map-pop-meta">${formatDistance(dist)} away · real boba shop</div>`
-          );
-        shopMarkers.push(marker);
-        return { shop, dist, marker };
-      });
-      renderShopList(items);
+      placeShopMarkers(shops, lat, lng);
     })
     .catch(() => {
       shopsLoading = false;
-      setMapStatus("The free map service is busy right now — give it a minute.",
-        () => loadNearbyShops(lat, lng));
+      // Live search down (mirrors overloaded / offline)? The hand-verified
+      // curated spots still work — never show an empty map in a covered city.
+      const fallback = mergeCurated([], lat, lng, 6000);
+      if (fallback.length) {
+        setMapStatus("Live search is busy — showing verified boba spots nearby.",
+          () => loadNearbyShops(lat, lng));
+        placeShopMarkers(fallback, lat, lng);
+      } else {
+        setMapStatus("The free map service is busy right now — give it a minute.",
+          () => loadNearbyShops(lat, lng));
+      }
     });
+}
+
+// Drop pins + fill the list for a set of shops (shared by live + fallback paths)
+function placeShopMarkers(shops, lat, lng) {
+  const items = shops.slice(0, 60).map(shop => {
+    const dist = haversine(lat, lng, shop.lat, shop.lng);
+    const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin("🧋", "") })
+      .addTo(mapObj)
+      .bindPopup(
+        `<div class="map-pop-name">${escapeHtml(shop.name)}</div>` +
+        `<div class="map-pop-meta">${formatDistance(dist)} away · real boba shop</div>`
+      );
+    shopMarkers.push(marker);
+    return { shop, dist, marker };
+  });
+  renderShopList(items);
 }
 
 // Scannable list of the nearby real shops under the map; tapping one pans the map
@@ -4350,7 +4492,7 @@ function startFeatureTour() {
   // Keyboard must not reach the app underneath (Tab+Enter could start a
   // session under the overlay). Trap focus on the tour's two buttons.
   document.addEventListener("keydown", tourKeyTrap, true);
-  document.querySelector("#coachNext").focus();
+  try { document.querySelector("#coachNext").focus({ preventScroll: true }); } catch (e) {}
 }
 
 function endFeatureTour(done) {
@@ -4846,6 +4988,17 @@ function wireEvents() {
     els.makerSpeech.textContent = state.devMode ? "Dev mode on — everything unlocked." : "Dev mode off.";
   });
 
+  // Restore purchases (App Review requires an explicit control; native only)
+  const restoreRow = document.getElementById("restoreRow");
+  const restoreBtn = document.getElementById("restorePurchasesBtn");
+  if (restoreRow && IAP.available()) restoreRow.classList.remove("hidden");
+  if (restoreBtn) restoreBtn.addEventListener("click", async () => {
+    playSfx("tap");
+    restoreBtn.disabled = true;
+    await IAP.restoreAll(true);
+    restoreBtn.disabled = false;
+  });
+
   // Secret handshake: 7 quick taps on the Settings title reveal the dev row.
   (function () {
     const h = document.querySelector("#settingsSheet h2");
@@ -5158,6 +5311,13 @@ if (state.onboarded && !localStorage.getItem("bobaFocusTourDone") &&
     !localStorage.getItem("bobaFocusTourOffered")) {
   localStorage.setItem("bobaFocusTourOffered", "1");
   setTimeout(startFeatureTour, 900);
+}
+
+// Real IAP boot-up (native only; both no-op on web): localized prices for the
+// shop, then silently re-grant anything this Apple ID already owns.
+if (IAP.available()) {
+  IAP.init();
+  IAP.restoreAll(false);
 }
 
 // Safety: if no session is running, no app shield should be up and no

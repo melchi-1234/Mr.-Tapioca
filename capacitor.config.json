@@ -1,5 +1,9 @@
 {
   "appId": "com.melchior.mrtapioca",
   "appName": "Mr. Tapioca",
-  "webDir": "www"
+  "webDir": "www",
+  "backgroundColor": "#fdf0e0",
+  "ios": {
+    "scrollEnabled": false
+  }
 }

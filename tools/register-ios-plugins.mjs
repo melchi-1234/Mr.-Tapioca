@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 
 const CONFIG = "ios/App/App/capacitor.config.json";
-const LOCAL_PLUGIN_CLASSES = ["FocusShieldPlugin", "FocusActivityPlugin"];
+const LOCAL_PLUGIN_CLASSES = ["FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin"];
 
 if (!existsSync(CONFIG)) {
   console.log("[register-ios-plugins] no iOS project yet — skipping");
