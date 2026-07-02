@@ -1744,23 +1744,31 @@ const FocusBlocker = {
 // Shows the remaining focus time without opening the app. No-ops on the web
 // build and on iPhones where the FocusWidget extension isn't installed yet.
 const FocusActivity = {
+  _want: false,
   plugin() {
     const cap = window.Capacitor;
     return (cap && cap.Plugins && cap.Plugins.FocusActivity) || null;
   },
+  // _want tracks the DESIRED activity state so a slow native start() that resolves
+  // AFTER a stop() can't leave an orphan countdown stuck on the Lock Screen.
   async start() {
     const p = this.plugin(); if (!p) return;
     const remainingMs = Math.max(0, (modeDuration() - state.elapsed) * 1000);
     if (remainingMs <= 0) return;
+    this._want = true;
     try {
       await p.start({
         endsAt: Date.now() + remainingMs,
         startedAt: Date.now() - state.elapsed * 1000,   // progress bar spans the whole drink
         drinkName: currentDrinkName()
       });
+      if (!this._want) await p.stop();
     } catch (e) {}
   },
-  async stop() { const p = this.plugin(); if (!p) return; try { await p.stop(); } catch (e) {} }
+  async stop() {
+    this._want = false;
+    const p = this.plugin(); if (!p) return; try { await p.stop(); } catch (e) {}
+  }
 };
 
 // ── Real App Store purchases (StoreKit 2 via the native IAP plugin) ──────────
@@ -3516,8 +3524,8 @@ function renderDevToggle() {
 
 // ── Boba map (Leaflet + free OpenStreetMap tiles, lazy-loaded) ────────────────
 
-const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-const LEAFLET_JS  = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const LEAFLET_CSS = "assets/vendor/leaflet/leaflet.css";
+const LEAFLET_JS  = "assets/vendor/leaflet/leaflet.js";
 let leafletPromise = null;
 let mapObj = null;
 
@@ -3532,8 +3540,9 @@ function ensureLeaflet() {
     const s = document.createElement("script");
     s.src = LEAFLET_JS;
     s.onload = () => resolve();
-    // One flaky CDN moment must not brick the map for the whole session:
-    // forget this attempt so the next open injects a fresh <script>.
+    // A transient load failure (first visit while offline, before the SW has
+    // precached) must not brick the map for the whole session: forget this
+    // attempt so the next open injects a fresh <script>.
     s.onerror = () => {
       leafletPromise = null;
       s.remove(); link.remove();

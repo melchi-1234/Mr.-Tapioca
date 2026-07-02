@@ -21,7 +21,9 @@
 
   function loadSupabase() {
     if (sbPromise) return sbPromise;
-    sbPromise = import("https://esm.sh/@supabase/supabase-js@2")
+    // Pinned exact version so an upstream release can't silently change the
+    // code we run; bump deliberately.
+    sbPromise = import("https://esm.sh/@supabase/supabase-js@2.110.0")
       .then((m) => m.createClient(CLOUD.url, CLOUD.anonKey, {
         auth: { persistSession: true, autoRefreshToken: true, storage: window.localStorage },
       }))
