@@ -25,6 +25,160 @@
         "frames": 12,
         "fps": 3
       }
+    },
+    "grad-cap": {
+      "idle": {
+        "sheet": "grad-cap/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "grad-cap/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "flower": {
+      "idle": {
+        "sheet": "flower/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "flower/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "scarf": {
+      "idle": {
+        "sheet": "scarf/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "scarf/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "shades": {
+      "idle": {
+        "sheet": "shades/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "shades/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "angel": {
+      "idle": {
+        "sheet": "angel/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "angel/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "devil": {
+      "idle": {
+        "sheet": "devil/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "devil/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "dragon": {
+      "idle": {
+        "sheet": "dragon/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "dragon/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "astro-blue": {
+      "idle": {
+        "sheet": "astro-blue/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "astro-blue/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "ninja": {
+      "idle": {
+        "sheet": "ninja/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "ninja/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "strawberry": {
+      "idle": {
+        "sheet": "strawberry/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "strawberry/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "wizard": {
+      "idle": {
+        "sheet": "wizard/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "wizard/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
     }
   }
 }
