@@ -2216,6 +2216,10 @@ function gameLoop(ts) {
     } else {
       const val = p.kind === "golden" ? GOLDEN_VALUE : 1;
       gained += val;
+      // Burn the daily play on the FIRST pearl actually caught, not on opening
+      // the game — matches Plinko/Pong. A phone call or misclick at the start
+      // shouldn't forfeit the whole day's bonus.
+      if (game.caught === 0) markGamePlayed("catch");
       game.caught += 1;
       game.combo += 1;
       game.bestCombo = Math.max(game.bestCombo, game.combo);
@@ -2256,7 +2260,7 @@ function gameLoop(ts) {
 
 function startPearlGame() {
   if (gameDoneToday("catch")) return;
-  markGamePlayed("catch");
+  // (daily play is burned on the first caught pearl, not here)
   bumpQuest("gamesPlayed", 1);
   game.active = true;
   game.score = 0;
@@ -3178,6 +3182,12 @@ function renderVolumeControls() {
 function renderDevToggle() {
   els.devToggle.classList.toggle("on", state.devMode);
   els.devToggle.setAttribute("aria-checked", String(state.devMode));
+  // Dev mode mints unlimited pearls/unlocks, so the row is hidden from normal
+  // users (TestFlight included — Squad leaderboards must stay honest). Unlock:
+  // tap the "Settings" title 7 times. Anyone already in dev mode keeps the row.
+  const row = document.getElementById("devRow");
+  if (row) row.classList.toggle("hidden",
+    !(state.devMode || localStorage.getItem("bobaFocusDevUnlock")));
 }
 
 
@@ -3199,7 +3209,13 @@ function ensureLeaflet() {
     const s = document.createElement("script");
     s.src = LEAFLET_JS;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error("leaflet failed to load"));
+    // One flaky CDN moment must not brick the map for the whole session:
+    // forget this attempt so the next open injects a fresh <script>.
+    s.onerror = () => {
+      leafletPromise = null;
+      s.remove(); link.remove();
+      reject(new Error("leaflet failed to load"));
+    };
     document.head.appendChild(s);
   });
   return leafletPromise;
@@ -3221,28 +3237,65 @@ function setMapStatus(msg, retryFn) {
   el.classList.remove("hidden");
 }
 
+let mapBuilding = false;   // guard: fast open/close/open must not double-build
+let lastFix = null;        // { lat, lng, real } — the fix the map is centered on
+
 function openMap() {
   openSheet("mapSheet");
   bumpQuest("mapOpen", 1);   // Daily Quest: peek at the boba map
-  if (mapObj) { setTimeout(() => mapObj.invalidateSize(), 250); return; }
+  if (mapObj) {
+    setTimeout(() => mapObj.invalidateSize(), 250);
+    relocateMap();           // moved cities? allowed location since? catch up
+    return;
+  }
+  if (mapBuilding) return;
+  mapBuilding = true;
   setMapStatus("Loading the map…");
   ensureLeaflet()
     .then(locateAndBuild)
-    .catch(() => setMapStatus("Couldn't load the map — check your connection and try again."));
+    .catch(() => {
+      mapBuilding = false;
+      setMapStatus("Couldn't load the map — check your connection.", openMap);
+    });
 }
 
 function locateAndBuild() {
   const fallback = [37.7749, -122.4194];   // a real area to demo with if location is off
-  if (navigator.geolocation) {
-    setMapStatus("Finding boba near you…");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => buildMap(pos.coords.latitude, pos.coords.longitude, true),
-      ()    => buildMap(fallback[0], fallback[1], false),
-      { timeout: 8000, maximumAge: 600000 }
-    );
-  } else {
-    buildMap(fallback[0], fallback[1], false);
-  }
+  if (!navigator.geolocation) { buildMap(fallback[0], fallback[1], false, "unsupported"); return; }
+  setMapStatus("Finding boba near you…");
+  navigator.geolocation.getCurrentPosition(
+    (pos) => buildMap(pos.coords.latitude, pos.coords.longitude, true),
+    // Denied is a settings problem; anything else (timeout, no fix indoors)
+    // deserves a retry button instead of silently stranding the demo city.
+    (err) => buildMap(fallback[0], fallback[1], false, err && err.code === 1 ? "denied" : "flaky"),
+    { timeout: 12000, maximumAge: 300000 }
+  );
+}
+
+// Re-check the user's position on later map opens (and via "Try again"):
+// recenter + refetch shops when they've actually moved, or when the map is
+// still sitting on the demo city because the first fix failed.
+function relocateMap() {
+  if (!navigator.geolocation || !mapObj) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const la = pos.coords.latitude, lo = pos.coords.longitude;
+      const moved = !lastFix || !lastFix.real ||
+        haversine(lastFix.lat, lastFix.lng, la, lo) > 1500;   // >1.5 km = actually moved
+      if (!moved) return;
+      lastFix = { lat: la, lng: lo, real: true };
+      mapObj.setView([la, lo], 15);
+      if (meMarker) meMarker.setLatLng([la, lo]);
+      setMapStatus("");
+      loadNearbyShops(la, lo);
+    },
+    () => {
+      if (lastFix && !lastFix.real) {
+        setMapStatus("Still can't get your location — check Location Services for Mr. Tapioca.", relocateMap);
+      }
+    },
+    { timeout: 12000, maximumAge: 120000 }
+  );
 }
 
 function bobaPin(emoji, cls) {
@@ -3287,27 +3340,40 @@ function escapeHtml(s) {
 // to not time out, (4) match cuisine as a list (OSM uses "bubble_tea;taiwanese")
 // plus well-known chains that don't have "boba" in their name,
 // (5) cache results for 24h per ~1km cell so reopening the map is instant.
+// Ordered by observed reliability for our query shape (live-tested Jul 2026):
+// kumi handled the heavy clauses, mail.ru times out most, so it goes last.
 const OVERPASS_SERVERS = [
-  "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
 ];
+// Chain list verified against live OSM data (NYC/Chinatown sweep, Jul 2026).
+// "coco" must stay qualified — bare it matches Cocoron / The Cocoa Exchange /
+// coconut anything. Overpass regex has no \b, so keep patterns specific.
 const BOBA_NAME_RE = "boba|bubble ?tea|milk ?tea|tapioca|gong ?cha|kung ?fu ?tea|" +
-  "share ?tea|chatime|happy ?lemon|tiger ?sugar|ding ?tea|vivi|yi ?fang|tpumps|" +
-  "7 ?leaves|omomo|coco|quickly|teaspoon|tastea";
+  "share ?tea|cha ?time|happy ?lemon|tiger ?sugar|ding ?tea|vivi|yi ?fang|tpumps|" +
+  "7 ?leaves|omomo|coco (fresh|tea)|coco都可|quickly|teaspoon|tastea|" +
+  "the alley|xing ?fu ?tang|machi ?machi|moge ?tee|truedan|sunright|mr\\.? ?wish|" +
+  "presotea|onezo|tp ?tea|wushiland|meet ?fresh|ten ?ren|lollicup|" +
+  "tapioca ?express|hey ?tea|nayuki|chicha ?san ?chen|milksha|macao ?imperial|" +
+  "tealive|koi ?th[eé]|i.?milky|mixue|chun ?yang|bambu|debutea|wanpo|teazzi";
 
 function overpassQuery(lat, lng, radius) {
+  // cuisine=bubble_tea is the gold-standard tag. shop=beverages/tea alone is
+  // NOT boba (beer markets, loose-leaf tea shops) — those need a boba-ish name.
   return `[out:json][timeout:25];(` +
     `nwr["cuisine"~"bubble_tea"](around:${radius},${lat},${lng});` +
-    `nwr["shop"~"bubble_tea|beverages|tea"](around:${radius},${lat},${lng});` +
-    `nwr["amenity"~"cafe|fast_food|restaurant|ice_cream"]["name"~"${BOBA_NAME_RE}",i](around:${radius},${lat},${lng});` +
+    `nwr["shop"="bubble_tea"](around:${radius},${lat},${lng});` +
+    `nwr["shop"~"beverages|tea"]["name"~"${BOBA_NAME_RE}",i](around:${radius},${lat},${lng});` +
+    `nwr["amenity"~"cafe|fast_food|restaurant|ice_cream|juice_bar"]["name"~"${BOBA_NAME_RE}",i](around:${radius},${lat},${lng});` +
     `);out center 80;`;
 }
 
 function fetchRealBobaShops(lat, lng, radius = 6000) {
-  // 24h cache keyed by ~1km cell — makes reopening instant and rides out API flakiness.
-  const cacheKey = "bobaShops:" + lat.toFixed(2) + "," + lng.toFixed(2);
+  // 24h cache keyed by ~1km cell — makes reopening instant and rides out API
+  // flakiness. v2: query cleanup (beer/leaf-tea pollution) — old cells ignored.
+  const cacheKey = "bobaShops2:" + lat.toFixed(2) + "," + lng.toFixed(2);
   try {
     const hit = JSON.parse(localStorage.getItem(cacheKey));
     if (hit && Date.now() - hit.t < 86400000 && Array.isArray(hit.shops) && hit.shops.length) {
@@ -3316,10 +3382,17 @@ function fetchRealBobaShops(lat, lng, radius = 6000) {
   } catch (e) {}
 
   const body = "data=" + encodeURIComponent(overpassQuery(lat, lng, radius));
+  // A mirror that times out mid-stream returns HTTP 200 + a "remark" + only the
+  // elements it got to. That's a PARTIAL list, not the neighborhood's truth —
+  // keep it as a last resort but try the next mirror for a complete answer.
+  let bestPartial = null;
   const tryServer = (i) => {
-    if (i >= OVERPASS_SERVERS.length) return Promise.reject(new Error("all overpass mirrors failed"));
+    if (i >= OVERPASS_SERVERS.length) {
+      if (bestPartial) return Promise.resolve(bestPartial);
+      return Promise.reject(new Error("all overpass mirrors failed"));
+    }
     const ctrl = ("AbortController" in window) ? new AbortController() : null;
-    const kill = ctrl ? setTimeout(() => ctrl.abort(), 30000) : null;
+    const kill = ctrl ? setTimeout(() => ctrl.abort(), 18000) : null;
     return fetch(OVERPASS_SERVERS[i], {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -3328,9 +3401,12 @@ function fetchRealBobaShops(lat, lng, radius = 6000) {
     })
       .then(r => { if (!r.ok) throw new Error("overpass " + r.status); return r.json(); })
       .then(data => {
-        // A timed-out query is HTTP 200 + empty elements + a "remark" — that's a
-        // failure, NOT "no shops here". Fall through to the next mirror.
-        if (data.remark && /error|timed? ?out/i.test(data.remark) && !(data.elements || []).length) {
+        if (data.remark && /error|timed? ?out/i.test(data.remark)) {
+          const els = data.elements || [];
+          if (els.length && (!bestPartial || els.length > (bestPartial.elements || []).length)) {
+            data._partial = true;
+            bestPartial = data;
+          }
           throw new Error("overpass remark: " + data.remark);
         }
         return data;
@@ -3353,14 +3429,32 @@ function fetchRealBobaShops(lat, lng, radius = 6000) {
       shops.push({ name, lat: slat, lng: slng });
     }
     shops.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng));
-    if (shops.length) {
-      try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), shops: shops.slice(0, 80) })); } catch (e) {}
+    // Cache only COMPLETE answers — a partial must not poison this cell for 24h.
+    if (shops.length && !data._partial) {
+      try {
+        // Prune while we're here: v1 cells (old polluted query) and expired v2
+        // cells would otherwise pile up in localStorage forever.
+        for (let k = localStorage.length - 1; k >= 0; k--) {
+          const key = localStorage.key(k);
+          if (!key) continue;
+          if (key.startsWith("bobaShops:")) { localStorage.removeItem(key); continue; }
+          if (key.startsWith("bobaShops2:") && key !== cacheKey) {
+            const v = JSON.parse(localStorage.getItem(key) || "null");
+            if (!v || Date.now() - v.t > 86400000) localStorage.removeItem(key);
+          }
+        }
+        localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), shops: shops.slice(0, 80) }));
+      } catch (e) {}
     }
+    shops.partial = !!data._partial;   // let the UI say "partial — try again"
     return shops;
   });
 }
 
-function buildMap(lat, lng, real) {
+let meMarker = null;
+function buildMap(lat, lng, real, why) {
+  mapBuilding = false;
+  lastFix = { lat, lng, real };
   setMapStatus("");
   mapObj = L.map("map", { zoomControl: true }).setView([lat, lng], 15);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -3368,7 +3462,7 @@ function buildMap(lat, lng, real) {
     attribution: "© OpenStreetMap"
   }).addTo(mapObj);
 
-  L.marker([lat, lng], { icon: bobaPin("📍", "me") })
+  meMarker = L.marker([lat, lng], { icon: bobaPin("📍", "me") })
     .addTo(mapObj)
     .bindPopup(real
       ? `<div class="map-pop-name">You are here</div>`
@@ -3386,8 +3480,14 @@ function buildMap(lat, lng, real) {
   setTimeout(() => mapObj.invalidateSize(), 250);
 
   // Only pull real nearby shops when we actually have the user's location.
+  // Every no-location path gets a "Try again" that re-runs geolocation —
+  // nobody should be stranded staring at the demo city.
   if (!real) {
-    setMapStatus("Turn on location to see real boba shops near you.");
+    setMapStatus(
+      why === "denied"
+        ? "Location is off for Mr. Tapioca — allow it in Settings, then try again."
+        : "Couldn't get your location — give it another try.",
+      relocateMap);
     renderShopList([]);
     return;
   }
@@ -3397,19 +3497,28 @@ function buildMap(lat, lng, real) {
 // Fetch + render the real nearby shops. Separate from buildMap so the
 // "Try again" button can re-run just this part without rebuilding the map.
 let shopMarkers = [];
+let shopsLoading = false;   // guard: retry-spam must not stack duplicate pins
 function loadNearbyShops(lat, lng) {
+  if (shopsLoading) return;
+  shopsLoading = true;
   setMapStatus("Finding real boba spots near you…");
   shopMarkers.forEach(m => { try { mapObj.removeLayer(m); } catch (e) {} });
   shopMarkers = [];
   fetchRealBobaShops(lat, lng)
     .then(shops => {
+      shopsLoading = false;
       if (!shops.length) {
         setMapStatus("No boba spots listed within ~6 km. OpenStreetMap may not have your local shops mapped yet.",
           () => loadNearbyShops(lat, lng));
         renderShopList([]);
         return;
       }
-      setMapStatus("");
+      if (shops.partial) {
+        setMapStatus("The map service was slow — this list may be incomplete.",
+          () => loadNearbyShops(lat, lng));
+      } else {
+        setMapStatus("");
+      }
       const items = shops.slice(0, 60).map(shop => {
         const dist = haversine(lat, lng, shop.lat, shop.lng);
         const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin("🧋", "") })
@@ -3423,8 +3532,11 @@ function loadNearbyShops(lat, lng) {
       });
       renderShopList(items);
     })
-    .catch(() => setMapStatus("The free map service is busy right now — give it a minute.",
-      () => loadNearbyShops(lat, lng)));
+    .catch(() => {
+      shopsLoading = false;
+      setMapStatus("The free map service is busy right now — give it a minute.",
+        () => loadNearbyShops(lat, lng));
+    });
 }
 
 // Scannable list of the nearby real shops under the map; tapping one pans the map
@@ -3687,7 +3799,13 @@ function removeFriend(id) {
   saveState();
   renderSquad();
 }
-function squadAvatar(skin) { return (skin && SKIN_IMAGES[skin]) ? SKIN_IMAGES[skin] : "assets/Mr. Tapioca.png"; }
+// skin comes from the cloud (any follower can set any string) — own-property
+// check keeps "constructor"/"toString" style values from hitting the prototype.
+function squadAvatar(skin) {
+  return (skin && Object.prototype.hasOwnProperty.call(SKIN_IMAGES, skin) &&
+          typeof SKIN_IMAGES[skin] === "string")
+    ? SKIN_IMAGES[skin] : "assets/Mr. Tapioca.png";
+}
 function squadRelative(ts) {
   const t = typeof ts === "number" ? ts : Date.parse(ts);
   if (!t) return "recently";
@@ -3939,13 +4057,16 @@ function onboardGoBack() {
   }
 }
 
-function finishOnboarding() {
+function finishOnboarding(skipped) {
   els.onboarding.classList.add("hidden");
   state.onboarded = true;
   localStorage.setItem("bobaFocusOnboarded", "true");
   playSfx("success");
   haptic(10);
   // First-run only: after the story intro, walk through what every button does.
+  // Someone who hit "Skip" opted OUT of hand-holding — forcing the 10-step tour
+  // on them anyway is the opposite of what Skip promised. (Replayable in Settings.)
+  if (skipped === true) { localStorage.setItem("bobaFocusTourDone", "skipped"); return; }
   if (!localStorage.getItem("bobaFocusTourDone")) setTimeout(startFeatureTour, 700);
 }
 
@@ -4462,6 +4583,25 @@ function wireEvents() {
     els.makerSpeech.textContent = state.devMode ? "Dev mode on — everything unlocked." : "Dev mode off.";
   });
 
+  // Secret handshake: 7 quick taps on the Settings title reveal the dev row.
+  (function () {
+    const h = document.querySelector("#settingsSheet h2");
+    if (!h) return;
+    let taps = 0, timer = null;
+    h.addEventListener("click", () => {
+      taps++;
+      clearTimeout(timer);
+      timer = setTimeout(() => { taps = 0; }, 1500);
+      if (taps >= 7) {
+        taps = 0;
+        localStorage.setItem("bobaFocusDevUnlock", "1");
+        renderDevToggle();
+        els.makerSpeech.textContent = "Dev switch unlocked 🛠";
+        playSfx("success");
+      }
+    });
+  })();
+
   // ── Bottom bar sheets ────────────────────────────────────────────────────
   els.shopBtn.addEventListener("click",       () => { playSfx("open"); openSheet("shopSheet"); });
   els.customizeBtn.addEventListener("click",  () => { playSfx("open"); openSheet("customizeSheet"); });
@@ -4514,7 +4654,7 @@ function wireEvents() {
   // ── Onboarding ────────────────────────────────────────────────────────────
   els.onboardNext.addEventListener("click", onboardAdvance);
   els.onboardBack.addEventListener("click", onboardGoBack);
-  els.onboardSkip.addEventListener("click", finishOnboarding);
+  els.onboardSkip.addEventListener("click", () => finishOnboarding(true));
   els.replayIntroBtn.addEventListener("click", () => {
     // In dev mode, do a TRUE fresh first-run (blank name + reset economy) for testing.
     // For normal users it just replays the slides (name stays; no free-rename loophole).
@@ -4718,12 +4858,28 @@ if (pendingResume && state.phase === "focus" && progress() >= 1) {
 // First-time visitors get the welcome tour
 if (!state.onboarded) showOnboarding();
 
+// Tour interrupted mid-run (iOS killed the app during the 700ms delay or a
+// step)? Auto-resume exactly ONCE on a later launch — the tour is the only
+// thing that points at app-blocking, so a new user must not silently miss it.
+if (state.onboarded && !localStorage.getItem("bobaFocusTourDone") &&
+    !localStorage.getItem("bobaFocusTourOffered")) {
+  localStorage.setItem("bobaFocusTourOffered", "1");
+  setTimeout(startFeatureTour, 900);
+}
+
+// Safety: if no session is running, no app shield should be up. Heals the
+// stuck-shield case where iOS killed the app mid-session and the Screen Time
+// block outlived it. No-op on web and when nothing is shielded.
+if (!state.running) FocusBlocker.stop();
+
 // If opened from a friend's shared Squad link (…#sq=CODE), add them, then clean
 // the URL so a refresh doesn't re-add.
 (function () {
   const m = location.hash && location.hash.match(/sq=([A-Za-z0-9+/_=-]+)/);
   if (m) {
-    addFriendByCode(m[1]);
+    // Ask first — a link click must not silently mutate the Squad (a crafted
+    // link could overwrite a friend's stats or burn cloud follow-rate slots).
+    if (confirm("Add this friend to your Study Squad?")) addFriendByCode(m[1]);
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { location.hash = ""; }
   }
 })();

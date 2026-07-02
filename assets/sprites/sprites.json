@@ -22,8 +22,8 @@
       },
       "sleeping": {
         "sheet": "base/sleeping.png",
-        "frames": 4,
-        "fps": 2.5
+        "frames": 12,
+        "fps": 3
       }
     }
   }
