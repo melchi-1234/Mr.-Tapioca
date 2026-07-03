@@ -185,6 +185,34 @@
         "fps": 4,
         "loop": true
       }
+    },
+    "cat-hoodie": {
+      "idle": {
+        "sheet": "cat-hoodie/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "cat-hoodie/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
+    },
+    "royal": {
+      "idle": {
+        "sheet": "royal/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      },
+      "mixing": {
+        "sheet": "royal/idle.png",
+        "frames": 12,
+        "fps": 4,
+        "loop": true
+      }
     }
   }
 }

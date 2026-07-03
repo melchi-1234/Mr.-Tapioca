@@ -67,6 +67,8 @@ const SHOP_ITEMS = [
   { id: "skin-strawberry", name: "Strawberry",     desc: "Sweet and cute",        category: "Character Skin", type: "skin", value: "strawberry", price: 85, img: "assets/Strawberry.png"       },
   { id: "skin-astro-blue", name: "Astronaut",      desc: "Space mode on",         category: "Character Skin", type: "skin", value: "astro-blue", price: 85, img: "assets/Astronaut, blue.png"  },
   { id: "skin-dragon",     name: "Dragon",         desc: "Breathe fire, focus",   category: "Character Skin", type: "skin", value: "dragon",     price: 85, img: "assets/Dragon.png"           },
+  { id: "skin-cat-hoodie", name: "Cat Hoodie",      desc: "Cozy ears, cozier focus", category: "Character Skin", type: "skin", value: "cat-hoodie", price: 85, img: "assets/Cat Hoodie.png"       },
+  { id: "skin-royal",      name: "Royal",           desc: "Crowned monarch of focus", category: "Character Skin", type: "skin", value: "royal",      price: 85, img: "assets/Royal Crown.png"      },
 
   // Premium skins (future IAP)
   { id: "skin-ninja",      name: "Ninja",          desc: "Silent focus mode",     category: "Character Skin", type: "skin", value: "ninja",      premium: true, img: "assets/Ninja.png"            },
@@ -81,6 +83,8 @@ const SHOP_ITEMS = [
   { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 130, color: "#7a9ab8" },
   { id: "theme-winter",    name: "Winter Cocoa",         desc: "Falling snow, fairy lights, cozy warmth", category: "Backgrounds", type: "shopTheme", value: "winter",     premium: true, color: "#bcd3e0" },
   { id: "theme-galaxy",    name: "Galaxy Dream",         desc: "Twinkling cosmos & drifting stars",    category: "Backgrounds", type: "shopTheme", value: "galaxy",     premium: true, color: "#cdbfe6" },
+  { id: "theme-library",   name: "Honey Library",        desc: "Bookshelves, lamplight, quiet",        category: "Backgrounds", type: "shopTheme", value: "library",    price: 130, color: "#e8c98f" },
+  { id: "theme-sunset",    name: "Seaside Sunset",       desc: "Ocean air and golden hour",            category: "Backgrounds", type: "shopTheme", value: "sunset",     price: 130, color: "#f4b9a1" },
 
   // Boosts — repeatable CONSUMABLES (tracked by count, not one-time ownership)
   { id: "boost-freeze",    name: "Streak Freeze",        desc: "Auto-protects your streak if you miss a day", category: "Boosts", type: "consumable", consumableKey: "freezes", price: 35, icon: "🧊" },
@@ -388,7 +392,9 @@ const SKIN_IMAGES = {
   "astro-blue": "assets/Astronaut, blue.png",
   "ninja":      "assets/Ninja.png",
   "strawberry": "assets/Strawberry.png",
-  "wizard":     "assets/Wizard.png"
+  "wizard":     "assets/Wizard.png",
+  "cat-hoodie": "assets/Cat Hoodie.png",
+  "royal":      "assets/Royal Crown.png"
 };
 
 // Per-skin pose sets — each generated as a single 2x2 sprite sheet (one render,
@@ -1566,6 +1572,8 @@ function renderShop() {
       rainy:  "assets/Shop Background Rainy.png",
       winter: "assets/Shop Background Winter.png",
       galaxy: "assets/Shop Background Galaxy.png",
+      library: "assets/Shop Background Library.png",
+      sunset: "assets/Shop Background Sunset.png",
     };
     const bg = THEME_BG[item.value];
     // Show the actual backdrop art (color stays as the load fallback).

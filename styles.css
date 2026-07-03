@@ -3324,3 +3324,31 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
    the stats dashboard, and the "goal reached" toast still fires. Element +
    update code kept so this is a one-line revert. */
 #dailyGoal { display: none !important; }
+
+/* ── Honey Library theme (Higgsfield-generated backdrop, 2026-07) ─────────── */
+.scene[data-theme="library"] {
+  --floor-a: #c08b5a;
+  --floor-b: #dcae7e;
+  background: var(--floor-grad) no-repeat,
+              #f0e0c2 url('assets/Shop Background Library.png') top center / cover no-repeat;
+}
+.scene[data-theme="library"] .work-counter {
+  background: linear-gradient(180deg, #fdf4e0 0, #f6e7c8 16px, #ecd5a6 100%);
+  border-color: rgba(90, 60, 25, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.85);
+}
+.scene[data-theme="library"] .speech-bubble { background: #fff8e4; }
+
+/* ── Seaside Sunset theme (Higgsfield-generated backdrop, 2026-07) ────────── */
+.scene[data-theme="sunset"] {
+  --floor-a: #d0906c;
+  --floor-b: #ecc0a0;
+  background: var(--floor-grad) no-repeat,
+              #f7e3d3 url('assets/Shop Background Sunset.png') top center / cover no-repeat;
+}
+.scene[data-theme="sunset"] .work-counter {
+  background: linear-gradient(180deg, #fff5ec 0, #fbe6d6 16px, #f2d0b8 100%);
+  border-color: rgba(120, 60, 40, 0.13);
+  border-top-color: rgba(255, 255, 255, 0.85);
+}
+.scene[data-theme="sunset"] .speech-bubble { background: #fff2e8; }
