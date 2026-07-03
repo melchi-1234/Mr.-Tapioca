@@ -16,7 +16,6 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
 		BC11122F2FF3483300A82015 /* FocusShieldPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC11122D2FF3472600A82015 /* FocusShieldPlugin.swift */; };
-		BC9AC0DE2FF7AA0100A82015 /* IAPPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9AC0DD2FF7AA0100A82015 /* IAPPlugin.swift */; };
 		BC1112312FF3484F00A82015 /* SharedSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC11122E2FF3472600A82015 /* SharedSelection.swift */; };
 		BC1112382FF3499E00A82015 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC1112372FF3499E00A82015 /* ManagedSettings.framework */; };
 		BC11123A2FF3499E00A82015 /* ManagedSettingsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC1112392FF3499E00A82015 /* ManagedSettingsUI.framework */; };
@@ -29,6 +28,7 @@
 		BC1112B02FF5E8B200A82015 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC1112AF2FF5E8B200A82015 /* WidgetKit.framework */; };
 		BC1112B22FF5E8B200A82015 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC1112B12FF5E8B200A82015 /* SwiftUI.framework */; };
 		BC1112C32FF5E8B200A82015 /* FocusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BC1112AE2FF5E8B200A82015 /* FocusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BC9AC0DE2FF7AA0100A82015 /* IAPPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9AC0DD2FF7AA0100A82015 /* IAPPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,7 +93,6 @@
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
 		BC11122B2FF3450500A82015 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		BC11122D2FF3472600A82015 /* FocusShieldPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusShieldPlugin.swift; sourceTree = "<group>"; };
-		BC9AC0DD2FF7AA0100A82015 /* IAPPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IAPPlugin.swift; sourceTree = "<group>"; };
 		BC11122E2FF3472600A82015 /* SharedSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedSelection.swift; sourceTree = "<group>"; };
 		BC1112362FF3499E00A82015 /* ShieldConfiguration.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC1112372FF3499E00A82015 /* ManagedSettings.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettings.framework; path = System/Library/Frameworks/ManagedSettings.framework; sourceTree = SDKROOT; };
@@ -104,6 +103,7 @@
 		BC1112AE2FF5E8B200A82015 /* FocusWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocusWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC1112AF2FF5E8B200A82015 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		BC1112B12FF5E8B200A82015 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		BC9AC0DD2FF7AA0100A82015 /* IAPPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IAPPlugin.swift; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -716,7 +716,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = T6235QVFYG;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
@@ -741,7 +741,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = T6235QVFYG;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
