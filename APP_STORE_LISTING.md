@@ -59,15 +59,15 @@ The part that keeps you honest: real app blocking. Mr. Tapioca uses Apple's Scre
 
 What's inside:
 
-🧋 A drink collection with bases, toppings, and multi-session drinks
-🔒 Real app blocking, not just a guilt trip
-⏳ Live Activity countdown on your Lock Screen and Dynamic Island
-🫧 Pearls, about 4 per focused hour, to spend on skins, toppings, and shop backgrounds
-🗺️ A boba map with actual bubble tea shops near you
-👥 Study Squad: share a code, see friends focusing live, keep streaks together (optional)
-🎮 Break games between sessions: Catch the Pearls, Boba Plinko, Cup Pong
-✅ Daily quests, achievements, and streaks with streak freezes
-🎵 Lo-fi generative music and ambient soundscapes
+- A drink collection with bases, toppings, and multi-session drinks
+- Real app blocking, not just a guilt trip
+- Live Activity countdown on your Lock Screen and Dynamic Island
+- Pearls, about 4 per focused hour, to spend on skins, toppings, and shop backgrounds
+- A boba map with actual bubble tea shops near you
+- Study Squad: share a code, see friends focusing live, keep streaks together (optional)
+- Break games between sessions: Catch the Pearls, Boba Plinko, Cup Pong
+- Daily quests, achievements, and streaks with streak freezes
+- Lo-fi generative music and ambient soundscapes
 
 I'm Melchior. I'm a college student, this is my first app, and I built it with my girlfriend Dasha because every focus app we tried was either a spreadsheet with a timer attached or a subscription in a trench coat. A few extra skins and backgrounds are small one-time purchases if you ever feel like supporting us. Everything else you earn by focusing.
 
