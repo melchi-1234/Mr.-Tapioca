@@ -10,13 +10,13 @@
     "base": {
       "idle": {
         "sheet": "base/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       },
       "mixing": {
         "sheet": "base/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       },
@@ -91,13 +91,13 @@
     "angel": {
       "idle": {
         "sheet": "angel/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       },
       "mixing": {
         "sheet": "angel/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       }
@@ -105,13 +105,13 @@
     "devil": {
       "idle": {
         "sheet": "devil/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       },
       "mixing": {
         "sheet": "devil/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       }
@@ -147,13 +147,13 @@
     "ninja": {
       "idle": {
         "sheet": "ninja/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       },
       "mixing": {
         "sheet": "ninja/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       }
@@ -175,13 +175,13 @@
     "wizard": {
       "idle": {
         "sheet": "wizard/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       },
       "mixing": {
         "sheet": "wizard/idle.png",
-        "frames": 12,
+        "frames": 16,
         "fps": 4,
         "loop": true
       }
