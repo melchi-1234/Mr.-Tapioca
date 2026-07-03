@@ -69,7 +69,7 @@ What's inside:
 ✅ Daily quests, achievements, and streaks with streak freezes
 🎵 Lo-fi generative music and ambient soundscapes
 
-I'm Melchior. I'm a college student, this is my first app, and I built it with my girlfriend because every focus app we tried was either a spreadsheet with a timer attached or a subscription in a trench coat. A few extra skins and backgrounds are small one-time purchases if you ever feel like supporting us. Everything else you earn by focusing.
+I'm Melchior. I'm a college student, this is my first app, and I built it with my girlfriend Dasha because every focus app we tried was either a spreadsheet with a timer attached or a subscription in a trench coat. A few extra skins and backgrounds are small one-time purchases if you ever feel like supporting us. Everything else you earn by focusing.
 
 Free to download. No ads. No subscriptions. No tracking. Just you, a proud little pearl, and the thing you've been putting off.
 ```
