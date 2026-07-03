@@ -194,7 +194,7 @@ Hi! First submission, small student project. Thank you for reviewing. Everything
 
 5) LOCATION. Used only by the boba map tab to show nearby bubble tea shops (OpenStreetMap data). The app is fully functional if location permission is denied.
 
-Contact: melchiorjgg@gmail.com
+Contact: mrtapioca.app@gmail.com
 ```
 
 ---
@@ -212,7 +212,7 @@ App Store Connect wants real http(s) URLs here (it will not accept a mailto: in 
 Notes:
 
 - `privacy.html` already ships in this repo. It just needs a public URL before submission. Fastest path: push the repo (or a tiny site folder) to a public GitHub repo, then repo Settings > Pages > Deploy from branch. Takes about two minutes.
-- Put the support contact on that page as a mailto link: `mailto:melchiorjgg@gmail.com`. The page satisfies the URL field; the mailto satisfies actual humans.
+- Put the support contact on that page as a mailto link: `mailto:mrtapioca.app@gmail.com`. The page satisfies the URL field; the mailto satisfies actual humans.
 
 ---
 
