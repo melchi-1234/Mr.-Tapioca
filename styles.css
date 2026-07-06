@@ -3352,3 +3352,171 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   border-top-color: rgba(255, 255, 255, 0.85);
 }
 .scene[data-theme="sunset"] .speech-bubble { background: #fff2e8; }
+
+/* ══ Ambient life for every theme (2026-07) ═══════════════════════════════
+   Every backdrop gets motion native to its world, same infra as galaxy/
+   winter: layers inside .theme-fx (sky zone), gradient sprites, position or
+   opacity animation only. Paid themes stay the flashiest. */
+
+/* COZY (default) — the softest touch: warm dust motes drifting up the window
+   light, barely-there. The default theme must whisper, not shout. */
+.scene[data-theme="cozy"] .theme-fx::before {
+  background-repeat: repeat;
+  background-size: 100% 240px;
+  background-image:
+    radial-gradient(2px 2px at 30% 30px, rgba(255,226,170,0.55), transparent),
+    radial-gradient(1.6px 1.6px at 55% 110px, rgba(255,236,190,0.45), transparent),
+    radial-gradient(1.8px 1.8px at 44% 190px, rgba(255,226,170,0.5), transparent),
+    radial-gradient(1.4px 1.4px at 66% 60px, rgba(255,240,200,0.4), transparent);
+  animation: mote-rise 16s linear infinite;
+  opacity: 0.8;
+}
+@keyframes mote-rise { from { background-position-y: 240px; } to { background-position-y: 0; } }
+
+/* NIGHT — fireflies: tiny warm dots that pulse and wander, plus faint stars. */
+.scene[data-theme="night"] .theme-fx::before {
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(2.6px 2.6px at 16% 34%, rgba(255,244,150,0.9), transparent),
+    radial-gradient(2px 2px at 38% 52%, rgba(230,255,160,0.8), transparent),
+    radial-gradient(2.4px 2.4px at 64% 40%, rgba(255,244,150,0.85), transparent),
+    radial-gradient(2px 2px at 84% 55%, rgba(230,255,160,0.75), transparent),
+    radial-gradient(1.8px 1.8px at 50% 28%, rgba(255,250,180,0.7), transparent);
+  filter: drop-shadow(0 0 4px rgba(255,244,150,0.8));
+  animation: firefly-pulse 4.2s ease-in-out infinite;
+}
+.scene[data-theme="night"] .theme-fx::after {
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(1.6px 1.6px at 22% 12%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 48% 8%, #fff, transparent),
+    radial-gradient(1.8px 1.8px at 72% 15%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 90% 10%, #fff, transparent);
+  animation: star-twinkle 4.8s ease-in-out infinite;
+  opacity: 0.8;
+}
+@keyframes firefly-pulse {
+  0%, 100% { opacity: 0.25; transform: translate3d(0, 0, 0); }
+  50%      { opacity: 1;    transform: translate3d(1.5%, -2%, 0); }
+}
+
+/* SAKURA — falling cherry petals, two layers drifting at different speeds. */
+.scene[data-theme="sakura"] .theme-fx::before,
+.scene[data-theme="sakura"] .theme-fx::after {
+  background-repeat: repeat;
+  background-size: 100% 220px;
+  background-image:
+    radial-gradient(4px 2.6px at 22% 20px, rgba(255,183,205,0.9), transparent),
+    radial-gradient(3.4px 2.2px at 56% 70px, rgba(255,199,216,0.85), transparent),
+    radial-gradient(4px 2.4px at 80% 40px, rgba(250,170,196,0.9), transparent),
+    radial-gradient(3px 2px at 38% 140px, rgba(255,199,216,0.8), transparent),
+    radial-gradient(3.6px 2.4px at 68% 180px, rgba(255,183,205,0.85), transparent),
+    radial-gradient(3px 2px at 10% 100px, rgba(255,210,224,0.75), transparent);
+  animation: petal-fall 9s linear infinite;
+}
+.scene[data-theme="sakura"] .theme-fx::after {
+  animation-duration: 14s; opacity: 0.65; background-position-x: 60px;
+}
+@keyframes petal-fall {
+  from { background-position-y: -220px; background-position-x: 0; }
+  to   { background-position-y: 0;      background-position-x: 26px; }
+}
+
+/* AUTUMN — drifting falling leaves in amber and rust. */
+.scene[data-theme="autumn"] .theme-fx::before,
+.scene[data-theme="autumn"] .theme-fx::after {
+  background-repeat: repeat;
+  background-size: 100% 260px;
+  background-image:
+    radial-gradient(4.4px 3px at 18% 30px, rgba(224,141,60,0.9), transparent),
+    radial-gradient(3.6px 2.6px at 52% 90px, rgba(233,169,86,0.85), transparent),
+    radial-gradient(4px 2.8px at 78% 50px, rgba(196,108,44,0.85), transparent),
+    radial-gradient(3.4px 2.4px at 34% 170px, rgba(233,169,86,0.8), transparent),
+    radial-gradient(4px 2.8px at 64% 220px, rgba(224,141,60,0.85), transparent);
+  animation: leaf-fall 11s linear infinite;
+}
+.scene[data-theme="autumn"] .theme-fx::after {
+  animation-duration: 17s; opacity: 0.6; background-position-x: 70px;
+}
+@keyframes leaf-fall {
+  from { background-position-y: -260px; background-position-x: 0; }
+  to   { background-position-y: 0;      background-position-x: -38px; }
+}
+
+/* RAINY — two layers of rain streaks + a slow fog breath on the glass. */
+.scene[data-theme="rainy"] .theme-fx::before,
+.scene[data-theme="rainy"] .theme-fx::after {
+  background-repeat: repeat;
+  background-size: 90px 160px;
+  background-image:
+    linear-gradient(168deg, transparent 0 46%, rgba(174,199,220,0.55) 48% 52%, transparent 54% 100%);
+  animation: rain-fall 0.9s linear infinite;
+}
+.scene[data-theme="rainy"] .theme-fx::after {
+  background-size: 130px 220px;
+  animation-duration: 1.4s; opacity: 0.5; background-position-x: 40px;
+}
+@keyframes rain-fall { from { background-position-y: -160px; } to { background-position-y: 0; } }
+.scene[data-theme="rainy"] .theme-fx {
+  background-repeat: no-repeat;
+  background-image: radial-gradient(80% 60% at 50% 30%, rgba(214,226,235,0.35), transparent 75%);
+  animation: fog-breathe 9s ease-in-out infinite alternate;
+}
+@keyframes fog-breathe { from { opacity: 0.35; } to { opacity: 0.8; } }
+
+/* HONEY LIBRARY — golden dust motes rising through lamplight + a soft lamp
+   glow that breathes near the shelves. */
+.scene[data-theme="library"] .theme-fx::before {
+  background-repeat: repeat;
+  background-size: 100% 220px;
+  background-image:
+    radial-gradient(2.2px 2.2px at 28% 40px, rgba(255,214,140,0.75), transparent),
+    radial-gradient(1.8px 1.8px at 52% 120px, rgba(255,226,170,0.65), transparent),
+    radial-gradient(2px 2px at 72% 70px, rgba(255,206,120,0.7), transparent),
+    radial-gradient(1.6px 1.6px at 40% 190px, rgba(255,226,170,0.6), transparent),
+    radial-gradient(1.8px 1.8px at 86% 150px, rgba(255,214,140,0.6), transparent);
+  animation: mote-rise 13s linear infinite;
+}
+.scene[data-theme="library"] .theme-fx::after {
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(45% 40% at 82% 62%, rgba(255,196,110,0.32), transparent 72%),
+    radial-gradient(38% 34% at 12% 58%, rgba(255,206,130,0.22), transparent 70%);
+  animation: lamp-breathe 6s ease-in-out infinite alternate;
+}
+@keyframes lamp-breathe { from { opacity: 0.55; } to { opacity: 1; } }
+
+/* SEASIDE SUNSET — golden glints dancing on the water + a warm sun haze that
+   slowly breathes, like the last hour of golden light. */
+.scene[data-theme="sunset"] .theme-fx::before {
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(2.6px 1.6px at 34% 62%, rgba(255,235,180,0.95), transparent),
+    radial-gradient(2px 1.4px at 46% 68%, rgba(255,220,160,0.85), transparent),
+    radial-gradient(2.4px 1.5px at 56% 64%, rgba(255,235,180,0.9), transparent),
+    radial-gradient(2px 1.3px at 64% 70%, rgba(255,225,170,0.8), transparent),
+    radial-gradient(2.2px 1.4px at 42% 74%, rgba(255,235,180,0.85), transparent),
+    radial-gradient(1.8px 1.2px at 52% 78%, rgba(255,220,160,0.8), transparent);
+  animation: water-glint 3.2s ease-in-out infinite;
+}
+@keyframes water-glint {
+  0%, 100% { opacity: 0.35; transform: translate3d(0, 0, 0); }
+  50%      { opacity: 1;    transform: translate3d(0.8%, 0, 0); }
+}
+.scene[data-theme="sunset"] .theme-fx::after {
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(60% 50% at 50% 45%, rgba(255,176,120,0.30), transparent 72%),
+    radial-gradient(45% 38% at 30% 30%, rgba(255,200,150,0.22), transparent 70%);
+  mix-blend-mode: screen;
+  animation: sun-haze 12s ease-in-out infinite alternate;
+}
+@keyframes sun-haze {
+  from { opacity: 0.5;  transform: scale(1); }
+  to   { opacity: 0.95; transform: scale(1.06); }
+}
+
+/* Stillness for those who ask for it */
+@media (prefers-reduced-motion: reduce) {
+  .theme-fx, .theme-fx::before, .theme-fx::after { animation: none !important; }
+}
