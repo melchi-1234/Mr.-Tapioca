@@ -219,6 +219,7 @@ const state = {
   spillPending: false,
   bonusPearls: 0,
   blockPenalty: 0,       // pearls withheld for completing native focus sessions with no apps blocked
+  blockPromptDismissed: false,  // user chose "don't ask again" on the start-focus blocking prompt
   shieldWasUp: false,    // persisted "shield engaged this session" — survives an app kill so a
                          // session that finishes while away still earns FULL pearls at boot
   gamePearls: 0,         // cumulative pearls won from break games (for the "Break Champ" badge)
@@ -266,6 +267,12 @@ const els = {
   saveRewardBtn:        document.querySelector("#saveRewardBtn"),
   previewRestrictionBtn:document.querySelector("#previewRestrictionBtn"),
   chooseAppsBtn:        document.querySelector("#chooseAppsBtn"),
+  blockPrompt:          document.querySelector("#blockPrompt"),
+  blockChooseBtn:       document.querySelector("#blockChooseBtn"),
+  blockSkipBtn:         document.querySelector("#blockSkipBtn"),
+  blockNeverBtn:        document.querySelector("#blockNeverBtn"),
+  blockPill:            document.querySelector("#blockPill"),
+  blockPillLabel:       document.querySelector("#blockPillLabel"),
   restrictionPreview:   document.querySelector("#restrictionPreview"),
   breakOffer:           document.querySelector("#breakOffer"),
   breakRunningPanel:    document.querySelector("#breakRunningPanel"),
@@ -687,6 +694,7 @@ function loadState(opts) {
     state.spent       = readJSON("bobaFocusSpent",       0);
     state.bonusPearls = readJSON("bobaFocusBonusPearls", 0);
     state.blockPenalty = readJSON("bobaFocusBlockPenalty", 0);
+    state.blockPromptDismissed = readJSON("bobaFocusBlockPromptDismissed", false) === true;
     state.shieldWasUp  = readJSON("bobaFocusShieldUp", false) === true;
     state.gamePearls  = readJSON("bobaFocusGamePearls", 0);
     state.quests      = readJSON("bobaFocusQuests", null);
@@ -813,6 +821,7 @@ function saveState() {
   localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
   localStorage.setItem("bobaFocusBlockPenalty", JSON.stringify(state.blockPenalty));
+  localStorage.setItem("bobaFocusBlockPromptDismissed", JSON.stringify(state.blockPromptDismissed === true));
   localStorage.setItem("bobaFocusShieldUp",     JSON.stringify(state.shieldWasUp === true));
   localStorage.setItem("bobaFocusGamePearls",   JSON.stringify(state.gamePearls));
   localStorage.setItem("bobaFocusQuests",       JSON.stringify(state.quests));
@@ -1646,6 +1655,7 @@ function renderShop() {
 function renderAll() {
   updateCup();
   updateStats();
+  renderBlockPill();
   renderStats();
   renderDailyGoal();
   renderWeekChart();
@@ -1746,6 +1756,25 @@ const FocusBlocker = {
     const p = this.plugin(); if (!p) return; try { await p.stopBlocking(); } catch (e) {}
   },
   wasActive() { return this._active; },   // was a real shield up during this focus session?
+
+  // Is blocking READY to use (Screen Time authorized AND apps picked)? Cached in
+  // _configured so the UI can read it synchronously; refreshed via refreshStatus.
+  _configured: undefined,
+  _authorized: false,
+  async status() {
+    const p = this.plugin(); if (!p) return { authorized: false, hasSelection: false };
+    try {
+      const r = await p.status();   // may reject on older builds without the method
+      return { authorized: !!(r && r.authorized), hasSelection: !!(r && r.hasSelection) };
+    } catch (e) { return { authorized: false, hasSelection: false }; }
+  },
+  async isConfigured() {
+    const s = await this.status();
+    this._authorized = s.authorized;
+    this._configured = s.authorized && s.hasSelection;
+    return this._configured;
+  },
+  async refreshStatus() { await this.isConfigured(); return this._configured; },
 };
 
 // Lock Screen / Dynamic Island live countdown (a native iOS "Live Activity").
@@ -1847,36 +1876,96 @@ const IAP = {
   }
 };
 
-function startPause() {
+async function startPause() {
   state.autoPaused = false;   // any manual press cancels a pending auto-resume
   if (progress() >= 1 && !state.running) {
     completeSession();
     return;
   }
 
-  state.running = !state.running;
-  state.lastTick = state.running ? Date.now() : null;
-  updateCup();
-  refreshSessionChrome();     // hide/show the daily-goal pill as the session starts/pauses
+  if (state.running) { pauseFocus(); return; }
 
-  if (state.running) {
-    walkToCupAndMix();        // glide over to the cup, then mix
-    startAmbience();          // soundscape on while focusing
-    startMusic("focus");      // lo-fi while focusing
-    FocusBlocker.start();     // shield distracting apps for the session (native only)
-    FocusActivity.start();    // live countdown on the Lock Screen / Dynamic Island
-    stopTicker();
-    state.timerId = setInterval(tick, 250);
-    saveState();              // persist running state + push "🟢 Focusing" status to the Squad
-  } else {
-    stopTicker();
-    stopAmbience();
-    stopMusic();
-    FocusBlocker.stop();      // lift the shield when paused
-    FocusActivity.stop();     // clear the Lock Screen countdown
-    walkToStation("idle");    // walk back to his spot
-    saveState();              // bank progress whenever the user pauses
+  // About to START. On iPhone, if app blocking exists but isn't set up yet,
+  // surface it front-and-center (mom was right — it was too buried) instead of
+  // silently starting an unshielded session. Skipped entirely on the web build
+  // (no plugin) and once the user has set it up or opted out.
+  if (FocusBlocker.available() && !state.blockPromptDismissed) {
+    let configured = false;
+    try { configured = await FocusBlocker.isConfigured(); } catch (e) {}
+    renderBlockPill();
+    if (!configured) { showBlockingPrompt(); return; }
   }
+  beginFocus();
+}
+
+// The actual "begin a running focus session" body — called directly, or by the
+// blocking prompt's buttons once the user has chosen.
+function beginFocus() {
+  state.running = true;
+  state.lastTick = Date.now();
+  updateCup();
+  refreshSessionChrome();     // hide/show the daily-goal pill as the session starts
+  walkToCupAndMix();          // glide over to the cup, then mix
+  startAmbience();            // soundscape on while focusing
+  startMusic("focus");        // lo-fi while focusing
+  FocusBlocker.start();       // shield distracting apps for the session (native only)
+  FocusActivity.start();      // live countdown on the Lock Screen / Dynamic Island
+  stopTicker();
+  state.timerId = setInterval(tick, 250);
+  saveState();                // persist running state + push "🟢 Focusing" status to the Squad
+}
+
+function pauseFocus() {
+  state.running = false;
+  state.lastTick = null;
+  updateCup();
+  refreshSessionChrome();
+  stopTicker();
+  stopAmbience();
+  stopMusic();
+  FocusBlocker.stop();        // lift the shield when paused
+  FocusActivity.stop();       // clear the Lock Screen countdown
+  walkToStation("idle");      // walk back to his spot
+  saveState();                // bank progress whenever the user pauses
+}
+
+// ── App-blocking discoverability (start-focus prompt + status pill) ──────────
+function showBlockingPrompt() {
+  playSfx("open");
+  const dlg = els.blockPrompt;
+  if (dlg && typeof dlg.showModal === "function") {
+    if (!dlg.open) dlg.showModal();
+  } else {
+    beginFocus();   // very old WebView with no <dialog> — don't dead-end, just start
+  }
+}
+
+// Choose apps from the prompt: authorize, show Apple's picker, then start focused.
+async function blockPromptChoose() {
+  if (els.blockPrompt && els.blockPrompt.open) els.blockPrompt.close();
+  await FocusBlocker.requestAuthorization();
+  await FocusBlocker.pickApps();     // Apple's system app picker
+  await FocusBlocker.refreshStatus();
+  renderBlockPill();
+  beginFocus();
+}
+
+function blockPromptSkip(forever) {
+  if (els.blockPrompt && els.blockPrompt.open) els.blockPrompt.close();
+  if (forever) { state.blockPromptDismissed = true; saveState(); }
+  beginFocus();
+}
+
+// Small always-visible shield pill under Start (native only) so blocking reads
+// as a real feature, not something buried in Settings.
+function renderBlockPill() {
+  const pill = els.blockPill;
+  if (!pill) return;
+  if (!FocusBlocker.available()) { pill.classList.add("hidden"); return; }
+  pill.classList.remove("hidden");
+  const on = FocusBlocker._configured === true;
+  pill.classList.toggle("is-on", on);
+  if (els.blockPillLabel) els.blockPillLabel.textContent = on ? "App blocking: On" : "App blocking: Off";
 }
 
 function resetSession() {
@@ -5122,7 +5211,27 @@ function wireEvents() {
   els.previewRestrictionBtn.addEventListener("click", () => {
     els.restrictionPreview.classList.toggle("hidden");
   });
-  els.chooseAppsBtn.addEventListener("click", async () => { playSfx("tap"); await FocusBlocker.requestAuthorization(); FocusBlocker.pickApps(); });
+  els.chooseAppsBtn.addEventListener("click", async () => {
+    playSfx("tap");
+    await FocusBlocker.requestAuthorization();
+    await FocusBlocker.pickApps();
+    await FocusBlocker.refreshStatus();
+    renderBlockPill();
+  });
+
+  // Start-focus blocking prompt buttons
+  if (els.blockChooseBtn) els.blockChooseBtn.addEventListener("click", () => { playSfx("tap"); blockPromptChoose(); });
+  if (els.blockSkipBtn)   els.blockSkipBtn.addEventListener("click",   () => { playSfx("tap"); blockPromptSkip(false); });
+  if (els.blockNeverBtn)  els.blockNeverBtn.addEventListener("click",  () => { playSfx("tap"); blockPromptSkip(true); });
+
+  // The always-visible shield pill opens the same choose-apps flow
+  if (els.blockPill) els.blockPill.addEventListener("click", async () => {
+    playSfx("tap");
+    await FocusBlocker.requestAuthorization();
+    await FocusBlocker.pickApps();
+    await FocusBlocker.refreshStatus();
+    renderBlockPill();
+  });
 
   // ── Reward dialog ────────────────────────────────────────────────────────
   els.rewardDialog.addEventListener("close", onRewardDialogClose);
@@ -5342,6 +5451,11 @@ if (IAP.available()) {
 // Live Activity cases where iOS killed the app mid-session and the block /
 // countdown outlived it. No-ops on web and when nothing is active.
 if (!state.running) { FocusBlocker.stop(); FocusActivity.stop(); }
+
+// On iPhone, learn whether blocking is already set up so the shield pill shows
+// the right state and the start-focus prompt only fires when needed.
+if (FocusBlocker.available()) { FocusBlocker.refreshStatus().then(renderBlockPill); }
+renderBlockPill();
 
 // If opened from a friend's shared Squad link (…#sq=CODE), add them, then clean
 // the URL so a refresh doesn't re-add.

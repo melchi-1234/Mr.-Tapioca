@@ -200,6 +200,14 @@
           <div class="progress-track"><span id="progressBar"></span></div>
         </div>
         <button id="startPauseBtn" class="start-btn">Start Focus</button>
+        <!-- Shield pill: shown only on the native iPhone app (JS reveals it when the
+             Screen Time plugin is present). Makes app blocking a visible feature
+             instead of something buried in Settings. -->
+        <button id="blockPill" class="block-pill hidden">
+          <span class="block-pill-ico" aria-hidden="true">🛡️</span>
+          <span id="blockPillLabel">App blocking: Off</span>
+          <span class="block-pill-chev" aria-hidden="true">›</span>
+        </button>
         <button id="resetBtn" class="reset-link">Reset</button>
       </div>
 
@@ -646,6 +654,21 @@
             <!-- The drink + reward are already banked by completeSession(). -->
             <button id="saveRewardBtn" class="primary" value="save">Saved to my Treat Jar</button>
           </form>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="blockPrompt">
+      <div class="reward-card block-card">
+        <div class="block-shield" aria-hidden="true">🛡️</div>
+        <p class="eyebrow">Focus mode</p>
+        <h2>Block distractions?</h2>
+        <p id="blockPromptCopy">Mr. Tapioca can shield your distracting apps while
+          you focus, so nothing pulls you away. You will also earn full pearls.</p>
+        <div class="block-actions">
+          <button id="blockChooseBtn" type="button" class="primary">Choose apps to block</button>
+          <button id="blockSkipBtn" type="button" class="quiet">Start without blocking</button>
+          <button id="blockNeverBtn" type="button" class="block-never">Don’t ask again</button>
         </div>
       </div>
     </dialog>
