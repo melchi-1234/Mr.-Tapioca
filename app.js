@@ -708,6 +708,7 @@ function loadState(opts) {
     state.skin        = localStorage.getItem("bobaFocusSkin") || "";
     state.displayName = localStorage.getItem("bobaFocusName") || "";
     state.friends     = readJSON("bobaFocusFriends", []);
+    state.squadId     = localStorage.getItem("bobaFocusSquadId") || "";
     if (!Array.isArray(state.friends)) state.friends = [];
     // Drink customization + equipped background — persist so they survive reloads.
     state.base        = localStorage.getItem("bobaFocusBase")    || "classic";
@@ -836,6 +837,7 @@ function saveState() {
   localStorage.setItem("bobaFocusSkin",         state.skin);
   localStorage.setItem("bobaFocusName",         state.displayName || "");
   localStorage.setItem("bobaFocusFriends",      JSON.stringify(state.friends || []));
+  if (state.squadId) localStorage.setItem("bobaFocusSquadId", state.squadId);
   localStorage.setItem("bobaFocusBase",         state.base);
   localStorage.setItem("bobaFocusTopping",      state.topping);
   localStorage.setItem("bobaFocusUnlockedBases",    JSON.stringify(state.unlockedBases));
@@ -2578,10 +2580,12 @@ function showPremiumPreview(title, price) {
 
 function stopGame() {
   if (game.active) {
+    bankCatchScore();   // early exit (quit / break ended) keeps pearls earned so far
     cancelAnimationFrame(game.animId);
     game.active = false;
     for (const p of game.pearls) p.el.remove();
     game.pearls = [];
+    renderAll();
   }
   // Always hide the overlay, even if the game already ended and is showing its
   // result screen — otherwise it stays painted over the focus UI after a break.
@@ -2718,6 +2722,7 @@ function startPearlGame() {
   // (daily play + quest credit are earned on the first caught pearl, not here)
   game.active = true;
   game.score = 0;
+  game.banked = 0;   // pearls already credited this run (incremental banking)
   game.caught = 0;
   game.combo = 0;
   game.bestCombo = 0;
@@ -2740,17 +2745,31 @@ function startPearlGame() {
   game.animId = requestAnimationFrame(gameLoop);
 }
 
+// Bank the score earned SO FAR this run (capped), crediting only the delta not
+// already banked. Called after every catch AND on any early exit, so quitting or
+// a break timer expiring mid-game never discards pearls the player already earned
+// (matches how Plinko/Pong bank each drop/throw). Idempotent within a run.
+function bankCatchScore() {
+  const earned = Math.min(game.score, CATCH_CAP);
+  const delta = earned - (game.banked || 0);
+  if (delta > 0) {
+    state.bonusPearls += delta;
+    state.gamePearls += delta;
+    game.banked = earned;
+    saveState();
+  }
+  return earned;
+}
+
 function endPearlGame() {
   cancelAnimationFrame(game.animId);
   game.active = false;
   for (const p of game.pearls) p.el.remove();
   game.pearls = [];
   // Reward is the capped daily bonus, scaled by SCORE (golden pearls help you
-  // hit the cap with fewer catches — that's the skill payoff).
-  const earned = Math.min(game.score, CATCH_CAP);   // daily bonus is capped
-  state.bonusPearls += earned;
-  state.gamePearls += earned;
-  saveState();
+  // hit the cap with fewer catches — that's the skill payoff). Already banked
+  // incrementally during play; this settles any final remainder.
+  const earned = bankCatchScore();
   renderAll();
   if (earned > 0) { checkBadges(true); pearlsWonFx(earned); }   // "Break Champ"
   // Daily Quests: credit pearls caught + best combo this run
@@ -3740,7 +3759,10 @@ function relocateMap() {
       if (!moved) return;
       lastFix = { lat: la, lng: lo, real: true };
       mapObj.setView([la, lo], 15);
-      if (meMarker) meMarker.setLatLng([la, lo]);
+      if (meMarker) {
+        meMarker.setLatLng([la, lo]);
+        meMarker.setPopupContent('<div class="map-pop-name">You are here</div>');   // drop the stale "Example area" copy
+      }
       setMapStatus("");
       loadNearbyShops(la, lo);
     },
@@ -4240,6 +4262,13 @@ function openQuests() {
 }
 
 function myDisplayName() { return (state.displayName && state.displayName.trim()) || "You"; }
+// Stable per-user id shared in offline squad codes so friends are identified by
+// identity, not display name — otherwise two default-named ("You") users can't
+// add each other, and same-named friends overwrite each other.
+function mySquadId() {
+  if (!state.squadId) { state.squadId = "s" + Math.random().toString(36).slice(2, 10); saveState(); }
+  return state.squadId;
+}
 // Live activity status for the Study Squad.
 function myStatusKey() {
   if (state.running && state.phase === "focus") return "focusing";
@@ -4265,7 +4294,7 @@ function encodeMyCode() {
   // Live backend: share the short server friend-code. Offline: a base64 snapshot.
   if (squadCloudLive() && SquadCloud.myCode()) return SquadCloud.myCode();
   const me = mySquadStats();
-  return squadB64Encode({ n: me.name.slice(0, 24), m: me.mins, d: me.drinks, s: me.streak, k: me.skin, st: me.status, t: Date.now() });
+  return squadB64Encode({ i: mySquadId(), n: me.name.slice(0, 24), m: me.mins, d: me.drinks, s: me.streak, k: me.skin, st: me.status, t: Date.now() });
 }
 function parseSquadCode(raw) {
   if (!raw) return null;
@@ -4277,6 +4306,7 @@ function parseSquadCode(raw) {
     const o = squadB64Decode(str);
     if (!o || typeof o.n !== "string") return null;
     return {
+      sid: (typeof o.i === "string" ? o.i : ""),
       name: (String(o.n).slice(0, 24) || "Friend"),
       mins: Math.max(0, Number(o.m) || 0),
       drinks: Math.max(0, Number(o.d) || 0),
@@ -4297,8 +4327,12 @@ function addFriendByCode(raw) {
   }
   const f = parseSquadCode(raw);
   if (!f) { showToast("Hmm, that code didn't work — copy the whole thing."); return false; }
-  if (f.name.toLowerCase() === myDisplayName().toLowerCase()) { showToast("That's your own code 🧋"); return false; }
-  const existing = state.friends.find((x) => x.name.toLowerCase() === f.name.toLowerCase());
+  const isSelf = f.sid ? (f.sid === mySquadId())
+                       : (f.name.toLowerCase() === myDisplayName().toLowerCase());
+  if (isSelf) { showToast("That's your own code 🧋"); return false; }
+  const existing = f.sid
+    ? state.friends.find((x) => x.sid && x.sid === f.sid)
+    : state.friends.find((x) => !x.sid && x.name.toLowerCase() === f.name.toLowerCase());
   if (existing) { Object.assign(existing, f); showToast(`Updated ${f.name}'s stats ✨`); }
   else { state.friends.push({ id: uuid(), ...f }); playSfx("success"); haptic(12); showToast(`Added ${f.name} to your squad! 🧋`); }
   saveState();
@@ -5093,8 +5127,11 @@ function wireEvents() {
     setAmbVolume(parseInt(els.ambVol.value, 10) / 100);
     els.ambVolLabel.textContent = Math.round(state.ambVolume * 100);
     clearTimeout(ambPreviewTimer);
-    // Preview the level if a soundscape is chosen but not currently playing.
-    if (state.ambience !== "off" && !amb) startAmbience(state.ambience);
+    if (state.ambVolume <= 0) {
+      stopAmbience(true);   // dragging to 0 fully stops the graph (no silent leak)
+    } else if (state.ambience !== "off" && !amb) {
+      startAmbience(state.ambience);   // preview the level if chosen but not playing
+    }
   });
   els.ambVol.addEventListener("change", () => {
     saveState();
@@ -5390,6 +5427,11 @@ function wireEvents() {
     } else if (document.visibilityState === "visible") {
       if (state.running && state.phase === "focus") {
         tick();   // catch up the elapsed time spent away; may complete -> break offer
+        // Backgrounding (pagehide) tore down the audio graph and iOS suspends the
+        // AudioContext, so a still-running session returns SILENT. Bring the focus
+        // soundscape back (both start fns are idempotent-guarded, and only act if
+        // still running + in focus after the catch-up tick).
+        if (state.running && state.phase === "focus") { startMusic("focus"); startAmbience(); }
       }
       reconcileStreakFreezes();   // returning after a missed day → auto-protect the streak
       renderStats();
