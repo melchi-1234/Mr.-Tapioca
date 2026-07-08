@@ -751,6 +751,11 @@ function loadState(opts) {
       const extra = Math.max(0, (Date.now() - runningSince) / 1000);
       state.elapsed = Math.min(modeDuration(), state.elapsed + extra);
       pendingResume = true;
+      // CONSUME the anchor: we've credited this away-time and reconstructed the
+      // session PAUSED. Leaving the anchor would re-credit the same window on the
+      // NEXT relaunch (and again, and again), compounding elapsed until a drink
+      // auto-completes for free. Pressing Start writes a fresh anchor.
+      localStorage.removeItem("bobaFocusRunningSince");
     }
     state.onboarded   = readJSON("bobaFocusOnboarded", false);
     state.badges      = readJSON("bobaFocusBadges", []);
@@ -1930,10 +1935,17 @@ function pauseFocus() {
 }
 
 // ── App-blocking discoverability (start-focus prompt + status pill) ──────────
+// Guard so the dialog's close event (ESC key, backdrop, any dismissal) starts
+// the session unshielded EXACTLY ONCE, without double-firing when a button
+// already handled the choice. Without this, dismissing the prompt via ESC would
+// close it and silently never start the focus session.
+let blockPromptResolved = false;
+
 function showBlockingPrompt() {
   playSfx("open");
   const dlg = els.blockPrompt;
   if (dlg && typeof dlg.showModal === "function") {
+    blockPromptResolved = false;
     if (!dlg.open) dlg.showModal();
   } else {
     beginFocus();   // very old WebView with no <dialog> — don't dead-end, just start
@@ -1941,18 +1953,32 @@ function showBlockingPrompt() {
 }
 
 // Choose apps from the prompt: authorize, show Apple's picker, then start focused.
+// Every await is guarded — if the picker is cancelled/swiped-away/rejected, we
+// still begin the session (unshielded) rather than hanging forever.
 async function blockPromptChoose() {
+  blockPromptResolved = true;
   if (els.blockPrompt && els.blockPrompt.open) els.blockPrompt.close();
-  await FocusBlocker.requestAuthorization();
-  await FocusBlocker.pickApps();     // Apple's system app picker
-  await FocusBlocker.refreshStatus();
+  try {
+    await FocusBlocker.requestAuthorization();
+    await FocusBlocker.pickApps();     // Apple's system app picker
+    await FocusBlocker.refreshStatus();
+  } catch (e) { /* cancelled or unavailable — start unshielded */ }
   renderBlockPill();
   beginFocus();
 }
 
 function blockPromptSkip(forever) {
+  blockPromptResolved = true;
   if (els.blockPrompt && els.blockPrompt.open) els.blockPrompt.close();
   if (forever) { state.blockPromptDismissed = true; saveState(); }
+  beginFocus();
+}
+
+// Any dismissal that DIDN'T go through a button (ESC key, etc.) still starts the
+// session — dismissing the "block?" prompt means "just start", never "do nothing".
+function onBlockPromptClose() {
+  if (blockPromptResolved) return;
+  blockPromptResolved = true;
   beginFocus();
 }
 
@@ -5223,6 +5249,7 @@ function wireEvents() {
   if (els.blockChooseBtn) els.blockChooseBtn.addEventListener("click", () => { playSfx("tap"); blockPromptChoose(); });
   if (els.blockSkipBtn)   els.blockSkipBtn.addEventListener("click",   () => { playSfx("tap"); blockPromptSkip(false); });
   if (els.blockNeverBtn)  els.blockNeverBtn.addEventListener("click",  () => { playSfx("tap"); blockPromptSkip(true); });
+  if (els.blockPrompt)    els.blockPrompt.addEventListener("close", onBlockPromptClose);
 
   // The always-visible shield pill opens the same choose-apps flow
   if (els.blockPill) els.blockPill.addEventListener("click", async () => {

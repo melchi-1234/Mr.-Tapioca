@@ -43,6 +43,11 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    // Retains the picker's presentation delegate so an interactive swipe-to-
+    // dismiss still settles the Capacitor call (otherwise the JS await hangs
+    // forever and the focus session never starts).
+    private var pickerDismissDelegate: PickerDismissDelegate?
+
     @objc func pickApps(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             guard let presenter = self.bridge?.viewController else {
@@ -50,12 +55,24 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             let model = PickerModel(initial: SharedSelection.load())
-            let view = AppPickerView(model: model) {
+            // Resolve at most once, whether the user taps Done, taps Cancel, or
+            // swipes the sheet away.
+            var settled = false
+            let finish: () -> Void = {
+                if settled { return }
+                settled = true
                 SharedSelection.save(model.selection)
-                presenter.dismiss(animated: true) { call.resolve() }
+                call.resolve()
             }
+            let view = AppPickerView(model: model,
+                onDone: { presenter.dismiss(animated: true) { finish() } },
+                onCancel: { presenter.dismiss(animated: true) { finish() } })
             let host = UIHostingController(rootView: view)
             host.modalPresentationStyle = .formSheet
+            // Swipe-down / interactive dismissal path.
+            let delegate = PickerDismissDelegate { finish() }
+            self.pickerDismissDelegate = delegate
+            host.presentationController?.delegate = delegate
             presenter.present(host, animated: true)
         }
     }
@@ -95,16 +112,30 @@ final class PickerModel: ObservableObject {
 struct AppPickerView: View {
     @ObservedObject var model: PickerModel
     var onDone: () -> Void
+    var onCancel: () -> Void
     var body: some View {
         NavigationView {
             FamilyActivityPicker(selection: $model.selection)
                 .navigationTitle("Apps to block")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel", action: onCancel)
+                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done", action: onDone)
                     }
                 }
         }
+    }
+}
+
+// Fires when the form sheet is dismissed by an interactive swipe (not Done/Cancel),
+// so the Capacitor call always settles and the JS await never hangs.
+final class PickerDismissDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
+    private let onDismiss: () -> Void
+    init(onDismiss: @escaping () -> Void) { self.onDismiss = onDismiss }
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        onDismiss()
     }
 }
