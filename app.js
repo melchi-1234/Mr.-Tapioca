@@ -4490,39 +4490,39 @@ function openFriends() {
 const ONBOARD_STEPS = [
   {
     img: "assets/Mr. Tapioca.png",
-    title: "Meet Mr. Tapioca",
-    body: "Your cozy study buddy. He brews boba while you focus — and you can tap him anytime to say hi. 🧋"
-  },
-  {
-    img: "assets/Mr. Tapioca.png",
-    title: "His little story",
-    body: "Legend says Mr. Tapioca was the last lonely pearl at the bottom of a forgotten cup — until someone's focus brought him to life. Now he runs a tiny boba shop that only opens when you study. Every minute you focus, he brews one more drink. ✨"
+    title: "Say Hello to Mr. Tapioca!",
+    body: "Your favorite study buddy. He brews boba while you focus."
   },
   {
     img: "assets/Cup.png",
-    title: "Focus fills your cup",
-    body: "Pick a size and press start. The longer you focus, the fuller your boba gets. Big drinks even pick up where you left off across sittings."
+    title: "Focus Fills your Cup!",
+    body: "Set the timer, start focusing, and watch the cup fill. Earn yourself a boba drink with each study sesh."
   },
   {
     img: "assets/Tapioca Currency.png",
-    title: "Earn pearls",
-    body: "Every 15 focused minutes = 1 pearl. Spend them on cute character skins and shop backgrounds."
+    title: "Focus for How Long?",
+    body: "Every 15 minutes = 1 pearl earned. Spend them on character skins and backgrounds in the shop, or save up to buy yourself a boba drink."
+  },
+  {
+    emoji: "🏆",
+    title: "Share with Friends!",
+    body: "Show off your focus stats with invited users on a group leaderboard."
   },
   {
     emoji: "🎮",
-    title: "Earn your breaks",
-    body: "Finish a session and take a breather — play a quick break game (Catch, Plinko, or Cup Pong) for bonus pearls."
+    title: "Take a Break!",
+    body: "After focusing, remember to take a breather. Play a quick game in the app and win bonus pearls."
   },
   {
     emoji: "🗺️",
-    title: "Real boba rewards",
-    body: "The dream: finish big drinks to unlock discounts at real boba shops near you. Tap Map to look around!"
+    title: "Real Rewards Await!",
+    body: "Mr. Tapioca wants to eventually work at real shops. Stay tuned to unlock discounts at boba shops near you. Check out the in-app map to locate shops to visit."
   },
   {
     name: true,
     img: "assets/Mr. Tapioca.png",
-    title: "What should I call you?",
-    body: "Pick a name for your boba shop — it's how friends see you on the Study Squad leaderboard."
+    title: "Now that we're friends ...",
+    body: "What should I call you?"
   }
 ];
 
