@@ -4500,8 +4500,8 @@ const ONBOARD_STEPS = [
   },
   {
     img: "assets/Tapioca Currency.png",
-    title: "Focus for How Long?",
-    body: "Every 15 minutes = 1 pearl earned. Spend them on character skins and backgrounds in the shop, or save up to buy yourself a boba drink."
+    title: "Earn Pearls as You Go!",
+    body: "Every 15 minutes = 1 pearl earned. Spend them on character skins and backgrounds in the shop, or save up for the fanciest fits."
   },
   {
     emoji: "🏆",
