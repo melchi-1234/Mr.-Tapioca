@@ -2050,6 +2050,7 @@ function completeSession() {
   currentMakerState = ""; setMakerState("idle");
 
   const minutes = Math.round(modeDuration() / 60);
+  state.lastSessionMinutes = minutes;   // gates break games on the iPhone build
   const size    = modeLabel();
   const now = new Date();
   const drink = {
@@ -2718,6 +2719,7 @@ function gameLoop(ts) {
 }
 
 function startPearlGame() {
+  if (!gamesUnlockedForBreak()) { showToast("Break games unlock after a " + GAMES_MIN_SESSION_MIN + " minute focus 🔒"); return; }
   if (gameDoneToday("catch")) return;
   // (daily play + quest credit are earned on the first caught pearl, not here)
   game.active = true;
@@ -2986,30 +2988,51 @@ function markGamePlayed(key) {
   saveState();
   renderBreakGameButtons();
 }
+// On the iPhone build, break games unlock only after a REAL focus session —
+// a 5-minute Taste reaching Plinko made pearls too farmable. The web demo
+// keeps games always available. Locked buttons stay VISIBLE (with the rule)
+// so short-session users learn the games exist and have a reason to go longer.
+const GAMES_MIN_SESSION_MIN = 30;
+
+function gamesUnlockedForBreak() {
+  if (state.devMode) return true;
+  if (!FocusBlocker.available()) return true;   // web demo: unchanged
+  return (state.lastSessionMinutes || 0) >= GAMES_MIN_SESSION_MIN;
+}
+
 function renderBreakGameButtons() {
   updateCatchBtnState();
   updatePlinkoBtnState();
   updatePongBtnState();
+  const note = document.getElementById("gamesLockNote");
+  if (note) note.classList.toggle("hidden", gamesUnlockedForBreak());
 }
 
 function updateCatchBtnState() {
+  const locked = !gamesUnlockedForBreak();
   const done = gameDoneToday("catch");
-  els.playGameBtn.disabled = done;
-  els.playGameBtn.textContent = done ? "Catch the Pearls ✓ back tomorrow" : "Catch the Pearls 🎮";
+  els.playGameBtn.disabled = done || locked;
+  els.playGameBtn.textContent = locked ? "Catch the Pearls 🔒"
+    : done ? "Catch the Pearls ✓ back tomorrow" : "Catch the Pearls 🎮";
 }
 function updatePlinkoBtnState() {
+  const locked = !gamesUnlockedForBreak();
   const done = gameDoneToday("plinko");
-  els.playPlinkoBtn.disabled = done;
-  els.playPlinkoBtn.textContent = done ? "Boba Plinko ✓ back tomorrow" : "Boba Plinko 🎟️";
+  els.playPlinkoBtn.disabled = done || locked;
+  els.playPlinkoBtn.textContent = locked ? "Boba Plinko 🔒"
+    : done ? "Boba Plinko ✓ back tomorrow" : "Boba Plinko 🎟️";
 }
 function updatePongBtnState() {
+  const locked = !gamesUnlockedForBreak();
   const done = gameDoneToday("pong");
-  els.playPongBtn.disabled = done;
-  els.playPongBtn.textContent = done ? "Cup Pong ✓ back tomorrow" : "Cup Pong 🥤";
+  els.playPongBtn.disabled = done || locked;
+  els.playPongBtn.textContent = locked ? "Cup Pong 🔒"
+    : done ? "Cup Pong ✓ back tomorrow" : "Cup Pong 🥤";
 }
 
 function openPlinko() {
   if (plinko.dropping) return;
+  if (!gamesUnlockedForBreak()) { showToast("Break games unlock after a " + GAMES_MIN_SESSION_MIN + " minute focus 🔒"); return; }
   if (gameDoneToday("plinko")) return;
   plinko.playsLeft = PLINKO_MAX_PLAYS;   // fresh session for today
   // NOTE: the daily play is marked on the FIRST drop (see dropPearl), not here,
@@ -4494,6 +4517,11 @@ const ONBOARD_STEPS = [
     body: "Your favorite study buddy. He brews boba while you focus."
   },
   {
+    emoji: "🎮",
+    title: "Work Hard, Play Hard!",
+    body: "Break games live here: Catch the Pearls, Boba Plinko, and Cup Pong. Finish a real focus session to unlock them on your break and win bonus pearls."
+  },
+  {
     img: "assets/Cup.png",
     title: "Focus Fills your Cup!",
     body: "Set the timer, start focusing, and watch the cup fill. Earn yourself a boba drink with each study sesh."
@@ -4507,11 +4535,6 @@ const ONBOARD_STEPS = [
     emoji: "🏆",
     title: "Share with Friends!",
     body: "Show off your focus stats with invited users on a group leaderboard."
-  },
-  {
-    emoji: "🎮",
-    title: "Take a Break!",
-    body: "After focusing, remember to take a breather. Play a quick game in the app and win bonus pearls."
   },
   {
     emoji: "🗺️",
@@ -4791,6 +4814,7 @@ function pongFlickVel() {
 }
 
 function openPong() {
+  if (!gamesUnlockedForBreak()) { showToast("Break games unlock after a " + GAMES_MIN_SESSION_MIN + " minute focus 🔒"); return; }
   if (gameDoneToday("pong")) return;
   pong.throwsLeft = PONG_MAX_PLAYS;    // fresh session for today
   pong.score = 0;
