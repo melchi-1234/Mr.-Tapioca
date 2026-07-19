@@ -1,11 +1,9 @@
 const MODES = {
-  tasting: { label: "Tasting Cup", duration: 5 * 60 },        // quick single sitting
-  small:   { label: "Small Drink", duration: 2 * 60 * 60 },   // ~2 hr, fillable in segments
-  large:   { label: "Large Drink", duration: 6 * 60 * 60 },   // ~6 hr, fillable in segments
-  custom:  { label: "Custom Cup",  duration: null }           // uses state.customDuration
+  custom: { label: "Custom Cup", duration: null },   // uses state.customDuration (15 min - 2 hr)
+  goal:   { label: "Goal Cup",   duration: null }    // mirrors the preset focus goal (state.dailyGoal)
 };
 
-const CUSTOM_MIN = 5 * 60;
+const CUSTOM_MIN = 15 * 60;
 const CUSTOM_MAX = 120 * 60;
 const CUSTOM_STEP = 5 * 60;
 const DEV_MIN = 5;            // dev mode lets Custom drop to 5 seconds for quick testing
@@ -18,7 +16,7 @@ function fmtDuration(seconds) {
 // Guarded against a corrupt/zero custom value so progress() can never divide by 0
 // or NaN (which would render NaN% and never let the session complete).
 function modeDuration() {
-  const d = state.mode === "custom" ? state.customDuration : (MODES[state.mode] && MODES[state.mode].duration);
+  const d = state.mode === "goal" ? (state.dailyGoal || 0) * 60 : state.customDuration;
   return (typeof d === "number" && isFinite(d) && d > 0) ? d : 30 * 60;
 }
 
@@ -55,39 +53,39 @@ const DEFAULTS = {
 // were cut. (Earlier those lived here as paid items and became orphaned.)
 const SHOP_ITEMS = [
   // Default skin
-  { id: "skin-default",    name: "Mr. Tapioca",    desc: "The original",          category: "Character Skin", type: "skin", value: "",           price: 0,  img: "assets/Mr. Tapioca.png"      },
+  { id: "skin-default",    name: "Mr. Tapioca",    desc: "The Original",          category: "Character Skin", type: "skin", value: "",           price: 0,  img: "assets/Mr. Tapioca.png"      },
 
   // common skins
-  { id: "skin-grad-cap",   name: "Graduation Cap", desc: "Scholar energy",        category: "Character Skin", type: "skin", value: "grad-cap",   price: 45, img: "assets/Graduation Cap.png"   },
-  { id: "skin-flower",     name: "Flower Crown",   desc: "In full bloom",         category: "Character Skin", type: "skin", value: "flower",     price: 45, img: "assets/Flower Crown.png"     },
-  { id: "skin-scarf",      name: "Scarf",          desc: "Cozy and warm",         category: "Character Skin", type: "skin", value: "scarf",      price: 45, img: "assets/Scarf.png"            },
-  { id: "skin-shades",     name: "Sunglasses",     desc: "Too cool for school",   category: "Character Skin", type: "skin", value: "shades",     price: 45, img: "assets/Sunglasses.png"       },
+  { id: "skin-grad-cap",   name: "Boba Cum Laude",       desc: "Graduation Cap",  category: "Character Skin", type: "skin", value: "grad-cap",   price: 40, img: "assets/Graduation Cap.png"   },
+  { id: "skin-flower",     name: "Hippie Sippy",         desc: "Flower Crown",    category: "Character Skin", type: "skin", value: "flower",     price: 40, img: "assets/Flower Crown.png"     },
+  { id: "skin-scarf",      name: "Hot Oolong",           desc: "Scarf",           category: "Character Skin", type: "skin", value: "scarf",      price: 40, img: "assets/Scarf.png"            },
+  { id: "skin-shades",     name: "Too Cool for School",  desc: "Shades",          category: "Character Skin", type: "skin", value: "shades",     price: 40, img: "assets/Sunglasses.png"       },
 
   // rare skins
-  { id: "skin-strawberry", name: "Strawberry",     desc: "Sweet and cute",        category: "Character Skin", type: "skin", value: "strawberry", price: 85, img: "assets/Strawberry.png"       },
-  { id: "skin-astro-blue", name: "Astronaut",      desc: "Space mode on",         category: "Character Skin", type: "skin", value: "astro-blue", price: 85, img: "assets/Astronaut, blue.png"  },
-  { id: "skin-dragon",     name: "Dragon",         desc: "Breathe fire, focus",   category: "Character Skin", type: "skin", value: "dragon",     price: 85, img: "assets/Dragon.png"           },
-  { id: "skin-cat-hoodie", name: "Cat Hoodie",      desc: "Cozy ears, cozier focus", category: "Character Skin", type: "skin", value: "cat-hoodie", price: 85, img: "assets/Cat Hoodie.png"       },
-  { id: "skin-royal",      name: "Royal",           desc: "Crowned monarch of focus", category: "Character Skin", type: "skin", value: "royal",      price: 85, img: "assets/Royal Crown.png"      },
+  { id: "skin-strawberry", name: "Berry Sweet",          desc: "Strawberry",      category: "Character Skin", type: "skin", value: "strawberry", price: 60, img: "assets/Strawberry.png"       },
+  { id: "skin-astro-blue", name: "Milky Way",            desc: "Astronaut",       category: "Character Skin", type: "skin", value: "astro-blue", price: 60, img: "assets/Astronaut, blue.png"  },
+  { id: "skin-dragon",     name: "Dragonfruit Tea",      desc: "Dragon",          category: "Character Skin", type: "skin", value: "dragon",     price: 60, img: "assets/Dragon.png"           },
+  { id: "skin-cat-hoodie", name: "Neko Matcha",          desc: "Kitty Cat",       category: "Character Skin", type: "skin", value: "cat-hoodie", price: 60, img: "assets/Cat Hoodie.png"       },
+  { id: "skin-royal",      name: "Royal Milk Tea",       desc: "Royalty",         category: "Character Skin", type: "skin", value: "royal",      price: 70, img: "assets/Royal Crown.png"      },
 
   // Premium skins (future IAP)
-  { id: "skin-ninja",      name: "Ninja",          desc: "Silent focus mode",     category: "Character Skin", type: "skin", value: "ninja",      premium: true, img: "assets/Ninja.png"            },
-  { id: "skin-wizard",     name: "Wizard",         desc: "Cast your focus spell", category: "Character Skin", type: "skin", value: "wizard",     premium: true, img: "assets/Wizard.png"           },
-  { id: "skin-angel",      name: "Angel",          desc: "Wings and a halo",      category: "Character Skin", type: "skin", value: "angel",      premium: true, img: "assets/Angel.png"            },
-  { id: "skin-devil",      name: "Devil",          desc: "Horns and mischief",    category: "Character Skin", type: "skin", value: "devil",      premium: true, img: "assets/Devil.png"            },
+  { id: "skin-ninja",      name: "Black Tea",            desc: "Ninja",           category: "Character Skin", type: "skin", value: "ninja",      premium: true, img: "assets/Ninja.png"            },
+  { id: "skin-wizard",     name: "Magical Taste",        desc: "Wizard",          category: "Character Skin", type: "skin", value: "wizard",     premium: true, img: "assets/Wizard.png"           },
+  { id: "skin-angel",      name: "Holy Moly",            desc: "Angel",           category: "Character Skin", type: "skin", value: "angel",      premium: true, img: "assets/Angel.png"            },
+  { id: "skin-devil",      name: "Evil Brew",            desc: "Devil",           category: "Character Skin", type: "skin", value: "devil",      premium: true, img: "assets/Devil.png"            },
 
-  { id: "theme-cozy",      name: "Cozy",                 desc: "The classic warm shop",               category: "Backgrounds", type: "shopTheme", value: "cozy",       price: 0,   color: "#f3d8b7" },
-  { id: "theme-night",     name: "Night Market",         desc: "Dark, warm lights, cozy late-night",  category: "Backgrounds", type: "shopTheme", value: "night",      price: 130, color: "#36476b" },
-  { id: "theme-sakura",    name: "Sakura",               desc: "Cherry blossoms, soft pink, spring",  category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 130, color: "#ffdfe8" },
-  { id: "theme-autumn",    name: "Autumn Harvest",       desc: "Pumpkin spice, warm oranges, fall",   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 130, color: "#c4873a" },
-  { id: "theme-rainy",     name: "Rainy Day Café",       desc: "Cool grey-blue, lo-fi, window rain",  category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 130, color: "#7a9ab8" },
-  { id: "theme-winter",    name: "Winter Cocoa",         desc: "Falling snow, fairy lights, cozy warmth", category: "Backgrounds", type: "shopTheme", value: "winter",     premium: true, color: "#bcd3e0" },
-  { id: "theme-galaxy",    name: "Galaxy Dream",         desc: "Twinkling cosmos & drifting stars",    category: "Backgrounds", type: "shopTheme", value: "galaxy",     premium: true, color: "#cdbfe6" },
-  { id: "theme-library",   name: "Honey Library",        desc: "Bookshelves, lamplight, quiet",        category: "Backgrounds", type: "shopTheme", value: "library",    price: 130, color: "#e8c98f" },
-  { id: "theme-sunset",    name: "Seaside Sunset",       desc: "Ocean air and golden hour",            category: "Backgrounds", type: "shopTheme", value: "sunset",     price: 130, color: "#f4b9a1" },
+  { id: "theme-cozy",      name: "Classic Brew",         desc: "The Classic, Warm Shop",                    category: "Backgrounds", type: "shopTheme", value: "cozy",       price: 0,   color: "#f3d8b7" },
+  { id: "theme-night",     name: "Brown Sugar Night",    desc: "Dim Lights, Cozy Nights",                   category: "Backgrounds", type: "shopTheme", value: "night",      price: 60, color: "#36476b" },
+  { id: "theme-sakura",    name: "Sakura Latte",         desc: "Soft Pink, Cherry Blossoms",                category: "Backgrounds", type: "shopTheme", value: "sakura",     price: 60, color: "#ffdfe8" },
+  { id: "theme-autumn",    name: "Pumpkin Spice Chai",   desc: "Warm Orange, Fall Vibes",                   category: "Backgrounds", type: "shopTheme", value: "autumn",     price: 60, color: "#c4873a" },
+  { id: "theme-rainy",     name: "Earl Grey Rain",       desc: "Cool Grey-Blue, Lo-fi",                     category: "Backgrounds", type: "shopTheme", value: "rainy",      price: 60, color: "#7a9ab8" },
+  { id: "theme-winter",    name: "Frosted Milk Tea",     desc: "Falling Snow, Fairy Lights",                category: "Backgrounds", type: "shopTheme", value: "winter",     premium: true, color: "#bcd3e0" },
+  { id: "theme-galaxy",    name: "Taro Galaxy",          desc: "Twinkling Cosmos, Drifting Stars",          category: "Backgrounds", type: "shopTheme", value: "galaxy",     premium: true, color: "#cdbfe6" },
+  { id: "theme-library",   name: "Honeymilk Library",    desc: "Unlimited Bookshelves, Quiet Lamp-lighting", category: "Backgrounds", type: "shopTheme", value: "library",    premium: true, color: "#e8c98f" },
+  { id: "theme-sunset",    name: "Mango Sunset",         desc: "Golden Hour, Ocean Air",                    category: "Backgrounds", type: "shopTheme", value: "sunset",     premium: true, color: "#f4b9a1" },
 
   // Boosts — repeatable CONSUMABLES (tracked by count, not one-time ownership)
-  { id: "boost-freeze",    name: "Streak Freeze",        desc: "Auto-protects your streak if you miss a day", category: "Boosts", type: "consumable", consumableKey: "freezes", price: 35, icon: "🧊" },
+  { id: "boost-freeze",    name: "Brain Freeze",         desc: "Saves your most recent focus streak", category: "Boosts", type: "consumable", consumableKey: "freezes", price: 10, icon: "🧊" },
 ];
 
 const UNLOCKS = [
@@ -184,7 +182,7 @@ const game = {
 };
 
 const state = {
-  mode: "small",
+  mode: "custom",
   customDuration: 30 * 60,
   base: "classic",
   topping: "pearls",
@@ -223,8 +221,8 @@ const state = {
   shieldWasUp: false,    // persisted "shield engaged this session" — survives an app kill so a
                          // session that finishes while away still earns FULL pearls at boot
   gamePearls: 0,         // cumulative pearls won from break games (for the "Break Champ" badge)
-  quests: null,          // daily quests: { day, active:[{key,prog,done}], bonusClaimed }
-  freezes: 0,            // Streak Freeze consumables owned
+  quests: null,          // daily quests: { day, active:[{key,prog,done}] }
+  freezes: 0,            // Streak Reset consumables owned (storage key predates the rename)
   frozenDays: [],        // ordinals auto-protected by a consumed freeze (bridge streak gaps)
   renames: 0             // paid name changes done (0 = next costs 500 pearls, ≥1 = real money)
 };
@@ -320,7 +318,6 @@ const els = {
   pongResultText:       document.querySelector("#pongResultText"),
   pongCloseBtn:         document.querySelector("#pongCloseBtn"),
   shopBtn:              document.querySelector("#shopBtn"),
-  customizeBtn:         document.querySelector("#customizeBtn"),
   settingsBtn:          document.querySelector("#settingsBtn"),
   shopSheet:            document.querySelector("#shopSheet"),
   shopClose:            document.querySelector("#shopClose"),
@@ -730,11 +727,10 @@ function loadState(opts) {
     state.soundOn     = readJSON("bobaFocusSoundOn", true);
     state.devMode     = readJSON("bobaFocusDevMode", false);
     // Resume an in-progress drink across app closes
-    state.mode        = localStorage.getItem("bobaFocusMode") || "small";
-    // Guard stale/removed mode keys (same treatment base/topping get above):
-    // an unknown mode runs the timer fine (30-min fallback) but completeSession's
-    // modeLabel() throws — the finished drink gets stuck in a banking crash-loop.
-    if (state.mode !== "custom" && !MODES[state.mode]) state.mode = "small";
+    state.mode        = localStorage.getItem("bobaFocusMode") || "custom";
+    // Guard stale/removed mode keys (same treatment base/topping get above).
+    // Also migrates pre-redesign modes (tasting/small/large) to custom.
+    if (!MODES[state.mode]) state.mode = "custom";
     state.elapsed     = readJSON("bobaFocusElapsed", 0);
     // Heal elapsed BEFORE the away-credit below — corrupt storage here would
     // otherwise either drop the earned credit (NaN) or auto-bank a full drink
@@ -787,6 +783,8 @@ function loadState(opts) {
     state.elapsed        = num(state.elapsed, 0);
     state.dailyGoal      = num(state.dailyGoal, 60, 1);
     state.customDuration = num(state.customDuration, 30 * 60, 1);
+    // Floor a stored pre-update custom timer at the new minimum (dev mode may go lower)
+    if (!state.devMode && state.customDuration < CUSTOM_MIN) state.customDuration = CUSTOM_MIN;
   } catch (e) {
     console.warn("loadState failed — using defaults", e);
   }
@@ -909,6 +907,14 @@ function currentDrinkName() {
   return `${BASES[state.base].label} + ${TOPPINGS[state.topping].label}`;
 }
 
+// The timer-card label follows the EQUIPPED BACKGROUND: every background is
+// named as a flavor (Taro Galaxy, Sakura Latte...), so the drink being brewed
+// reads as that flavor. Banked drinks and shares keep currentDrinkName().
+function themeFlavorName() {
+  const t = SHOP_ITEMS.find(i => i.type === "shopTheme" && i.value === state.shopTheme);
+  return `${t ? t.name : BASES[state.base].label} + ${TOPPINGS[state.topping].label}`;
+}
+
 // The colour at the very top of each scene (the "sky"), so the phone status-bar
 // area can be tinted to match — no white gap above the app.
 const THEME_SKY = {
@@ -932,11 +938,9 @@ function progress() {
 }
 
 function modeLabel() {
-  if (state.mode === "custom") {
-    return `Custom · ${fmtDuration(state.customDuration)}`;
-  }
   // Belt-and-braces: never throw at banking time even if mode is somehow bad
-  return (MODES[state.mode] || MODES.small).label;
+  if (state.mode === "goal") return `Goal · ${fmtDuration((state.dailyGoal || 30) * 60)}`;
+  return `Custom · ${fmtDuration(state.customDuration)}`;
 }
 
 function currentPearls() {
@@ -1081,7 +1085,7 @@ function updateCup() {
   els.startPauseBtn.classList.toggle("is-running", state.running);
   // Reset is dead weight until there's actually something to reset.
   els.resetBtn.classList.toggle("hidden", state.elapsed <= 0 && !state.running);
-  els.drinkName.textContent = currentDrinkName();
+  els.drinkName.textContent = themeFlavorName();
   updateTabTitle(remaining);
 }
 
@@ -1149,7 +1153,7 @@ function renderStats() {
   els.statBest.textContent      = String(s.longest);
   if (els.streakFreezeNote) {
     const f = state.freezes || 0;
-    els.streakFreezeNote.textContent = `🧊 ${f} streak freeze${f === 1 ? "" : "s"} ready`;
+    els.streakFreezeNote.textContent = `${f} brain freeze${f === 1 ? "" : "s"} ready`;
     els.streakFreezeNote.classList.toggle("hidden", f === 0);
   }
 }
@@ -1175,6 +1179,9 @@ function renderDailyGoal() {
   els.dgLabel.textContent = met ? `${today}/${goal} ✓` : `${today}/${goal}`;
   els.dailyGoal.classList.toggle("met", met);
   if (els.goalDisplay) els.goalDisplay.textContent = `${goal} min`;
+  // The Goal mode pill mirrors the preset goal as its session length.
+  const gm = document.querySelector("#goalModeMin");
+  if (gm) gm.textContent = fmtDuration(goal * 60);
 }
 
 function adjustDailyGoal(delta) {
@@ -1244,29 +1251,29 @@ function renderInsights() {
   if (!el) return;
   const i = computeInsights();
   if (i.thisWeek === 0) {
-    el.innerHTML = `<p class="insight-line">No focus yet this week — start a session to fill your first cup! 🧋</p>`;
+    el.innerHTML = `<p class="insight-line">No focus yet this week. Start a session to fill your first cup!</p>`;
     return;
   }
   let deltaHtml;
-  if (i.delta === null)     deltaHtml = `<span class="insight-delta neutral">first week ✨</span>`;
+  if (i.delta === null)     deltaHtml = `<span class="insight-delta neutral">first week</span>`;
   else if (i.delta > 0)     deltaHtml = `<span class="insight-delta up">▲ ${i.delta}% vs last week</span>`;
   else if (i.delta < 0)     deltaHtml = `<span class="insight-delta down">▼ ${Math.abs(i.delta)}% vs last week</span>`;
   else                      deltaHtml = `<span class="insight-delta neutral">same as last week</span>`;
 
   const streak = computeStats().current;
   let momentum;
-  if (streak >= 5)            momentum = `🔥 ${streak}-day streak — you're on a roll!`;
-  else if (todayMinutes() === 0) momentum = `A quick session today keeps the momentum going ✨`;
+  if (streak >= 5)            momentum = `${streak}-day streak, you're on a roll!`;
+  else if (todayMinutes() === 0) momentum = `A quick session today keeps the momentum going`;
   else                        momentum = `Nice focus today — keep it flowing 🧋`;
 
   el.innerHTML =
-    `<div class="insight-head"><span class="insight-title">📊 Your week</span>${deltaHtml}</div>` +
+    `<div class="insight-head"><span class="insight-title">Your week</span>${deltaHtml}</div>` +
     `<div class="insight-stats">` +
       `<div class="insight-stat"><span class="is-val">${formatFocusTotal(i.thisWeek)}</span><span class="is-lab">focused</span></div>` +
       `<div class="insight-stat"><span class="is-val">${i.daysActive}</span><span class="is-lab">day${i.daysActive !== 1 ? "s" : ""} active</span></div>` +
       `<div class="insight-stat"><span class="is-val">${formatFocusTotal(i.avg)}</span><span class="is-lab">daily avg</span></div>` +
     `</div>` +
-    (i.bestDay ? `<p class="insight-line">Best day this week: <strong>${i.bestDay}</strong> · ${formatFocusTotal(i.bestMin)} 🏆</p>` : "") +
+    (i.bestDay ? `<p class="insight-line">Best day this week: <strong>${i.bestDay}</strong> · ${formatFocusTotal(i.bestMin)}</p>` : "") +
     `<p class="insight-line">${momentum}</p>`;
 }
 
@@ -1348,7 +1355,7 @@ const TREAT_CAP = 20;
 
 function renderShelf() {
   if (state.collection.length === 0) {
-    els.shelfGrid.innerHTML = `<div class="empty-state">Finish a focus session to start your collection 🧋</div>`;
+    els.shelfGrid.innerHTML = `<div class="empty-state">Finish a focus session to start your collection</div>`;
     return;
   }
   const drinks = state.collection;   // already newest-first (unshift on complete)
@@ -1364,7 +1371,7 @@ function renderShelf() {
 
 function renderRewards() {
   if (state.rewards.length === 0) {
-    els.rewardList.innerHTML = `<div class="empty-state">Treats from finished drinks show up here 🎟️</div>`;
+    els.rewardList.innerHTML = `<div class="empty-state">Treats from finished drinks show up here</div>`;
     return;
   }
   let html = state.rewards.slice(0, TREAT_CAP).map((reward) => `
@@ -1394,7 +1401,7 @@ function buyItem(itemId) {
   equipItem(itemId);
 }
 
-// ── Consumables (Streak Freeze) ───────────────────────────────────────────────
+// ── Consumables (Brain Freeze — internally "freezes") ────────────────────────
 // Repeatable, count-based purchases — a separate path from one-time cosmetics so
 // the owned-array model stays untouched.
 const FREEZE_CAP = 3;   // most you can stock at once (keeps it cozy, not abusable)
@@ -1437,7 +1444,7 @@ function reconcileStreakFreezes() {
     for (let d = top + 1; d <= todayOrd - 1; d++) state.frozenDays.push(d);
     state.freezes -= needed;
     const left = state.freezes;   // snapshot — toast fires later, after any racing decrement
-    setTimeout(() => { showToast(`🧊 Streak freeze used — your streak is safe! ${left} left`); playSfx("blip"); }, 1200);
+    setTimeout(() => { showToast(`🧊 Brain Freeze used, your streak is safe! ${left} left`); playSfx("blip"); }, 1200);
   }
   // Keep frozenDays bounded + tidy — only recent ordinals matter to the streak walk.
   state.frozenDays = [...new Set(state.frozenDays)].filter(o => o >= todayOrd - 400 && o <= todayOrd).sort((a, b) => a - b);
@@ -1486,7 +1493,7 @@ function clearProgress() {
   saveState();
   refreshMaker();
   renderAll();
-  showToast("Progress cleared — fresh start! 🧋");
+  showToast("Progress cleared. Fresh start!");
   playSfx("select");
 }
 
@@ -1534,11 +1541,11 @@ function renderShop() {
     const canBuy = pearls >= item.price && !atCap;
     const action = atCap
       ? `<span class="shop-equipped-badge">Stocked</span>`
-      : `<button class="shop-buy-btn" data-buy-consumable="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
+      : `<button class="shop-buy-btn" data-buy-consumable="${item.id}" ${canBuy ? "" : "disabled"}>${item.price}</button>`;
     return `
       <article class="shop-card">
         <div class="shop-preview" style="background:#eaf4f3"><div class="shop-boost-preview">${item.icon || "🧊"}</div></div>
-        <div><strong>${item.name}</strong><small>${item.desc}</small><span class="shop-have">Owned: ${have}/${FREEZE_CAP}</span></div>
+        <div><strong>${item.name}</strong><small>${item.desc}</small></div>
         <div class="shop-card-action">${action}</div>
       </article>`;
   }
@@ -1564,7 +1571,7 @@ function renderShop() {
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
-      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
+      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>${item.price}</button>`;
     }
 
     return `
@@ -1608,7 +1615,7 @@ function renderShop() {
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
-      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>⬡ ${item.price}</button>`;
+      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>${item.price}</button>`;
     }
 
     return `
@@ -2066,7 +2073,7 @@ function completeSession() {
   // Pearls are floor(totalMinutes/15). Scale by whether apps were blocked: full when a
   // shield was up (or on web, where blocking isn't possible), half when a native user
   // chose NOT to block — a nudge to actually use the blocker. Any completed session
-  // earns at least 1 pearl (so a 5-min Tasting Cup never shows a deflating "+0").
+  // earns at least 1 pearl (so a short Custom cup never shows a deflating "+0").
   const oldTotal = totalMinutes();
   const fullPearls = Math.floor((oldTotal + minutes) / 15) - Math.floor(oldTotal / 15);
   const pearlsEarned = Math.max(1, Math.ceil(fullPearls * (wasBlocked ? 1 : REWARD_UNBLOCKED_FRACTION)));
@@ -4140,26 +4147,24 @@ function squadB64Decode(str) {
 // ── DAILY QUESTS ─────────────────────────────────────────────────────────────
 // Three cozy challenges that refresh each local day (one focus, one make, one
 // play). Progress is tracked off existing events via bumpQuest(track, amount);
-// rewards auto-grant on completion (no claim step), and finishing all three pays
-// a bonus. Fully on-device — no backend.
-const QUEST_BONUS = 4;   // pearls for finishing all 3 in a day
+// rewards auto-grant on completion (no claim step). Fully on-device — no backend.
 const QUEST_POOL = {
   focus: [
-    { key: "focus25",  icon: "⏳", title: "Focus for 25 minutes",      target: 25, reward: 3, track: "focusMin",   unit: "m" },
-    { key: "focus45",  icon: "🕰️", title: "Focus for 45 minutes",      target: 45, reward: 5, track: "focusMin",   unit: "m" },
-    { key: "sessions2",icon: "🍵", title: "Finish 2 focus sessions",   target: 2,  reward: 4, track: "sessions" },
-    { key: "earlyBird",icon: "🌅", title: "Focus before noon",         target: 1,  reward: 3, track: "earlyFocus" },
+    { key: "focus25",  title: "Focus for 25 minutes",      target: 25, reward: 3, track: "focusMin",   unit: "m" },
+    { key: "focus45",  title: "Focus for 45 minutes",      target: 45, reward: 5, track: "focusMin",   unit: "m" },
+    { key: "sessions2",title: "Finish 2 focus sessions",   target: 2,  reward: 4, track: "sessions" },
+    { key: "earlyBird",title: "Focus before noon",         target: 1,  reward: 3, track: "earlyFocus" },
   ],
   make: [
-    { key: "drink1",   icon: "🧋", title: "Complete a boba",           target: 1,  reward: 3, track: "drinks" },
-    { key: "drink2",   icon: "🧋", title: "Complete 2 bobas",          target: 2,  reward: 5, track: "drinks" },
+    { key: "drink1",   title: "Complete a boba",           target: 1,  reward: 3, track: "drinks" },
+    { key: "drink2",   title: "Complete 2 bobas",          target: 2,  reward: 5, track: "drinks" },
   ],
   play: [
-    { key: "catch10",  icon: "🫧", title: "Catch 10 pearls",           target: 10, reward: 3, track: "catchPearls" },
-    { key: "combo5",   icon: "🔥", title: "Hit a 5× combo in Catch",   target: 5,  reward: 3, track: "catchCombo", mode: "max" },
-    { key: "pong2",    icon: "🥤", title: "Sink 2 cups in Cup Pong",   target: 2,  reward: 3, track: "pongMakes" },
-    { key: "playGame", icon: "🎮", title: "Play a break mini-game",    target: 1,  reward: 2, track: "gamesPlayed" },
-    { key: "map1",     icon: "🗺️", title: "Peek at the boba map",      target: 1,  reward: 2, track: "mapOpen" },
+    { key: "catch10",  title: "Catch 10 pearls",           target: 10, reward: 3, track: "catchPearls" },
+    { key: "combo5",   title: "Hit a 5× combo in Catch",   target: 5,  reward: 3, track: "catchCombo", mode: "max" },
+    { key: "pong2",    title: "Sink 2 cups in Cup Pong",   target: 2,  reward: 3, track: "pongMakes" },
+    { key: "playGame", title: "Play a break mini-game",    target: 1,  reward: 2, track: "gamesPlayed" },
+    { key: "map1",     title: "Peek at the boba map",      target: 1,  reward: 2, track: "mapOpen" },
   ],
 };
 const ALL_QUESTS = [...QUEST_POOL.focus, ...QUEST_POOL.make, ...QUEST_POOL.play];
@@ -4173,27 +4178,14 @@ function ensureTodayQuests() {
   // Validate shape too — a structurally-broken entry (missing prog/done) would
   // otherwise produce NaN progress and a quest that can never complete.
   const valid = q && q.day === today && Array.isArray(q.active) && q.active.length === 3
-    && q.active.every((a) => questDef(a.key) && Number.isFinite(a.prog) && typeof a.done === "boolean")
-    && typeof q.bonusClaimed === "boolean";
-  if (valid) { reconcileQuestBonus(); return; }
+    && q.active.every((a) => questDef(a.key) && Number.isFinite(a.prog) && typeof a.done === "boolean");
+  if (valid) return;
   state.quests = {
     day: today,
     active: [pickOne(QUEST_POOL.focus), pickOne(QUEST_POOL.make), pickOne(QUEST_POOL.play)]
               .map((def) => ({ key: def.key, prog: 0, done: false })),
-    bonusClaimed: false,
   };
   saveState();
-}
-
-// Defensive: if all three are done but the bonus was never paid (corrupt/migrated
-// storage, or a done-flag set outside onQuestComplete), pay it exactly once.
-function reconcileQuestBonus() {
-  const q = state.quests;
-  if (q && !q.bonusClaimed && q.active.length === 3 && q.active.every((a) => a.done)) {
-    q.bonusClaimed = true;
-    state.bonusPearls += QUEST_BONUS;
-    saveState();
-  }
 }
 
 // Advance any active quest tracking `track`. amount is added (or maxed for combo).
@@ -4222,17 +4214,7 @@ function onQuestComplete(def) {
   state.bonusPearls += def.reward;
   playSfx("success"); haptic([12, 40, 18]);
   pearlsWonFx(def.reward, false);        // pop the pearl chip (no toast)
-  showToast(`🎯 Quest done — ${def.title}! +${def.reward} 🫧`);
-  // All three finished today? Pay the bonus once.
-  if (!state.quests.bonusClaimed && state.quests.active.every((a) => a.done)) {
-    state.quests.bonusClaimed = true;
-    state.bonusPearls += QUEST_BONUS;
-    setTimeout(() => {
-      if (typeof celebrate === "function") celebrate();
-      playSfx("coin");
-      showToast(`✨ All daily quests done! +${QUEST_BONUS} 🫧 bonus`);
-    }, 900);
-  }
+  showToast(`🎯 Quest done: ${def.title}! +${def.reward} pearls`);
 }
 
 function questsRemaining() {
@@ -4253,28 +4235,21 @@ function renderQuests() {
   const list = document.querySelector("#questsList");
   if (!list) return;
   ensureTodayQuests();
-  const allDone = state.quests.active.every((a) => a.done);
   const cards = state.quests.active.map((a) => {
     const def = questDef(a.key);
     if (!def) return "";   // defensive: skip a quest whose key no longer exists
     const pct = Math.min(100, Math.round((a.prog / def.target) * 100));
     const sub = a.done ? "Done!" : `${a.prog} / ${def.target}${def.unit || ""}`;
     return `<div class="quest-card${a.done ? " done" : ""}">` +
-      `<span class="quest-icon">${a.done ? "✅" : def.icon}</span>` +
       `<span class="quest-info">` +
         `<span class="quest-title">${escapeHtml(def.title)}</span>` +
         `<span class="quest-track"><span class="quest-fill" style="width:${pct}%"></span></span>` +
         `<span class="quest-sub">${sub}</span>` +
       `</span>` +
-      `<span class="quest-reward${a.done ? " claimed" : ""}">+${def.reward} 🫧</span>` +
+      `<span class="quest-reward${a.done ? " claimed" : ""}">+${def.reward}</span>` +
     `</div>`;
   }).join("");
-  const bonus = `<div class="quests-bonus${allDone ? " lit" : ""}">` +
-    (allDone
-      ? `✨ All done! +${QUEST_BONUS} 🫧 bonus claimed`
-      : `Finish all 3 today for a <strong>+${QUEST_BONUS} 🫧</strong> bonus`) +
-    `</div>`;
-  list.innerHTML = cards + bonus;
+  list.innerHTML = cards;
 }
 
 function openQuests() {
@@ -4292,32 +4267,18 @@ function mySquadId() {
   if (!state.squadId) { state.squadId = "s" + Math.random().toString(36).slice(2, 10); saveState(); }
   return state.squadId;
 }
-// Live activity status for the Study Squad.
-function myStatusKey() {
-  if (state.running && state.phase === "focus") return "focusing";
-  if (state.phase === "break" || state.phase === "break-offer") return "break";
-  return "idle";
-}
 function mySquadStats() {
   const st = computeStats();
-  return { name: myDisplayName(), mins: st.totalMin, drinks: state.collection.length, streak: st.current, skin: state.skin || "", status: myStatusKey() };
-}
-// Presence shown on a squad row: live focusing/break if their data is fresh
-// (<7 min), otherwise "active <relative>". Your own row is always live.
-function squadPresence(status, ts, isMe) {
-  const t = typeof ts === "number" ? ts : Date.parse(ts);
-  const fresh = isMe || (t && (Date.now() - t) < 7 * 60000);
-  if (fresh && status === "focusing") return { cls: "focusing", label: "🟢 Focusing now" };
-  if (fresh && status === "break")    return { cls: "break", label: "🌸 On a break" };
-  if (isMe) return { cls: "idle", label: "⚪ Online" };
-  return { cls: "away", label: "active " + squadRelative(ts) };
+  // No live-status field: activity presence is deliberately NOT broadcast
+  // (privacy); squad-cloud falls back to a neutral "idle" for its RPC param.
+  return { name: myDisplayName(), mins: st.totalMin, drinks: state.collection.length, streak: st.current, skin: state.skin || "" };
 }
 function squadCloudLive() { return !!(window.SquadCloud && SquadCloud.enabled && SquadCloud.ready); }
 function encodeMyCode() {
   // Live backend: share the short server friend-code. Offline: a base64 snapshot.
   if (squadCloudLive() && SquadCloud.myCode()) return SquadCloud.myCode();
   const me = mySquadStats();
-  return squadB64Encode({ i: mySquadId(), n: me.name.slice(0, 24), m: me.mins, d: me.drinks, s: me.streak, k: me.skin, st: me.status, t: Date.now() });
+  return squadB64Encode({ i: mySquadId(), n: me.name.slice(0, 24), m: me.mins, d: me.drinks, s: me.streak, k: me.skin, t: Date.now() });
 }
 function parseSquadCode(raw) {
   if (!raw) return null;
@@ -4335,7 +4296,6 @@ function parseSquadCode(raw) {
       drinks: Math.max(0, Number(o.d) || 0),
       streak: Math.max(0, Number(o.s) || 0),
       skin: typeof o.k === "string" ? o.k : "",
-      status: typeof o.st === "string" ? o.st : "idle",
       ts: Number(o.t) || Date.now()
     };
   } catch (e) { return null; }
@@ -4388,41 +4348,32 @@ function renderSquad() {
   const av = document.querySelector("#squadMeAvatar"); if (av) av.src = squadAvatar(me.skin);
   const nm = document.querySelector("#squadMeName"); if (nm) nm.textContent = me.name;
   const ms = document.querySelector("#squadMeStats");
-  if (ms) ms.textContent = `${formatFocusTotal(me.mins)} focused · ${me.drinks} drink${me.drinks !== 1 ? "s" : ""} · ${me.streak}🔥`;
+  if (ms) ms.textContent = `${formatFocusTotal(me.mins)} focused · ${me.streak}🔥`;
   const board = document.querySelector("#squadBoard"); if (!board) return;
   const live = squadCloudLive();
-  const hint = document.querySelector("#squadHint");
-  if (hint) hint.textContent = live
-    ? "Share your code so friends can add you — and paste a friend's code below to add them. Everyone's stats and status sync live. 🟢"
-    : "Share your code so friends can add you — and paste a friend's code below to add them. Stats refresh whenever they re-share their code.";
   let rows;
   if (live) {
     // Server returns self + everyone I follow (already RLS-scoped).
-    rows = SquadCloud.friends.map((f) => ({ id: f.id, name: f.name, mins: f.mins, drinks: f.drinks, streak: f.streak, skin: f.skin, ts: f.ts, status: f.status, me: !!f.me }));
-    if (!rows.some((r) => r.me)) rows.unshift({ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, ts: Date.now(), status: me.status, me: true });
+    rows = SquadCloud.friends.map((f) => ({ id: f.id, name: f.name, mins: f.mins, drinks: f.drinks, streak: f.streak, skin: f.skin, ts: f.ts, me: !!f.me }));
+    if (!rows.some((r) => r.me)) rows.unshift({ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, ts: Date.now(), me: true });
   } else {
-    rows = [{ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, status: me.status, me: true }]
+    rows = [{ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, me: true }]
       .concat(state.friends.map((f) => ({ ...f, me: false })));
   }
   rows.sort((a, b) => b.mins - a.mins);
-  const medal = ["🥇", "🥈", "🥉"];
   board.innerHTML = rows.map((r, i) => {
-    const rank = medal[i] || `<span class="squad-rank-num">${i + 1}</span>`;
-    const pres = squadPresence(r.status, r.ts, r.me);
+    const rank = `<span class="squad-rank-num">${i + 1}</span>`;
     return `<div class="squad-row${r.me ? " me" : ""}">` +
       `<span class="squad-rank">${rank}</span>` +
       `<img class="squad-row-avatar" src="${squadAvatar(r.skin)}" alt="">` +
       `<span class="squad-row-info">` +
         `<span class="squad-row-name">${escapeHtml(r.name)}${r.me ? ' <span class="squad-you">YOU</span>' : ""}</span>` +
-        `<span class="squad-row-sub">${formatFocusTotal(r.mins)} · <span class="squad-pres squad-pres-${pres.cls}">${pres.label}</span></span>` +
+        `<span class="squad-row-sub">${formatFocusTotal(r.mins)}</span>` +
       `</span>` +
       `<span class="squad-row-stats">${r.streak}🔥</span>` +
       (r.me ? "" : `<button class="squad-remove" data-id="${r.id}" aria-label="Remove ${escapeHtml(r.name)}">✕</button>`) +
       `</div>`;
   }).join("");
-  if (rows.filter((r) => !r.me).length === 0) {
-    board.innerHTML += `<p class="squad-empty">Your squad is just you for now. Invite a friend and add their code to race up the leaderboard! 🏁</p>`;
-  }
   board.querySelectorAll(".squad-remove").forEach((b) => b.addEventListener("click", () => {
     if (live) SquadCloud.unfollow(b.dataset.id); else removeFriend(b.dataset.id);
   }));
@@ -4430,16 +4381,16 @@ function renderSquad() {
 function shareSquadCode() {
   const code = encodeMyCode();
   playSfx("open");
-  const text = `🧋 Add me on Mr. Tapioca! Paste my Study Squad code in the app (Squad → Add):\n\n${code}`;
+  const text = `Add me on Mr. Tapioca! Paste my Study Squad code in the app (Squad, then Add):\n\n${code}`;
   if (navigator.share) {
     navigator.share({ title: "Mr. Tapioca Study Squad", text }).catch(() => {});
   } else if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code).then(() => showToast("Code copied — send it to a friend! 🧋"), () => showToast("Couldn't copy — long-press to select."));
+    navigator.clipboard.writeText(code).then(() => showToast("Code copied, send it to a friend!"), () => showToast("Couldn't copy. Long-press to select."));
   } else {
     showToast("Sharing isn't available here.");
   }
 }
-const RENAME_PEARL_COST = 500;
+const RENAME_PEARL_COST = 20;
 function editSquadName() {
   const current = (state.displayName || "").trim();
 
@@ -4461,7 +4412,7 @@ function editSquadName() {
   // First change → costs 500 pearls.
   if (renames === 0) {
     if (currentPearls() < RENAME_PEARL_COST) {
-      showToast(`A name change costs ${RENAME_PEARL_COST} 🫧 — keep focusing to earn them!`);
+      showToast(`A name change costs ${RENAME_PEARL_COST} pearls. Keep focusing to earn them!`);
       playSfx("tap"); return;
     }
     if (!confirm(`Change your name for ${RENAME_PEARL_COST} pearls?\n\nHeads up: any change after this one becomes a small in-app purchase.`)) return;
@@ -4474,22 +4425,24 @@ function editSquadName() {
     state.renames = 1;
     saveState(); renderSquad(); updateStats();
     playSfx("coin"); haptic(14);
-    showToast(`Renamed to ${n} · −${RENAME_PEARL_COST} 🫧 ✨`);
+    showToast(`Renamed to ${n} (−${RENAME_PEARL_COST} pearls)`);
     return;
   }
 
   // Second change onward → real money (in-app purchase; placeholder until IAP is wired).
   playSfx("tap");
-  showToast("Extra name changes are a small in-app purchase — coming soon. 🧋");
+  showToast("Extra name changes are a small in-app purchase, coming soon.");
 }
 
 // Settings "Your name" row: reflect the current name + what the next change costs.
 function renderNameRow() {
   const cur = (state.displayName || "").trim();
   if (els.changeNameBtn) els.changeNameBtn.textContent = cur ? "Change name" : "Set your name";
+  const val = document.querySelector("#yourNameValue");
+  if (val) val.textContent = cur || "not set";
   if (els.changeNameHint) {
     els.changeNameHint.textContent = cur
-      ? `“${cur}” · ` + ((state.renames || 0) === 0 ? "first change costs 500 🫧" : "next change = in-app purchase")
+      ? ((state.renames || 0) === 0 ? `changing costs ${RENAME_PEARL_COST} pearls` : "next change is an in-app purchase")
       : "free to set";
   }
 }
@@ -4529,7 +4482,7 @@ const ONBOARD_STEPS = [
   {
     img: "assets/Tapioca Currency.png",
     title: "Earn Pearls as You Go!",
-    body: "Every 15 minutes = 1 pearl earned. Spend them on character skins and backgrounds in the shop, or save up for the fanciest fits."
+    body: "Every 15 minutes = 1 pearl earned. Spend them on character skins and backgrounds in the shop."
   },
   {
     emoji: "🏆",
@@ -4539,7 +4492,7 @@ const ONBOARD_STEPS = [
   {
     emoji: "🗺️",
     title: "Real Rewards Await!",
-    body: "Mr. Tapioca wants to eventually work at real shops. Stay tuned to unlock discounts at boba shops near you. Check out the in-app map to locate shops to visit."
+    body: "Mr. Tapioca wants to work at real shops. Stay tuned to unlock discounts at boba shops near you. Check out the in-app map to locate shops to visit."
   },
   {
     name: true,
@@ -4644,8 +4597,8 @@ function finishOnboarding(skipped) {
 const TOUR_STEPS = [
   { sel: null, title: "Welcome to your boba shop! 🧋",
     text: "Quick tour of what everything does? Takes 30 seconds. You can replay it anytime from Settings." },
-  { sel: [".size-picker"], title: "Pick a drink size",
-    text: "Taste is 5 minutes, Small is 2 hours, Large is 6. Custom sets any length. Bigger drinks earn bigger rewards, and you can finish them across multiple sittings." },
+  { sel: [".size-picker"], title: "Pick your session",
+    text: "Custom brews any length from 15 minutes to 2 hours. Goal matches the focus goal you set in Settings. Finish the timer to earn your boba." },
   { sel: ["#startPauseBtn"], title: "Start focusing",
     text: "Mr. Tapioca starts mixing your boba while you work. The cup fills as you focus." },
   { sel: [".pearl-chip"], title: "Tapioca pearls",
@@ -4656,8 +4609,10 @@ const TOUR_STEPS = [
     text: "Spend pearls on character skins and shop backgrounds. A couple of fancy ones are premium." },
   { sel: ["#mapBtn"], title: "Boba map",
     text: "Real bubble-tea shops near you. Finished drinks will earn real perks at partner shops." },
-  { sel: ["#moreBtn"], title: "Everything else lives here ⭐",
-    text: "Customize your drink, join a Study Squad, and open Settings — where you pick apps to BLOCK during focus (the whole point!). Tap the drink name anytime to customize." },
+  { sel: ["#friendsBtn"], title: "Study Squad",
+    text: "Add friends and climb a shared leaderboard together. Focusing is cozier with company." },
+  { sel: ["#settingsBtn"], title: "Settings ⭐",
+    text: "Pick apps to BLOCK during focus (the whole point!), plus sounds, goals, and progress. Tap the drink name anytime to customize your boba." },
 ];
 let tourStep = 0;
 let tourOn = false;
@@ -5213,13 +5168,7 @@ function wireEvents() {
 
   // ── Bottom bar sheets ────────────────────────────────────────────────────
   els.shopBtn.addEventListener("click",       () => { playSfx("open"); openSheet("shopSheet"); });
-  els.customizeBtn.addEventListener("click",  () => { playSfx("open"); openSheet("customizeSheet"); });
   els.settingsBtn.addEventListener("click",   () => { playSfx("open"); renderNameRow(); openSheet("settingsSheet"); });
-  // "More" sheet: the calm home for Customize / Squad / Settings (nav went 6 -> 4)
-  const moreBtn = document.getElementById("moreBtn");
-  if (moreBtn) moreBtn.addEventListener("click", () => { playSfx("open"); openSheet("moreSheet"); });
-  const moreClose = document.getElementById("moreClose");
-  if (moreClose) moreClose.addEventListener("click", closeSheets);
   els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
   if (els.friendsBtn) els.friendsBtn.addEventListener("click", () => { playSfx("open"); openFriends(); });
   if (els.questsBtn) els.questsBtn.addEventListener("click", () => { playSfx("open"); openQuests(); });

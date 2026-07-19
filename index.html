@@ -171,18 +171,12 @@
 
       <!-- ── Focus controls ───────────────────────────────────────── -->
       <div id="focusControls" class="focus-controls">
-        <div class="size-picker" role="group" aria-label="Session size">
-          <button class="size-btn" data-mode="tasting">
-            Taste<small>5 min</small>
-          </button>
-          <button class="size-btn active" data-mode="small">
-            Small<small>2 hr</small>
-          </button>
-          <button class="size-btn" data-mode="large">
-            Large<small>6 hr</small>
-          </button>
-          <button class="size-btn" data-mode="custom">
+        <div class="size-picker" role="group" aria-label="Session length">
+          <button class="size-btn active" data-mode="custom">
             Custom<small>set</small>
+          </button>
+          <button class="size-btn" data-mode="goal">
+            Goal<small id="goalModeMin">60 min</small>
           </button>
         </div>
         <div class="timer-card" id="timerCard">
@@ -194,7 +188,7 @@
             <button id="customPlus" class="adj-btn time-adj" aria-label="More time">+</button>
           </div>
           <div class="timer-meta">
-            <span id="sessionLabel">Tasting Cup</span>
+            <span id="sessionLabel">Custom Cup</span>
             <span id="progressLabel">0%</span>
           </div>
           <div class="progress-track"><span id="progressBar"></span></div>
@@ -261,37 +255,15 @@
           <span class="nav-icon nav-pin" aria-hidden="true"></span>
           <span class="pill-label">Map</span>
         </button>
-        <button class="icon-pill" id="moreBtn" aria-label="More">
-          <span class="nav-icon nav-more" aria-hidden="true">⋯</span>
-          <span class="pill-label">More</span>
+        <button class="icon-pill" id="friendsBtn" aria-label="Study Squad">
+          <span class="nav-icon nav-people" aria-hidden="true"></span>
+          <span class="pill-label">Squad</span>
+        </button>
+        <button class="icon-pill" id="settingsBtn" aria-label="Settings">
+          <span class="nav-icon nav-gear" aria-hidden="true"></span>
+          <span class="pill-label">Settings</span>
         </button>
       </nav>
-
-      <!-- ── "More" sheet: the calm home for everything that isn't daily ── -->
-      <div id="moreSheet" class="sheet hidden" role="dialog" aria-label="More" aria-modal="true">
-        <div class="sheet-handle"></div>
-        <div class="sheet-head">
-          <h2>More</h2>
-          <button class="sheet-close" id="moreClose" aria-label="Close">✕</button>
-        </div>
-        <div class="sheet-body">
-          <button class="more-row" id="customizeBtn" aria-label="Customize drink">
-            <span class="nav-icon nav-palette" aria-hidden="true"></span>
-            <span class="more-row-text">Customize drink<small>base, toppings, name</small></span>
-            <span class="more-row-chev" aria-hidden="true">›</span>
-          </button>
-          <button class="more-row" id="friendsBtn" aria-label="Study Squad">
-            <span class="nav-icon nav-people" aria-hidden="true"></span>
-            <span class="more-row-text">Study Squad<small>focus with friends</small></span>
-            <span class="more-row-chev" aria-hidden="true">›</span>
-          </button>
-          <button class="more-row" id="settingsBtn" aria-label="Settings">
-            <span class="nav-icon nav-gear" aria-hidden="true"></span>
-            <span class="more-row-text">Settings<small>sound, goals, progress</small></span>
-            <span class="more-row-chev" aria-hidden="true">›</span>
-          </button>
-        </div>
-      </div>
 
       <!-- ── Install prompt (PWA) ─────────────────────────────────────── -->
       <div id="installBanner" class="install-banner" role="status" aria-live="polite" aria-label="Install Mr. Tapioca" hidden>
@@ -346,12 +318,12 @@
         </div>
         <div class="sheet-body">
           <div class="settings-row stack">
-            <span class="settings-row-label">🧋 Your name <small id="changeNameHint"></small></span>
+            <span class="settings-row-label">Your Name: <span id="yourNameValue"></span> <small id="changeNameHint"></small></span>
             <button id="changeNameBtn" class="settings-action-btn">Change name</button>
           </div>
 
           <div class="settings-row">
-            <span class="settings-row-label">🎯 Daily goal</span>
+            <span class="settings-row-label">Daily goal</span>
             <div class="goal-stepper">
               <button id="goalMinus" class="adj-btn small-adj" aria-label="Lower daily goal">−</button>
               <span id="goalDisplay" class="goal-display">60 min</span>
@@ -360,7 +332,7 @@
           </div>
 
           <div class="settings-row stack">
-            <span class="settings-row-label">🎧 Focus ambience <small>plays while you study</small></span>
+            <span class="settings-row-label">Focus ambience <small>plays while you study</small></span>
             <div class="amb-picker" role="group" aria-label="Focus ambience">
               <button class="amb-chip active" data-amb="off">Off</button>
               <button class="amb-chip" data-amb="rain">Rain</button>
@@ -374,7 +346,7 @@
           </div>
 
           <div class="settings-row stack">
-            <span class="settings-row-label">🎵 Music <small>lo-fi focus &amp; break tunes</small></span>
+            <span class="settings-row-label">Music <small>lo-fi focus &amp; break tunes</small></span>
             <div class="volume-control">
               <input id="musicVol" class="volume-slider" type="range" min="0" max="100" step="1" value="80" aria-label="Music volume">
               <span id="musicVolLabel" class="volume-val">80</span>
@@ -382,7 +354,7 @@
           </div>
 
           <div class="settings-row stack">
-            <span class="settings-row-label">🔊 Sound effects <small>taps, coins &amp; completion chime</small></span>
+            <span class="settings-row-label">Sound effects <small>taps, coins &amp; completion chime</small></span>
             <div class="volume-control">
               <input id="sfxVol" class="volume-slider" type="range" min="0" max="100" step="1" value="90" aria-label="Sound effects volume">
               <span id="sfxVolLabel" class="volume-val">90</span>
@@ -390,34 +362,34 @@
           </div>
 
           <div class="settings-row hidden" id="restoreRow">
-            <span class="settings-row-label">✦ Purchases <small>bought on another device?</small></span>
+            <span class="settings-row-label">Purchases <small>bought on another device?</small></span>
             <button id="restorePurchasesBtn" class="settings-action-btn">Restore</button>
           </div>
 
           <div class="settings-row hidden" id="devRow">
-            <span class="settings-row-label">🛠 Dev mode <small>unlock everything</small></span>
+            <span class="settings-row-label">Dev mode <small>unlock everything</small></span>
             <button id="devToggle" class="toggle" role="switch" aria-checked="false">
               <span class="toggle-knob"></span>
             </button>
           </div>
 
           <div class="settings-row">
-            <span class="settings-row-label">👋 Welcome tour <small>see the intro again</small></span>
+            <span class="settings-row-label">Welcome tour <small>see the intro again</small></span>
             <button id="replayIntroBtn" class="settings-action-btn">Replay</button>
           </div>
 
           <div class="settings-row">
-            <span class="settings-row-label">🎯 Feature tour <small>what every button does</small></span>
+            <span class="settings-row-label">Feature tour <small>what every button does</small></span>
             <button id="featureTourBtn" class="settings-action-btn">Show me</button>
           </div>
 
           <div class="settings-row">
-            <span class="settings-row-label">🧹 Clear progress <small>wipe shelf, treats &amp; pearls</small></span>
+            <span class="settings-row-label">Clear progress <small>wipe shelf, treats &amp; pearls</small></span>
             <button id="clearProgressBtn" class="settings-action-btn danger">Clear</button>
           </div>
 
           <div class="settings-row hidden" id="deleteAccountRow">
-            <span class="settings-row-label">👤 Delete my account <small>remove your cloud Squad data</small></span>
+            <span class="settings-row-label">Delete my account <small>remove your cloud Squad data</small></span>
             <button id="deleteAccountBtn" class="settings-action-btn danger">Delete</button>
           </div>
 
@@ -426,7 +398,7 @@
               <h3>App Blocking</h3>
               <span class="soon-badge">iPhone app</span>
             </div>
-            <p class="muted-note">Pick the apps to lock while you focus. During a session they'll go grey and show a “Restricted” screen until you finish — just like the real thing.</p>
+            <p class="muted-note">Pick the apps to lock while you focus. During a session they'll go grey and show a “Restricted” screen until you finish, just like the real thing.</p>
             <button id="chooseAppsBtn" class="settings-action-btn">Choose apps to block</button>
             <button id="previewRestrictionBtn" class="ghost-btn" style="margin-top:8px;">Preview the block screen</button>
             <div id="restrictionPreview" class="restriction-preview hidden" aria-live="polite">
@@ -440,8 +412,8 @@
           <div class="stats-card">
             <div class="stat-block stat-streak">
               <span class="stat-value" id="statStreak">0</span>
-              <span class="stat-label">day streak 🔥</span>
-              <span id="streakFreezeNote" class="streak-freeze-note hidden">🧊 0 streak freezes ready</span>
+              <span class="stat-label">day streak</span>
+              <span id="streakFreezeNote" class="streak-freeze-note hidden">0 brain freezes ready</span>
             </div>
             <div class="stats-grid">
               <div class="stat-block">
@@ -492,19 +464,19 @@
             <h3>How pearls work</h3>
             <div class="pearl-info-rows">
               <div class="pearl-info-row">
-                <span class="pearl-info-icon">⏱</span>
+                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
                 <span><strong>15 min</strong> of focus = <strong>1 pearl</strong></span>
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Small = 2 hr · Large = 6 hr → real boba discounts 🌟</span>
+                <span>Finished drinks bank real boba discounts</span>
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
                 <span>Spend pearls on cute skins &amp; backgrounds</span>
               </div>
             </div>
-            <p class="pearl-info-foot">Big drinks fill across sessions — leave and come back anytime. ✨</p>
+            <p class="pearl-info-foot">Your drink keeps filling across sittings. Leave and come back anytime.</p>
           </div>
         </div>
       </div>
@@ -517,7 +489,7 @@
           <button class="sheet-close" id="mapClose" aria-label="Close">✕</button>
         </div>
         <div class="sheet-body map-body">
-          <p class="map-intro">🧋 <strong>Real boba shops near you.</strong> Finish big drinks to bank discounts for when shops join Mr. Tapioca.</p>
+          <p class="map-intro"><strong>Find real boba shops near you</strong> (and collect pearls to earn discounts for when shops join Mr. Tapioca's network!)</p>
           <div id="mapPerkBanner" class="map-perk-banner hidden"></div>
           <div id="map" class="map-canvas">
             <div id="mapStatus" class="map-status">Loading the map…</div>
@@ -541,10 +513,10 @@
               <div id="squadMeStats" class="squad-stats">0h · 0 drinks · 0🔥</div>
             </div>
           </div>
-          <button id="squadShareBtn" class="squad-share">🧋 Invite a friend</button>
-          <p id="squadHint" class="squad-hint">Share your code so friends can add you — and paste a friend's code below to add them. Stats refresh whenever they re-share their code.</p>
+          <button id="squadShareBtn" class="squad-share">Generate Code to Invite a Friend</button>
+          <p id="squadHint" class="squad-hint">Don't forget to Share Your Code to keep up with everyone's stats -- start focusing together now!</p>
           <div class="squad-add">
-            <input id="squadCodeInput" class="squad-input" placeholder="Paste a friend's code…" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <input id="squadCodeInput" class="squad-input" placeholder="Paste a friend's code here" autocomplete="off" autocapitalize="off" spellcheck="false">
             <button id="squadAddBtn" class="squad-add-btn">Add</button>
           </div>
           <div class="squad-board-head">🏆 Leaderboard</div>
@@ -556,11 +528,11 @@
       <div id="questsSheet" class="sheet hidden" role="dialog" aria-label="Daily Quests" aria-modal="true">
         <div class="sheet-handle"></div>
         <div class="sheet-head">
-          <h2>🎯 Daily Quests</h2>
+          <h2>Daily Quests</h2>
           <button class="sheet-close" id="questsClose" aria-label="Close">✕</button>
         </div>
         <div class="sheet-body">
-          <p class="quests-intro">Three fresh challenges every day. Finish them for pearls — they reset at midnight. 🧋</p>
+          <p class="quests-intro">Three fresh challenges to earn pearls every day!</p>
           <div id="questsList" class="quests-list"></div>
         </div>
       </div>
