@@ -1017,9 +1017,15 @@ body {
 
 /* ── Focus controls overlay ─────────────────────────────────────────────── */
 /* While a session RUNS the size picker is dead weight (switching modes needs a
-   reset anyway) — hiding it keeps the controls low so Mr. Tapioca stays fully
-   visible while he brews. */
-.focus-controls.session-on .size-picker { display: none; }
+   reset anyway). visibility (not display) keeps its space reserved so the whole
+   controls stack NEVER shifts between idle/running/paused; the blank strip
+   still leaves Mr. Tapioca fully visible while he brews. */
+.focus-controls.session-on .size-picker { visibility: hidden; }
+/* One fixed-height row for the shield pill + Reset: the pill stays centered,
+   Reset docks at the right edge, and toggling either never moves the stack. */
+.session-row { position: relative; width: 100%; min-height: 38px; display: flex; align-items: center; justify-content: center; }
+.session-row .block-pill { margin: 0; }
+.session-row .reset-link { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
 .focus-controls {
   position: absolute;
   /* add the home-indicator inset so the Reset link clears the bottom nav (which
@@ -1146,7 +1152,9 @@ body {
 .start-btn {
   width: 100%;
   padding: 16px 32px;
-  border: none;
+  /* transparent border matches .is-running's 2px solid one, so the button
+     (and the whole stack above it) never changes height when pausing */
+  border: 2px solid transparent;
   border-radius: 999px;
   background: linear-gradient(180deg, #4a2a20, #3c2018);
   color: var(--cream);
@@ -1516,86 +1524,14 @@ h3 {
 }
 
 /* ── Shared form controls (used inside sheets) ──────────────────────────── */
-.choice-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.customize-hint {
-  margin: 2px 0 10px;
-  color: var(--bark-mid);
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-/* Named tea-base picker: a labeled card per flavor (replaces bare color dots). */
-.base-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.base-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 8px 12px;
-  border: 2px solid rgba(60,32,24,0.16);
-  border-radius: 14px;
-  background: rgba(255,255,255,0.6);
-  color: var(--bark);
-  font-size: 0.82rem;
-  font-weight: 850;
-  text-align: left;
-  cursor: pointer;
-}
-.base-option .base-dot {
-  flex: 0 0 auto;
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  background: var(--swatch);
-  box-shadow: inset -3px -3px 0 rgba(0,0,0,0.18), 0 1px 3px rgba(60,32,24,0.2);
-}
-.base-option .base-name {
-  line-height: 1.15;
-  flex: 1;
-}
-.base-option.active {
-  border-color: var(--teal);
-  background: var(--mint);
-  box-shadow: 0 0 0 3px rgba(21,143,146,0.16);
-}
-.base-option.locked { opacity: 0.82; }
-.base-option.locked .base-dot { filter: grayscale(0.4); }
-
-/* Pearl price tag on a locked customization */
-.opt-price {
-  flex: 0 0 auto;
-  font-size: 0.7rem;
-  font-weight: 950;
-  color: var(--teal);
-  background: var(--mint);
-  border-radius: 999px;
-  padding: 2px 7px;
-}
-
-.choice {
-  min-height: 40px;
-  padding: 0 14px;
-  border: 2px solid rgba(60,32,24,0.2);
-  border-radius: 12px;
-  background: rgba(60,32,24,0.05);
-  color: var(--bark);
-  font-size: 0.82rem;
-  font-weight: 900;
-}
-.choice.active {
-  border-color: var(--teal);
-  background: var(--mint);
-}
-.choice.locked { opacity: 0.85; }
-.choice .opt-price { margin-left: 5px; padding: 1px 5px; }
+/* Customize pickers: rendered as literal shop cards (.shop-card etc.), so
+   they inherit the shop's fonts and colors exactly. These few rules only
+   reset the fact that the card is a <button> here, and add selected state. */
+.option-list { display: flex; flex-direction: column; gap: 8px; }
+button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+.option-row.active { border-color: var(--teal); background: var(--mint); }
+.option-row.locked { opacity: 0.82; }
+.shop-buy-btn.as-price { display: inline-flex; align-items: center; }
 
 .break-games-note {
   margin: 4px 0 -2px;

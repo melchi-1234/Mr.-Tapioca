@@ -23,24 +23,25 @@ function modeDuration() {
 // Tea bases: classic is free; the rest are one-time pearl unlocks (price).
 const BASES = {
   classic:    { label: "Classic Milk Tea",     color: "#c98555", price: 0 },
-  brownsugar: { label: "Brown Sugar Milk Tea", color: "#8b4513", price: 12 },
-  taro:       { label: "Taro Milk Tea",         color: "#b58bdc", price: 12 },
-  matcha:     { label: "Matcha Latte",          color: "#76a86a", price: 12 },
-  strawberry: { label: "Strawberry Milk Tea",   color: "#f07c93", price: 14 },
-  earlgrey:   { label: "Earl Grey Milk Tea",    color: "#b08d63", price: 14 },
-  thai:       { label: "Thai Tea",              color: "#e08a3c", price: 16 },
-  ube:        { label: "Ube Milk Tea",          color: "#6b3d9a", price: 16 },
-  lavender:   { label: "Lavender Milk Tea",     color: "#c4b5e8", price: 18 },
-  honeydew:   { label: "Honeydew Milk Tea",     color: "#b6d67e", price: 18 }
+  brownsugar: { label: "Brown Sugar Milk Tea", color: "#8b4513", price: 10 },
+  taro:       { label: "Taro Milk Tea",         color: "#b58bdc", price: 10 },
+  matcha:     { label: "Matcha Latte",          color: "#76a86a", price: 10 },
+  strawberry: { label: "Strawberry Milk Tea",   color: "#f07c93", price: 10 },
+  earlgrey:   { label: "Earl Grey Tea",         color: "#b08d63", price: 10 },
+  thai:       { label: "Thai Tea",              color: "#e08a3c", price: 10 },
+  ube:        { label: "Ube Milk Tea",          color: "#6b3d9a", price: 10 },
+  lavender:   { label: "Lavender Tea",          color: "#c4b5e8", price: 10 },
+  honeydew:   { label: "Honeydew Milk Tea",     color: "#b6d67e", price: 10 }
 };
 
 // Toppings: pearls are free (the signature); others are one-time pearl unlocks.
+// color = the Customize sheet's preview-tile swatch (mirrors the shop cards).
 const TOPPINGS = {
-  pearls:  { label: "Tapioca Pearls", price: 0 },
-  jelly:   { label: "Lychee Jelly",   price: 10 },
-  pudding: { label: "Egg Pudding",    price: 10 },
-  foam:    { label: "Cheese Foam",    price: 12 },
-  coconut: { label: "Coconut Jelly",  price: 10 }
+  pearls:  { label: "Tapioca Pearls", price: 0,  color: "#4a2a20" },
+  jelly:   { label: "Lychee Jelly",   price: 10, color: "#f3e2a8" },
+  pudding: { label: "Egg Pudding",    price: 10, color: "#f2c96b" },
+  foam:    { label: "Cheese Foam",    price: 10, color: "#fff6e8" },
+  coconut: { label: "Coconut Jelly",  price: 10, color: "#f4f1ea" }
 };
 
 const DEFAULTS = {
@@ -2466,23 +2467,29 @@ function isToppingUnlocked(key) {
 }
 
 // Build the Customize sheet's tea-base + topping pickers from the single
-// BASES/TOPPINGS source of truth. Locked items show a pearl price tag.
+// BASES/TOPPINGS source of truth, rendered as literal shop cards (same
+// classes = same fonts/colors): color-swatch preview tile, name, and a
+// Default badge / Equipped badge / dark price pill on the right.
+function customizeCard(attr, key, label, color, locked, price, isDefault, isActive) {
+  const tag = isDefault ? `<span class="shop-equipped-badge">Default</span>`
+    : isActive ? `<span class="shop-equipped-badge">Equipped</span>`
+    : locked ? `<span class="shop-buy-btn as-price">${price}</span>` : "";
+  return `<button class="shop-card option-row${isActive ? " active" : ""}${locked ? " locked" : ""}" ${attr}="${key}" aria-label="${label}${locked ? `, ${price} pearls to unlock` : ""}">
+    <div class="shop-preview"><div class="shop-theme-preview" style="background:${color}"></div></div>
+    <div><strong>${label}</strong></div>
+    <div class="shop-card-action">${tag}</div>
+  </button>`;
+}
 function renderCustomizeOptions() {
   if (els.baseGrid) {
-    els.baseGrid.innerHTML = Object.entries(BASES).map(([key, b]) => {
-      const locked = !isBaseUnlocked(key);
-      return `<button class="base-option${state.base === key ? " active" : ""}${locked ? " locked" : ""}" data-base="${key}" aria-label="${b.label}${locked ? ` — ${b.price} pearls to unlock` : ""}">
-        <span class="base-dot" style="--swatch:${b.color}"></span>
-        <span class="base-name">${b.label}</span>
-        ${locked ? `<span class="opt-price">⬡ ${b.price}</span>` : ""}
-      </button>`;
-    }).join("");
+    els.baseGrid.innerHTML = Object.entries(BASES).map(([key, b]) =>
+      customizeCard("data-base", key, b.label, b.color, !isBaseUnlocked(key), b.price, key === "classic", state.base === key)
+    ).join("");
   }
   if (els.toppingRow) {
-    els.toppingRow.innerHTML = Object.entries(TOPPINGS).map(([key, t]) => {
-      const locked = !isToppingUnlocked(key);
-      return `<button class="choice${state.topping === key ? " active" : ""}${locked ? " locked" : ""}" data-topping="${key}">${t.label}${locked ? ` <span class="opt-price">⬡${t.price}</span>` : ""}</button>`;
-    }).join("");
+    els.toppingRow.innerHTML = Object.entries(TOPPINGS).map(([key, t]) =>
+      customizeCard("data-topping", key, t.label, t.color, !isToppingUnlocked(key), t.price, key === "pearls", state.topping === key)
+    ).join("");
   }
 }
 
@@ -4538,24 +4545,24 @@ function finishOnboarding(skipped) {
 // Dims the app and highlights one control at a time with a short explanation.
 // Auto-runs once after onboarding; replayable from Settings → Feature tour.
 const TOUR_STEPS = [
-  { sel: null, title: "Welcome to your boba shop! 🧋",
-    text: "Quick tour of what everything does? Takes 30 seconds. You can replay it anytime from Settings." },
-  { sel: [".size-picker"], title: "Pick your session",
-    text: "Custom brews any length from 15 minutes to 4 hours. Goal matches the focus goal you set in Settings. Finish the timer to earn your boba." },
-  { sel: ["#startPauseBtn"], title: "Start focusing",
-    text: "Mr. Tapioca starts mixing your boba while you work. The cup fills as you focus." },
-  { sel: [".pearl-chip"], title: "Tapioca pearls",
-    text: "Your currency. Every 15 focused minutes earns a pearl. On iPhone, blocking your distracting apps earns the full amount." },
-  { sel: ["#questsBtn"], title: "Daily quests",
-    text: "Three small goals a day for bonus pearls. Clear all three for an extra bonus." },
+  { sel: null, title: "Welcome to Mr. Tapioca's shop!",
+    text: "Here's a quick tutorial of what everything does. You can replay it anytime from Settings." },
+  { sel: [".size-picker"], title: "Set a Timer!",
+    text: "Customize your session anywhere from 15 minutes to 4 hours OR complete the daily Focus Goal set for yourself in Settings." },
+  { sel: ["#startPauseBtn"], title: "Start Focusing!",
+    text: "Mr. Tapioca will brew your boba as the session progresses." },
+  { sel: [".pearl-chip"], title: "Pearl Count",
+    text: "Keep track of your hard earned pearls." },
+  { sel: [".streak-chip"], title: "Streak Count",
+    text: "Come back every day to keep it up." },
+  { sel: ["#questsBtn"], title: "Daily Quests",
+    text: "Complete new goals each day to earn bonus pearls!" },
   { sel: ["#shopBtn"], title: "The Shop",
-    text: "Spend pearls on character skins and shop backgrounds. A couple of fancy ones are premium." },
-  { sel: ["#mapBtn"], title: "Boba map",
-    text: "Real bubble-tea shops near you. Finished drinks will earn real perks at partner shops." },
+    text: "Spend pearls or buy cool character skins, premium backgrounds, and special boosts!" },
+  { sel: ["#mapBtn"], title: "Boba Map",
+    text: "Locate boba shops near you!" },
   { sel: ["#friendsBtn"], title: "Study Squad",
-    text: "Add friends and climb a shared leaderboard together. Focusing is cozier with company." },
-  { sel: ["#settingsBtn"], title: "Settings ⭐",
-    text: "Pick apps to BLOCK during focus (the whole point!), plus sounds, goals, and progress. Tap the drink name anytime to customize your boba." },
+    text: "Add friends and climb a shared leaderboard together -- focusing is cozier with good company!" },
 ];
 let tourStep = 0;
 let tourOn = false;

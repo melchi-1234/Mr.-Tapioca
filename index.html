@@ -203,12 +203,14 @@
         <!-- Shield pill: shown only on the native iPhone app (JS reveals it when the
              Screen Time plugin is present). Makes app blocking a visible feature
              instead of something buried in Settings. -->
-        <button id="blockPill" class="block-pill hidden">
-          <span class="block-pill-ico" aria-hidden="true">🛡️</span>
-          <span id="blockPillLabel">App blocking: Off</span>
-          <span class="block-pill-chev" aria-hidden="true">›</span>
-        </button>
-        <button id="resetBtn" class="reset-link">Reset</button>
+        <div class="session-row">
+          <button id="blockPill" class="block-pill hidden">
+            <span class="block-pill-ico" aria-hidden="true">🛡️</span>
+            <span id="blockPillLabel">App blocking: Off</span>
+            <span class="block-pill-chev" aria-hidden="true">›</span>
+          </button>
+          <button id="resetBtn" class="reset-link">Reset</button>
+        </div>
       </div>
 
       <!-- ── Break offer panel ────────────────────────────────────── -->
@@ -306,12 +308,10 @@
         </div>
         <div class="sheet-body">
           <h3>Tea Base</h3>
-          <p class="customize-hint">Pick a flavor — it tints your drink.</p>
-          <div id="baseGrid" class="base-grid" role="group" aria-label="Tea base"></div>
+          <div id="baseGrid" class="option-list" role="group" aria-label="Tea base"></div>
 
           <h3 class="section-gap">Topping</h3>
-          <p class="customize-hint">Brown boba pearls come standard. Pick what tops the drink.</p>
-          <div id="toppingRow" class="choice-row" role="group" aria-label="Topping"></div>
+          <div id="toppingRow" class="option-list" role="group" aria-label="Topping"></div>
         </div>
       </div>
 
