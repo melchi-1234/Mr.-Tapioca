@@ -983,26 +983,6 @@ body {
 }
 .volume-slider:focus-visible { box-shadow: 0 0 0 3px rgba(21,143,146,0.3); }
 
-.amb-picker {
-  display: flex;
-  gap: 6px;
-}
-.amb-chip {
-  flex: 1;
-  min-height: 42px;
-  border: 2px solid rgba(60,32,24,0.2);
-  border-radius: 12px;
-  background: rgba(60,32,24,0.05);
-  color: var(--bark);
-  font-size: 0.78rem;
-  font-weight: 900;
-  transition: transform 90ms ease, background 180ms, border-color 180ms;
-}
-.amb-chip:active { transform: scale(0.93); }
-.amb-chip.active {
-  border-color: var(--teal);
-  background: var(--mint);
-}
 .goal-display {
   min-width: 56px;
   text-align: center;
@@ -1950,6 +1930,14 @@ h3 {
   font-size: 0.78rem;
   font-weight: 950;
   flex-shrink: 0;
+}
+/* Name button: action label left, pearl cost right */
+.settings-action-btn.name-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
 }
 .settings-action-btn.danger {
   border-color: var(--danger);

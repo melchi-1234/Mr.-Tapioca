@@ -1,10 +1,10 @@
 const MODES = {
-  custom: { label: "Custom Cup", duration: null },   // uses state.customDuration (15 min - 2 hr)
+  custom: { label: "Custom Cup", duration: null },   // uses state.customDuration (15 min - 4 hr, matches GOAL_MAX)
   goal:   { label: "Goal Cup",   duration: null }    // mirrors the preset focus goal (state.dailyGoal)
 };
 
 const CUSTOM_MIN = 15 * 60;
-const CUSTOM_MAX = 120 * 60;
+const CUSTOM_MAX = 240 * 60;
 const CUSTOM_STEP = 5 * 60;
 const DEV_MIN = 5;            // dev mode lets Custom drop to 5 seconds for quick testing
 
@@ -349,16 +349,12 @@ const els = {
   onboardSkip:          document.querySelector("#onboardSkip"),
   replayIntroBtn:       document.querySelector("#replayIntroBtn"),
   changeNameBtn:        document.querySelector("#changeNameBtn"),
-  changeNameHint:       document.querySelector("#changeNameHint"),
-  clearProgressBtn:     document.querySelector("#clearProgressBtn"),
   customMinus:          document.querySelector("#customMinus"),
   customPlus:           document.querySelector("#customPlus"),
   musicVol:             document.querySelector("#musicVol"),
   musicVolLabel:        document.querySelector("#musicVolLabel"),
   sfxVol:               document.querySelector("#sfxVol"),
   sfxVolLabel:          document.querySelector("#sfxVolLabel"),
-  ambVol:               document.querySelector("#ambVol"),
-  ambVolLabel:          document.querySelector("#ambVolLabel"),
   installBanner:        document.querySelector("#installBanner"),
   installText:          document.querySelector("#installText"),
   installBtn:           document.querySelector("#installBtn"),
@@ -760,7 +756,9 @@ function loadState(opts) {
     state.breakDuration = readJSON("bobaFocusBreakDuration", 600);
     if (!(typeof state.breakDuration === "number" && isFinite(state.breakDuration)) ||
         state.breakDuration < 300 || state.breakDuration > 1200) state.breakDuration = 600;
-    state.ambience    = localStorage.getItem("bobaFocusAmbience") || "off";
+    // Ambience control was removed from Settings (2026-07-18); force off so no
+    // stored preference keeps playing sound the user can no longer switch off.
+    state.ambience    = "off";
     state.musicOn     = readJSON("bobaFocusMusicOn", true);
     // Volumes (0–1). Fall back to the legacy on/off toggles for returning users.
     const mv = localStorage.getItem("bobaFocusMusicVol");
@@ -4437,14 +4435,14 @@ function editSquadName() {
 // Settings "Your name" row: reflect the current name + what the next change costs.
 function renderNameRow() {
   const cur = (state.displayName || "").trim();
-  if (els.changeNameBtn) els.changeNameBtn.textContent = cur ? "Change name" : "Set your name";
+  const label = document.querySelector("#changeNameLabel");
+  if (label) label.textContent = cur ? "Change Name" : "Set Your Name";
   const val = document.querySelector("#yourNameValue");
   if (val) val.textContent = cur || "not set";
-  if (els.changeNameHint) {
-    els.changeNameHint.textContent = cur
-      ? ((state.renames || 0) === 0 ? `changing costs ${RENAME_PEARL_COST} pearls` : "next change is an in-app purchase")
-      : "free to set";
-  }
+  // Right-aligned cost tag: pearl price for the first change, free before a
+  // name exists, blank once further changes become an in-app purchase.
+  const cost = document.querySelector("#renameCostTag");
+  if (cost) cost.textContent = !cur ? "free" : ((state.renames || 0) === 0 ? String(RENAME_PEARL_COST) : "");
 }
 let squadPollId = null;
 function openFriends() {
@@ -4598,7 +4596,7 @@ const TOUR_STEPS = [
   { sel: null, title: "Welcome to your boba shop! 🧋",
     text: "Quick tour of what everything does? Takes 30 seconds. You can replay it anytime from Settings." },
   { sel: [".size-picker"], title: "Pick your session",
-    text: "Custom brews any length from 15 minutes to 2 hours. Goal matches the focus goal you set in Settings. Finish the timer to earn your boba." },
+    text: "Custom brews any length from 15 minutes to 4 hours. Goal matches the focus goal you set in Settings. Finish the timer to earn your boba." },
   { sel: ["#startPauseBtn"], title: "Start focusing",
     text: "Mr. Tapioca starts mixing your boba while you work. The cup fills as you focus." },
   { sel: [".pearl-chip"], title: "Tapioca pearls",
@@ -5101,25 +5099,6 @@ function wireEvents() {
     }
   });
 
-  // ── Ambience volume slider (Settings) ────────────────────────────────────
-  els.ambVol.addEventListener("input", () => {
-    setAmbVolume(parseInt(els.ambVol.value, 10) / 100);
-    els.ambVolLabel.textContent = Math.round(state.ambVolume * 100);
-    clearTimeout(ambPreviewTimer);
-    if (state.ambVolume <= 0) {
-      stopAmbience(true);   // dragging to 0 fully stops the graph (no silent leak)
-    } else if (state.ambience !== "off" && !amb) {
-      startAmbience(state.ambience);   // preview the level if chosen but not playing
-    }
-  });
-  els.ambVol.addEventListener("change", () => {
-    saveState();
-    clearTimeout(ambPreviewTimer);
-    if (state.ambience !== "off" && !state.running) {
-      ambPreviewTimer = setTimeout(() => { if (!state.running) stopAmbience(); }, 2500);
-    }
-  });
-
   els.devToggle.addEventListener("click", () => {
     state.devMode = !state.devMode;
     // Leaving dev mode shouldn't strand a sub-minute custom timer
@@ -5230,7 +5209,6 @@ function wireEvents() {
     playSfx("tap");
     setTimeout(startFeatureTour, 200);   // let the sheet close first so targets are visible
   });
-  els.clearProgressBtn.addEventListener("click", clearProgress);
 
   // ── Customize sheet: tea base + topping (rendered from BASES/TOPPINGS) ────
   renderCustomizeOptions();

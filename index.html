@@ -318,12 +318,12 @@
         </div>
         <div class="sheet-body">
           <div class="settings-row stack">
-            <span class="settings-row-label">Your Name: <span id="yourNameValue"></span> <small id="changeNameHint"></small></span>
-            <button id="changeNameBtn" class="settings-action-btn">Change name</button>
+            <span class="settings-row-label">Your Name: <span id="yourNameValue"></span></span>
+            <button id="changeNameBtn" class="settings-action-btn name-btn"><span id="changeNameLabel">Change Name</span><span id="renameCostTag">20</span></button>
           </div>
 
           <div class="settings-row">
-            <span class="settings-row-label">Daily goal</span>
+            <span class="settings-row-label">Focus Goal</span>
             <div class="goal-stepper">
               <button id="goalMinus" class="adj-btn small-adj" aria-label="Lower daily goal">−</button>
               <span id="goalDisplay" class="goal-display">60 min</span>
@@ -332,21 +332,7 @@
           </div>
 
           <div class="settings-row stack">
-            <span class="settings-row-label">Focus ambience <small>plays while you study</small></span>
-            <div class="amb-picker" role="group" aria-label="Focus ambience">
-              <button class="amb-chip active" data-amb="off">Off</button>
-              <button class="amb-chip" data-amb="rain">Rain</button>
-              <button class="amb-chip" data-amb="brown">Noise</button>
-              <button class="amb-chip" data-amb="ocean">Waves</button>
-            </div>
-            <div class="volume-control">
-              <input id="ambVol" class="volume-slider" type="range" min="0" max="100" step="1" value="50" aria-label="Ambience volume">
-              <span id="ambVolLabel" class="volume-val">50</span>
-            </div>
-          </div>
-
-          <div class="settings-row stack">
-            <span class="settings-row-label">Music <small>lo-fi focus &amp; break tunes</small></span>
+            <span class="settings-row-label">Focus Tunes</span>
             <div class="volume-control">
               <input id="musicVol" class="volume-slider" type="range" min="0" max="100" step="1" value="80" aria-label="Music volume">
               <span id="musicVolLabel" class="volume-val">80</span>
@@ -354,7 +340,7 @@
           </div>
 
           <div class="settings-row stack">
-            <span class="settings-row-label">Sound effects <small>taps, coins &amp; completion chime</small></span>
+            <span class="settings-row-label">Sound Effects</span>
             <div class="volume-control">
               <input id="sfxVol" class="volume-slider" type="range" min="0" max="100" step="1" value="90" aria-label="Sound effects volume">
               <span id="sfxVolLabel" class="volume-val">90</span>
@@ -362,34 +348,29 @@
           </div>
 
           <div class="settings-row hidden" id="restoreRow">
-            <span class="settings-row-label">Purchases <small>bought on another device?</small></span>
+            <span class="settings-row-label">Purchases</span>
             <button id="restorePurchasesBtn" class="settings-action-btn">Restore</button>
           </div>
 
           <div class="settings-row hidden" id="devRow">
-            <span class="settings-row-label">Dev mode <small>unlock everything</small></span>
+            <span class="settings-row-label">Dev Mode</span>
             <button id="devToggle" class="toggle" role="switch" aria-checked="false">
               <span class="toggle-knob"></span>
             </button>
           </div>
 
           <div class="settings-row">
-            <span class="settings-row-label">Welcome tour <small>see the intro again</small></span>
+            <span class="settings-row-label">Welcome Tour</span>
             <button id="replayIntroBtn" class="settings-action-btn">Replay</button>
           </div>
 
           <div class="settings-row">
-            <span class="settings-row-label">Feature tour <small>what every button does</small></span>
+            <span class="settings-row-label">Feature Tour</span>
             <button id="featureTourBtn" class="settings-action-btn">Show me</button>
           </div>
 
-          <div class="settings-row">
-            <span class="settings-row-label">Clear progress <small>wipe shelf, treats &amp; pearls</small></span>
-            <button id="clearProgressBtn" class="settings-action-btn danger">Clear</button>
-          </div>
-
           <div class="settings-row hidden" id="deleteAccountRow">
-            <span class="settings-row-label">Delete my account <small>remove your cloud Squad data</small></span>
+            <span class="settings-row-label">Delete My Account</span>
             <button id="deleteAccountBtn" class="settings-action-btn danger">Delete</button>
           </div>
 
@@ -436,7 +417,7 @@
           </div>
 
           <div class="section-head compact section-gap">
-            <h3>This week</h3>
+            <h3>This Week</h3>
             <span id="weekTotal" class="badge">0 min</span>
           </div>
           <div id="weekChart" class="week-chart" aria-label="Focus minutes for the last 7 days"></div>
@@ -461,7 +442,7 @@
           <div id="rewardList" class="reward-list" aria-live="polite"></div>
 
           <div class="pearl-info-card">
-            <h3>How pearls work</h3>
+            <h3>How Pearls Work</h3>
             <div class="pearl-info-rows">
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
