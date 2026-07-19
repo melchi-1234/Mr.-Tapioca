@@ -127,10 +127,12 @@ body {
 .scene {
   /* --floor-y = distance from viewport bottom where the shop's floor sits.
      Everything in the scene (counter, character, cup) is anchored to this so
-     the focal point stays above the focus controls overlay. clamp() lets the
-     floor rise on tall windows so the counter+maker group doesn't strand a
-     big empty gap above it; on a phone it stays near the bottom (~290px). */
-  --floor-y: clamp(360px, 40vh, 430px);
+     the focal point stays above the focus controls overlay. Retuned 2026-07
+     after the controls stack grew (Custom/Goal pills + Customize row): the
+     maker's box (floor + 16 + 230) must clear the controls top (~448px from
+     the bottom with a paused session's Reset visible) on ≥736px phones; the
+     smallest iPhones tolerate a few masked-feet pixels of overlap. */
+  --floor-y: clamp(408px, 56vh, 470px);
   /* Every theme MUST keep a floor under the counter. The themed rules below
      layer this gradient over their art — without it, tall windows crop the
      art's baked-in floor away and the counter looks like it floats mid-air. */
@@ -830,6 +832,27 @@ body {
   pointer-events: none;
 }
 .top-hud > * { pointer-events: auto; }
+.hud-chips { display: flex; align-items: center; gap: 8px; }
+/* HUD chips match the pearl chip's box (20px icon + 6px padding + 2px borders).
+   The streak chip leads with its flame the way the pearl chip leads with its
+   pearl; the icon-less name chip centers with symmetric padding. Compound
+   selectors outrank the base .pearl-chip regardless of file order. */
+.pearl-chip.streak-chip, .pearl-chip.hud-name { min-height: 42px; }   /* = the pearl chip's measured box */
+.pearl-chip.streak-chip .flame { font-size: 1.05rem; line-height: 1; }
+.pearl-chip.hud-name { justify-content: center; padding: 6px 12px; }
+/* Inline Customize chip in the timer card (replaces the old percent label) */
+.customize-inline-btn {
+  border: 2px solid var(--line);
+  background: var(--cream-90);
+  color: var(--bark);
+  font-weight: 900;
+  font-size: 0.68rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.customize-inline-btn:active { transform: scale(0.95); }
+.hud-name { font-weight: 950; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Declutter (2026-07): the drink-name pill moved INTO the timer card
    (#sessionLabel). The top HUD now holds only the pearl chip, so the cozy
@@ -993,6 +1016,10 @@ body {
 }
 
 /* ── Focus controls overlay ─────────────────────────────────────────────── */
+/* While a session RUNS the size picker is dead weight (switching modes needs a
+   reset anyway) — hiding it keeps the controls low so Mr. Tapioca stays fully
+   visible while he brews. */
+.focus-controls.session-on .size-picker { display: none; }
 .focus-controls {
   position: absolute;
   /* add the home-indicator inset so the Reset link clears the bottom nav (which
@@ -1024,6 +1051,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 1px;
   padding: 7px 6px;
   border: none;

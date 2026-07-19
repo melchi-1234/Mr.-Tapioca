@@ -239,12 +239,10 @@ const els = {
   makerSpeech:          document.querySelector("#makerSpeech"),
   progressBar:          document.querySelector("#progressBar"),
   sessionLabel:         document.querySelector("#sessionLabel"),
-  progressLabel:        document.querySelector("#progressLabel"),
   timerText:            document.querySelector("#timerText"),
   timerCard:            document.querySelector("#timerCard"),
   startPauseBtn:        document.querySelector("#startPauseBtn"),
   resetBtn:             document.querySelector("#resetBtn"),
-  drinkName:            document.querySelector("#drinkName"),
   baseGrid:             document.querySelector("#baseGrid"),
   toppingRow:           document.querySelector("#toppingRow"),
   focusControls:        document.querySelector("#focusControls"),
@@ -1058,14 +1056,16 @@ function updateCup() {
   els.shopScene.classList.toggle("skin-awake", !!state.skin);
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
+  // Collapse the size picker while running so the controls never cover the maker
+  if (els.focusControls) els.focusControls.classList.toggle("session-on", state.running);
   updateThemeColor();   // tint the phone status-bar area to match the scene's sky
   // Don't clobber a tap-to-talk line while it's visible.
   if (!els.makerSpeech.classList.contains("show")) els.makerSpeech.textContent = speechForState();
   els.timerText.textContent = formatTime(remaining);
   // Declutter: the drink name lives IN the timer card now (the old top-left
   // pill is hidden — size is already shown by the active picker button).
-  els.sessionLabel.textContent = currentDrinkName();
-  els.progressLabel.textContent = `${pct}%`;
+  // The label shows the EQUIPPED BACKGROUND's flavor, not the customize base.
+  els.sessionLabel.textContent = themeFlavorName();
   els.startPauseBtn.textContent = state.running ? "Pause"
     : pct === 100 ? "Seal & Save"
     : state.elapsed > 0 ? "Resume"
@@ -1073,7 +1073,6 @@ function updateCup() {
   els.startPauseBtn.classList.toggle("is-running", state.running);
   // Reset is dead weight until there's actually something to reset.
   els.resetBtn.classList.toggle("hidden", state.elapsed <= 0 && !state.running);
-  els.drinkName.textContent = themeFlavorName();
   updateTabTitle(remaining);
 }
 
@@ -1140,6 +1139,15 @@ function renderStats() {
   els.statStreak.textContent    = String(s.current);
   els.statTotalTime.textContent = formatFocusTotal(s.totalMin);
   if (els.statWeeklyAvg) els.statWeeklyAvg.textContent = formatFocusTotal(s.weeklyAvg);
+  // Front-page HUD: streak chip beside the pearls, name chip top-right.
+  const hudStreak = document.querySelector("#hudStreak");
+  if (hudStreak) hudStreak.textContent = String(s.current);
+  const hudName = document.querySelector("#hudName");
+  if (hudName) {
+    const n = (state.displayName || "").trim();
+    hudName.textContent = n;
+    hudName.classList.toggle("hidden", !n);
+  }
   if (els.streakFreezeNote) {
     const f = state.freezes || 0;
     els.streakFreezeNote.textContent = `${f} brain freeze${f === 1 ? "" : "s"} ready`;
@@ -1168,9 +1176,6 @@ function renderDailyGoal() {
   els.dgLabel.textContent = met ? `${today}/${goal} ✓` : `${today}/${goal}`;
   els.dailyGoal.classList.toggle("met", met);
   if (els.goalDisplay) els.goalDisplay.textContent = `${goal} min`;
-  // The Goal mode pill mirrors the preset goal as its session length.
-  const gm = document.querySelector("#goalModeMin");
-  if (gm) gm.textContent = fmtDuration(goal * 60);
 }
 
 function adjustDailyGoal(delta) {
@@ -5114,19 +5119,38 @@ function wireEvents() {
 
   // Shortcuts: tap the drink name (now in the timer card) to Customize,
   // tap the pearl chip for the Shop.
-  const drinkLabelEl = document.querySelector("#sessionLabel");
-  if (drinkLabelEl) {
-    drinkLabelEl.style.cursor = "pointer";
-    drinkLabelEl.setAttribute("role", "button");
-    drinkLabelEl.setAttribute("aria-label", "Customize your drink");
-    drinkLabelEl.addEventListener("click", () => { playSfx("open"); openSheet("customizeSheet"); });
-  }
+  const customizeBtn = document.querySelector("#customizeDrinkBtn");
+  if (customizeBtn) customizeBtn.addEventListener("click", () => { playSfx("open"); openSheet("customizeSheet"); });
   const hudPearlEl = document.querySelector(".top-hud .pearl-chip");
   if (hudPearlEl) {
     hudPearlEl.style.cursor = "pointer";
     hudPearlEl.setAttribute("role", "button");
     hudPearlEl.setAttribute("aria-label", "Open shop");
     hudPearlEl.addEventListener("click", () => { playSfx("open"); openSheet("shopSheet"); });
+  }
+  // Streak chip → the Your Progress section; name chip → the Change Name row.
+  // The 60ms delay lets the freshly-opened sheet lay out before scrolling.
+  const hudStreakEl = document.querySelector(".top-hud .streak-chip");
+  if (hudStreakEl) {
+    hudStreakEl.style.cursor = "pointer";
+    hudStreakEl.setAttribute("role", "button");
+    hudStreakEl.setAttribute("aria-label", "See your progress");
+    hudStreakEl.addEventListener("click", () => {
+      playSfx("open"); renderNameRow(); openSheet("settingsSheet");
+      const target = document.querySelector(".settings-section-title");
+      if (target) setTimeout(() => target.scrollIntoView({ block: "start", behavior: "smooth" }), 60);
+    });
+  }
+  const hudNameEl = document.querySelector("#hudName");
+  if (hudNameEl) {
+    hudNameEl.style.cursor = "pointer";
+    hudNameEl.setAttribute("role", "button");
+    hudNameEl.setAttribute("aria-label", "Change your name");
+    hudNameEl.addEventListener("click", () => {
+      playSfx("open"); renderNameRow(); openSheet("settingsSheet");
+      const body = document.querySelector("#settingsSheet .sheet-body");
+      if (body) setTimeout(() => { body.scrollTop = 0; }, 60);
+    });
   }
   els.shopClose.addEventListener("click",     closeSheets);
   els.customizeClose.addEventListener("click",closeSheets);

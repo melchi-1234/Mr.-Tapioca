@@ -156,10 +156,16 @@
         <div class="drink-label">
           <span id="drinkName">Classic Milk Tea + Pearls</span>
         </div>
-        <div class="pearl-chip">
-          <img src="assets/Tapioca Currency.png" class="pearl-icon" alt="">
-          <span id="pearlCount">0</span>
+        <div class="hud-chips">
+          <div class="pearl-chip">
+            <img src="assets/Tapioca Currency.png" class="pearl-icon" alt="">
+            <span id="pearlCount">0</span>
+          </div>
+          <div class="pearl-chip streak-chip">
+            <span class="flame" aria-hidden="true">🔥</span><span id="hudStreak">0</span>
+          </div>
         </div>
+        <div class="pearl-chip hud-name hidden" id="hudName"></div>
       </header>
 
       <!-- ── Daily goal progress (always visible) ─────────────────── -->
@@ -173,10 +179,10 @@
       <div id="focusControls" class="focus-controls">
         <div class="size-picker" role="group" aria-label="Session length">
           <button class="size-btn active" data-mode="custom">
-            Custom<small>set</small>
+            Custom
           </button>
           <button class="size-btn" data-mode="goal">
-            Goal<small id="goalModeMin">60 min</small>
+            Goal
           </button>
         </div>
         <div class="timer-card" id="timerCard">
@@ -189,7 +195,7 @@
           </div>
           <div class="timer-meta">
             <span id="sessionLabel">Custom Cup</span>
-            <span id="progressLabel">0%</span>
+            <button id="customizeDrinkBtn" class="customize-inline-btn">Customize</button>
           </div>
           <div class="progress-track"><span id="progressBar"></span></div>
         </div>
