@@ -366,7 +366,7 @@
 
           <div class="settings-row">
             <span class="settings-row-label">Feature Tour</span>
-            <button id="featureTourBtn" class="settings-action-btn">Show me</button>
+            <button id="featureTourBtn" class="settings-action-btn">Replay</button>
           </div>
 
           <div class="settings-row hidden" id="deleteAccountRow">
@@ -379,13 +379,7 @@
               <h3>App Blocking</h3>
               <span class="soon-badge">iPhone app</span>
             </div>
-            <p class="muted-note">Pick the apps to lock while you focus. During a session they'll go grey and show a “Restricted” screen until you finish, just like the real thing.</p>
-            <button id="chooseAppsBtn" class="settings-action-btn">Choose apps to block</button>
-            <button id="previewRestrictionBtn" class="ghost-btn" style="margin-top:8px;">Preview the block screen</button>
-            <div id="restrictionPreview" class="restriction-preview hidden" aria-live="polite">
-              <strong>Restricted</strong>
-              <p>You cannot use YouTube because it is restricted.</p>
-            </div>
+            <button id="chooseAppsBtn" class="settings-action-btn">Choose Apps to Block while Focusing</button>
           </div>
 
           <!-- ── Your progress (stats / streaks / collection) ──────────── -->
@@ -393,25 +387,17 @@
           <div class="stats-card">
             <div class="stat-block stat-streak">
               <span class="stat-value" id="statStreak">0</span>
-              <span class="stat-label">day streak</span>
+              <span class="stat-label">Streak</span>
               <span id="streakFreezeNote" class="streak-freeze-note hidden">0 brain freezes ready</span>
             </div>
             <div class="stats-grid">
               <div class="stat-block">
                 <span class="stat-value" id="statTotalTime">0m</span>
-                <span class="stat-label">total focus</span>
+                <span class="stat-label">Total Focus</span>
               </div>
               <div class="stat-block">
-                <span class="stat-value" id="statToday">0</span>
-                <span class="stat-label">today</span>
-              </div>
-              <div class="stat-block">
-                <span class="stat-value" id="statWeek">0</span>
-                <span class="stat-label">this week</span>
-              </div>
-              <div class="stat-block">
-                <span class="stat-value" id="statBest">0</span>
-                <span class="stat-label">best streak</span>
+                <span class="stat-value" id="statWeeklyAvg">0m</span>
+                <span class="stat-label">Weekly Average</span>
               </div>
             </div>
           </div>
@@ -423,26 +409,8 @@
           <div id="weekChart" class="week-chart" aria-label="Focus minutes for the last 7 days"></div>
           <div id="weekInsights" class="insights-card"></div>
 
-          <div class="section-head compact section-gap">
-            <h3>Achievements</h3>
-            <span id="badgeCount" class="badge">0 / 0</span>
-          </div>
-          <div id="badgeGrid" class="badge-grid" aria-live="polite"></div>
-
-          <div class="section-head compact section-gap">
-            <h3>Drink Shelf</h3>
-            <span id="totalTime" class="badge">0 min</span>
-          </div>
-          <div id="shelfGrid" class="shelf-grid" aria-live="polite"></div>
-
-          <div class="section-head compact section-gap">
-            <h3>Treat Jar</h3>
-            <span id="completedCount" class="badge">0 drinks</span>
-          </div>
-          <div id="rewardList" class="reward-list" aria-live="polite"></div>
-
           <div class="pearl-info-card">
-            <h3>How Pearls Work</h3>
+            <h3>How Do Pearls Work?</h3>
             <div class="pearl-info-rows">
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
@@ -450,14 +418,13 @@
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Finished drinks bank real boba discounts</span>
+                <span>Spend pearls on Cute Skins &amp; Backgrounds</span>
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Spend pearls on cute skins &amp; backgrounds</span>
+                <span>Collect pearls to earn real boba discounts in the future</span>
               </div>
             </div>
-            <p class="pearl-info-foot">Your drink keeps filling across sittings. Leave and come back anytime.</p>
           </div>
         </div>
       </div>

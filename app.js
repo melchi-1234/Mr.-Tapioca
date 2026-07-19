@@ -248,11 +248,7 @@ const els = {
   baseGrid:             document.querySelector("#baseGrid"),
   toppingRow:           document.querySelector("#toppingRow"),
   focusControls:        document.querySelector("#focusControls"),
-  shelfGrid:            document.querySelector("#shelfGrid"),
-  totalTime:            document.querySelector("#totalTime"),
   pearlCount:           document.querySelector("#pearlCount"),
-  completedCount:       document.querySelector("#completedCount"),
-  rewardList:           document.querySelector("#rewardList"),
   rewardDialog:         document.querySelector("#rewardDialog"),
   rewardTitle:          document.querySelector("#rewardTitle"),
   rewardCopy:           document.querySelector("#rewardCopy"),
@@ -263,7 +259,6 @@ const els = {
   premiumTitle:         document.querySelector("#premiumTitle"),
   premiumCopy:          document.querySelector("#premiumCopy"),
   saveRewardBtn:        document.querySelector("#saveRewardBtn"),
-  previewRestrictionBtn:document.querySelector("#previewRestrictionBtn"),
   chooseAppsBtn:        document.querySelector("#chooseAppsBtn"),
   blockPrompt:          document.querySelector("#blockPrompt"),
   blockChooseBtn:       document.querySelector("#blockChooseBtn"),
@@ -271,7 +266,6 @@ const els = {
   blockNeverBtn:        document.querySelector("#blockNeverBtn"),
   blockPill:            document.querySelector("#blockPill"),
   blockPillLabel:       document.querySelector("#blockPillLabel"),
-  restrictionPreview:   document.querySelector("#restrictionPreview"),
   breakOffer:           document.querySelector("#breakOffer"),
   breakRunningPanel:    document.querySelector("#breakRunningPanel"),
   breakDurationDisplay: document.querySelector("#breakDurationDisplay"),
@@ -363,11 +357,7 @@ const els = {
   statStreak:           document.querySelector("#statStreak"),
   streakFreezeNote:     document.querySelector("#streakFreezeNote"),
   statTotalTime:        document.querySelector("#statTotalTime"),
-  statToday:            document.querySelector("#statToday"),
-  statWeek:             document.querySelector("#statWeek"),
-  statBest:             document.querySelector("#statBest"),
-  badgeGrid:            document.querySelector("#badgeGrid"),
-  badgeCount:           document.querySelector("#badgeCount"),
+  statWeeklyAvg:        document.querySelector("#statWeeklyAvg"),
   weekChart:            document.querySelector("#weekChart"),
   weekTotal:            document.querySelector("#weekTotal"),
   dailyGoal:            document.querySelector("#dailyGoal"),
@@ -1089,12 +1079,9 @@ function updateCup() {
 
 
 function updateStats() {
-  const minutes = totalMinutes();
   const pearls = currentPearls();
   els.pearlCount.textContent  = String(pearls);
   if (els.customizePearlCount) els.customizePearlCount.textContent = `${pearls} pearls`;
-  els.totalTime.textContent   = `${minutes} min`;
-  els.completedCount.textContent = `${state.collection.length} ${state.collection.length === 1 ? "drink" : "drinks"}`;
 }
 
 // Convert a YYYY-MM-DD key to a whole-day ordinal so we can compare/streak them
@@ -1132,7 +1119,13 @@ function computeStats() {
   const todayCount = state.collection.filter(d => keyToOrdinal(d.dateKey) === todayOrd).length;
   const weekCount  = state.collection.filter(d => keyToOrdinal(d.dateKey) > todayOrd - 7).length;
 
-  return { current, longest, todayCount, weekCount, totalMin: totalMinutes() };
+  // Weekly average: total focus spread over the weeks since the FIRST session
+  // (minimum one week, so a brand-new user's average isn't inflated).
+  const firstOrd  = sorted.length ? sorted[0] : todayOrd;
+  const weeks     = Math.max(1, Math.ceil((todayOrd - firstOrd + 1) / 7));
+  const weeklyAvg = Math.round(totalMinutes() / weeks);
+
+  return { current, longest, todayCount, weekCount, weeklyAvg, totalMin: totalMinutes() };
 }
 
 function formatFocusTotal(minutes) {
@@ -1146,9 +1139,7 @@ function renderStats() {
   const s = computeStats();
   els.statStreak.textContent    = String(s.current);
   els.statTotalTime.textContent = formatFocusTotal(s.totalMin);
-  els.statToday.textContent     = String(s.todayCount);
-  els.statWeek.textContent      = String(s.weekCount);
-  els.statBest.textContent      = String(s.longest);
+  if (els.statWeeklyAvg) els.statWeeklyAvg.textContent = formatFocusTotal(s.weeklyAvg);
   if (els.streakFreezeNote) {
     const f = state.freezes || 0;
     els.streakFreezeNote.textContent = `${f} brain freeze${f === 1 ? "" : "s"} ready`;
@@ -1298,7 +1289,6 @@ function checkBadges(celebrate) {
   if (!newly.length) return 0;
   state.badges = [...have, ...newly];
   saveState();
-  renderBadges();
   if (celebrate) {
     newly.forEach((id, i) => {
       const b = BADGES.find(x => x.id === id);
@@ -1306,20 +1296,6 @@ function checkBadges(celebrate) {
     });
   }
   return newly.length;
-}
-
-function renderBadges() {
-  const have = new Set(state.badges || []);
-  els.badgeGrid.innerHTML = BADGES.map(b => {
-    const earned = have.has(b.id);
-    return `
-      <div class="badge-item ${earned ? "earned" : "locked"}">
-        <span class="badge-emoji">${b.icon}</span>
-        <span class="badge-name">${b.name}</span>
-        <span class="badge-desc">${b.desc}</span>
-      </div>`;
-  }).join("");
-  els.badgeCount.textContent = `${have.size} / ${BADGES.length}`;
 }
 
 let toastTimer = null;
@@ -1346,39 +1322,6 @@ function pearlsWonFx(n, withToast = true) {
     void chip.offsetWidth;
     chip.classList.add("pearl-pop");
   }
-}
-
-const SHELF_CAP = 24;   // most-recent drinks shown as chips; rest summarized as "+N"
-const TREAT_CAP = 20;
-
-function renderShelf() {
-  if (state.collection.length === 0) {
-    els.shelfGrid.innerHTML = `<div class="empty-state">Finish a focus session to start your collection</div>`;
-    return;
-  }
-  const drinks = state.collection;   // already newest-first (unshift on complete)
-  let html = drinks.slice(0, SHELF_CAP).map((drink) => `
-        <article class="shelf-item" title="${drink.name} · ${minuteLabel(drink.minutes)} · ${drink.size}">
-          <div class="shelf-cup" style="background:${drink.color}"></div>
-          <strong>${drink.name}</strong>
-          <small>${minuteLabel(drink.minutes)}</small>
-        </article>`).join("");
-  if (drinks.length > SHELF_CAP) html += `<article class="shelf-item more">+${drinks.length - SHELF_CAP}</article>`;
-  els.shelfGrid.innerHTML = html;
-}
-
-function renderRewards() {
-  if (state.rewards.length === 0) {
-    els.rewardList.innerHTML = `<div class="empty-state">Treats from finished drinks show up here</div>`;
-    return;
-  }
-  let html = state.rewards.slice(0, TREAT_CAP).map((reward) => `
-        <article class="reward-item" title="${reward.title}">
-          <strong>${reward.title}</strong>
-          <small>${reward.copy}</small>
-        </article>`).join("");
-  if (state.rewards.length > TREAT_CAP) html += `<article class="reward-item more">+${state.rewards.length - TREAT_CAP} more</article>`;
-  els.rewardList.innerHTML = html;
 }
 
 function isOwned(itemId) {
@@ -1672,9 +1615,6 @@ function renderAll() {
   renderDailyGoal();
   renderWeekChart();
   renderInsights();
-  renderBadges();
-  renderShelf();
-  renderRewards();
   renderShop();
   renderQuests();
   updateQuestBadge();
@@ -5222,9 +5162,6 @@ function wireEvents() {
   });
 
   // ── App blocking (native picker on iPhone; preview/hint on web) ───────────
-  els.previewRestrictionBtn.addEventListener("click", () => {
-    els.restrictionPreview.classList.toggle("hidden");
-  });
   els.chooseAppsBtn.addEventListener("click", async () => {
     playSfx("tap");
     await FocusBlocker.requestAuthorization();
