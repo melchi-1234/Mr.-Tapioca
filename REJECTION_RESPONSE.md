@@ -24,12 +24,18 @@ You do the App Store Connect steps below, upload Build 5, and reply to Apple.
 > **2.1 Screen Time functionality:**
 > 1. Yes, the app includes Screen Time functionality. It uses the Family Controls
 > framework to let users shield their own distracting apps during a focus session.
-> 2. Steps to reach it: open the app, tap the "More" tab in the bottom bar, tap
-> "Settings," then tap "Choose apps to block." iOS presents the Screen Time
-> permission prompt; after granting it, pick any app to block, go back, choose a
-> drink size, and tap "Start Focus." The chosen app is then shielded by Screen
-> Time until the session is paused or finished. Blocking is optional; sessions
-> work without it.
+> 2. Steps to reach it (two ways, the first is unmissable):
+> (a) On the main screen just tap "Start Focus." If app blocking is not set up
+> yet, the app immediately presents a "Block distractions?" prompt with a
+> "Choose apps to block" button, which opens the Screen Time permission prompt
+> and then Apple's app picker. There is also an "App blocking: On/Off" button
+> directly under the Start Focus button.
+> (b) Or tap the "Settings" tab in the bottom bar, then tap "Choose Apps to
+> Block while Focusing."
+> After granting permission and picking any app, go back, choose a drink size,
+> and tap "Start Focus." The chosen app is then shielded by Screen Time until
+> the session is paused or finished. Blocking is optional; sessions work
+> without it.
 >
 > Thank you again, and please let us know if anything else is needed.
 
@@ -41,21 +47,26 @@ You do the App Store Connect steps below, upload Build 5, and reply to Apple.
 > This app is iPhone only.
 >
 > SCREEN TIME / APP BLOCKING (Family Controls): the app uses the Family Controls
-> entitlement. Demo: tap "More" (bottom bar) > "Settings" > "Choose apps to
-> block" > allow the Screen Time permission prompt > pick any app > go back >
-> choose a drink size > tap "Start Focus." The chosen app now shows the Screen
-> Time shield until you pause or finish. Blocking is optional; sessions work
-> without it.
+> entitlement. Fastest demo: on the main screen tap "Start Focus" and the app
+> immediately shows a "Block distractions?" prompt > tap "Choose apps to block"
+> > allow the Screen Time permission prompt > pick any app > the session starts
+> with that app shielded. There is also an "App blocking: On/Off" button under
+> the Start Focus button, and the same picker lives at the "Settings" tab
+> (bottom bar) > "Choose Apps to Block while Focusing." The shield lifts when
+> you pause or finish. Blocking is optional; sessions work without it.
 >
 > LIVE ACTIVITY: start a focus session and lock the phone. The countdown appears
 > on the Lock Screen / Dynamic Island.
 >
-> IN-APP PURCHASES: 6 non-consumable cosmetics ($1.99 each): Ninja, Wizard,
-> Angel, and Devil skins, plus Winter Cocoa and Galaxy Dream backgrounds. Buy
-> from the Shop tab. Restore Purchases is in More > Settings > Purchases > Restore.
+> IN-APP PURCHASES: 6 non-consumable cosmetics ($1.99 each). In the Shop tab they
+> appear as the skins "Black Tea," "Magical Taste," "Holy Moly," and "Evil Brew,"
+> plus the backgrounds "Frosted Milk Tea" and "Taro Galaxy." (These map to the
+> App Store Connect products Ninja/Wizard/Angel/Devil Skin and Winter Cocoa/
+> Galaxy Dream Background.) Restore Purchases is at the "Settings" tab >
+> Purchases > Restore.
 >
 > STUDY SQUAD: optional social feature using an anonymous account (no email or
-> phone collected). Account deletion is in Settings.
+> phone collected). Account deletion is at the "Settings" tab.
 >
 > MAP: uses location (permission prompt) to show nearby bubble tea shops from
 > OpenStreetMap data.
