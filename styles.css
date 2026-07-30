@@ -1456,7 +1456,18 @@ body {
   border-radius: 999px;
   margin: 12px auto 0;
   flex-shrink: 0;
+  position: relative;
+  touch-action: none;   /* we own the vertical drag; don't let iOS scroll it */
+  cursor: grab;
 }
+/* A 5px pill is untappable. Give it an invisible 80x33 hit area. */
+.sheet-handle::before {
+  content: "";
+  position: absolute;
+  left: -18px; right: -18px; top: -14px; bottom: -14px;
+}
+/* While a finger is down the sheet tracks 1:1 instead of easing. */
+.sheet.dragging { transition: none; }
 
 .sheet-head {
   display: flex;
@@ -2846,6 +2857,21 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   transition: transform 80ms;
 }
 .squad-share:active { transform: scale(0.97); }
+
+/* Your own friend code, readable so you can say it out loud or type it in
+   manually. Before this it existed only inside the share sheet's message. */
+.squad-mycode {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin: 0 2px 10px; padding: 10px 14px;
+  border-radius: 16px; background: rgba(60,32,24,0.06);
+}
+.squad-mycode-label { font-size: 0.76rem; font-weight: 850; color: var(--bark-mid); }
+.squad-mycode-value {
+  border: none; background: none; padding: 4px 6px;
+  font-size: 1.15rem; font-weight: 950; letter-spacing: 0.16em;
+  color: var(--bark); font-variant-numeric: tabular-nums;
+}
+.squad-mycode-value:active { transform: scale(0.96); }
 .squad-hint { font-size: 0.76rem; font-weight: 750; color: var(--bark-mid); line-height: 1.45; margin: 0 2px 12px; }
 
 .squad-add { display: flex; gap: 8px; margin-bottom: 18px; }

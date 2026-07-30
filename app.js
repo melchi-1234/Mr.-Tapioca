@@ -217,6 +217,8 @@ const state = {
   breakMakerCycleId: null,
   spillPending: false,
   bonusPearls: 0,
+  dailyGoal: 60,         // minutes; modeDuration() reads this for the Goal Cup, so it
+                         // must have a sane default before loadState runs
   blockPenalty: 0,       // pearls withheld for completing native focus sessions with no apps blocked
   blockPromptDismissed: false,  // user chose "don't ask again" on the start-focus blocking prompt
   shieldWasUp: false,    // persisted "shield engaged this session" — survives an app kill so a
@@ -716,6 +718,11 @@ function loadState(opts) {
     // Guard stale/removed mode keys (same treatment base/topping get above).
     // Also migrates pre-redesign modes (tasting/small/large) to custom.
     if (!MODES[state.mode]) state.mode = "custom";
+    // dailyGoal MUST load before the clamp below: modeDuration() reads it for
+    // the Goal Cup, and an unset value made it fall back to 30 min, silently
+    // truncating every longer Goal Cup to 30 minutes on each launch.
+    state.dailyGoal   = readJSON("bobaFocusDailyGoal", 60);
+    if (!(typeof state.dailyGoal === "number" && isFinite(state.dailyGoal) && state.dailyGoal >= 1)) state.dailyGoal = 60;
     state.elapsed     = readJSON("bobaFocusElapsed", 0);
     // Heal elapsed BEFORE the away-credit below — corrupt storage here would
     // otherwise either drop the earned credit (NaN) or auto-bank a full drink
@@ -741,7 +748,7 @@ function loadState(opts) {
     }
     state.onboarded   = readJSON("bobaFocusOnboarded", false);
     state.badges      = readJSON("bobaFocusBadges", []);
-    state.dailyGoal   = readJSON("bobaFocusDailyGoal", 60);
+    // (dailyGoal is loaded earlier, before the elapsed clamp that depends on it)
     state.breakDuration = readJSON("bobaFocusBreakDuration", 600);
     if (!(typeof state.breakDuration === "number" && isFinite(state.breakDuration)) ||
         state.breakDuration < 300 || state.breakDuration > 1200) state.breakDuration = 600;
@@ -931,7 +938,9 @@ function modeLabel() {
 }
 
 function currentPearls() {
-  return Math.floor(totalMinutes() / 15) + state.bonusPearls - state.spent - state.blockPenalty;
+  // floor: blockPenalty can hold halves now (an unblocked 15-min cup withholds
+  // 0.5), so the visible balance must round down rather than show a fraction.
+  return Math.floor(Math.floor(totalMinutes() / 15) + state.bonusPearls - state.spent - state.blockPenalty);
 }
 
 function speechForState() {
@@ -1444,23 +1453,26 @@ function clearProgress() {
   playSfx("select");
 }
 
-function equipItem(itemId) {
+// silent=true is the just-paid path: keep the shop open and let the "✦ unlocked!"
+// receipt stay on screen. Closing the sheet and firing a badge toast on top of a
+// $1.99 confirmation left the customer with no readable proof of purchase.
+function equipItem(itemId, silent) {
   const item = SHOP_ITEMS.find(i => i.id === itemId);
   if (!item) return;
   state[item.type] = item.value;
   if (item.type === "skin") {
     saveState();
-    closeSheets();  // step back so the user can see Mr. Tapioca change
+    if (!silent) closeSheets();  // step back so the user can see Mr. Tapioca change
     refreshMaker(); // swap his image to the new skin immediately
   } else if (item.type === "shopTheme") {
     saveState();
-    closeSheets();  // step back so the user can see the new backdrop
+    if (!silent) closeSheets();  // step back so the user can see the new backdrop
   }
   renderAll();
   playSfx("success");
   haptic(8);
   pulseMaker("pop", 420);   // happy hop on equip
-  checkBadges(true);   // "Stylish" / "Decorator"
+  checkBadges(!silent);   // "Stylish" / "Decorator" (still recorded when silent)
   els.makerSpeech.textContent = item.type === "shopTheme"
     ? "Ooh, fresh backdrop."
     : "Ooh, nice pick.";
@@ -1511,7 +1523,7 @@ function renderShop() {
         ? `<span class="shop-equipped-badge">Default</span>`
         : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
            <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
-    } else if (item.premium && !state.devMode) {
+    } else if (item.premium && !owned) {
       action = IAP.available()
         ? `<button class="shop-preview-btn" data-iap="${item.id}">✦ ${IAP.prices[item.id] || "$1.99"}</button>`
         : `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
@@ -1555,7 +1567,7 @@ function renderShop() {
         ? `<span class="shop-equipped-badge">Default</span>`
         : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
            <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
-    } else if (item.premium && !state.devMode) {
+    } else if (item.premium && !owned) {
       action = IAP.available()
         ? `<button class="shop-preview-btn" data-iap="${item.id}">✦ ${IAP.prices[item.id] || "$1.99"}</button>`
         : `<button class="shop-preview-btn" data-premium="${item.id}">✦ $1.99</button>`;
@@ -1803,7 +1815,10 @@ const IAP = {
     const p = this.plugin(); if (!p) return { state: "unavailable" };
     const r = await p.purchase({ id: this.productId(itemId) });
     if (r && r.state === "purchased") {
-      if (this.grant(itemId)) { saveState(); renderShop(); }
+      // equipItem() saves + re-renders, and matches the pearl path (buyItem):
+      // what you just paid for should be on your character immediately. silent
+      // keeps the shop open so the purchase receipt below is actually readable.
+      if (this.grant(itemId)) { equipItem(itemId, true); }
       playSfx("success"); haptic([12, 30, 18]);
       const item = SHOP_ITEMS.find(i => i.id === itemId);
       showToast(`✦ ${item ? item.name : "Purchase"} unlocked!`);
@@ -2020,11 +2035,18 @@ function completeSession() {
   // earns at least 1 pearl (so a short Custom cup never shows a deflating "+0").
   const oldTotal = totalMinutes();
   const fullPearls = Math.floor((oldTotal + minutes) / 15) - Math.floor(oldTotal / 15);
-  const pearlsEarned = Math.max(1, Math.ceil(fullPearls * (wasBlocked ? 1 : REWARD_UNBLOCKED_FRACTION)));
+  // Withhold the unblocked share EXACTLY. Rounding it UP per session meant a
+  // 15-min cup (fullPearls = 1) paid ceil(0.5) = 1, so back-to-back short cups
+  // earned the full blocked rate and the penalty never bit. Fractions accumulate
+  // in blockPenalty and currentPearls() floors the running total.
+  // fullPearls === 0 keeps the "a finished drink always pays something" rule.
+  const share = wasBlocked ? 1 : REWARD_UNBLOCKED_FRACTION;
+  const awardedExact = fullPearls > 0 ? fullPearls * share : 1;
+  const pearlsEarned = Math.max(1, Math.round(awardedExact));
   // Reconcile against the minutes-derived balance (currentPearls): bank a top-up
   // (the min-1 guarantee) as bonus pearls, or withhold the unblocked shortfall as a
   // persistent penalty that currentPearls() subtracts.
-  const pearlDelta = pearlsEarned - fullPearls;
+  const pearlDelta = awardedExact - fullPearls;
   if (pearlDelta > 0) state.bonusPearls += pearlDelta;
   else if (pearlDelta < 0) state.blockPenalty += -pearlDelta;
 
@@ -4235,6 +4257,13 @@ function parseSquadCode(raw) {
   let str = String(raw).trim();
   const m = str.match(/sq=([A-Za-z0-9+/_=-]+)/);   // accept a full share link too
   if (m) str = m[1];
+  else {
+    // People paste the WHOLE share message ("Add me on Mr. Tapioca! …<code>"),
+    // and stripping whitespace alone left the prose in, so atob threw. Pull out
+    // the longest base64-ish run instead.
+    const runs = str.match(/[A-Za-z0-9+/_=-]{16,}/g);
+    if (runs) str = runs.sort((a, b) => b.length - a.length)[0];
+  }
   str = str.replace(/\s+/g, "");
   try {
     const o = squadB64Decode(str);
@@ -4250,15 +4279,37 @@ function parseSquadCode(raw) {
     };
   } catch (e) { return null; }
 }
+// Pull a server friend code out of a pasted share message. It has to be a WHOLE
+// token: an unanchored /[A-Z2-9]{6}/ matched "TAPIOC" inside "Mr. Tapioca" and
+// never reached the real code. Scan from the end, where the code actually sits.
+function extractServerCode(raw) {
+  const toks = String(raw || "").toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  for (let i = toks.length - 1; i >= 0; i--) {
+    if (/^[A-Z2-9]{6}$/.test(toks[i])) return toks[i];
+  }
+  return null;
+}
 function addFriendByCode(raw) {
+  // A friend whose cloud sync wasn't up yet shares an offline base64 snapshot
+  // instead of a 6-char code. Detect that FIRST, or the live branch chops the
+  // blob into a bogus code and the add always fails.
+  const snap = parseSquadCode(raw);
   // Live backend: a friend code is 6 chars (A-Z/2-9). Route to the server.
+  // Note: the server path must win whenever the cloud is live, even for a
+  // decodable offline snapshot. renderSquad() only draws SquadCloud.friends in
+  // cloud mode, so an on-device friend added here would say "Added!" and then
+  // never appear. Tell the truth instead.
   if (squadCloudLive()) {
-    const m = String(raw || "").trim().toUpperCase().match(/[A-Z2-9]{6}/);
-    if (!m) { showToast("Enter your friend's 6-character code."); return false; }
-    SquadCloud.follow(m[0]).then((ok) => { playSfx(ok ? "success" : "tap"); showToast(ok ? "Added to your squad! 🧋" : "No one found with that code."); });
+    const code = extractServerCode(raw);
+    if (!code) {
+      showToast(snap ? "That's an offline code. Ask them for their 6-character code."
+                     : "Enter your friend's 6-character code.");
+      return false;
+    }
+    SquadCloud.follow(code).then((ok) => { playSfx(ok ? "success" : "tap"); showToast(ok ? "Added to your squad! 🧋" : "No one found with that code."); });
     return true;
   }
-  const f = parseSquadCode(raw);
+  const f = snap;
   if (!f) { showToast("Hmm, that code didn't work — copy the whole thing."); return false; }
   const isSelf = f.sid ? (f.sid === mySquadId())
                        : (f.name.toLowerCase() === myDisplayName().toLowerCase());
@@ -4397,9 +4448,23 @@ function renderNameRow() {
   if (cost) cost.textContent = !cur ? "free" : ((state.renames || 0) === 0 ? String(RENAME_PEARL_COST) : "");
 }
 let squadPollId = null;
+// Show the user's own 6-character server code so they can read it to a friend
+// or type it in by hand. Hidden when the cloud isn't up (offline mode shares a
+// long base64 snapshot instead, which is not readable).
+function renderMyCode() {
+  const row = document.getElementById("squadMyCodeRow");
+  const val = document.getElementById("squadMyCode");
+  if (!row || !val) return;
+  const code = (squadCloudLive() && SquadCloud.myCode()) ? SquadCloud.myCode() : "";
+  if (!code) { row.classList.add("hidden"); return; }
+  row.classList.remove("hidden");
+  val.textContent = code;
+}
+
 function openFriends() {
   openSheet("friendsSheet");
   renderSquad();
+  renderMyCode();
   if (window.SquadCloud && SquadCloud.enabled) {
     SquadCloud.fetchFriends();   // refresh live stats now…
     // …then keep refreshing while the sheet is open so friends' current statuses
@@ -5109,6 +5174,17 @@ function wireEvents() {
   if (els.questsClose) els.questsClose.addEventListener("click", closeSheets);
   const squadShareBtn = document.querySelector("#squadShareBtn");
   if (squadShareBtn) squadShareBtn.addEventListener("click", shareSquadCode);
+  const myCodeBtn = document.querySelector("#squadMyCode");
+  if (myCodeBtn) myCodeBtn.addEventListener("click", () => {
+    const code = myCodeBtn.textContent.trim();
+    if (!code || code === "······") return;
+    playSfx("tap");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(
+        () => showToast("Code copied 🧋"),
+        () => showToast("Couldn't copy. Read it out instead."));
+    } else showToast("Your code is " + code);
+  });
   if (els.changeNameBtn) els.changeNameBtn.addEventListener("click", () => { editSquadName(); renderNameRow(); });
   const squadAddBtn = document.querySelector("#squadAddBtn");
   const squadInput = document.querySelector("#squadCodeInput");
@@ -5164,6 +5240,42 @@ function wireEvents() {
   els.settingsClose.addEventListener("click", closeSheets);
   els.mapClose.addEventListener("click",      closeSheets);
   els.sheetBackdrop.addEventListener("click", closeSheets);
+
+  // ── Drag-to-dismiss on the grabber pill at the top of every sheet ─────────
+  // Sheets live in index.html and are never re-created (open/close just toggles
+  // .hidden), so binding once here is enough.
+  document.querySelectorAll(".sheet-handle").forEach((handle) => {
+    const sheet = handle.closest(".sheet");
+    if (!sheet) return;
+    let startY = 0, dy = 0, dragging = false;
+
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button) return;                    // primary pointer only
+      dragging = true; startY = e.clientY; dy = 0;
+      sheet.classList.add("dragging");
+      try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      dy = Math.max(0, e.clientY - startY);    // downward only
+      sheet.style.transform = `translateY(${dy}px)`;
+      e.preventDefault();
+    });
+    const endDrag = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      sheet.classList.remove("dragging");
+      try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+      sheet.style.transform = "";              // CSS animates out or snaps back
+      if (dy > Math.min(120, sheet.offsetHeight * 0.25)) {
+        playSfx("tap"); haptic(8);
+        closeSheets();
+      }
+    };
+    handle.addEventListener("pointerup", endDrag);
+    handle.addEventListener("pointercancel", endDrag);
+  });
 
   // ── Onboarding ────────────────────────────────────────────────────────────
   els.onboardNext.addEventListener("click", onboardAdvance);
