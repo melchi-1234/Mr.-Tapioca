@@ -130,7 +130,9 @@ The old per-pose art drifted off-model because each pose was a separate generati
 | Symptom | Cause |
 |---|---|
 | Nothing animates | Not listed in `sprites.json`, or the path/`frames` is wrong |
-| Character shakes / jumps | Frames aren't all the same size, or feet aren't aligned |
+| Character shakes / jumps | Frames aren't all the same size, or feet aren't aligned. Run the cleanup tool (section 10) |
+| Green fringe where the outline should be | Chroma key spill on a video-derived sheet. Run the cleanup tool |
+| Outline looks crunchy on some frames only | Those frames were hard-keyed with no anti-aliasing. Run the cleanup tool |
 | A sliver of the next frame flickers in | There are gaps between frames, or `frames` is too low |
 | Looks washed-out / has a box | Background wasn't keyed to transparent |
 | Frozen on one frame | The user has "reduce motion" on (this is intentional) |
@@ -140,3 +142,44 @@ The old per-pose art drifted off-model because each pose was a separate generati
 ## 9. Offline note
 
 Sprites work online immediately (they're cached on first load). They only need a service-worker tweak if they must work **offline on the very first launch** — if you want that, tell Claude and it'll add the paths to `sw.js` and bump the cache version.
+
+---
+
+## 10. Cleaning a sheet after you make it
+
+`tools/clean-sprites.py` repairs the damage a video-to-sprite pipeline leaves
+behind. It measures first and only touches what is actually broken, so it is
+safe to re-run: a second run on cleaned sheets does nothing at all.
+
+It needs Pillow, numpy and scipy, which the system python does not have. Once:
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install pillow numpy scipy
+```
+
+Then:
+
+```bash
+.venv/bin/python tools/clean-sprites.py            # report only, writes nothing
+.venv/bin/python tools/clean-sprites.py --apply    # do it
+```
+
+What it fixes:
+
+- **Green rim.** A chroma key leaves a bright green fringe sitting exactly where
+  the black outline should be, and it catches a different amount on every frame,
+  so the outline looks like it changes thickness while the loop plays. The art's
+  real outline survives underneath, so the tool cuts the contaminated band and
+  lets it show rather than painting a fake one. Gated tightly enough that the
+  strawberry's green leaf is provably untouchable.
+- **Hard-keyed frames.** A frame that came in without anti-aliasing has a ragged
+  near-black crust instead of a clean outline. That damage is baked several
+  pixels deep, so those frames are **dropped** and `sprites.json` is rewritten to
+  match, rather than smoothed into something fake.
+- **Drift.** AI video redraws the character every frame, so it wanders. Frames
+  are pinned to the sheet's median using the tapioca pearl as the anchor. Only
+  sheets that measurably drift are touched, and the tool checks that its own
+  correction actually helped before keeping it.
+
+It also nudges each character toward the family size (sheet height ≈ 0.82 × its
+portrait height), which is what keeps the skins reading as the same character.

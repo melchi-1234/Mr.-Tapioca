@@ -19,3 +19,6 @@ native-ios/App */
 .openai-mrtapioca
 *.key
 .claude/
+tools/__pycache__/
+__pycache__/
+.venv/
