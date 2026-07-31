@@ -23,6 +23,13 @@ feature is real app blocking during focus sessions via Apple's Screen Time
 - Serve the folder and open in a browser: `python3 -m http.server 4173` then visit `http://127.0.0.1:4173`. (The app registers a service worker; clear it + caches when testing CSS/JS edits, or serve from a fresh port.)
 - Visual QC is done headless with puppeteer-core driving system Chrome at iPhone viewport (see scratchpad scripts from past sessions). Point it at your local server, seed `localStorage.bobaFocusOnboarded="true"` + `bobaFocusTourDone="1"` to skip onboarding.
 
+## Where it lives
+
+- **LIVE ON THE APP STORE:** https://apps.apple.com/app/id6786023560
+  Apple ID `6786023560`, bundle `com.melchior.mrtapioca`, SKU `mrtapioca001`.
+  That short `/app/id…` form is the one to share: it redirects and localizes to
+  the visitor's own country store.
+
 ## How to deploy
 
 - **Web app is LIVE via GitHub Pages** from the `feature-work` branch:

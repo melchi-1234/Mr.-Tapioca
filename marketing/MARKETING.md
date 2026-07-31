@@ -2,6 +2,14 @@
 
 Everything here is written to sound like a real person, not an ad agency. No em-dashes anywhere. Lowercase captions on purpose (reads native on TikTok/IG). Steal, tweak, post.
 
+**The link to put everywhere:** https://apps.apple.com/app/id6786023560
+
+Use that short form rather than a `/us/app/mr-tapioca/...` one. It redirects to
+the visitor's own country store, so it works for everyone. The web version
+(https://melchi-1234.github.io/Mr.-Tapioca/) is the fallback for people not on
+an iPhone. Don't point paid traffic at the Higgsfield landing page: it sits on a
+trial that already ended, on a domain we don't own.
+
 ---
 
 ## The one-liner
