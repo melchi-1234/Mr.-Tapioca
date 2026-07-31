@@ -123,6 +123,18 @@ body {
   }
 }
 
+/* Registering --floor-y makes it an animatable <length> instead of an opaque
+   string, so the floor STRIPE (a gradient stop) glides with the counter and the
+   character when a mode changes it. Without this the counter would slide while
+   the floor behind it jumped. Verified the responsive clamp below still tracks
+   the viewport once registered; browsers without @property just skip the
+   animation and keep the correct value. */
+@property --floor-y {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 470px;
+}
+
 /* ── Full-screen boba shop scene ───────────────────────────────────────── */
 .scene {
   /* --floor-y = distance from viewport bottom where the shop's floor sits.
@@ -131,8 +143,19 @@ body {
      after the controls stack grew (Custom/Goal pills + Customize row): the
      maker's box (floor + 16 + 230) must clear the controls top (~448px from
      the bottom with a paused session's Reset visible) on ≥736px phones; the
-     smallest iPhones tolerate a few masked-feet pixels of overlap. */
-  --floor-y: clamp(408px, 56vh, 470px);
+     smallest iPhones tolerate a few masked-feet pixels of overlap.
+
+     --floor-rest is the idle value; --floor-y is what everything reads. A mode
+     that shows a SHORTER controls stack lowers --floor-y by exactly the height
+     the stack lost, which keeps the gap between the counter and the top control
+     identical in every mode instead of leaving a dead band. */
+  --floor-rest: clamp(408px, 56vh, 470px);
+  --floor-y: var(--floor-rest);
+  /* How much shorter the controls stack gets once the size picker is gone:
+     the picker's own height plus the stack's row gap. Keep in step with
+     .size-picker and .focus-controls { gap }. */
+  --floor-lift: 53px;
+  transition: --floor-y 420ms cubic-bezier(0.32, 0.72, 0.28, 1);
   /* Every theme MUST keep a floor under the counter. The themed rules below
      layer this gradient over their art — without it, tall windows crop the
      art's baked-in floor away and the counter looks like it floats mid-air. */
@@ -1016,11 +1039,19 @@ body {
 }
 
 /* ── Focus controls overlay ─────────────────────────────────────────────── */
-/* While a session RUNS the size picker is dead weight (switching modes needs a
-   reset anyway). visibility (not display) keeps its space reserved so the whole
-   controls stack NEVER shifts between idle/running/paused; the blank strip
-   still leaves Mr. Tapioca fully visible while he brews. */
-.focus-controls.session-on .size-picker { visibility: hidden; }
+/* Once a session is underway the size picker is dead weight (switching modes
+   needs a reset anyway), so it leaves the flow entirely. It used to be merely
+   `visibility: hidden`, which reserved its space so the stack could never
+   shift, but that left a blank strip between the counter and the timer that
+   read as a hole in the layout. Now the row is removed and the shop floor
+   drops by the same amount (see --floor-lift), so the counter follows the
+   controls down and the spacing matches idle exactly.
+
+   Nothing below the picker moves: the stack is anchored from the bottom, so
+   removing its top row leaves the timer, the button and the pill in place. */
+.focus-controls.session-on .size-picker { display: none; }
+/* The whole scene (counter, character, cup, floor stripe) rides --floor-y. */
+.scene.is-brewing { --floor-y: calc(var(--floor-rest) - var(--floor-lift)); }
 /* One fixed-height row for the shield pill + Reset: the pill stays centered,
    Reset docks at the right edge, and toggling either never moves the stack. */
 .session-row { position: relative; width: 100%; min-height: 38px; display: flex; align-items: center; justify-content: center; }
@@ -1220,8 +1251,15 @@ body {
 }
 .break-games-row .g-emoji { font-size: 1.15rem; line-height: 1; }
 /* Lift the whole nook (rug + bed + mascot all share --floor-y) clear of the
-   compacted panel so the bed visibly rests on the rug instead of floating. */
-.scene.is-on-break { --floor-y: clamp(380px, 44vh, 460px); }
+   compacted panel so the bed visibly rests on the rug instead of floating.
+
+   A flat value, not a viewport clamp: the break panel is anchored to the BOTTOM
+   of the screen, so the distance between the rug and the panel works out to
+   (--floor-y - panel height - 92px) regardless of how tall the phone is. The old
+   44vh clamp made that distance grow with the screen, which opened a ~104px band
+   under the nook on a Pro Max while a 390-wide phone sat at 74px. Pinning it
+   keeps the nook the same distance above the panel on every size. */
+.scene.is-on-break { --floor-y: 390px; }
 
 .break-title {
   color: var(--cream);
@@ -2979,7 +3017,10 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
    crowded the size-picker. Shrink the scene + controls together so everything
    fits with breathing room. (Taller phones keep the full-size layout.) */
 @media (max-height: 720px) {
-  :root { --floor-y: 290px; }
+  /* --floor-rest, not --floor-y: .scene sets --floor-y from it, and a :root
+     value would lose to that rule and leave short phones on the tall layout.
+     The lift shrinks too because this breakpoint tightens the stack gap to 7px. */
+  .scene { --floor-rest: 290px; --floor-lift: 48px; }
   /* Keep the break nook lifted clear of the compact panel, but lower than on tall
      phones so the bed doesn't crowd the top HUD on short screens. */
   .scene.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }

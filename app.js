@@ -1066,8 +1066,15 @@ function updateCup() {
   els.shopScene.classList.toggle("skin-awake", !!state.skin);
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
-  // Collapse the size picker while running so the controls never cover the maker
-  if (els.focusControls) els.focusControls.classList.toggle("session-on", state.running);
+  // Drop the size picker for the WHOLE session, paused included. Keying this off
+  // state.running alone made the picker (and with it the shop floor, which now
+  // follows the stack down) pop back every time the session was paused and
+  // vanish again on resume. "Underway" is the same test the Reset link uses.
+  const underway = state.running || state.elapsed > 0;
+  if (els.focusControls) els.focusControls.classList.toggle("session-on", underway);
+  // The scene lowers its floor to match the shorter stack, so the counter keeps
+  // its usual distance above the timer instead of leaving a blank band.
+  els.shopScene.classList.toggle("is-brewing", underway);
   updateThemeColor();   // tint the phone status-bar area to match the scene's sky
   // Don't clobber a tap-to-talk line while it's visible.
   if (!els.makerSpeech.classList.contains("show")) els.makerSpeech.textContent = speechForState();
