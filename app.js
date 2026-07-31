@@ -1340,7 +1340,17 @@ function pearlsWonFx(n, withToast = true) {
 }
 
 function isOwned(itemId) {
-  return state.devMode || state.owned.includes(itemId);
+  if (state.owned.includes(itemId)) return true;
+  // Dev mode is a testing convenience, NOT a bypass for paid content. The
+  // 7-tap unlock is a well-known iOS convention and therefore guessable, and
+  // premium items are real $1.99 purchases. Test those with a StoreKit sandbox
+  // account (TestFlight purchases are free) instead of minting them here.
+  if (!state.devMode) return false;
+  const item = SHOP_ITEMS.find((i) => i.id === itemId);
+  if (!(item && item.premium)) return true;
+  // On the web there is no store, so dev mode may still preview premium art
+  // (that's how skin QC is done). Where real money exists, it may not.
+  return !(typeof IAP !== "undefined" && IAP.available());
 }
 
 function isEquipped(item) {
@@ -1831,12 +1841,31 @@ const IAP = {
     const p = this.plugin(); if (!p) return 0;
     try {
       const r = await p.restore();
-      let granted = 0;
-      for (const pid of (r && r.owned) || []) {
-        const item = this.itemId(pid);
-        if (item && this.grant(item)) granted++;
+      // A missing/absent list means the call didn't really answer (offline, a
+      // signed-out Apple ID). Treat that as "no information" and change nothing
+      // — reconciling against it would strip items the customer actually owns.
+      const list = r && Array.isArray(r.owned) ? r.owned : null;
+      if (!list) {
+        if (interactive) showToast("Couldn't reach the App Store — try again.");
+        return 0;
       }
-      if (granted) { saveState(); renderShop(); }
+      const entitled = new Set(list.map((pid) => this.itemId(pid)).filter(Boolean));
+      let granted = 0;
+      for (const item of entitled) if (this.grant(item)) granted++;
+      // Drop premium items Apple no longer entitles (refunded, revoked, or a
+      // different Apple ID). Pearl-bought items are never touched.
+      const premiumIds = new Set(this.premiumItems().map((i) => i.id));
+      const before = state.owned.length;
+      state.owned = state.owned.filter((id) => !premiumIds.has(id) || entitled.has(id));
+      const revoked = before - state.owned.length;
+      // Un-equip anything that just stopped being ours.
+      if (revoked) {
+        for (const key of ["skin", "shopTheme"]) {
+          const cur = SHOP_ITEMS.find((i) => i.type === key && i.value === state[key]);
+          if (cur && cur.premium && !state.owned.includes(cur.id)) state[key] = "";
+        }
+      }
+      if (granted || revoked) { saveState(); renderAll(); }
       if (interactive) {
         showToast(granted ? `✦ Restored ${granted} purchase${granted !== 1 ? "s" : ""}!`
                           : "No purchases to restore on this Apple ID.");
@@ -4627,7 +4656,7 @@ const TOUR_STEPS = [
   { sel: ["#mapBtn"], title: "Boba Map",
     text: "Locate boba shops near you!" },
   { sel: ["#friendsBtn"], title: "Study Squad",
-    text: "Add friends and climb a shared leaderboard together -- focusing is cozier with good company!" },
+    text: "Add friends and climb a shared leaderboard together. Focusing is cozier with good company!" },
 ];
 let tourStep = 0;
 let tourOn = false;
@@ -5268,13 +5297,21 @@ function wireEvents() {
       sheet.classList.remove("dragging");
       try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
       sheet.style.transform = "";              // CSS animates out or snaps back
-      if (dy > Math.min(120, sheet.offsetHeight * 0.25)) {
+      // Guard on the sheet still being open: if it was closed by other code
+      // mid-drag, offsetHeight is 0 and every threshold would "pass", closing
+      // whatever the user opened next.
+      if (!sheet.classList.contains("hidden") &&
+          dy > Math.min(120, sheet.offsetHeight * 0.25)) {
         playSfx("tap"); haptic(8);
         closeSheets();
       }
     };
     handle.addEventListener("pointerup", endDrag);
     handle.addEventListener("pointercancel", endDrag);
+    // If capture is torn away (element re-render, iOS gesture takeover) neither
+    // pointerup nor pointercancel fires, which would strand .dragging and the
+    // inline transform.
+    handle.addEventListener("lostpointercapture", endDrag);
   });
 
   // ── Onboarding ────────────────────────────────────────────────────────────

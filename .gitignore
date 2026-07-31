@@ -10,6 +10,11 @@ www/
 ios/
 package-lock.json
 
+# Xcode IPA exports land in native-ios/<scheme> <date>/ and are ~50MB each
+native-ios/*/*.ipa
+native-ios/DeviceActivityMonitor */
+native-ios/App */
+
 # never commit an API key, just in case one lands in the repo
 .openai-mrtapioca
 *.key

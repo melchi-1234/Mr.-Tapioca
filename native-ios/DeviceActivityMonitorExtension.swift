@@ -2,10 +2,14 @@ import DeviceActivity
 import ManagedSettings
 import FamilyControls
 
-// Optional but recommended: lets blocking survive even if the main app is killed,
-// and enables scheduled blocks later. Lives in its own "Device Activity Monitor"
-// extension target. For simple start/stop the plugin already applies the shield;
-// this re-applies it on interval boundaries as a safety net.
+// Re-applies the shield on interval boundaries.
+//
+// NOTE: nothing schedules this yet. No code calls
+// DeviceActivityCenter().startMonitoring, so these callbacks never fire today.
+// Blocking still survives the app being closed because ManagedSettingsStore
+// persists the shield until it is explicitly cleared, so the extension is a
+// no-op safety net rather than load-bearing. Kept embedded and entitled so it
+// can be scheduled later without changing the bundle layout.
 class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     private let store = ManagedSettingsStore()
