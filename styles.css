@@ -123,6 +123,49 @@ body {
   }
 }
 
+/* ── Desktop marketing rails ─────────────────────────────────────────────
+   On wide screens the app floats alone on the wallpaper, so the dead space
+   on either side becomes the landing page: pitch + App Store button left,
+   scan-to-download QR + links right. The phone in the middle stays the
+   live demo. Hidden below 1180px so tablets, phones and the native app
+   never see them. */
+.site-rail { display: none; }
+@media (min-width: 1180px) and (min-height: 700px) {
+  body { gap: 56px; }
+  .site-rail {
+    display: flex; flex-direction: column; align-items: center;
+    width: 312px; flex: 0 0 auto; text-align: center;
+    /* Card treatment: plain text on the boba wallpaper was unreadable. */
+    background: var(--cream-90);
+    border: 2px solid var(--line);
+    border-radius: 28px;
+    padding: 30px 26px;
+    box-shadow: 0 12px 30px rgba(60,32,24,0.10);
+  }
+  .rail-mascot { width: 132px; height: 132px; filter: drop-shadow(0 8px 12px rgba(60,32,24,0.2)); }
+  .rail-title { font-size: 44px; font-weight: 900; color: var(--bark); letter-spacing: -0.5px; margin-top: 6px; }
+  .rail-tagline { font-size: 17px; font-weight: 700; color: var(--bark-mid); margin-top: 2px; }
+  .rail-pitch { font-size: 14px; font-weight: 600; line-height: 1.55; color: var(--bark); opacity: 0.82; margin-top: 16px; }
+  .rail-store-btn {
+    display: inline-block; margin-top: 20px; padding: 14px 26px;
+    background: var(--bark); color: var(--cream); text-decoration: none;
+    border-radius: 999px; font-size: 15px; font-weight: 800;
+    box-shadow: 0 8px 18px rgba(60,32,24,0.28);
+    transition: transform 140ms, box-shadow 140ms;
+  }
+  .rail-store-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(60,32,24,0.32); }
+  .rail-note { font-size: 12px; font-weight: 600; color: var(--bark-mid); margin-top: 10px; }
+  .rail-qr-card {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .rail-qr { width: 168px; height: 168px; border-radius: 12px; }
+  .rail-qr-card span { font-size: 12.5px; font-weight: 700; color: var(--bark-mid); }
+  .rail-links { display: flex; gap: 16px; margin-top: 18px; }
+  .rail-links a { font-size: 13px; font-weight: 700; color: var(--bark-mid); text-decoration: none; }
+  .rail-links a:hover { color: var(--bark); text-decoration: underline; }
+  .rail-made { font-size: 12.5px; font-weight: 700; color: var(--bark-mid); margin-top: 14px; }
+}
+
 /* Registering --floor-y makes it an animatable <length> instead of an opaque
    string, so the floor STRIPE (a gradient stop) glides with the counter and the
    character when a mode changes it. Without this the counter would slide while

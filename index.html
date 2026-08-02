@@ -15,9 +15,35 @@
     <meta name="apple-mobile-web-app-title" content="Mr. Tapioca">
     <meta name="mobile-web-app-capable" content="yes">
 
+    <!-- Social link previews (Reddit / Discord / iMessage / X). Absolute URLs
+         are required here; swap the host when the custom domain lands. -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Mr. Tapioca, a cozy boba focus timer">
+    <meta property="og:description" content="Pick a drink and a little tapioca pearl brews it while you focus. Earn pearls for cute skins. On iPhone he even blocks your distracting apps.">
+    <meta property="og:url" content="https://melchi-1234.github.io/Mr.-Tapioca/">
+    <meta property="og:image" content="https://melchi-1234.github.io/Mr.-Tapioca/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Mr. Tapioca, a cozy boba focus timer">
+    <meta name="twitter:description" content="Pick a drink and a little tapioca pearl brews it while you focus. Earn pearls for cute skins. On iPhone he even blocks your distracting apps.">
+    <meta name="twitter:image" content="https://melchi-1234.github.io/Mr.-Tapioca/assets/og.png">
+
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <!-- Desktop-only marketing rails; the app in the middle is the live demo.
+         Hidden below 1180px, so phones, tablets and the native app never see
+         them (see "Desktop marketing rails" in styles.css). -->
+    <aside class="site-rail rail-left">
+      <img class="rail-mascot" src="assets/Pose Happy.png" alt="">
+      <h1 class="rail-title">Mr. Tapioca</h1>
+      <p class="rail-tagline">study with a little boba buddy</p>
+      <p class="rail-pitch">Pick a drink and he brews it while you focus. Finished drinks fill your shelf and earn pearls for cute skins. On iPhone he even blocks your distracting apps until the timer is done.</p>
+      <a class="rail-store-btn" href="https://apps.apple.com/app/id6786023560" target="_blank" rel="noopener">Download free on the App Store</a>
+      <p class="rail-note">or just try him right here, this page is the real app</p>
+    </aside>
+
     <main class="scene-wrap">
 
       <!-- ── Full-screen boba shop scene ─────────────────────────── -->
@@ -544,6 +570,19 @@
       </div>
 
     </main>
+
+    <aside class="site-rail rail-right">
+      <div class="rail-qr-card">
+        <img class="rail-qr" src="assets/appstore-qr.png" alt="QR code for the App Store listing">
+        <span>point your iPhone camera here</span>
+      </div>
+      <div class="rail-links">
+        <a href="support.html">Support</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="mailto:mrtapioca.app@gmail.com">Say hi</a>
+      </div>
+      <p class="rail-made">Made with 🧋 by Melchi &amp; Dasha</p>
+    </aside>
 
     <!-- Dialogs (outside main so they can use native dialog z-index) -->
     <dialog id="rewardDialog">
