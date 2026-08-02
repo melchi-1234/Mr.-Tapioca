@@ -30,40 +30,64 @@ Slow and steady beats fast, I can always speed a clip up.
 
 ## The script
 
-| Time | You film | You say |
-|------|----------|---------|
-| 0-2s | selfie, close | I opened my phone to check one thing. |
-| 2-5s | selfie, deadpan | Forty minutes later I'm watching a guy pressure wash a driveway. |
-| 5-9s | selfie, lean in | So now there's a cartoon boba pearl that won't let me open TikTok. |
-| 9-14s | just voice (I overlay gameplay) | It's a focus timer. You order a drink and your apps are locked until he finishes brewing it. |
-| 14-19s | just voice (I overlay YOUR shield recording) | If I open TikTok anyway I get this. Look at his face. |
-| 19-23s | selfie | And honestly it works, because I can't do that to him. He's round. *(then react however you actually react, off script, that take is the one I'll use)* |
-| 23-27s | just voice (I overlay shelf + shop) | I studied six hours yesterday for a fake boba and a little hat. |
-| 27-30s | selfie, throwaway, already reaching to stop recording | It's called Mr. Tapioca. It's free. |
+Six lines. Say them like you're telling this to someone at a table, not
+performing. Full sentences that run into each other, that's how people
+actually talk.
 
-Only say numbers that are true for you. If your longest session was 2 hours,
-say 2 hours. The honesty is the bit.
+**1.** (selfie, flat, already mid-thought)
+> I opened my phone to check one thing, and forty minutes later I'm watching
+> a guy pressure wash a driveway.
+
+**2.** (selfie, small shrug, this is the honest part)
+> That's basically every night, so me and my friend made an app to stop it.
+
+**3.** (voice only, I put the app on screen)
+> You pick a boba size and this little guy brews it while you work, and your
+> apps stay locked till it's done.
+
+**4.** (voice only, over your shield recording)
+> So this is what I get when I open TikTok anyway.
+
+**5.** `[NOT SCRIPTED. React to his face. Whatever comes out of your mouth
+first is the take I want. One word is fine. Do this take before you've
+thought about it.]`
+
+**6.** (selfie, slightly embarrassed, it's true)
+> I don't know why that works on me, but I did six hours yesterday for a
+> fake boba.
+
+**7.** (selfie, throwaway, already reaching to stop the recording)
+> It's called Mr. Tapioca, it's free, be nice to him.
+
+Roughly 30 seconds at your pace. If a take runs long, the first half of
+line 3 is the part to shorten. Say numbers that are actually true for you:
+if your longest session was two hours, say two hours.
 
 ## Extra takes to grab (30 seconds of work, saves a re-shoot)
 
-- Lines 3 and 5 again with "Reels" instead of "TikTok" (saying TikTok on
-  Instagram can hurt reach, so each platform gets a native cut).
-- Alternate line 5: "He's not mad. He's just disappointed." Use whichever
-  feels better out loud.
-- Alternate hook: "A cartoon boba pearl just locked me out of TikTok."
+- Lines 3 and 4 again with "Reels" instead of "TikTok" (naming TikTok on
+  Instagram can cost reach, so each platform gets its own cut).
+- Line 2 alternate if "my friend" feels weird: "me and Dasha made an app to
+  stop it."
+- Line 7 alternate: "It's called Mr. Tapioca and it's free. I drew the face."
 
 ## What I overlay in the edit (my job, not yours)
 
-- 9-14s: recording 2 (size picker, then brewing).
-- 14-19s: recording 1 (the shield), held on his face.
-- 23-27s: recording 3 (shelf), then recording 4 (buying the skin).
+- Line 3: recording 2 (size picker, then brewing).
+- Line 4 and 5: recording 1 (the shield), held on his face through your reaction.
+- Line 6: recording 3 (shelf), then recording 4 (buying the skin).
 - Recording 5 (his nap) is the spare, for whichever line runs long.
 - Burned-in captions throughout (hook caption on frame one so it works muted),
   music bed, end card: app icon + mrtapioca.me in small text.
 
-## When comments clock you as the dev
+## Why line 2 says you made it
 
-Pin: "yes I made it. yes he judges me too." Do not delete or explain.
+The old draft had you playing a random user who found the app. That falls
+apart on a channel literally named Mr. Tapioca, and the comments would have
+called it in a minute. Admitting it in line 2 costs nothing, makes the rest
+of the video make sense, and turns "ad" into "kid shows you the thing he
+built." The joke still works, because the app blocking you is funnier when
+you're the one who built the thing blocking you.
 
 ## Backup concepts (videos 2 and 3, already scripted in the session notes)
 
