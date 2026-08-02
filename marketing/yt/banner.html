@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @font-face {
+    font-family: "SFRounded";
+    src: url("file:///System/Library/Fonts/SFCompactRounded.ttf");
+  }
+  body {
+    width: 2560px; height: 1440px; overflow: hidden; position: relative;
+    font-family: "SFRounded", -apple-system, Inter, sans-serif;
+    background: linear-gradient(160deg, #fff8ee 0%, #fdeeda 34%, #fae1cc 64%, #f5cfc2 100%);
+  }
+  /* soft light pools, like the shop's fairy-light warmth */
+  .pool-a { position: absolute; width: 1100px; height: 1100px; left: -280px; top: -420px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.55) 0%, transparent 65%); }
+  .pool-b { position: absolute; width: 1400px; height: 1400px; right: -420px; bottom: -640px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(239,111,141,0.10) 0%, transparent 66%); }
+
+  /* floating pearls, decorative, outside the 1546x423 safe strip */
+  .pearl { position: absolute; filter: sepia(0.35) saturate(1.15); }
+  .p1 { width: 280px; opacity: 0.28; left: 170px;  top: 140px;   transform: rotate(-14deg); }
+  .p3 { width: 340px; opacity: 0.30; right: 230px; top: 100px;   transform: rotate(12deg); }
+  .p4 { width: 190px; opacity: 0.24; left: 290px;  bottom: 170px; transform: rotate(8deg); }
+  .p5 { width: 400px; opacity: 0.30; right: 150px; bottom: 80px; transform: rotate(-10deg); }
+
+  /* ── the safe strip: 1546x423 centered (x 507-2053, y 508-931) ────────── */
+  .safe {
+    position: absolute; left: 507px; top: 508px; width: 1546px; height: 424px;
+    display: flex; align-items: center; justify-content: center; gap: 64px;
+  }
+  .char {
+    width: 385px; height: 385px; flex: 0 0 auto; margin-top: 10px;
+    filter: drop-shadow(0 16px 22px rgba(60,32,24,0.22));
+  }
+  .words { text-align: center; flex: 0 0 auto; }
+  h1 {
+    font-size: 148px; font-weight: 800; color: #3c2018; letter-spacing: -1px;
+    line-height: 1.02;
+  }
+  .tagline {
+    margin-top: 18px; font-size: 47px; font-weight: 600; color: #8b5e4a;
+  }
+  .pill {
+    display: inline-block; margin-top: 34px; padding: 18px 44px;
+    background: #3c2018; color: #fdf5ec; border-radius: 999px;
+    font-size: 34px; font-weight: 700;
+    box-shadow: 0 10px 22px rgba(60,32,24,0.28);
+  }
+  /* The app's own crafted SVG boba cup (index.html), shown brimful with
+     classic milk tea. Styles lifted from styles.css with literal colors. */
+  .cup-wrap {
+    width: 296px; height: 444px; flex: 0 0 auto; margin-top: 8px;
+    transform: rotate(4deg);
+    filter: drop-shadow(0 16px 22px rgba(60,32,24,0.22));
+  }
+  .cup-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .cup-body-fill { fill: rgba(255,255,255,0.34); }
+  .cup-outline { stroke: #3c2018; stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
+  #liquid { fill: #c98555; }
+  .liq-surface { fill: #fff; opacity: 0.22; }
+  .cup-sheen { stroke: #fff; stroke-width: 5; opacity: 0.16; stroke-linecap: round; }
+  .cup-pearls circle { fill: #2a1d22; }
+  .cup-pearl-shine circle { fill: #fff; opacity: 0.4; }
+  .cup-straw { fill: #ef6f8d; stroke: #3c2018; stroke-width: 2.2; stroke-linejoin: round; }
+  .cup-straw-hl { fill: #fff; opacity: 0.5; }
+  .cup-lid { fill: #fdf5ec; stroke: #3c2018; stroke-width: 2.4; stroke-linejoin: round; }
+  .cup-dome { fill: rgba(255,255,255,0.5); stroke: #3c2018; stroke-width: 2.4; stroke-linejoin: round; }
+  .cup-dome-hl { fill: #fff; opacity: 0.55; }
+</style>
+</head>
+<body>
+  <div class="pool-a"></div>
+  <div class="pool-b"></div>
+
+  <img class="pearl p1" src="../../assets/Tapioca%20Currency.png">
+  <img class="pearl p3" src="../../assets/Tapioca%20Currency.png">
+  <img class="pearl p4" src="../../assets/Tapioca%20Currency.png">
+  <img class="pearl p5" src="../../assets/Tapioca%20Currency.png">
+
+  <div class="safe">
+    <img class="char" src="../../assets/Pose%20Happy.png">
+    <div class="words">
+      <h1>Mr. Tapioca</h1>
+      <div class="tagline">study with a little boba buddy</div>
+      <div class="pill">Free on the App Store</div>
+    </div>
+    <div class="cup-wrap">
+      <svg class="cup-svg" viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="cupClip">
+            <path d="M26,60 L33,151 Q34,156 39,156 L81,156 Q86,156 87,151 L94,60 Z"/>
+          </clipPath>
+        </defs>
+        <path class="cup-body-fill" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58 Z"/>
+        <g clip-path="url(#cupClip)">
+          <rect id="liquid" x="22" y="62" width="76" height="94"/>
+          <ellipse class="liq-surface" cx="60" cy="62" rx="36" ry="3.4"/>
+          <g class="cup-pearls">
+            <circle cx="42" cy="152" r="4.6"/><circle cx="52" cy="153" r="4.6"/><circle cx="62" cy="152" r="4.6"/>
+            <circle cx="72" cy="153" r="4.6"/><circle cx="82" cy="152" r="4.6"/>
+            <circle cx="47" cy="146" r="4.6"/><circle cx="57" cy="147" r="4.6"/>
+            <circle cx="67" cy="146" r="4.6"/><circle cx="77" cy="147" r="4.6"/>
+          </g>
+          <g class="cup-pearl-shine">
+            <circle cx="40.3" cy="150.3" r="1.3"/><circle cx="50.3" cy="151.3" r="1.3"/><circle cx="60.3" cy="150.3" r="1.3"/>
+            <circle cx="70.3" cy="151.3" r="1.3"/><circle cx="80.3" cy="150.3" r="1.3"/>
+            <circle cx="45.3" cy="144.3" r="1.3"/><circle cx="55.3" cy="145.3" r="1.3"/>
+            <circle cx="65.3" cy="144.3" r="1.3"/><circle cx="75.3" cy="145.3" r="1.3"/>
+          </g>
+          <path class="cup-sheen" d="M33,66 q-2,45 3,88" fill="none"/>
+        </g>
+        <path class="cup-outline" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58" fill="none"/>
+        <path class="cup-straw" d="M71,9 L80,11 L70,120 L61,118 Z"/>
+        <path class="cup-straw-hl" d="M71,9 L80,11 L78,20 L72,18 Z"/>
+        <path class="cup-lid" d="M18,58 L18,53 Q18,50 21,50 L99,50 Q102,50 102,53 L102,58 Z"/>
+        <path class="cup-dome" d="M23,50 C23,30 39,24 60,24 C81,24 97,30 97,50 Z"/>
+        <ellipse class="cup-dome-hl" cx="46" cy="36" rx="9" ry="4"/>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
