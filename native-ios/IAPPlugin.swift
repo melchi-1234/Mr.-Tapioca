@@ -1,5 +1,6 @@
 import Capacitor
 import StoreKit
+import UIKit
 
 // Real App Store purchases for the premium skins/backgrounds (StoreKit 2).
 // The web app calls window.Capacitor.Plugins.IAP.{getProducts,purchase,restore}.
@@ -16,6 +17,8 @@ public class IAPPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getProducts", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restore", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openReviewPage", returnType: CAPPluginReturnPromise),
     ]
 
     @objc func getProducts(_ call: CAPPluginCall) {
@@ -75,6 +78,33 @@ public class IAPPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
             }
             call.resolve(["owned": owned])
+        }
+    }
+
+    // The system in-app rating sheet. Apple decides whether it actually
+    // appears (silently rate-limited to ~3 asks a year), so the web layer
+    // fires this at happy moments and never waits on a result.
+    @objc func requestReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            if let scene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+            call.resolve()
+        }
+    }
+
+    // Jump to the App Store "write a review" composer for our own listing.
+    // Only apps.apple.com URLs are honored so this can't become a generic
+    // open-any-URL hole; anything else falls back to our listing.
+    @objc func openReviewPage(_ call: CAPPluginCall) {
+        let fallback = "https://apps.apple.com/app/id6786023560?action=write-review"
+        let requested = call.getString("url") ?? fallback
+        let target = URL(string: requested).flatMap { $0.host == "apps.apple.com" ? $0 : nil }
+            ?? URL(string: fallback)!
+        DispatchQueue.main.async {
+            UIApplication.shared.open(target)
+            call.resolve()
         }
     }
 }

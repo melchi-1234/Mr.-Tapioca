@@ -1701,6 +1701,14 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   color: var(--bark-mid);
   margin-top: 1px;
 }
+/* Little maker's mark at the very bottom of Settings. */
+.made-by {
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--bark-mid);
+  margin: 20px 0 6px;
+}
 .toggle {
   position: relative;
   width: 52px;

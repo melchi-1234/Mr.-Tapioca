@@ -200,6 +200,7 @@ const state = {
   sfxVolume: 0.9,
   ambVolume: 0.5,
   gameDays: {},          // { catch|plinko|pong: "YYYY-MM-DD" } last-played day
+  gamePlays: {},         // { plinko|pong: {d:"YYYY-MM-DD", left:N} } unused plays bank
   devMode: false,
   running: false,
   elapsed: 0,
@@ -710,6 +711,8 @@ function loadState(opts) {
     if (!state.unlockedToppings.includes("pearls")) state.unlockedToppings.push("pearls");
     state.gameDays = readJSON("bobaFocusGameDays", {});
     if (!state.gameDays || typeof state.gameDays !== "object") state.gameDays = {};
+    state.gamePlays = readJSON("bobaFocusGamePlays", {});
+    if (!state.gamePlays || typeof state.gamePlays !== "object") state.gamePlays = {};
     state.customDuration = readJSON("bobaFocusCustomDuration", 30 * 60);
     state.soundOn     = readJSON("bobaFocusSoundOn", true);
     state.devMode     = readJSON("bobaFocusDevMode", false);
@@ -835,6 +838,7 @@ function saveState() {
   localStorage.setItem("bobaFocusUnlockedBases",    JSON.stringify(state.unlockedBases));
   localStorage.setItem("bobaFocusUnlockedToppings", JSON.stringify(state.unlockedToppings));
   localStorage.setItem("bobaFocusGameDays",     JSON.stringify(state.gameDays));
+  localStorage.setItem("bobaFocusGamePlays",    JSON.stringify(state.gamePlays));
   localStorage.setItem("bobaFocusTheme",        state.shopTheme);
   localStorage.setItem("bobaFocusSticker",      state.sticker);
   localStorage.setItem("bobaFocusCustomDuration", JSON.stringify(state.customDuration));
@@ -1461,6 +1465,7 @@ function clearProgress() {
   state.unlockedBases = ["classic"];
   state.unlockedToppings = ["pearls"];
   state.gameDays = {};
+  state.gamePlays = {};
   state.renames = 0;          // pearls wiped → reset the name-change economy too
   renderCustomizeOptions();   // reflect the reset in the Customize sheet
   saveState();
@@ -1798,6 +1803,10 @@ const FocusActivity = {
 // ── Real App Store purchases (StoreKit 2 via the native IAP plugin) ──────────
 // Premium skins/backgrounds are non-consumable IAPs on iPhone. On the web the
 // plugin is absent → the shop keeps its "get the iPhone app" preview dialog.
+// The App Store "write a review" composer for our listing (the short /app/id
+// form localizes to the visitor's own country store).
+const APP_STORE_REVIEW_URL = "https://apps.apple.com/app/id6786023560?action=write-review";
+
 const IAP = {
   PREFIX: "com.melchior.mrtapioca.",
   prices: {},          // itemId -> localized display price ("$1.99", "€1,99"…)
@@ -1806,6 +1815,16 @@ const IAP = {
     return (cap && cap.Plugins && cap.Plugins.IAP) || null;
   },
   available() { return !!this.plugin(); },
+  // Open the write-review page: via the App Store app on iPhone (native
+  // method, build 7+), or a new tab on the web demo / older builds.
+  openReviewPage() {
+    const p = this.plugin();
+    if (p && typeof p.openReviewPage === "function") {
+      p.openReviewPage({ url: APP_STORE_REVIEW_URL }).catch(() => {});
+    } else {
+      window.open(APP_STORE_REVIEW_URL, "_blank", "noopener");
+    }
+  },
   productId(itemId) { return this.PREFIX + itemId.replace("-", "."); },
   itemId(productId) { return productId.startsWith(this.PREFIX)
     ? productId.slice(this.PREFIX.length).replace(".", "-") : null; },
@@ -2274,6 +2293,28 @@ async function shareDrink(reward) {
   }
 }
 
+// ── App Store rating ask ─────────────────────────────────────────────────
+// Ask right after a finished drink (the happy moment), iPhone only. Hard
+// gates keep it from ever nagging: a few drinks brewed, a real session (not
+// a 5-minute taste), and a long cooldown. iOS additionally rate-limits the
+// sheet to ~3 shows a year and may silently show nothing, so this is
+// fire-and-forget with no UI of our own.
+const REVIEW_ASK_MIN_DRINKS = 3;
+const REVIEW_ASK_MIN_MINUTES = 25;
+const REVIEW_ASK_COOLDOWN_DAYS = 45;
+
+function maybeRequestReview() {
+  const p = IAP.plugin();
+  if (!p || typeof p.requestReview !== "function") return;   // web, or builds before 7
+  const mins = lastReward ? (lastReward.minutes || 0) : 0;
+  if (mins < REVIEW_ASK_MIN_MINUTES) return;
+  if ((state.collection || []).length < REVIEW_ASK_MIN_DRINKS) return;
+  const last = Number(localStorage.getItem("bobaFocusReviewAsk") || 0);
+  if (Date.now() - last < REVIEW_ASK_COOLDOWN_DAYS * 24 * 60 * 60 * 1000) return;
+  localStorage.setItem("bobaFocusReviewAsk", String(Date.now()));
+  p.requestReview().catch(() => {});
+}
+
 function showReward(reward) {
   // A session finishing MID-TOUR would open this dialog in the top layer above
   // the coach overlay, leaving the tour spotlighting hidden controls behind it.
@@ -2303,6 +2344,7 @@ function onRewardDialogClose() {
   updateCup();
   celebrate();   // happy hop + treat burst now that the modal is out of the way
   startBreakOffer();
+  maybeRequestReview();   // iPhone only: the system rating sheet at the happy moment
 }
 
 function startBreakOffer() {
@@ -2993,10 +3035,35 @@ function plinkoPegs(geo) {
 }
 
 // ── Once-per-day break games ──────────────────────────────────────────────
-// Each game can be opened once per calendar day (dev mode bypasses). Opening a
-// game consumes the day; the in-game drops/throws all happen in that session.
+// Each game grants one batch of plays per calendar day (dev mode bypasses).
+// The first real drop/throw consumes the day, but UNUSED plays are banked in
+// state.gamePlays, so closing the sheet or an app reload mid-game resumes the
+// remainder later the same day instead of forfeiting it. Catch has no discrete
+// plays (one timed run) and keeps the plain once-per-day rule.
+const GAME_MAX_PLAYS = { plinko: PLINKO_MAX_PLAYS, pong: PONG_MAX_PLAYS };
 function gameDoneToday(key) {
-  return !state.devMode && state.gameDays[key] === localDateKey(new Date());
+  if (state.devMode) return false;
+  if (state.gameDays[key] !== localDateKey(new Date())) return false;
+  return !GAME_MAX_PLAYS[key] || bankedPlays(key) <= 0;
+}
+// Plays left today for a banked game. A burned day with no bank record means
+// the batch predates banking (or the record was lost): treat it as spent so
+// nobody gets a second daily batch out of the migration.
+function bankedPlays(key) {
+  const max = GAME_MAX_PLAYS[key];
+  const rec = state.gamePlays[key];
+  const today = localDateKey(new Date());
+  if (rec && rec.d === today && Number.isFinite(rec.left)) {
+    return Math.max(0, Math.min(max, rec.left));
+  }
+  return state.gameDays[key] === today ? 0 : max;
+}
+// Stamp the bank with the day the batch was burned (not "now") so a game left
+// open across midnight drains yesterday's record instead of blocking today's.
+function bankPlays(key, left) {
+  const d = state.gameDays[key] || localDateKey(new Date());
+  state.gamePlays[key] = { d, left: Math.max(0, left) };
+  saveState();
 }
 function markGamePlayed(key) {
   state.gameDays[key] = localDateKey(new Date());
@@ -3033,23 +3100,30 @@ function updateCatchBtnState() {
 function updatePlinkoBtnState() {
   const locked = !gamesUnlockedForBreak();
   const done = gameDoneToday("plinko");
+  const left = state.devMode ? PLINKO_MAX_PLAYS : bankedPlays("plinko");
   els.playPlinkoBtn.disabled = done || locked;
   els.playPlinkoBtn.textContent = locked ? "Boba Plinko 🔒"
-    : done ? "Boba Plinko ✓ back tomorrow" : "Boba Plinko 🎟️";
+    : done ? "Boba Plinko ✓ back tomorrow"
+    : left < PLINKO_MAX_PLAYS ? `Boba Plinko 🎟️ ${left} left`
+    : "Boba Plinko 🎟️";
 }
 function updatePongBtnState() {
   const locked = !gamesUnlockedForBreak();
   const done = gameDoneToday("pong");
+  const left = state.devMode ? PONG_MAX_PLAYS : bankedPlays("pong");
   els.playPongBtn.disabled = done || locked;
   els.playPongBtn.textContent = locked ? "Cup Pong 🔒"
-    : done ? "Cup Pong ✓ back tomorrow" : "Cup Pong 🥤";
+    : done ? "Cup Pong ✓ back tomorrow"
+    : left < PONG_MAX_PLAYS ? `Cup Pong 🥤 ${left} left`
+    : "Cup Pong 🥤";
 }
 
 function openPlinko() {
   if (plinko.dropping) return;
   if (!gamesUnlockedForBreak()) { showToast("Break games unlock after a " + GAMES_MIN_SESSION_MIN + " minute focus 🔒"); return; }
   if (gameDoneToday("plinko")) return;
-  plinko.playsLeft = PLINKO_MAX_PLAYS;   // fresh session for today
+  // Fresh day = full batch; a same-day reopen resumes the banked remainder.
+  plinko.playsLeft = state.devMode ? PLINKO_MAX_PLAYS : bankedPlays("plinko");
   // NOTE: the daily play is marked on the FIRST drop (see dropPearl), not here,
   // so opening + quitting without dropping doesn't burn the day.
   if (plinko.animId) { cancelAnimationFrame(plinko.animId); plinko.animId = null; }
@@ -3198,8 +3272,13 @@ function plinkoSlotPop(geo, slot, reward) {
 function dropPearl() {
   if (plinko.dropping || plinko.playsLeft <= 0) return;
   plinko.dropping = true;
-  if (plinko.playsLeft === PLINKO_MAX_PLAYS) { markGamePlayed("plinko"); bumpQuest("gamesPlayed", 1); }   // burn the day on first real drop
+  if (!state.devMode) {
+    // Burn the day on the first real drop of the day; a resumed batch skips
+    // this so the quest can't double-count. Dev mode leaves both alone.
+    if (state.gameDays.plinko !== localDateKey(new Date())) { markGamePlayed("plinko"); bumpQuest("gamesPlayed", 1); }
+  }
   plinko.playsLeft--;
+  if (!state.devMode) bankPlays("plinko", plinko.playsLeft);
   els.plinkoDropBtn.disabled = true;
   els.plinkoResult.style.display = "none";
   updatePlinkoHUD();
@@ -4822,7 +4901,8 @@ function pongFlickVel() {
 function openPong() {
   if (!gamesUnlockedForBreak()) { showToast("Break games unlock after a " + GAMES_MIN_SESSION_MIN + " minute focus 🔒"); return; }
   if (gameDoneToday("pong")) return;
-  pong.throwsLeft = PONG_MAX_PLAYS;    // fresh session for today
+  // Fresh day = full batch; a same-day reopen resumes the banked remainder.
+  pong.throwsLeft = state.devMode ? PONG_MAX_PLAYS : bankedPlays("pong");
   pong.score = 0;
   // Daily play is marked on the FIRST throw (see pongNextThrow), not on open.
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
@@ -4869,8 +4949,13 @@ function pongLaunch() {
 }
 
 function pongNextThrow(made) {
-  if (pong.throwsLeft === PONG_MAX_PLAYS) { markGamePlayed("pong"); bumpQuest("gamesPlayed", 1); }   // burn the day on first real throw
+  if (!state.devMode) {
+    // Burn the day on the first real throw of the day; a resumed batch skips
+    // this so the quest can't double-count. Dev mode leaves both alone.
+    if (state.gameDays.pong !== localDateKey(new Date())) { markGamePlayed("pong"); bumpQuest("gamesPlayed", 1); }
+  }
   pong.throwsLeft = Math.max(0, pong.throwsLeft - 1);
+  if (!state.devMode) bankPlays("pong", pong.throwsLeft);
   updatePongHUD();
   updatePongBtnState();
   if (pong.throwsLeft <= 0) {
@@ -5177,6 +5262,13 @@ function wireEvents() {
     restoreBtn.disabled = true;
     await IAP.restoreAll(true);
     restoreBtn.disabled = false;
+  });
+
+  // Rate the app: opens the App Store write-review page (any platform).
+  const rateBtn = document.getElementById("rateAppBtn");
+  if (rateBtn) rateBtn.addEventListener("click", () => {
+    playSfx("tap");
+    IAP.openReviewPage();
   });
 
   // Secret handshake: 7 quick taps on the Settings title reveal the dev row.
