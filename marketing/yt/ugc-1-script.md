@@ -36,7 +36,7 @@ actually talk.
 
 **1.** (selfie, flat, already mid-thought)
 > I opened my phone to check one thing, and forty minutes later I'm watching
-> a guy pressure wash a driveway.
+> a guy pressure wash a driveway on TikTok.
 
 **2.** (selfie, small shrug, this is the honest part)
 > That's basically every night, so me and my friend made an app to stop it.
@@ -48,34 +48,34 @@ actually talk.
 **4.** (voice only, over your shield recording)
 > So this is what I get when I open TikTok anyway.
 
-**5.** `[NOT SCRIPTED. React to his face. Whatever comes out of your mouth
-first is the take I want. One word is fine. Do this take before you've
-thought about it.]`
-
-**6.** (selfie, slightly embarrassed, it's true)
+**5.** (selfie, slightly embarrassed, it's true)
 > I don't know why that works on me, but I did six hours yesterday for a
 > fake boba.
 
-**7.** (selfie, throwaway, already reaching to stop the recording)
+**6.** (selfie, throwaway, already reaching to stop the recording)
 > It's called Mr. Tapioca, it's free, be nice to him.
 
-Roughly 30 seconds at your pace. If a take runs long, the first half of
+Roughly 28 seconds at your pace. If a take runs long, the first half of
 line 3 is the part to shorten. Say numbers that are actually true for you:
 if your longest session was two hours, say two hours.
 
+Lines 1 and 4 both name TikTok on purpose: the app that ate your night is
+the one he locks. Hold on the shield shot a beat after line 4 before line 5
+starts, I'll handle that in the edit.
+
 ## Extra takes to grab (30 seconds of work, saves a re-shoot)
 
-- Lines 3 and 4 again with "Reels" instead of "TikTok" (naming TikTok on
+- Lines 1 and 4 again with "Reels" instead of "TikTok" (naming TikTok on
   Instagram can cost reach, so each platform gets its own cut).
 - Line 2 alternate if "my friend" feels weird: "me and Dasha made an app to
   stop it."
-- Line 7 alternate: "It's called Mr. Tapioca and it's free. I drew the face."
+- Line 6 alternate: "It's called Mr. Tapioca and it's free. I drew the face."
 
 ## What I overlay in the edit (my job, not yours)
 
 - Line 3: recording 2 (size picker, then brewing).
-- Line 4 and 5: recording 1 (the shield), held on his face through your reaction.
-- Line 6: recording 3 (shelf), then recording 4 (buying the skin).
+- Line 4: recording 1 (the shield), held on his face into the start of line 5.
+- Line 5: recording 3 (shelf), then recording 4 (buying the skin).
 - Recording 5 (his nap) is the spare, for whichever line runs long.
 - Burned-in captions throughout (hook caption on frame one so it works muted),
   music bed, end card: app icon + mrtapioca.me in small text.
