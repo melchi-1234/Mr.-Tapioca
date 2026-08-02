@@ -465,6 +465,14 @@ const SpriteEngine = {
       const img = new Image();
       const mark = () => {
         if (SpriteEngine.ready[key]) return;
+        // Cross-version guard: a sheet whose real width disagrees with the
+        // manifest's frame count came from a different deploy (mid-upgrade
+        // cache skew renders it as N stretched copies side by side). Stay
+        // unready → resolve() returns null → the static portrait shows
+        // instead, until the controllerchange reload below re-boots us onto
+        // one consistent cache version.
+        const fw = SpriteEngine.sheets.frameWidth || 410;
+        if (img.naturalWidth && img.naturalWidth !== Math.max(1, entry.frames || 1) * fw) return;
         SpriteEngine.ready[key] = true;
         SpriteEngine._refresh();
       };
@@ -5722,6 +5730,18 @@ if ("serviceWorker" in navigator) {
   } else {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+    // sw.js does skipWaiting + clients.claim and deletes the old versioned
+    // cache on activate, so a new deploy can swap the cache out from under an
+    // already-open page: its in-memory code and sprites.json then mix with
+    // newer assets (the "three stretched mascots" glitch). Reload ONCE the
+    // moment a new SW claims us so everything comes from one cache version.
+    // hadController guards the very first install, which also fires
+    // controllerchange but needs no reload.
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (hadController) location.reload();
+      hadController = true;
     });
   }
 }

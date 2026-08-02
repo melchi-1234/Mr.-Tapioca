@@ -1260,6 +1260,22 @@ body {
    under the nook on a Pro Max while a 390-wide phone sat at 74px. Pinning it
    keeps the nook the same distance above the panel on every size. */
 .scene.is-on-break { --floor-y: 390px; }
+/* Desktop windows (no phone is 480px wide): the break arch is cover art,
+   top-anchored and height-fit, so its baked-in ledge sits at 47% of the
+   frame height, while the flat 390px floor above was tuned for an 844px
+   phone (ledge 397px there). On the taller desktop frame (capped at 920px
+   near the top of this file) the bed floated below the ledge over a dead
+   lavender band. Seat the nook on the ledge and let the break panel follow,
+   so the extra height goes to the art's wood floor instead of empty wall.
+   47dvh tracks the frame below the cap (frame = 100dvh there); 426px/433px
+   are the ledge at the 920px cap. The @media (max-height: 720px) rules
+   further down still win for short windows (later cascade, same
+   specificity). Derivation: ledge = 1 - 712/1344 of frame height from the
+   bottom; 301px = panel height 223px + the phone's 78px ledge-to-pill band. */
+@media (min-width: 480px) {
+  .scene.is-on-break { --floor-y: min(47dvh - 7px, 426px); }
+  .break-panel { bottom: max(96px, min(47dvh, 433px) - 301px); }
+}
 
 .break-title {
   color: var(--cream);
