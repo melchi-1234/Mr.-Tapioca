@@ -32,8 +32,13 @@ feature is real app blocking during focus sessions via Apple's Screen Time
 
 ## How to deploy
 
-- **Web app is LIVE via GitHub Pages** from the `feature-work` branch:
-  https://melchi-1234.github.io/Mr.-Tapioca/ — **every push to `feature-work` auto-deploys** within a few minutes. Bump the `sw.js` CACHE version so clients pick it up.
+- **Web app is LIVE via GitHub Pages** from the `feature-work` branch at
+  **https://mrtapioca.me** (custom domain via the root CNAME file; free first
+  year through the GitHub Student Pack Namecheap offer, registered Aug 2026 on
+  the owner's Namecheap account, DNS = 4 GitHub Pages A records + www CNAME).
+  The old https://melchi-1234.github.io/Mr.-Tapioca/ URL redirects there.
+  **Every push to `feature-work` auto-deploys** within a few minutes. Bump the
+  `sw.js` CACHE version so clients pick it up.
 - **Landing page** (separate, Higgsfield-hosted): https://icy-plaza-859.higgsfield.app
 - **iOS:** bump build number in Xcode → Archive → Upload to App Store Connect. Run `npm run copyweb && npx cap copy ios && node tools/register-ios-plugins.mjs` first to sync the web bundle + plugins into the native project.
 
