@@ -2,12 +2,25 @@
 
 First video on the channel. Also goes to TikTok and Reels.
 
-## Before you press record
+## Screen recordings to grab on your phone (do these first)
 
-- On your iPhone, make sure app blocking is set up (Choose Apps to Block includes
-  TikTok) and start a real session. Then SCREEN RECORD yourself tapping TikTok so
-  the boba shield slides in. Hold on his face for 2 full seconds. This shot is
-  the whole ad. It cannot be faked and I cannot capture it from the web app.
+All five come off YOUR phone, on your real account, so the shelf and pearl
+count are honest. Control Center → screen record, then just do the thing.
+Slow and steady beats fast, I can always speed a clip up.
+
+1. **The shield (the one that matters).** Blocking on, session running, tap
+   TikTok, let the boba shield slide in, hold on his face 2 full seconds.
+   This one cannot be faked and cannot be captured from the web app.
+2. **Starting a drink.** From the home screen: tap through the sizes so the
+   5 min / 2 hr / 6 hr options are readable, pick one, let it start and show
+   him brewing for ~5 seconds.
+3. **Your shelf.** Settings → scroll to Your Progress, slow scroll past the
+   finished drinks and your streak. Real numbers, whatever they are.
+4. **The shop.** Open Shop, scroll the skins, buy or equip one, and let the
+   character change on screen.
+5. **His nap.** Break screen with him asleep in the bed, ~4 seconds.
+
+## Before you press record (the selfie part)
 - Film vertical, phone at eye level, desk lamp on, sit close to the camera.
 - Leave a beat of silence before and after every line so I can cut clean.
 - Delivery: flat and a little annoyed, like you're telling a roommate. Do not
@@ -41,11 +54,12 @@ say 2 hours. The honesty is the bit.
 
 ## What I overlay in the edit (my job, not yours)
 
-- 9-14s: size picker (5 min / 2 hr / 6 hr), tap, session starts, he brews.
-- 14-19s: your shield screen recording, held on his face.
-- 23-27s: the drink shelf, then buying and equipping a skin in the shop.
+- 9-14s: recording 2 (size picker, then brewing).
+- 14-19s: recording 1 (the shield), held on his face.
+- 23-27s: recording 3 (shelf), then recording 4 (buying the skin).
+- Recording 5 (his nap) is the spare, for whichever line runs long.
 - Burned-in captions throughout (hook caption on frame one so it works muted),
-  music bed, end card: app icon + "free on the App Store" in small text.
+  music bed, end card: app icon + mrtapioca.me in small text.
 
 ## When comments clock you as the dev
 
