@@ -75,7 +75,9 @@ Because the app now has accounts, Apple needs two things (both already built/han
 > your focus stats (minutes focused, drinks finished, streak, equipped skin), a
 > random friend code, and an anonymous account identifier. We do **not** collect
 > your email, real name, location, or contacts, and we use **no** advertising or
-> analytics trackers. This data powers the friends leaderboard ("Study Squad"):
+> third-party analytics trackers. We count app events (like a finished drink)
+> anonymously so we know how the app is doing; those counts are not linked to
+> you. This data powers the friends leaderboard ("Study Squad"):
 > anyone you give your friend code to can see your display name and stats. Data is
 > stored with our backend provider (Supabase). You can delete all of it anytime
 > from **Settings → Delete my account**. The app is not directed at children under
@@ -89,6 +91,22 @@ Because the app now has accounts, Apple needs two things (both already built/han
   now sees your live stats. (One-directional — adding them doesn't reveal you to
   them unless they add your code too.)
 - The leaderboard refreshes when you open the Squad tab and after focus sessions.
+
+## Drink metrics (added Aug 2026)
+`metrics.js` sends one anonymous row per finished drink (size, minutes,
+platform, random per-install device id) to the `drink_events` table, so the
+eLab Demo Day metric ("N finished drinks") is measurable. **One-time step:**
+run section 18 of `supabase-setup.sql` in the dashboard's SQL editor. Until
+then the ping 404s silently and nothing breaks. Read totals any time in the
+SQL editor:
+
+```sql
+select count(*) as drinks, count(distinct device) as devices,
+       sum(minutes) as focus_minutes from public.drink_events;
+```
+
+**Next iOS submission:** the App Privacy label needs "Usage Data → Product
+Interaction, not linked to identity" added.
 
 ## A note on "real boba discounts" (future)
 For the vanity leaderboard, focus minutes are a soft stat. **Before** you ever tie

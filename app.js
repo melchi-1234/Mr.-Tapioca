@@ -2092,6 +2092,10 @@ function completeSession() {
     dateKey: localDateKey(now)
   };
 
+  // Anonymous counter ping (metrics.js). Fire-and-forget AFTER the drink is
+  // banked locally; a lost or failed ping must never cost anyone their drink.
+  try { MrTMetrics.drinkFinished(size, minutes); } catch (e) {}
+
   // Pearls are floor(totalMinutes/15). Scale by whether apps were blocked: full when a
   // shield was up (or on web, where blocking isn't possible), half when a native user
   // chose NOT to block — a nudge to actually use the blocker. Any completed session

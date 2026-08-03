@@ -269,3 +269,29 @@ $cron$);
 -- (the leaderboard refreshes on open); enable private-channel broadcast only after
 -- re-verifying RLS with a second user's token.
 -- ════════════════════════════════════════════════════════════════════════════
+
+-- 18. DRINK METRICS — anonymous finished-drink counter (metrics.js) ----------
+--   One row per finished drink so Demo Day progress ("N drinks, M focus
+--   minutes, K devices") is measurable. Clients may only INSERT; read the
+--   numbers in the dashboard (Table Editor or SQL) with your owner login.
+--   Best-effort and client-forgeable: fine for a progress counter, never for
+--   money or partner discounts (see FUTURE HARDENING above).
+create table if not exists public.drink_events (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  device     text not null check (char_length(device) between 8 and 64),
+  size       text not null check (char_length(size) between 1 and 24),
+  minutes    int  not null check (minutes between 1 and 1440),
+  platform   text not null check (platform in ('ios','web'))
+);
+alter table public.drink_events enable row level security;
+revoke all on public.drink_events from public, anon, authenticated;
+grant insert on public.drink_events to anon, authenticated;
+-- Insert-only by design: no select/update/delete policies exist, so the public
+-- key can add rows but never read or change them.
+create policy drink_events_insert on public.drink_events
+  for insert to anon, authenticated with check (true);
+
+-- Quick totals for your dashboard (run in the SQL editor whenever you want):
+--   select count(*) as drinks, count(distinct device) as devices,
+--          sum(minutes) as focus_minutes from public.drink_events;
