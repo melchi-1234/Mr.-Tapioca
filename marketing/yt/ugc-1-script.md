@@ -36,7 +36,7 @@ actually talk.
 
 **1.** (selfie, flat, already mid-thought)
 > I opened my phone to check one thing, and forty minutes later I'm watching
-> a guy pressure wash a driveway on TikTok.
+> a guy pressure wash a driveway on TikTok, or Reels, or whatever.
 
 **2.** (selfie, small shrug, this is the honest part)
 > That's basically every night, so me and my friend made an app to stop it.
@@ -59,14 +59,13 @@ Roughly 28 seconds at your pace. If a take runs long, the first half of
 line 3 is the part to shorten. Say numbers that are actually true for you:
 if your longest session was two hours, say two hours.
 
-Lines 1 and 4 both name TikTok on purpose: the app that ate your night is
-the one he locks. Hold on the shield shot a beat after line 4 before line 5
-starts, I'll handle that in the edit.
+Line 1 covers both platforms in one take, so there is no separate Reels cut
+to film. Line 4 stays specific to whichever app the shield recording shows,
+because the audience is looking right at it. Hold on the shield a beat after
+line 4 before line 5 starts, I'll handle that in the edit.
 
 ## Extra takes to grab (30 seconds of work, saves a re-shoot)
 
-- Lines 1 and 4 again with "Reels" instead of "TikTok" (naming TikTok on
-  Instagram can cost reach, so each platform gets its own cut).
 - Line 2 alternate if "my friend" feels weird: "me and Dasha made an app to
   stop it."
 - Line 6 alternate: "It's called Mr. Tapioca and it's free. I drew the face."
