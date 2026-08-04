@@ -70,6 +70,11 @@
         </div>
         <img id="breakBedFront" class="break-bed-front" src="assets/bed-front.png" alt="" aria-hidden="true">
         <div class="work-counter">
+          <!-- Counter dressing. Measured free space is only ~30px left of the
+               character and ~24px right of the cup, so these are small and sit
+               partly behind both — which is how a real counter reads anyway. -->
+          <img class="counter-prop prop-straws" src="assets/counter-straws.png" alt="" aria-hidden="true">
+          <img class="counter-prop prop-plant" src="assets/counter-plant.png" alt="" aria-hidden="true">
           <div class="cup-stage">
             <div class="steam"><span></span><span></span><span></span></div>
             <div id="focusCup" class="cup-frame" data-topping="pearls">
@@ -86,6 +91,15 @@
                 <g clip-path="url(#cupClip)">
                   <rect id="liquid" x="22" y="156" width="76" height="0"/>
                   <rect id="foamBand" class="foam-band" x="22" y="150" width="76" height="7"/>
+                  <!-- Bubbles rise inside the liquid while a session runs. They live
+                       in the same clip as the liquid, and are hidden unless brewing. -->
+                  <g class="cup-bubbles" aria-hidden="true">
+                    <circle cx="40" cy="150" r="2.1"/>
+                    <circle cx="58" cy="150" r="1.5"/>
+                    <circle cx="74" cy="150" r="1.8"/>
+                    <circle cx="49" cy="150" r="1.2"/>
+                    <circle cx="66" cy="150" r="2.4"/>
+                  </g>
                   <ellipse id="liqSurface" class="liq-surface" cx="60" cy="156" rx="36" ry="3.4"/>
                   <g class="cup-pearls">
                     <circle cx="42" cy="152" r="4.6"/><circle cx="52" cy="153" r="4.6"/><circle cx="62" cy="152" r="4.6"/>

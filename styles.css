@@ -229,7 +229,11 @@ body {
   background: var(--floor-grad) no-repeat,
               #f3e4cf url('assets/Shop Background.png') top center / cover no-repeat;
 }
-.cafe-glow { display: none; }   /* every theme now has an illustrated backdrop */
+/* .cafe-glow is off by default — every theme has an illustrated backdrop now, so
+   the old generic light orbs are redundant. It is reused below as the PREMIUM
+   ambience layer: the four paid backgrounds get a second animated layer on top
+   of .theme-fx, which is what makes them feel worth paying for. */
+.cafe-glow { display: none; }
 
 .scene[data-theme="night"] {
   --floor-a: #3a3450;
@@ -239,7 +243,9 @@ body {
 }
 .scene[data-theme="night"] .speech-bubble { background: #fff0be; }
 .scene[data-theme="night"] .work-counter {
-  background: linear-gradient(180deg, #f3ece0 0, #e9ddca 16px, #dccab0 100%);
+  --counter-top:  #f3ece0;
+  --counter-mid:  #e9ddca;
+  --counter-face: #dccab0;
   border-color: rgba(20,14,30,0.22);
   border-top-color: rgba(255,255,255,0.6);
   box-shadow:
@@ -263,7 +269,9 @@ body {
               #f6e0e6 url('assets/Shop Background Sakura.png') top center / cover no-repeat;
 }
 .scene[data-theme="sakura"] .work-counter {
-  background: linear-gradient(180deg, #fff6f6 0, #fdebed 16px, #f6dbe0 100%);
+  --counter-top:  #fff6f6;
+  --counter-mid:  #fdebed;
+  --counter-face: #f6dbe0;
   border-color: rgba(120,50,70,0.12);
   border-top-color: rgba(255,255,255,0.85);
 }
@@ -275,7 +283,9 @@ body {
               #f0dcb8 url('assets/Shop Background Autumn.png') top center / cover no-repeat;
 }
 .scene[data-theme="autumn"] .work-counter {
-  background: linear-gradient(180deg, #fdf3e3 0, #f6e6cb 16px, #ecd1a8 100%);
+  --counter-top:  #fdf3e3;
+  --counter-mid:  #f6e6cb;
+  --counter-face: #ecd1a8;
   border-color: rgba(90,55,25,0.14);
   border-top-color: rgba(255,255,255,0.85);
 }
@@ -288,7 +298,9 @@ body {
               #d6dee6 url('assets/Shop Background Rainy.png') top center / cover no-repeat;
 }
 .scene[data-theme="rainy"] .work-counter {
-  background: linear-gradient(180deg, #f7f6f3 0, #ede9e1 16px, #ddd6c9 100%);
+  --counter-top:  #f7f6f3;
+  --counter-mid:  #ede9e1;
+  --counter-face: #ddd6c9;
   border-color: rgba(40,55,70,0.14);
   border-top-color: rgba(255,255,255,0.8);
 }
@@ -301,7 +313,9 @@ body {
               #ece3d4 url('assets/Shop Background Winter.png') top center / cover no-repeat;
 }
 .scene[data-theme="winter"] .work-counter {
-  background: linear-gradient(180deg, #fbfaf7 0, #eef1f1 16px, #e1e7e8 100%);
+  --counter-top:  #fbfaf7;
+  --counter-mid:  #eef1f1;
+  --counter-face: #e1e7e8;
   border-color: rgba(60,70,90,0.13);
   border-top-color: rgba(255,255,255,0.85);
 }
@@ -314,7 +328,9 @@ body {
               #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
 }
 .scene[data-theme="galaxy"] .work-counter {
-  background: linear-gradient(180deg, #fbf8ff 0, #f2ecf8 16px, #e6def2 100%);
+  --counter-top:  #fbf8ff;
+  --counter-mid:  #f2ecf8;
+  --counter-face: #e6def2;
   border-color: rgba(80,60,120,0.13);
   border-top-color: rgba(255,255,255,0.85);
 }
@@ -503,6 +519,126 @@ body {
   bottom: calc(var(--floor-y) + 122px);
 }
 
+/* ── Premium background ambience ───────────────────────────────────────────
+   The four paid themes (winter, galaxy, library, sunset) each get a SECOND
+   animated layer here, on top of the .theme-fx effects every theme has. Before
+   this, library and sunset shipped with fewer effects than the free night
+   theme, which is a poor argument for buying them.
+
+   Unlike .theme-fx (capped at 54% so it stays in the sky), this layer spans the
+   full scene, so premium effects can reach the floor. Its three spans are the
+   moving parts; each theme repurposes them. All are low-contrast and slow on
+   purpose — this is ambience behind a character you stare at for 30 minutes,
+   not a screensaver. */
+.scene[data-theme="winter"] .cafe-glow,
+.scene[data-theme="galaxy"] .cafe-glow,
+.scene[data-theme="library"] .cafe-glow,
+.scene[data-theme="sunset"] .cafe-glow {
+  display: block;
+  inset: 0;
+  height: auto;
+  z-index: 2;
+  overflow: hidden;
+}
+.scene[data-theme="winter"] .cafe-glow span,
+.scene[data-theme="galaxy"] .cafe-glow span,
+.scene[data-theme="library"] .cafe-glow span,
+.scene[data-theme="sunset"] .cafe-glow span {
+  border-radius: 0;
+  filter: none;
+  opacity: 1;
+  animation: none;
+}
+
+/* WINTER — fairy lights twinkling above, cold fog drifting along the floor. */
+.scene[data-theme="winter"] .cafe-glow span:nth-child(1),
+.scene[data-theme="winter"] .cafe-glow span:nth-child(2) {
+  left: -20%; right: -20%; width: 140%;
+  bottom: calc(var(--floor-y) - 14px);
+  height: 76px;
+  background: radial-gradient(60% 100% at 30% 100%, rgba(226,240,248,0.5), transparent 70%),
+              radial-gradient(50% 100% at 74% 100%, rgba(210,232,246,0.42), transparent 72%);
+  animation: prem-drift 26s ease-in-out infinite alternate;
+}
+.scene[data-theme="winter"] .cafe-glow span:nth-child(2) {
+  animation-duration: 37s; animation-direction: alternate-reverse; opacity: 0.7;
+}
+.scene[data-theme="winter"] .cafe-glow span:nth-child(3) {
+  left: 0; right: 0; top: 0; height: 90px;
+  background:
+    radial-gradient(3px 3px at 12% 26px, rgba(255,246,214,0.95), transparent 60%),
+    radial-gradient(3px 3px at 33% 40px, rgba(255,240,200,0.9), transparent 60%),
+    radial-gradient(3px 3px at 54% 22px, rgba(255,248,220,0.95), transparent 60%),
+    radial-gradient(3px 3px at 74% 38px, rgba(255,240,200,0.9), transparent 60%),
+    radial-gradient(3px 3px at 91% 24px, rgba(255,246,214,0.95), transparent 60%);
+  animation: prem-twinkle 3.6s ease-in-out infinite alternate;
+}
+
+/* GALAXY — nebula clouds drifting slowly behind the existing starfield. */
+.scene[data-theme="galaxy"] .cafe-glow span:nth-child(1),
+.scene[data-theme="galaxy"] .cafe-glow span:nth-child(2) {
+  left: -25%; right: -25%; width: 150%; top: 0; height: 62%;
+  background: radial-gradient(42% 46% at 26% 34%, rgba(178,142,232,0.30), transparent 72%),
+              radial-gradient(36% 40% at 72% 22%, rgba(140,170,240,0.24), transparent 72%);
+  animation: prem-drift 34s ease-in-out infinite alternate;
+}
+.scene[data-theme="galaxy"] .cafe-glow span:nth-child(2) {
+  animation-duration: 48s; animation-direction: alternate-reverse; opacity: 0.72;
+}
+.scene[data-theme="galaxy"] .cafe-glow span:nth-child(3) {
+  left: 0; right: 0; top: 0; height: 54%;
+  background: radial-gradient(52% 44% at 50% 8%, rgba(232,214,255,0.20), transparent 74%);
+  animation: prem-pulse 9s ease-in-out infinite alternate;
+}
+
+/* LIBRARY — warm godrays leaning through the window, and lamplight breathing. */
+.scene[data-theme="library"] .cafe-glow span:nth-child(1),
+.scene[data-theme="library"] .cafe-glow span:nth-child(2) {
+  left: 8%; top: -6%; width: 34%; height: 74%;
+  transform: rotate(14deg);
+  transform-origin: 50% 0;
+  background: linear-gradient(180deg, rgba(255,222,150,0.26), rgba(255,222,150,0.06) 62%, transparent);
+  animation: prem-pulse 11s ease-in-out infinite alternate;
+}
+.scene[data-theme="library"] .cafe-glow span:nth-child(2) {
+  left: 44%; width: 22%; transform: rotate(11deg);
+  animation-duration: 15s; animation-direction: alternate-reverse; opacity: 0.7;
+}
+.scene[data-theme="library"] .cafe-glow span:nth-child(3) {
+  right: 0; left: 40%; bottom: calc(var(--floor-y) - 20px); height: 150px;
+  background: radial-gradient(50% 70% at 72% 100%, rgba(255,198,110,0.26), transparent 72%);
+  animation: prem-pulse 7s ease-in-out infinite alternate;
+}
+
+/* SUNSET — clouds crossing the sky, with golden-hour light on the room. */
+.scene[data-theme="sunset"] .cafe-glow span:nth-child(1),
+.scene[data-theme="sunset"] .cafe-glow span:nth-child(2) {
+  left: -30%; right: -30%; width: 160%; top: 4%; height: 30%;
+  background:
+    radial-gradient(15% 42% at 22% 50%, rgba(255,240,228,0.5), transparent 70%),
+    radial-gradient(11% 34% at 48% 62%, rgba(255,232,214,0.42), transparent 70%),
+    radial-gradient(13% 38% at 76% 44%, rgba(255,244,232,0.46), transparent 70%);
+  animation: prem-crossing 58s linear infinite;
+}
+.scene[data-theme="sunset"] .cafe-glow span:nth-child(2) {
+  top: 16%; height: 24%; opacity: 0.6; animation-duration: 86s;
+}
+.scene[data-theme="sunset"] .cafe-glow span:nth-child(3) {
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: radial-gradient(60% 40% at 50% 6%, rgba(255,186,120,0.24), transparent 72%);
+  animation: prem-pulse 8s ease-in-out infinite alternate;
+}
+
+@keyframes prem-drift    { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
+@keyframes prem-crossing { from { transform: translateX(-14%); } to { transform: translateX(14%); } }
+@keyframes prem-pulse    { from { opacity: 0.55; } to { opacity: 1; } }
+@keyframes prem-twinkle  { from { opacity: 0.45; } to { opacity: 1; } }
+
+/* Calm mode turns all of it off, same as every other ambient effect here. */
+@media (prefers-reduced-motion: reduce) {
+  .cafe-glow span { animation: none !important; }
+}
+
 /* ── Scene ambiance ────────────────────────────────────────────────────── */
 /* Soft pastel light orbs drifting in the wall zone — gives the empty wall
    gentle depth without the old crude jar/window/light blocks. Purely
@@ -580,7 +716,19 @@ body {
 }
 
 /* ── Work counter and cup ───────────────────────────────────────────────── */
+/* The shop counter. It reads as a solid object rather than a card because it is
+   built like one: a lit top surface, a hard edge line where the surface turns,
+   a darker front face below that, and a soft grain over the face. Previously
+   this was one flat vertical gradient, which gave the character and the cup
+   nothing to stand on — the most valuable thing on screen was a blank slab.
+   The surface line sits at 62px because that is where things actually touch:
+   the cup's base lands 56px down the counter and the character's feet 68px, so
+   an edge any higher would have them standing on the front lip. */
 .work-counter {
+  --counter-top:  #fdf1dc;
+  --counter-mid:  #f0dcbc;
+  --counter-face: #d9bb8f;
+  --counter-edge: rgba(60,32,24,0.20);
   position: absolute;
   left: 16px; right: 16px;
   bottom: var(--floor-y);
@@ -589,11 +737,81 @@ body {
   border: 1.5px solid rgba(60,32,24,0.12);
   border-top-color: rgba(255,255,255,0.85);
   border-radius: 22px 22px 18px 18px;
-  background: linear-gradient(180deg, #fffaf2 0, #fbf1e3 16px, #f3e3cd 100%);
+  background:
+    /* the edge where the top surface turns down into the front face */
+    linear-gradient(180deg, transparent 0 62px, var(--counter-edge) 62px 63.5px, transparent 63.5px) no-repeat,
+    /* front lip, slightly darker than the surface */
+    linear-gradient(180deg, var(--counter-mid) 62px, var(--counter-face) 100%) no-repeat,
+    /* the top surface, catching light from the window above */
+    linear-gradient(180deg, var(--counter-top) 0, var(--counter-mid) 62px) no-repeat;
   box-shadow:
     inset 0 1.5px 0 rgba(255,255,255,0.9),
+    inset 0 -10px 14px -10px rgba(60,32,24,0.18),
     0 12px 26px rgba(60,32,24,0.16),
     0 2px 0 rgba(60,32,24,0.05);
+}
+/* Contact shadows. Both the cup and the character previously hovered over the
+   counter with nothing tying them to it, which is most of why the scene read as
+   pasted-together layers rather than a place. Each sits at that object's real
+   contact point (measured, not guessed) and travels with it, so the character's
+   shadow follows him as he walks to the cup. */
+.cup-stage::after {
+  content: "";
+  position: absolute;
+  left: 12%; right: 12%;
+  bottom: 6px;
+  height: 13px;
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%,
+    rgba(60,32,24,0.26) 0%, rgba(60,32,24,0.13) 55%, transparent 76%);
+}
+.maker-wrap::after {
+  content: "";
+  position: absolute;
+  left: 16%; right: 16%;
+  bottom: 10px;
+  height: 15px;
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.85;
+  background: radial-gradient(ellipse at 50% 50%,
+    rgba(60,32,24,0.24) 0%, rgba(60,32,24,0.12) 55%, transparent 76%);
+}
+/* No counter to cast onto during a break — he is in bed on a rug. */
+.scene.is-on-break .maker-wrap::after { display: none; }
+
+/* Counter props. z-index 1 keeps them behind the cup (5) and the character
+   (9, a sibling of the counter), so they read as sitting further back on the
+   surface. bottom is set from the 62px surface line, not the counter's base. */
+.counter-prop {
+  position: absolute;
+  bottom: 24px;
+  z-index: 1;
+  pointer-events: none;
+  height: auto;
+  filter: drop-shadow(0 2px 2px rgba(60,32,24,0.16));
+}
+.prop-straws { left: 1px;  width: 23px; }
+.prop-plant  { right: 2px; width: 25px; }
+/* The counter is hidden on break, and so are its props (inherited), but be
+   explicit so a future layout change can't leave them floating in the bedroom. */
+.scene.is-on-break .counter-prop { display: none; }
+
+/* Wood grain on the front face only. Very low contrast on purpose: it should
+   read as material at a glance and never compete with the character. */
+.work-counter::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 62px; bottom: 0;
+  border-radius: 0 0 17px 17px;
+  pointer-events: none;
+  opacity: 0.5;
+  background: repeating-linear-gradient(90deg,
+    transparent 0 17px, rgba(120,80,50,0.05) 17px 18px,
+    transparent 18px 41px, rgba(120,80,50,0.035) 41px 42px);
 }
 .work-counter::after {
   content: "";
@@ -863,6 +1081,53 @@ body {
 #liquid       { transition: y 480ms ease, height 480ms ease, fill 300ms ease; }
 .liq-surface  { fill: #fff; opacity: 0.22; transition: cy 480ms ease, opacity 300ms ease; }
 .cup-sheen    { stroke: #fff; stroke-width: 5; opacity: 0.16; stroke-linecap: round; }
+
+/* ── Making the drink feel brewed rather than filled ───────────────────────
+   The liquid was a rect whose y/height slid on a 480ms transition, and nothing
+   else in the cup ever moved. Three cheap additions give it life, all confined
+   to the existing clip path so they can never escape the cup:
+     1. the surface gently swells and settles, like liquid finding its level
+     2. bubbles rise through it while a session is actually running
+     3. the pearls shift very slightly, so the bottom isn't frozen
+   Everything here is opt-in on .is-focusing, so a paused or idle cup is calm. */
+.cup-bubbles circle {
+  fill: #fff;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.scene.is-focusing .cup-frame.has-fill .cup-bubbles circle {
+  animation: bubble-rise 3.4s ease-in infinite;
+}
+.cup-bubbles circle:nth-child(2) { animation-duration: 4.2s; animation-delay: 0.7s; }
+.cup-bubbles circle:nth-child(3) { animation-duration: 3.0s; animation-delay: 1.4s; }
+.cup-bubbles circle:nth-child(4) { animation-duration: 4.8s; animation-delay: 2.1s; }
+.cup-bubbles circle:nth-child(5) { animation-duration: 3.8s; animation-delay: 0.3s; }
+@keyframes bubble-rise {
+  0%   { opacity: 0;    transform: translateY(0)     scale(0.6); }
+  12%  { opacity: 0.34; }
+  70%  { opacity: 0.26; }
+  100% { opacity: 0;    transform: translateY(-46px) scale(1); }
+}
+
+/* The meniscus breathes instead of sitting perfectly still. */
+.scene.is-focusing .cup-frame.has-fill .liq-surface {
+  animation: liq-settle 2.8s ease-in-out infinite;
+}
+@keyframes liq-settle {
+  0%, 100% { ry: 3.4; opacity: 0.22; }
+  50%      { ry: 4.4; opacity: 0.3; }
+}
+
+/* Pearls resettle very slightly — enough to read as suspended in liquid. */
+.scene.is-focusing .cup-frame.has-fill .cup-pearls,
+.scene.is-focusing .cup-frame.has-fill .cup-pearl-shine {
+  animation: pearl-settle 5.2s ease-in-out infinite;
+}
+@keyframes pearl-settle {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1.2px); }
+}
 
 /* Toppings sit at the bottom; recolor the cluster per choice. */
 .cup-pearls circle      { fill: #2a1d22; }
@@ -3245,7 +3510,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
               #f0e0c2 url('assets/Shop Background Library.png') top center / cover no-repeat;
 }
 .scene[data-theme="library"] .work-counter {
-  background: linear-gradient(180deg, #fdf4e0 0, #f6e7c8 16px, #ecd5a6 100%);
+  --counter-top:  #fdf4e0;
+  --counter-mid:  #f6e7c8;
+  --counter-face: #ecd5a6;
   border-color: rgba(90, 60, 25, 0.14);
   border-top-color: rgba(255, 255, 255, 0.85);
 }
@@ -3259,7 +3526,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
               #f7e3d3 url('assets/Shop Background Sunset.png') top center / cover no-repeat;
 }
 .scene[data-theme="sunset"] .work-counter {
-  background: linear-gradient(180deg, #fff5ec 0, #fbe6d6 16px, #f2d0b8 100%);
+  --counter-top:  #fff5ec;
+  --counter-mid:  #fbe6d6;
+  --counter-face: #f2d0b8;
   border-color: rgba(120, 60, 40, 0.13);
   border-top-color: rgba(255, 255, 255, 0.85);
 }
