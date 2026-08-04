@@ -243,9 +243,7 @@ body {
 }
 .scene[data-theme="night"] .speech-bubble { background: #fff0be; }
 .scene[data-theme="night"] .work-counter {
-  --counter-top:  #f3ece0;
-  --counter-mid:  #e9ddca;
-  --counter-face: #dccab0;
+  --counter-tint: rgba(40,34,66,0.30);
   border-color: rgba(20,14,30,0.22);
   border-top-color: rgba(255,255,255,0.6);
   box-shadow:
@@ -269,9 +267,7 @@ body {
               #f6e0e6 url('assets/Shop Background Sakura.png') top center / cover no-repeat;
 }
 .scene[data-theme="sakura"] .work-counter {
-  --counter-top:  #fff6f6;
-  --counter-mid:  #fdebed;
-  --counter-face: #f6dbe0;
+  --counter-tint: rgba(255,190,205,0.16);
   border-color: rgba(120,50,70,0.12);
   border-top-color: rgba(255,255,255,0.85);
 }
@@ -283,9 +279,7 @@ body {
               #f0dcb8 url('assets/Shop Background Autumn.png') top center / cover no-repeat;
 }
 .scene[data-theme="autumn"] .work-counter {
-  --counter-top:  #fdf3e3;
-  --counter-mid:  #f6e6cb;
-  --counter-face: #ecd1a8;
+  --counter-tint: rgba(190,110,40,0.14);
   border-color: rgba(90,55,25,0.14);
   border-top-color: rgba(255,255,255,0.85);
 }
@@ -298,9 +292,7 @@ body {
               #d6dee6 url('assets/Shop Background Rainy.png') top center / cover no-repeat;
 }
 .scene[data-theme="rainy"] .work-counter {
-  --counter-top:  #f7f6f3;
-  --counter-mid:  #ede9e1;
-  --counter-face: #ddd6c9;
+  --counter-tint: rgba(90,110,130,0.20);
   border-color: rgba(40,55,70,0.14);
   border-top-color: rgba(255,255,255,0.8);
 }
@@ -313,9 +305,7 @@ body {
               #ece3d4 url('assets/Shop Background Winter.png') top center / cover no-repeat;
 }
 .scene[data-theme="winter"] .work-counter {
-  --counter-top:  #fbfaf7;
-  --counter-mid:  #eef1f1;
-  --counter-face: #e1e7e8;
+  --counter-tint: rgba(150,185,210,0.22);
   border-color: rgba(60,70,90,0.13);
   border-top-color: rgba(255,255,255,0.85);
 }
@@ -328,9 +318,7 @@ body {
               #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
 }
 .scene[data-theme="galaxy"] .work-counter {
-  --counter-top:  #fbf8ff;
-  --counter-mid:  #f2ecf8;
-  --counter-face: #e6def2;
+  --counter-tint: rgba(120,95,180,0.24);
   border-color: rgba(80,60,120,0.13);
   border-top-color: rgba(255,255,255,0.85);
 }
@@ -716,72 +704,68 @@ body {
 }
 
 /* ── Work counter and cup ───────────────────────────────────────────────── */
-/* The shop counter. It reads as a solid object rather than a card because it is
-   built like one: a lit top surface, a hard edge line where the surface turns,
-   a darker front face below that, and a soft grain over the face. Previously
-   this was one flat vertical gradient, which gave the character and the cup
-   nothing to stand on — the most valuable thing on screen was a blank slab.
-   The surface line sits at 62px because that is where things actually touch:
-   the cup's base lands 56px down the counter and the character's feet 68px, so
-   an edge any higher would have them standing on the front lip. */
+/* The shop FLOOR. Below --floor-y the floor gradient paints a flat colour over
+   the background art, and on a tall screen that is half the app reading as a
+   blank pastel block — the single biggest reason the backgrounds "can barely be
+   seen". This layer turns that block into a floor: boards running away from the
+   viewer, spaced wider as they come forward, a shadow gathering under the
+   counter, and the corners falling off so the eye stays on the character.
+   Purely decorative and behind everything (z 0). */
+.scene::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 0;
+  height: var(--floor-y);
+  z-index: 0;
+  pointer-events: none;
+  background:
+    /* shadow pooling where the floor meets the counter */
+    linear-gradient(180deg, rgba(60,32,24,0.20) 0, rgba(60,32,24,0.06) 34px, transparent 96px),
+    /* board seams, wider apart nearer the viewer = depth */
+    linear-gradient(180deg,
+      transparent 0 16px, rgba(60,32,24,0.07) 16px 17px,
+      transparent 17px 44px, rgba(60,32,24,0.06) 44px 45px,
+      transparent 45px 88px, rgba(60,32,24,0.05) 88px 89px,
+      transparent 89px 152px, rgba(60,32,24,0.04) 152px 153px,
+      transparent 153px),
+    /* plank joins */
+    repeating-linear-gradient(90deg,
+      transparent 0 74px, rgba(60,32,24,0.05) 74px 75.5px),
+    /* corners fall away */
+    radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(60,32,24,0.16) 100%);
+}
+
+/* The shop counter — real illustrated wood, not CSS gradients.
+   It used to be built from linear-gradients, which is why it read as a bright
+   plastic bar: on the galaxy theme its top colour was #fbf8ff, making the
+   largest object in the scene the brightest thing on screen, in a scene that is
+   otherwise entirely illustrated. Now it is drawn art in the same style as the
+   backgrounds.
+
+   The art is cropped so its edge line lands at 88% of its height, because the
+   cup's base contacts at 56px and his feet at 68px of the 84px counter — both
+   must land ON the top surface, not the front panel. Stretching horizontally is
+   safe: the grain runs horizontally, so width changes are invisible, and the
+   vertical proportion is fixed by the crop.
+
+   --counter-tint lets a theme wash the wood toward its own light (cool at
+   night, lilac in galaxy) without ever turning it back into a white slab. */
 .work-counter {
-  --counter-top:  #fdf1dc;
-  --counter-mid:  #f0dcbc;
-  --counter-face: #d9bb8f;
-  --counter-edge: rgba(60,32,24,0.20);
+  --counter-tint: transparent;
   position: absolute;
   left: 16px; right: 16px;
   bottom: var(--floor-y);
   height: 84px;
   z-index: 8;
-  border: 1.5px solid rgba(60,32,24,0.12);
-  border-top-color: rgba(255,255,255,0.85);
   border-radius: 22px 22px 18px 18px;
   background:
-    /* the edge where the top surface turns down into the front face */
-    linear-gradient(180deg, transparent 0 62px, var(--counter-edge) 62px 63.5px, transparent 63.5px) no-repeat,
-    /* front lip, slightly darker than the surface */
-    linear-gradient(180deg, var(--counter-mid) 62px, var(--counter-face) 100%) no-repeat,
-    /* the top surface, catching light from the window above */
-    linear-gradient(180deg, var(--counter-top) 0, var(--counter-mid) 62px) no-repeat;
+    linear-gradient(var(--counter-tint), var(--counter-tint)),
+    url('assets/counter-wood.png') center / 100% 100% no-repeat;
   box-shadow:
-    inset 0 1.5px 0 rgba(255,255,255,0.9),
-    inset 0 -10px 14px -10px rgba(60,32,24,0.18),
-    0 12px 26px rgba(60,32,24,0.16),
-    0 2px 0 rgba(60,32,24,0.05);
+    0 12px 26px rgba(60,32,24,0.22),
+    0 2px 0 rgba(60,32,24,0.06);
 }
-/* Contact shadows. Both the cup and the character previously hovered over the
-   counter with nothing tying them to it, which is most of why the scene read as
-   pasted-together layers rather than a place. Each sits at that object's real
-   contact point (measured, not guessed) and travels with it, so the character's
-   shadow follows him as he walks to the cup. */
-.cup-stage::after {
-  content: "";
-  position: absolute;
-  left: 12%; right: 12%;
-  bottom: 6px;
-  height: 13px;
-  border-radius: 50%;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse at 50% 50%,
-    rgba(60,32,24,0.26) 0%, rgba(60,32,24,0.13) 55%, transparent 76%);
-}
-.maker-wrap::after {
-  content: "";
-  position: absolute;
-  left: 16%; right: 16%;
-  bottom: 10px;
-  height: 15px;
-  border-radius: 50%;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.85;
-  background: radial-gradient(ellipse at 50% 50%,
-    rgba(60,32,24,0.24) 0%, rgba(60,32,24,0.12) 55%, transparent 76%);
-}
-/* No counter to cast onto during a break — he is in bed on a rug. */
-.scene.is-on-break .maker-wrap::after { display: none; }
 
 /* Counter props. z-index 1 keeps them behind the cup (5) and the character
    (9, a sibling of the counter), so they read as sitting further back on the
@@ -3510,9 +3494,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
               #f0e0c2 url('assets/Shop Background Library.png') top center / cover no-repeat;
 }
 .scene[data-theme="library"] .work-counter {
-  --counter-top:  #fdf4e0;
-  --counter-mid:  #f6e7c8;
-  --counter-face: #ecd5a6;
+  --counter-tint: rgba(190,140,60,0.12);
   border-color: rgba(90, 60, 25, 0.14);
   border-top-color: rgba(255, 255, 255, 0.85);
 }
@@ -3526,9 +3508,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
               #f7e3d3 url('assets/Shop Background Sunset.png') top center / cover no-repeat;
 }
 .scene[data-theme="sunset"] .work-counter {
-  --counter-top:  #fff5ec;
-  --counter-mid:  #fbe6d6;
-  --counter-face: #f2d0b8;
+  --counter-tint: rgba(255,150,90,0.16);
   border-color: rgba(120, 60, 40, 0.13);
   border-top-color: rgba(255, 255, 255, 0.85);
 }
