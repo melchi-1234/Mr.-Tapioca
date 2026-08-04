@@ -409,8 +409,19 @@ body {
   to   { background-position: 45% 0%, 0 0, 0 0; }
 }
 
+/* Break mode is the one place that used to skip var(--floor-grad), and the
+   .scene comment above warns exactly what happens without it: the art's own
+   floor gets cropped away and things anchored to --floor-y look like they float
+   mid-air. They did. The break art paints its floor at 82% of image height,
+   which lands at screen y=667 after cover-scaling, while --floor-y puts the
+   floor at y=422 — so the bed sat 245px up the wall, inside the window arch,
+   with nothing under it. Restoring the gradient (with the art's own wood
+   colours, sampled from the background) puts a real floor back under him. */
 .scene.is-on-break {
-  background: #c9bfe0 url('assets/Shop Background Break.png') top center / cover no-repeat;
+  --floor-a: #c49a72;   /* wood, front edge */
+  --floor-b: #d5ad8d;   /* wood, fill */
+  background: var(--floor-grad) no-repeat,
+              #c9bfe0 url('assets/Bedroom Background.png') top center / cover no-repeat;
 }
 .scene.is-on-break .work-counter {
   background: linear-gradient(180deg, #fbf7ff 0, #f1ecf8 16px, #e3daf0 100%);
@@ -437,24 +448,49 @@ body {
 }
 .scene.is-on-break .break-rug { display: block; }
 
-/* Cozy nap bed. Bed.png has NO transparent bottom padding, so it's seated low
-   (legs on the rug's near edge) with a tight contact shadow — no more floating. */
-.break-bed {
+/* Cozy nap bed, in two layers with the character sandwiched between them.
+   One --bed-w drives both halves and they were drawn in a single render at
+   matching widths, so they stay registered at any size.
+
+   The old single bed was 240px wide against a 205px character — 1.17x — so he
+   could only ever sit ON it, and his art started 107px above its top edge.
+   --bed-w is now wide enough to read as furniture, and the character is scaled
+   down in break mode (see .scene.is-on-break .maker-wrap) so the ratio lands
+   near 2:1 and he actually fits in it. */
+.scene { --bed-w: 268px; --blanket-w: 246px; }
+.break-bed-back,
+.break-bed-front {
   position: absolute;
-  left: calc(50% - 120px);
-  bottom: calc(var(--floor-y) + 12px);
-  width: 240px; height: auto;
-  z-index: 4;
+  left: calc(50% - (var(--bed-w) / 2));
+  width: var(--bed-w); height: auto;
   display: none;
   pointer-events: none;
-  filter: drop-shadow(0 3px 3px rgba(60,32,24,0.28));
 }
-.scene.is-on-break .break-bed { display: block; }
+.break-bed-back {
+  bottom: calc(var(--floor-y) + 2px);
+  z-index: 4;                       /* headboard + pillow, BEHIND him */
+  filter: drop-shadow(0 3px 3px rgba(60,32,24,0.22));
+}
+.break-bed-front {
+  /* Slightly narrower than the mattress, which is both how a duvet actually
+     sits and what drops its folded cuff far enough down the bed to leave his
+     face clear. At full bed width the cuff cut straight across his eyes. */
+  left: calc(50% - (var(--blanket-w) / 2));
+  width: var(--blanket-w);
+  bottom: calc(var(--floor-y) + 2px);
+  z-index: 10;                      /* blanket, IN FRONT of him = tucked in */
+}
+.scene.is-on-break .break-bed-back,
+.scene.is-on-break .break-bed-front { display: block; }
 
-/* Character simply naps IN the bed on break (no walking/pacing anymore). */
+/* Character naps IN the bed on break: scaled down so the bed reads as bigger
+   than he is, and seated at the mattress so the blanket layer crosses his body.
+   transform-origin is the bottom so the scale doesn't lift him off the mattress. */
 .scene.is-on-break .maker-wrap {
-  left: calc(50% - 100px);
-  bottom: calc(var(--floor-y) + 46px);
+  left: calc(50% - 102px);          /* centre the 205px box; scale keeps its centre */
+  bottom: calc(var(--floor-y) + 164px);
+  transform: scale(0.75);
+  transform-origin: 50% 100%;
 }
 
 /* ── Scene ambiance ────────────────────────────────────────────────────── */
@@ -725,8 +761,8 @@ body {
 /* Sleepy z's near the maker's head during a break */
 .break-zzz {
   right: auto;
-  left: calc(50% + 24px);          /* track the CENTERED nook (was pinned at 118px) so it stays by his head */
-  bottom: calc(var(--floor-y) + 180px);
+  left: calc(50% + 62px);          /* clear of his head, which now sits higher in the bed */
+  bottom: calc(var(--floor-y) + 214px);
   display: flex;
   gap: 4px;
   z-index: 9;                      /* above the mascot, below the break panel (z-index:10) */
