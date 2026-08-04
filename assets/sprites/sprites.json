@@ -172,20 +172,6 @@
         "loop": true
       }
     },
-    "wizard": {
-      "idle": {
-        "sheet": "wizard/idle.png",
-        "frames": 15,
-        "fps": 4,
-        "loop": true
-      },
-      "mixing": {
-        "sheet": "wizard/idle.png",
-        "frames": 15,
-        "fps": 4,
-        "loop": true
-      }
-    },
     "cat-hoodie": {
       "idle": {
         "sheet": "cat-hoodie/idle.png",

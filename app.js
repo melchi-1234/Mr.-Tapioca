@@ -389,18 +389,34 @@ const SKIN_IMAGES = {
   "royal":      "assets/Royal Crown.png"
 };
 
-// Per-skin pose sets — each generated as a single 2x2 sprite sheet (one render,
-// so the 4 poses share the exact same color) from that skin + the base
-// Mr. Tapioca as references, then sliced (see tools/slice-sheet.py). Keyed by
-// skin value → { mixing, sleeping, drinking }; any missing state falls back to
-// the skin's single portrait above.
-// Skins keep their ONE real portrait for every state. The drawn per-skin "sleepy"
-// art in assets/poses/ was AI-generated separately and doesn't match the awake
-// portraits (e.g. the astronaut's helmet is totally different), so we DON'T swap to
-// it — instead skins get a consistent "dozing" CSS treatment (lean + breathe + dim +
-// zzz) while napping (see .is-napping.skin-awake in styles.css). The BASE character
-// still uses its real eyes-closed Sleeping.png (that one is on-model).
-const SKIN_POSES = {};
+// Per-skin pose sets, keyed by skin value → { idle, mixing, sleeping, shocked }.
+// Any missing state falls back to the skin's single portrait above, so a skin
+// that isn't listed here behaves exactly as it always has.
+//
+// This map used to be empty. The first attempt at per-skin poses generated each
+// pose on its own and came back off-model (the astronaut's helmet was a
+// different helmet), so the art was parked unused in assets/poses/ rather than
+// wired up. The current pipeline fixes the cause rather than the symptom:
+//
+//   1. All four poses come from ONE render, so they cannot disagree about
+//      colour, scale or line weight.
+//   2. That render is conditioned on the skin's own file as an image reference.
+//      The character is never described in words — describing it is what
+//      produced the wrong helmet.
+//   3. tools/check-poses.py refuses the sheet unless the skin's identifying
+//      colours survived and the four cells share a baseline. The old art fails
+//      that check today, which is how the thresholds were calibrated.
+//
+// Motion still comes from the CSS keyframes keyed off data-state, so these are
+// four still portraits, not frames. See the design doc under docs/superpowers/.
+const SKIN_POSES = {
+  wizard: {
+    idle:     "assets/poses/wizard-idle.png",
+    mixing:   "assets/poses/wizard-mixing.png",
+    sleeping: "assets/poses/wizard-sleeping.png",
+    shocked:  "assets/poses/wizard-shocked.png"
+  }
+};
 
 // Every state uses a single high-res still image; bounce/stir/sleep motion
 // is driven by CSS keyframes that key off the img's data-state attribute.
