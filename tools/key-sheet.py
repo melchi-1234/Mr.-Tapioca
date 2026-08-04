@@ -36,6 +36,7 @@ KEY_CANDIDATES = {
 T_LOW = 60.0        # distance <= this  → certainly backdrop
 T_HIGH = 140.0      # distance >= this  → certainly character
 ISLAND_FRAC = 0.015  # blob smaller than this share of the biggest = stray mark
+SPILL_REACH = 6      # px from the backdrop that de-spill is allowed to touch
 
 
 def pick_key_colour(ref_path):
@@ -87,7 +88,17 @@ def despill_to_palette(rgb, alpha, key, ref_path, report=False):
     if len(pal) == 0:
         return rgb, 0
 
-    solid = alpha > 0.9
+    # Only pixels NEAR THE BACKDROP can be contaminated by it. Spill is a local
+    # edge effect; a pixel deep inside the character never touched the backdrop.
+    # Without this restriction the test "could this colour be palette-colour X
+    # blended with the key colour?" is answered yes far too often, because most
+    # colours are a plausible blend of some other colour and the key. It rewrote
+    # 12.65% of the strawberry — its whole brown face — into strawberry red,
+    # having "explained" warm brown (101,67,54) as red plus cyan.
+    near_backdrop = ndimage.binary_dilation(alpha < 0.5, iterations=SPILL_REACH)
+    solid = (alpha > 0.9) & near_backdrop
+    if not solid.any():
+        return rgb, 0
     P = rgb[solid]                                            # (N,3)
     KC = key[None, :] - pal                                   # (M,3)
     denom = (KC * KC).sum(1)                                  # (M,)
