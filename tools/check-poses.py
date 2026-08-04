@@ -18,14 +18,20 @@ import sys
 import numpy as np
 from PIL import Image
 
-# Alignment is judged on HEIGHT and BOTTOM EDGE, never on width.
-# A pose set legitimately changes width: arms raised to stir, or up in surprise,
-# make the silhouette wider with nothing wrong. Measured on the first accepted
-# sheet, width swung 56px across four poses while height held to 8px. Gating on
-# width would reject good art; gating on height catches the thing that actually
-# hurts, which is the character changing size between states.
+# Alignment is judged on the BOTTOM EDGE. That one is real: the poses are
+# composited on a floor, so a baseline that wanders makes him hop between states.
+#
+# Height is only a loose sanity check, and the tolerance is deliberately wide.
+# Both stricter ideas failed against real art. Width went first: arms raised to
+# stir or thrown up in surprise widened the silhouette 56px with nothing wrong.
+# Height went the same way on the 13-skin batch — it failed dragon, cat-hoodie,
+# ninja and royal, all four of which are correct, because sleeping curls him up
+# and mixing raises an arm. Observed spread on sets that look right runs to 23px
+# (cat-hoodie), so this now only catches gross scale errors. The checks that
+# actually earn their keep are OFF-MODEL and ACCESSORY below; on that same batch
+# they ranked the two genuinely bad skins first and second.
 BOTTOM_TOL = 4      # px, across cells — stops him jumping vertically
-HEIGHT_TOL = 12     # px, across cells — stops him growing or shrinking
+HEIGHT_TOL = 30     # px, across cells — gross scale errors only, see above
 SCALE_TOL = 0.10    # fraction, height vs the canonical portrait
 KEY_HUES = [(0, 255, 0), (0, 255, 255), (255, 0, 255), (0, 0, 255)]
 KEY_DIST = 70       # residual backdrop colour this close to a key hue = spill
@@ -57,8 +63,10 @@ def load(path):
     return np.array(Image.open(path).convert("RGBA"))
 
 
-def bbox(im):
-    ys, xs = np.where(im[:, :, 3] > 16)
+def bbox(im, thresh=128):
+    """Solid content only — see the note in tools/slice-sheet.py: a soft contact
+    shadow tapers to alpha ~17 and would otherwise be measured as the baseline."""
+    ys, xs = np.where(im[:, :, 3] > thresh)
     if len(xs) == 0:
         return None
     return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())

@@ -34,9 +34,15 @@ import numpy as np
 from PIL import Image
 
 
-def content_box(img):
+def content_box(img, thresh=128):
+    """Bounds of SOLID content. The threshold is high on purpose: the generator
+    keeps drawing a soft contact shadow under him no matter how firmly the
+    prompt says not to, and its faintest tip sits at alpha 17-37. Anchoring on
+    anything that faint pins the shadow's whisker instead of his feet, and since
+    the whisker fades differently per pose, the baseline then wanders — that is
+    exactly how the sunglasses set ended up 7px out of alignment."""
     a = np.array(img)[:, :, 3]
-    ys, xs = np.where(a > 16)
+    ys, xs = np.where(a > thresh)
     if len(xs) == 0:
         return None
     return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())

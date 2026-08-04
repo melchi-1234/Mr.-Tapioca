@@ -409,150 +409,32 @@ const SKIN_IMAGES = {
 //
 // Motion still comes from the CSS keyframes keyed off data-state, so these are
 // four still portraits, not frames. See the design doc under docs/superpowers/.
-const SKIN_POSES = {
-  wizard: {
-    idle:     "assets/poses/wizard-idle.png",
-    mixing:   "assets/poses/wizard-mixing.png",
-    sleeping: "assets/poses/wizard-sleeping.png",
-    shocked:  "assets/poses/wizard-shocked.png"
-  }
-};
+const SKIN_POSES = {};
+["grad-cap", "flower", "scarf", "shades", "strawberry", "astro-blue", "dragon",
+ "cat-hoodie", "royal", "ninja", "angel", "devil", "wizard"].forEach((skin) => {
+  SKIN_POSES[skin] = {
+    idle:     "assets/poses/" + skin + "-idle.png",
+    mixing:   "assets/poses/" + skin + "-mixing.png",
+    sleeping: "assets/poses/" + skin + "-sleeping.png",
+    shocked:  "assets/poses/" + skin + "-shocked.png"
+  };
+});
 
-// Every state uses a single high-res still image; bounce/stir/sleep motion
-// is driven by CSS keyframes that key off the img's data-state attribute.
-// (Earlier we cycled cropped frames here; one of the idle crops was mid-blink,
-// which made the eye look like it disappeared.)
-// Every state uses the REAL original portrait; the CSS keyframes supply the
-// motion (bob / lean / wiggle / hop). This is uniform for the base AND all skins
-// (see SKIN_POSES = {} below) and never drifts off-model. Drawn pose PNGs are
-// parked in assets/poses/ if we ever wire faithful ones in.
+// The no-skin default character, same four poses from the same one render.
+// The CSS keyframes keyed off data-state supply all the motion.
+// These replace the old portraits, which were drawn separately and so never
+// lined up: Mr. Tapioca.png sat at bottom=428, Mixing.png at 437 and
+// Sleeping.png at 402, which made him drop 9px and shrink 57px the moment a
+// session started. The new set is sliced from one sheet with a shared baseline.
 const MAKER_STATIC = {
-  idle:     "assets/Mr. Tapioca.png",
-  mixing:   "assets/Mr. Tapioca.png",
-  sleeping: "assets/Sleeping.png",        // real eyes-closed nap pose (was the awake portrait)
-  drinking: "assets/Mr. Tapioca.png",
-  shocked:  "assets/Mr. Tapioca.png"
+  idle:     "assets/poses/base-idle.png",
+  mixing:   "assets/poses/base-mixing.png",
+  sleeping: "assets/poses/base-sleeping.png",
+  drinking: "assets/poses/base-idle.png",   // "drinking" is currently unused
+  shocked:  "assets/poses/base-shocked.png"
 };
 
 let currentMakerState = "";
-
-// ── Sprite engine ────────────────────────────────────────────────────────────
-// OPTIONAL frame-by-frame animation. Drop a horizontal sprite-strip PNG at
-// assets/sprites/<skin>/<state>.png, declare it in assets/sprites/sprites.json,
-// and the maker animates real frames via a pure-CSS steps() background scroll
-// (no per-frame JS). Anything not declared OR not yet decoded falls back, byte
-// for byte, to the static portrait + CSS motion below — so a missing, typo'd, or
-// malformed sheet degrades silently to today's behaviour. See assets/SPRITES.md.
-const TRANSPARENT_1PX =
-  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-const SpriteEngine = {
-  sheets: { skins: {} },
-  defaults: { fps: 10, loop: true },
-  ready: {},          // "skin/state" -> true once that sheet has decoded cleanly
-  loaded: false,
-  async load() {
-    let data = null;
-    try {
-      const res = await fetch("assets/sprites/sprites.json", { cache: "no-cache" });
-      if (res.ok) data = await res.json();
-    } catch (e) { /* no manifest → stay in static mode, silently */ }
-    this.loaded = true;
-    if (!data || typeof data !== "object" || !data.skins) return;
-    this.sheets = data;
-    if (data.defaults) this.defaults = Object.assign({}, this.defaults, data.defaults);
-    // Preload ONLY what can render right now: the base character + the equipped
-    // skin. Decoding every skin's sheet up front was ~14MB of pixels at boot —
-    // the other skins preload the moment they're equipped (ensureSkin below).
-    const equipped = localStorage.getItem("bobaFocusSkin") || "";
-    this.ensureSkin("base");
-    if (equipped && equipped !== "base") this.ensureSkin(equipped);
-  },
-  // Preload + decode one skin's sheets so its first play never flashes and the
-  // service worker runtime-caches them. Mark ready only on a clean load.
-  _loading: {},
-  ensureSkin(skin) {
-    const states = (this.sheets.skins || {})[skin] || {};
-    Object.keys(states).forEach((st) => {
-      const entry = states[st];
-      if (!entry || !entry.sheet) return;
-      const key = skin + "/" + st;
-      if (this.ready[key] || this._loading[key]) return;
-      this._loading[key] = true;
-      const img = new Image();
-      const mark = () => {
-        if (SpriteEngine.ready[key]) return;
-        // Cross-version guard: a sheet whose real width disagrees with the
-        // manifest's frame count came from a different deploy (mid-upgrade
-        // cache skew renders it as N stretched copies side by side). Stay
-        // unready → resolve() returns null → the static portrait shows
-        // instead, until the controllerchange reload below re-boots us onto
-        // one consistent cache version.
-        const fw = SpriteEngine.sheets.frameWidth || 410;
-        if (img.naturalWidth && img.naturalWidth !== Math.max(1, entry.frames || 1) * fw) return;
-        SpriteEngine.ready[key] = true;
-        SpriteEngine._refresh();
-      };
-      img.onload = mark;                 // reliable readiness signal
-      img.onerror = () => {};            // missing/broken sheet → stays unready → fallback
-      img.src = "assets/sprites/" + entry.sheet;
-      // decode() avoids a first-play flash, but is only an enhancement — onload
-      // already marks ready, so a hung/rejected decode() never blocks animation.
-      if (img.decode) img.decode().then(mark).catch(() => {});
-    });
-  },
-  // Re-apply the live state so a just-decoded sheet upgrades in place.
-  // Debounced: a burst of decodes at boot re-applied (and restarted) the live
-  // animation once PER SHEET — visible stutter on slow first loads.
-  _refreshT: null,
-  _refresh() {
-    clearTimeout(this._refreshT);
-    this._refreshT = setTimeout(() => {
-      const cur = currentMakerState;
-      if (!cur || !els.focusMakerCharacter) return;
-      currentMakerState = "";
-      setMakerState(cur);
-    }, 120);
-  },
-  _entry(skin, st) {
-    const s = this.sheets.skins || {};
-    return (s[skin] && s[skin][st]) || null;
-  },
-  // Resolve to THIS skin's own sheet only (a sprite carries the character's
-  // identity, so we never substitute the base character for an equipped skin —
-  // that would put it off-model). No sheet → null → caller draws the skin's
-  // static portrait. "base" is just the no-skin default character's key.
-  resolve(skin, st) {
-    const e = this._entry(skin, st);
-    return (e && e.sheet && this.ready[skin + "/" + st]) ? e : null;
-  },
-  apply(img, entry) {
-    const frames = Math.max(1, entry.frames || 1);
-    const fps = entry.fps || this.defaults.fps || 10;
-    const loop = (entry.loop !== undefined) ? entry.loop : this.defaults.loop;
-    img.src = TRANSPARENT_1PX;                 // blank the <img> bitmap; the bg paints frames
-    img.style.backgroundImage = 'url("assets/sprites/' + entry.sheet + '")';
-    img.style.backgroundSize = (frames * 100) + "% 100%";   // strip = N×element wide
-    img.classList.add("is-sprite");
-    // Set the animation inline (literal frame count → steps() always parses; clean
-    // restart on every state change). steps(N, jump-none) lands one whole frame per
-    // stop, including the last, so an N-frame strip shows all N frames evenly.
-    img.style.animation = "none";
-    void img.offsetWidth;                      // force reflow so it restarts from frame 0
-    if (frames <= 1 || prefersReducedMotion()) {
-      img.style.animation = "none";            // single frame / calm mode → hold frame 0
-    } else {
-      img.style.animation = "sprite-play " + (frames / fps).toFixed(3) + "s steps(" +
-        frames + ", jump-none) " + (loop ? "infinite" : "1") + (loop ? "" : " forwards");
-    }
-  },
-  clear(img) {
-    if (!img.classList.contains("is-sprite")) return;
-    img.classList.remove("is-sprite");
-    img.style.backgroundImage = "";
-    img.style.backgroundSize = "";
-    img.style.animation = "";                  // hand motion back to the CSS data-state keyframes
-  }
-};
 
 function setMakerState(stateName) {
   if (stateName === currentMakerState) return;
@@ -561,12 +443,6 @@ function setMakerState(stateName) {
   const img = els.focusMakerCharacter;
   img.dataset.state = stateName;
   els.shopScene.classList.toggle("is-napping", stateName === "sleeping");
-
-  // Sprite mode: if a strip is declared + decoded for this (skin, state), animate
-  // real frames. Otherwise clear sprite mode and fall through to the static art.
-  const entry = SpriteEngine.resolve(state.skin || "base", stateName);
-  if (entry) { SpriteEngine.apply(img, entry); return; }
-  SpriteEngine.clear(img);
 
   // The CSS keyframes (keyed off data-state) animate whatever image is shown,
   // so motion works for every skin. An equipped skin is a single portrait, so
@@ -583,8 +459,7 @@ function setMakerState(stateName) {
 
 // Play a one-shot reaction class on the maker (pop / celebrate) without
 // disturbing its looping idle/mixing animation. Applied to the WRAP, not the
-// img — the sprite engine sets the img's animation inline, which would
-// override (i.e. silently kill) any class-based animation on the img itself.
+// img, so the two animations compose instead of one replacing the other.
 function pulseMaker(cls, ms) {
   const wrap = els.makerWrap;
   wrap.classList.remove(cls);
@@ -1089,9 +964,6 @@ function updateCup() {
   els.focusSticker.textContent = state.sticker;
   // Maker state is driven by the walk choreography (startPause/reset/break),
   // not here — updateCup runs every tick and would override the walk.
-  // Skins are single "awake" portraits, so hide the sleepy zzz when one is on
-  // (only the base character has a real eyes-closed sleeping pose).
-  els.shopScene.classList.toggle("skin-awake", !!state.skin);
   els.shopScene.dataset.theme = state.shopTheme;
   els.shopScene.classList.toggle("is-focusing", state.running);
   // Drop the size picker for the WHOLE session, paused included. Keying this off
@@ -1457,7 +1329,6 @@ function reconcileStreakFreezes() {
 function refreshMaker() {
   // Lazy sprite loading: kick off this skin's sheet decode on equip (no-op if
   // already ready/loading); falls back to the static portrait until decoded.
-  if (SpriteEngine.loaded) SpriteEngine.ensureSkin(state.skin || "base");
   currentMakerState = "";
   setMakerState(state.running ? "mixing" : "idle");
 }
@@ -5680,7 +5551,6 @@ renderAmbiencePicker();
 reconcileStreakFreezes();   // spend freezes to bridge any missed days before first paint
 renderAll();
 setMakerState("idle");
-SpriteEngine.load();  // non-blocking: upgrades to frame animation once sheets decode
 scheduleFidget();     // start the occasional idle look-around
 checkBadges(false);   // baseline already-earned badges silently (no toast spam on load)
 

@@ -22,3 +22,6 @@ native-ios/App */
 tools/__pycache__/
 __pycache__/
 .venv/
+
+# scratch output from tools/gen-poses.py (cells are reviewed, then copied into assets/poses/)
+build/

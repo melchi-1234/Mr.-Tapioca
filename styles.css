@@ -609,25 +609,12 @@ body {
    frame count) scroll one whole frame at a time. The inline animation overrides the
    transform keyframes above, so the strip alone carries the motion. background-size
    is also set inline (N×100%). The 86% mask still applies → feet fade into the lip. */
-.maker-img.is-sprite {
-  background-repeat: no-repeat;
-  background-position: 0% 0%;
-  image-rendering: auto;
-}
-@keyframes sprite-play { from { background-position-x: 0%; } to { background-position-x: 100%; } }
 
-/* Skins keep their real portrait while napping → a consistent "dozing" treatment
-   (gentle lean + slow breathing + slight dim) instead of off-model closed-eye art.
-   The base character uses its real eyes-closed Sleeping.png and is unaffected.
-   Never run on a real sleeping SPRITE (its strip already carries the breathing). */
-.scene.is-napping.skin-awake .maker-img:not(.is-sprite) {
-  animation: maker-doze 3.8s ease-in-out infinite;
-  filter: brightness(0.9) saturate(0.95);
-}
-@keyframes maker-doze {
-  0%, 100% { transform: rotate(-6deg) translateY(0); }
-  50%      { transform: rotate(-6deg) translateY(-3px); }
-}
+/* The "dozing" fake (lean + dim) lived here because skins only had an awake
+   portrait, so a nap had to be implied. Every skin now has real eyes-closed art,
+   so the nap is drawn rather than suggested and maker-sleep supplies the
+   breathing. Tilting and dimming a character who is already visibly asleep read
+   as doing the job twice. */
 
 /* Idle: soft breathing, then a little hop with squash-and-stretch — reads as
    "alive" even though each skin is a single still image. */
@@ -744,9 +731,10 @@ body {
   gap: 4px;
   z-index: 9;                      /* above the mascot, below the break panel (z-index:10) */
 }
-/* The base nap art (Sleeping.png) has zzz drawn in; show the floating zzz only for
-   SKINS (their sleepy art has none) and only while he's actually napping. */
-.scene.is-napping.skin-awake .break-zzz { opacity: 1; }
+/* Floating zzz while napping. Every character needs it now: the old base nap art
+   had zzz drawn into the picture, the new generated set deliberately has no text
+   baked in, so this is the only source. */
+.scene.is-napping .break-zzz { opacity: 1; }
 .break-zzz span {
   font-style: italic;
   font-weight: 950;
