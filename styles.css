@@ -3158,7 +3158,11 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   inset: 0;
   z-index: 20;
   flex-direction: column;
-  background: #f6e0c8 url('assets/Plinko Background.png') top center / cover no-repeat;
+  /* A purpose-drawn cabinet, authored 9:19 so it fills the game area without
+     cropping. The old background was the shop backdrop cover-scaled into a
+     different aspect, which is where the hard seam across the middle and the
+     cropped plant bleeding in from the corner came from. */
+  background: #f6e0c8 url('assets/plinko-board.png') center / 100% 100% no-repeat;
   overflow: hidden;
 }
 .plinko-canvas {

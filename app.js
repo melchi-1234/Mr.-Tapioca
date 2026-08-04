@@ -2876,34 +2876,46 @@ function drawPlinkoBoard(highlightSlot) {
   const { slotH, slotW, topPad, rowSpacing, pegR } = geo;
   const slotY = H - slotH;
 
-  const BASE_COLORS = ["#f0bb4f", "#ef8aa0", "#d9f3ea", "#e8e0f8", "#d9f3ea", "#ef8aa0", "#f0bb4f"];
+  // Catch bins, drawn as little cups rather than flat pastel rectangles: a
+  // tapered body, a darker rim, and an outline in the app's own bark colour so
+  // they belong to the same illustration as the cabinet behind them.
+  const BASE_COLORS = ["#f0bb4f", "#ef8aa0", "#a8e4d0", "#c9bbec", "#a8e4d0", "#ef8aa0", "#f0bb4f"];
   const HIT_COLORS  = ["#ffe048", "#ff6688", "#55e8c0", "#c4b5e8", "#55e8c0", "#ff6688", "#ffe048"];
 
   for (let i = 0; i < 7; i++) {
     const x = i * slotW;
     const isHit = i === highlightSlot;
+    const cx = x + slotW / 2;
+    const top = slotY + 5;
+    const bot = H - 4;
+    const halfTop = slotW / 2 - 3;
+    const halfBot = halfTop - 4;                 // taper = cup silhouette
+
+    ctx.beginPath();
+    ctx.moveTo(cx - halfTop, top);
+    ctx.lineTo(cx + halfTop, top);
+    ctx.lineTo(cx + halfBot, bot);
+    ctx.quadraticCurveTo(cx, bot + 3, cx - halfBot, bot);
+    ctx.closePath();
     ctx.fillStyle = isHit ? HIT_COLORS[i] : BASE_COLORS[i];
-    plinkoRoundRect(ctx, x + 2, slotY + 4, slotW - 4, slotH - 6, 7);
     ctx.fill();
-    if (isHit) {
-      ctx.strokeStyle = "#3c2a2f";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#2d2428";
-    ctx.font = "900 10.5px Inter, system-ui, sans-serif";
+    ctx.strokeStyle = "rgba(60,32,24,0.55)";
+    ctx.lineWidth = isHit ? 2.4 : 1.6;
+    ctx.stroke();
+
+    // rim highlight along the mouth of the cup
+    ctx.beginPath();
+    ctx.moveTo(cx - halfTop + 2, top + 2.5);
+    ctx.lineTo(cx + halfTop - 2, top + 2.5);
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "#3c2018";
+    ctx.font = "950 11px Inter, system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(`+${SLOT_REWARDS[i]}`, x + slotW / 2, slotY + slotH / 2);
-  }
-
-  ctx.strokeStyle = "rgba(45,36,40,0.15)";
-  ctx.lineWidth = 1;
-  for (let i = 1; i < 7; i++) {
-    ctx.beginPath();
-    ctx.moveTo(i * slotW, slotY);
-    ctx.lineTo(i * slotW, H);
-    ctx.stroke();
+    ctx.fillText(`+${SLOT_REWARDS[i]}`, cx, (top + bot) / 2 + 1);
   }
 
   const nowT = performance.now();
@@ -2919,13 +2931,19 @@ function drawPlinkoBoard(highlightSlot) {
         ctx.fillStyle = `rgba(255,224,120,${0.5 * glow})`;   // warm honey halo
         ctx.fill();
       }
+      // Pegs are tapioca pearls, not flat dots: a radial gradient gives them
+      // roundness and a contact shadow sits them on the board.
+      ctx.beginPath();
+      ctx.ellipse(px, py + pegR - 1, pegR * 0.9, pegR * 0.4, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(60,32,24,0.16)";
+      ctx.fill();
+      const pg = ctx.createRadialGradient(px - pegR * 0.35, py - pegR * 0.4, pegR * 0.15, px, py, pegR);
+      pg.addColorStop(0, glow > 0 ? "rgba(255,236,190,0.95)" : "rgba(255,255,255,0.7)");
+      pg.addColorStop(0.45, glow > 0 ? "#9a7248" : "#5b3d46");
+      pg.addColorStop(1, glow > 0 ? "#6b4a28" : "#1f1218");
       ctx.beginPath();
       ctx.arc(px, py, pegR, 0, Math.PI * 2);
-      ctx.fillStyle = glow > 0 ? "#7a5a3a" : "#3c2a2f";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(px - 1.5, py - 1.5, 2, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillStyle = pg;
       ctx.fill();
     }
   }
