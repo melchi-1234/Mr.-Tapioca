@@ -1,7 +1,13 @@
 // Mr. Tapioca service worker — makes the app installable and usable offline.
 // Bump CACHE on every release so installed users get the new app shell
 // (cache-first would otherwise serve them the old index/app.js/styles forever).
-const CACHE = "mr-tapioca-v119";
+//
+// EVERY PATH IN SHELL MUST EXIST. install has no catch on purpose (see below),
+// so one missing file makes cache.addAll reject, the new worker never activates,
+// and every user silently keeps the OLD cache — updates stop shipping with no
+// error anywhere. That happened: assets/Bed.png was deleted and left listed
+// here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
+const CACHE = "mr-tapioca-v120";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -24,8 +30,13 @@ const SHELL = [
   "assets/Shop Background Rainy.png",
   "assets/Shop Background Winter.png",
   "assets/Shop Background Galaxy.png",
-  "assets/Shop Background Break.png",
-  "assets/Bed.png",
+  "assets/Bedroom Background.png",
+  "assets/bed-back.png",
+  "assets/bed-front.png",
+  "assets/poses/base-idle.png",
+  "assets/poses/base-mixing.png",
+  "assets/poses/base-sleeping.png",
+  "assets/poses/base-shocked.png",
   "assets/Pong Background.png",
   "assets/Catch Background.png",
   "assets/Plinko Background.png",
