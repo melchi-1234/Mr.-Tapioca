@@ -418,10 +418,18 @@ body {
    with nothing under it. Restoring the gradient (with the art's own wood
    colours, sampled from the background) puts a real floor back under him. */
 .scene.is-on-break {
-  --floor-a: #c49a72;   /* wood, front edge */
-  --floor-b: #d5ad8d;   /* wood, fill */
+  --floor-a: #d2a878;   /* wood, matches the room's floorboards */
+  --floor-b: #dcb98f;   /* wood, matches the room's floorboards */
+  /* The room is authored SQUARE to match the STAGE — the part of .scene above
+     the controls — and is sized to the stage explicitly rather than with cover.
+     cover sizes against .scene, which is the full viewport height, so a square
+     source was scaled to 812 and lost 218px off EACH side. Sizing the height to
+     (100% - --floor-y) maps the art onto exactly the band the user can see, and
+     crops about 27px per side instead. The +8px keeps it meeting the floor line
+     as --floor-y shifts between modes; background-color backs it up. */
   background: var(--floor-grad) no-repeat,
-              #c9bfe0 url('assets/Bedroom Background.png') top center / cover no-repeat;
+              #c9bfe0 url('assets/Bedroom Background.png') top center /
+                auto calc(100% - var(--floor-y) + 8px) no-repeat;
 }
 .scene.is-on-break .work-counter {
   background: linear-gradient(180deg, #fbf7ff 0, #f1ecf8 16px, #e3daf0 100%);
@@ -438,9 +446,9 @@ body {
    the background's arch frame.) This quietly grounds the bed to the ledge. */
 .break-rug {
   position: absolute;
-  left: calc(50% - 112px);
-  bottom: calc(var(--floor-y) + 2px);
-  width: 224px; height: 22px;
+  left: calc(50% - (var(--bed-w) / 2) + 6px);
+  bottom: calc(var(--floor-y) + 1px);
+  width: calc(var(--bed-w) - 12px); height: 20px;
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 50%,
     rgba(88, 58, 108, 0.30) 0%, rgba(88, 58, 108, 0.16) 55%, transparent 76%);
@@ -454,10 +462,9 @@ body {
 
    The old single bed was 240px wide against a 205px character — 1.17x — so he
    could only ever sit ON it, and his art started 107px above its top edge.
-   --bed-w is now wide enough to read as furniture, and the character is scaled
-   down in break mode (see .scene.is-on-break .maker-wrap) so the ratio lands
-   near 2:1 and he actually fits in it. */
-.scene { --bed-w: 268px; --blanket-w: 246px; }
+   --bed-w is now wide enough to read as furniture at the character's real size,
+   so he is never resized between focus and break. */
+.scene { --bed-w: 292px; --blanket-w: 292px; }
 .break-bed-back,
 .break-bed-front {
   position: absolute;
@@ -467,7 +474,7 @@ body {
   pointer-events: none;
 }
 .break-bed-back {
-  bottom: calc(var(--floor-y) + 2px);
+  bottom: calc(var(--floor-y) + 6px);
   z-index: 4;                       /* headboard + pillow, BEHIND him */
   filter: drop-shadow(0 3px 3px rgba(60,32,24,0.22));
 }
@@ -477,20 +484,23 @@ body {
      face clear. At full bed width the cuff cut straight across his eyes. */
   left: calc(50% - (var(--blanket-w) / 2));
   width: var(--blanket-w);
-  bottom: calc(var(--floor-y) + 2px);
+  bottom: calc(var(--floor-y) + 6px);
   z-index: 10;                      /* blanket, IN FRONT of him = tucked in */
 }
 .scene.is-on-break .break-bed-back,
 .scene.is-on-break .break-bed-front { display: block; }
 
-/* Character naps IN the bed on break: scaled down so the bed reads as bigger
-   than he is, and seated at the mattress so the blanket layer crosses his body.
-   transform-origin is the bottom so the scale doesn't lift him off the mattress. */
+/* Character naps IN the bed on break: centred on the mattress and seated so the
+   blanket layer crosses his chest.
+   He is deliberately NOT scaled here. An earlier version shrank him to 0.75 in
+   break, which read as the character shrinking rather than as depth. It also
+   never actually took effect — .maker-wrap carries transform: translateX(--walk)
+   with a 1050ms transition for the walk choreography, and that transition owns
+   the transform property, so a scale declared here is silently dropped. Size the
+   bed instead; --bed-w is the knob. */
 .scene.is-on-break .maker-wrap {
-  left: calc(50% - 102px);          /* centre the 205px box; scale keeps its centre */
-  bottom: calc(var(--floor-y) + 164px);
-  transform: scale(0.75);
-  transform-origin: 50% 100%;
+  left: calc(50% - 102px);
+  bottom: calc(var(--floor-y) + 122px);
 }
 
 /* ── Scene ambiance ────────────────────────────────────────────────────── */
