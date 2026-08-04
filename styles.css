@@ -192,7 +192,15 @@ body {
      that shows a SHORTER controls stack lowers --floor-y by exactly the height
      the stack lost, which keeps the gap between the counter and the top control
      identical in every mode instead of leaving a dead band. */
-  --floor-rest: clamp(408px, 56vh, 470px);
+  /* Distance from the viewport bottom to the shop floor. Was clamp(408px, 56vh,
+     470px), which on a 812px screen put the floor 455px up while the control
+     stack only reaches ~306px — a ~150px dead band of flat colour between the
+     counter and the timer card, and the main reason the scene felt starved and
+     the background barely visible. Lowered so the scene gets that height back;
+     Don't lower it further: --floor-lift already raises the counter 53px during
+     a session, and at 46vh the counter overlapped the timer card by 10px on a
+     812px screen. Verified clear at 667 / 812 / 900. */
+  --floor-rest: clamp(400px, 52vh, 450px);
   --floor-y: var(--floor-rest);
   /* How much shorter the controls stack gets once the size picker is gone:
      the picker's own height plus the stack's row gap. Keep in step with
@@ -1400,13 +1408,11 @@ body {
   display: flex;
   gap: 0;
   width: 100%;
-  background: var(--cream-90);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 2px solid var(--line);
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
   border-radius: 999px;
   padding: 4px;
-  box-shadow: 0 6px 18px rgba(60,32,24,0.12);
+  box-shadow: var(--ui-sheen), var(--ui-lift);
 }
 
 .size-btn {
@@ -1438,15 +1444,34 @@ body {
   border-width: 2px;
 }
 
+/* ── UI material system ────────────────────────────────────────────────────
+   Every control was a cream rounded rect with the same flat blur and a generic
+   soft shadow, which is why the chrome read as a stock component kit sitting on
+   top of an illustrated game. These tokens give the whole UI one material and
+   ONE light direction (from above, matching the shop window), so cards, pickers
+   and buttons look like objects on the counter rather than floating panels.
+
+   --ui-lift is deliberately three-part: a hairline contact edge, a tight close
+   shadow, and a wide ambient one. A single blurred shadow is what makes UI look
+   flat and cheap. */
+/* On :root, NOT .scene-wrap — the controls and the nav live outside the scene
+   wrapper, so scoping these there left them with no background at all. */
+:root {
+  --ui-paper: linear-gradient(180deg, #fffbf3 0%, #fdf4e6 58%, #f8ecda 100%);
+  --ui-edge:  rgba(96,58,36,0.20);
+  --ui-sheen: inset 0 1.5px 0 rgba(255,255,255,0.95);
+  --ui-lift:  0 1px 0 rgba(96,58,36,0.10),
+              0 6px 14px -6px rgba(60,32,24,0.26),
+              0 16px 32px -20px rgba(60,32,24,0.34);
+}
+
 .timer-card {
   width: 100%;
-  background: var(--cream-90);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 2px solid var(--line);
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
   border-radius: 22px;
   padding: 9px 18px 8px;
-  box-shadow: 0 4px 20px rgba(60,32,24,0.15);
+  box-shadow: var(--ui-sheen), var(--ui-lift);
 }
 .timer-card.compact {
   width: auto;
@@ -1518,8 +1543,23 @@ body {
   font-size: 1.05rem;
   font-weight: 950;
   letter-spacing: 0.01em;
-  box-shadow: 0 8px 22px rgba(60,32,24,0.30), inset 0 1px 0 rgba(255,255,255,0.10);
-  transition: transform 80ms, box-shadow 80ms, background 150ms;
+  /* The main CTA is the most-tapped thing in the app, so it gets real
+     tactility: a bright top edge, a solid lip beneath it, and ambient shadow.
+     Pressing depresses it onto the lip rather than only dimming it. */
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.20),
+    inset 0 -2px 0 rgba(0,0,0,0.20),
+    0 5px 0 #2a1610,
+    0 12px 22px -8px rgba(60,32,24,0.48);
+  transition: transform 70ms ease, box-shadow 70ms ease, background 150ms;
+}
+.start-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.14),
+    inset 0 -2px 0 rgba(0,0,0,0.20),
+    0 1px 0 #2a1610,
+    0 5px 12px -6px rgba(60,32,24,0.44);
 }
 .start-btn:active {
   transform: scale(0.97);
@@ -1527,11 +1567,23 @@ body {
 }
 /* While the focus session is running, the Start button becomes the Pause
    button — softer cream colour so it reads as "tap to pause" not "primary CTA" */
+/* Paused: same key, in paper instead of chocolate — its lip switches to the
+   bark colour so the object keeps its thickness rather than flattening. */
 #startPauseBtn.is-running {
-  background: var(--cream);
+  background: var(--ui-paper);
   color: var(--bark);
   border: 2px solid var(--bark);
-  box-shadow: 0 6px 20px rgba(60,32,24,0.22);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.9),
+    0 5px 0 rgba(60,32,24,0.55),
+    0 12px 22px -8px rgba(60,32,24,0.34);
+}
+#startPauseBtn.is-running:active {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.9),
+    0 1px 0 rgba(60,32,24,0.55),
+    0 5px 12px -6px rgba(60,32,24,0.30);
 }
 
 .reset-link {
@@ -1666,14 +1718,16 @@ body {
   gap: 4px;
   flex: 1;
   max-width: 84px;
-  background: var(--cream-90);
-  border: 2px solid var(--line);
-  border-radius: 16px;
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  border-radius: 18px;
   padding: 9px 4px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 12px rgba(60,32,24,0.18);
-  transition: transform 80ms;
+  box-shadow: var(--ui-sheen), var(--ui-lift);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+.icon-pill:active {
+  transform: translateY(2px);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.12), 0 3px 8px -3px rgba(60,32,24,0.30);
 }
 .icon-pill:active { transform: scale(0.95); }
 .pill-label { font-size: 0.58rem; font-weight: 950; color: var(--bark); letter-spacing: 0.01em; }
@@ -2819,11 +2873,26 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   padding: 0 20px;
   border: 2px solid var(--bark);
   border-radius: 999px;
-  background: var(--bark);
+  background: linear-gradient(180deg, #55362a 0%, #40241b 62%, #361e15 100%);
   color: var(--cream);
   font-weight: 950;
   font-size: 0.88rem;
-  box-shadow: 3px 3px 0 rgba(60,32,24,0.12);
+  /* A real key: bright top edge, a solid lip underneath, and ambient shadow.
+     It depresses onto its lip when pressed instead of just dimming. */
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.20),
+    inset 0 -2px 0 rgba(0,0,0,0.18),
+    0 4px 0 #2a1610,
+    0 10px 18px -8px rgba(60,32,24,0.48);
+  transition: transform 70ms ease, box-shadow 70ms ease;
+}
+.primary:active {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.14),
+    inset 0 -2px 0 rgba(0,0,0,0.18),
+    0 1px 0 #2a1610,
+    0 4px 10px -6px rgba(60,32,24,0.44);
 }
 .quiet {
   min-height: 44px;
