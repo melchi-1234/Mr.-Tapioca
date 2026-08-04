@@ -1324,13 +1324,22 @@ function reconcileStreakFreezes() {
   saveState();
 }
 
+// What the maker should be doing right now, given the phase. Anything that
+// re-renders him must ask THIS rather than assume "idle" — during a break he is
+// asleep in bed, and forcing idle there put an awake portrait under the duvet
+// and started the idle hop, so equipping a skin mid-break woke him up and made
+// him bounce under the covers.
+function makerRestState() {
+  if (state.running && state.phase === "focus") return "mixing";
+  if (state.phase === "break" || state.phase === "break-offer") return "sleeping";
+  return "idle";
+}
+
 // Re-apply the maker image for the current resting/working state. Needed after
 // a skin change because updateCup no longer drives maker state every tick.
 function refreshMaker() {
-  // Lazy sprite loading: kick off this skin's sheet decode on equip (no-op if
-  // already ready/loading); falls back to the static portrait until decoded.
   currentMakerState = "";
-  setMakerState(state.running ? "mixing" : "idle");
+  setMakerState(makerRestState());
 }
 
 // History hygiene: wipe earned progress so test/dev sessions don't skew stats
@@ -2249,6 +2258,10 @@ function onRewardDialogClose() {
 function startBreakOffer() {
   state.phase = "break-offer";
   els.shopScene.classList.add("is-on-break");
+  // The bed appears the moment this class lands, so settle him into it now.
+  // Without this he sat bolt upright under the duvet, wide awake and hopping,
+  // until Start Break was tapped.
+  currentMakerState = ""; setMakerState("sleeping");
   els.makerSpeech.textContent = "You crushed it. Take a breather.";
   startMusic("break");   // brighter break tune
   updatePhaseUI();
