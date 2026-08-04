@@ -412,11 +412,21 @@ const SKIN_IMAGES = {
 const SKIN_POSES = {};
 ["grad-cap", "flower", "scarf", "shades", "strawberry", "astro-blue", "dragon",
  "cat-hoodie", "royal", "ninja", "angel", "devil", "wizard"].forEach((skin) => {
+  const idle = "assets/poses/" + skin + "-idle.png";
   SKIN_POSES[skin] = {
-    idle:     "assets/poses/" + skin + "-idle.png",
+    idle:     idle,
     mixing:   "assets/poses/" + skin + "-mixing.png",
     sleeping: "assets/poses/" + skin + "-sleeping.png",
-    shocked:  "assets/poses/" + skin + "-shocked.png"
+    shocked:  "assets/poses/" + skin + "-shocked.png",
+    // walking and drinking reuse the idle DRAWING on purpose. maker-walk and
+    // maker-drink already supply their motion, so the picture must not change:
+    // any state with no entry here falls back to SKIN_IMAGES, the old
+    // separately-drawn portrait, and he visibly flickered into a different
+    // drawing for the length of the walk to the cup. The ninja was the tell —
+    // his old portrait holds the shuriken out, 488px wide against the pose
+    // set's 430px.
+    walking:  idle,
+    drinking: idle
   };
 });
 
@@ -430,8 +440,11 @@ const MAKER_STATIC = {
   idle:     "assets/poses/base-idle.png",
   mixing:   "assets/poses/base-mixing.png",
   sleeping: "assets/poses/base-sleeping.png",
-  drinking: "assets/poses/base-idle.png",   // "drinking" is currently unused
-  shocked:  "assets/poses/base-shocked.png"
+  shocked:  "assets/poses/base-shocked.png",
+  // Same reasoning as SKIN_POSES above: reuse the idle drawing rather than let
+  // these fall through to assets/Mr. Tapioca.png, which is a different drawing.
+  walking:  "assets/poses/base-idle.png",
+  drinking: "assets/poses/base-idle.png"
 };
 
 let currentMakerState = "";
