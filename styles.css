@@ -2932,7 +2932,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   inset: 0;
   z-index: 20;
   flex-direction: column;
-  background: #dcEAF2 url('assets/Catch Background.png') top center / cover no-repeat;
+  /* Same fix as pong. The old backdrop was over-scaled badly enough that
+     cropped clouds carried heavier outlines than the catcher itself. */
+  background: #f7ece0 url('assets/catch-board.png') center / 100% 100% no-repeat;
   border-radius: 0;
 }
 
@@ -3201,7 +3203,11 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   inset: 0;
   z-index: 20;
   flex-direction: column;
-  background: #f3e6d6 url('assets/Pong Background.png') top center / cover no-repeat;
+  /* Authored at the game area's own aspect and sized 100% 100%, so nothing is
+     cropped and the composition is identical on every screen. The old backdrop
+     was the shop background cover-scaled into a different shape, which left the
+     bottom 45% a dead colour void. */
+  background: #f3e6d6 url('assets/pong-board.png') center / 100% 100% no-repeat;
   overflow: hidden;
 }
 .pong-canvas {
