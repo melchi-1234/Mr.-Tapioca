@@ -101,7 +101,15 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Rounded before Inter. The app is illustrated kawaii and its primary
+     platform is iOS, where `ui-rounded` resolves to SF Pro Rounded — the exact
+     soft-terminal personality the art has, at zero bytes and zero network.
+     A webfont (Fredoka/Nunito) was the textbook answer here, but this is an
+     offline-first PWA precached by a service worker: a Google Fonts dependency
+     adds a blocking request, FOIT risk, and one more thing that can 404 the
+     SHELL. Non-Apple platforms fall through to the previous stack unchanged. */
+  font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+               Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 .scene-wrap {
@@ -1448,6 +1456,54 @@ body {
   font-size: 1.2rem;
   border-width: 2px;
 }
+
+/* ── Touch target floor ───────────────────────────────────────────────────
+   44 controls measured under the 44x44 minimum, including the timer's -/+
+   (40x40), every sheet close (40x40) and the shop buttons (32 tall). Fixing
+   that by growing them visually would wreck a deliberately dense layout, so
+   the hit area is extended past the visual bounds instead — which is what
+   Apple's HIG and Material both actually call for.
+
+   The pseudo-element is centred on the control and sized to the shortfall, so
+   a 40px button gets a 44px target and a 32px one gets 44 without either
+   moving a pixel. Parents need position; these all already have it or get it
+   here. Pointer-events stay on the ::after only, so it can't swallow taps
+   meant for anything drawn above it. */
+.time-adj, .adj-btn, .sheet-close, .install-x,
+.shop-buy-btn, .shop-equip-btn, .shop-unequip-btn, .shop-preview-btn,
+.game-quit-btn, .settings-action-btn, .squad-remove, #resetBtn, #customizeDrinkBtn {
+  position: relative;
+}
+.time-adj::after, .adj-btn::after, .sheet-close::after, .install-x::after,
+.shop-buy-btn::after, .shop-equip-btn::after, .shop-unequip-btn::after,
+.shop-preview-btn::after, .game-quit-btn::after, .settings-action-btn::after,
+.squad-remove::after, #resetBtn::after, #customizeDrinkBtn::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  border-radius: inherit;
+}
+
+/* ── Icons ────────────────────────────────────────────────────────────────
+   Inline SVG replaces the emoji that were doing structural work (every sheet
+   close, the streak counter, the app-blocking shield). Emoji render from a
+   font the platform chooses, so they shift shape between iOS versions and
+   Android, ignore currentColor, and can't take a stroke weight — they were the
+   one part of the UI that couldn't be art-directed at all. These inherit
+   colour and sit on the text baseline. */
+.ico { width: 1em; height: 1em; display: block; flex-shrink: 0; }
+.sheet-close .ico, .install-x .ico { width: 15px; height: 15px; }
+.ico-flame { width: 1.05em; height: 1.05em; }
+/* The emoji this replaced was orange, and that colour carried the meaning of
+   "streak" — a monochrome glyph in body-text brown reads as decoration. Keeping
+   the warmth is the point, not a flourish. */
+.flame { color: #ef8a3c; display: flex; align-items: center; }
+.block-pill-ico .ico { width: 15px; height: 15px; }
+.ico-lg { width: 44px; height: 44px; display: block; margin: 0 auto; }
+.block-shield { color: var(--teal); }
 
 /* ── UI material system ────────────────────────────────────────────────────
    Every control was a cream rounded rect with the same flat blur and a generic
