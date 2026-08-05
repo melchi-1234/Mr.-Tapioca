@@ -136,11 +136,11 @@ body {
     display: flex; flex-direction: column; align-items: center;
     width: 312px; flex: 0 0 auto; text-align: center;
     /* Card treatment: plain text on the boba wallpaper was unreadable. */
-    background: var(--cream-90);
-    border: 2px solid var(--line);
+    background: var(--ui-paper);
+    border: 2px solid var(--ui-edge);
     border-radius: 28px;
     padding: 30px 26px;
-    box-shadow: 0 12px 30px rgba(60,32,24,0.10);
+    box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.07), 0 5px 12px -6px rgba(60,32,24,0.24);
   }
   .rail-mascot { width: 132px; height: 132px; filter: drop-shadow(0 8px 12px rgba(60,32,24,0.2)); }
   .rail-title { font-size: 44px; font-weight: 900; color: var(--bark); letter-spacing: -0.5px; margin-top: 6px; }
@@ -1207,8 +1207,9 @@ body {
 .pearl-chip.hud-name { justify-content: center; padding: 6px 12px; }
 /* Inline Customize chip in the timer card (replaces the old percent label) */
 .customize-inline-btn {
-  border: 2px solid var(--line);
-  background: var(--cream-90);
+  border: 2px solid var(--ui-edge);
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.07), 0 5px 12px -6px rgba(60,32,24,0.24);
   color: var(--bark);
   font-weight: 900;
   font-size: 0.68rem;
@@ -2047,8 +2048,9 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   gap: 2px;
   padding: 14px 8px;
   border-radius: 16px;
-  background: rgba(255,255,255,0.7);
-  border: 2px solid var(--line);
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.07), 0 5px 12px -6px rgba(60,32,24,0.24);
+  border: 2px solid var(--ui-edge);
 }
 .stats-grid {
   display: grid;
@@ -2143,9 +2145,10 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   gap: 6px;
   height: 110px;
   padding: 10px 8px 0;
-  border: 2px solid var(--line);
+  border: 2px solid var(--ui-edge);
   border-radius: 16px;
-  background: rgba(255,255,255,0.7);
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.07), 0 5px 12px -6px rgba(60,32,24,0.24);
 }
 .week-col {
   flex: 1;
@@ -2463,9 +2466,10 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   gap: 11px;
   width: 100%;
   padding: 11px 13px;
-  border: 2px solid var(--line);
+  border: 2px solid var(--ui-edge);
   border-radius: 14px;
-  background: var(--cream-90);
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.06), 0 3px 9px -6px rgba(60,32,24,0.2);
   text-align: left;
   transition: transform 90ms ease, background 160ms, border-color 160ms;
 }
@@ -2536,9 +2540,10 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 /* ── Blocked apps / restriction preview ─────────────────────────────────── */
 .blocked-panel {
   padding: 12px;
-  border: 2px solid var(--line);
+  border: 2px solid var(--ui-edge);
   border-radius: 16px;
-  background: rgba(255,255,255,0.7);
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.07), 0 5px 12px -6px rgba(60,32,24,0.24);
 }
 .app-locks {
   display: grid;
@@ -3419,8 +3424,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .squad-row {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px;
-  border: 2px solid var(--line); border-radius: 16px;
-  background: var(--cream-90);
+  border: 2px solid var(--ui-edge); border-radius: 16px;
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.06), 0 3px 9px -6px rgba(60,32,24,0.2);
 }
 .squad-row.me { border-color: var(--teal); background: var(--mint); }
 .squad-rank { flex-shrink: 0; width: 26px; text-align: center; font-size: 1.1rem; }
