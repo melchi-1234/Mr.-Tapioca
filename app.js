@@ -52,6 +52,8 @@ const DEFAULTS = {
 // The shop sells character skins + backgrounds only. Tea base & toppings are
 // free personalization in the Customize sheet (not purchasable); cup stickers
 // were cut. (Earlier those lived here as paid items and became orphaned.)
+// Boost tiles have no painted art, so they show a line icon from the same family.
+const FREEZE_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6v18.8M4.3 7.1l15.4 9.8M19.7 7.1 4.3 16.9"/><path d="M12 6.2 9.9 4.3M12 6.2l2.1-1.9M12 17.8l-2.1 1.9M12 17.8l2.1 1.9"/><path d="m6.6 8.5-2.8.3M6.6 8.5 5.7 5.8M17.4 15.5l2.8-.3M17.4 15.5l.9 2.7"/><path d="m6.6 15.5-2.8-.3M6.6 15.5l-.9 2.7M17.4 8.5l2.8.3M17.4 8.5l.9-2.7"/></svg>';
 const SHOP_ITEMS = [
   // Default skin
   { id: "skin-default",    name: "Mr. Tapioca",    desc: "The Original",          category: "Character Skin", type: "skin", value: "",           price: 0,  img: "assets/Mr. Tapioca.png"      },
@@ -86,7 +88,7 @@ const SHOP_ITEMS = [
   { id: "theme-sunset",    name: "Mango Sunset",         desc: "Golden Hour, Ocean Air",                    category: "Backgrounds", type: "shopTheme", value: "sunset",     premium: true, color: "#f4b9a1" },
 
   // Boosts — repeatable CONSUMABLES (tracked by count, not one-time ownership)
-  { id: "boost-freeze",    name: "Brain Freeze",         desc: "Saves your most recent focus streak", category: "Boosts", type: "consumable", consumableKey: "freezes", price: 10, icon: "🧊" },
+  { id: "boost-freeze",    name: "Brain Freeze",         desc: "Saves your most recent focus streak", category: "Boosts", type: "consumable", consumableKey: "freezes", price: 10, icon: FREEZE_ICON },
 ];
 
 const UNLOCKS = [
@@ -1442,7 +1444,7 @@ function renderShop() {
       : `<button class="shop-buy-btn" data-buy-consumable="${item.id}" ${canBuy ? "" : "disabled"}>${item.price}</button>`;
     return `
       <article class="shop-card">
-        <div class="shop-preview" style="background:#eaf4f3"><div class="shop-boost-preview">${item.icon || "🧊"}</div></div>
+        <div class="shop-preview" style="background:#eaf4f3"><div class="shop-boost-preview">${item.icon || FREEZE_ICON}</div></div>
         <div><strong>${item.name}</strong><small>${item.desc}</small></div>
         <div class="shop-card-action">${action}</div>
       </article>`;
@@ -2681,7 +2683,7 @@ function gameLoop(ts) {
   }
   if (gotIce)  { playSfx("drop"); flashMiss(); haptic([8, 30, 8]); }
   if (gotBomb) { playSfx("buzz"); flashMiss(); haptic([14, 45, 14, 45]); }
-  if (gained > 0 || gotBomb) els.gameScore.textContent = "⬡ " + game.score;
+  if (gained > 0 || gotBomb) els.gameScore.innerHTML = ICON.pearl + game.score;
 
   game.spawnTimer += dt;
   if (game.spawnTimer >= spawnInterval) {
@@ -2718,7 +2720,7 @@ function startPearlGame() {
   game.keysLeft = false;
   game.keysRight = false;
   game.cupBumpUntil = 0;
-  els.gameScore.textContent = "⬡ 0";
+  els.gameScore.innerHTML = ICON.pearl + "0";
   els.gameTimer.textContent = "0:" + String(CATCH_DURATION).padStart(2, "0");
   els.gameResult.style.display = "none";
   els.pearlGame.style.display = "flex";
@@ -3033,32 +3035,42 @@ function renderBreakGameButtons() {
   if (note) note.classList.toggle("hidden", gamesUnlockedForBreak());
 }
 
+// The three launch buttons carry an inline SVG icon in the markup. Writing
+// `textContent` here used to wipe it on every render and leave an emoji in its
+// place, so the icons only survived until the first repaint. Rebuild icon+label
+// together instead. `label` is always app-authored, never user input.
+function setGameBtn(btn, iconKey, label) {
+  if (!btn) return;
+  btn.innerHTML = '<span class="g-emoji">' + ICON[iconKey] + '</span>' +
+                  '<span class="g-label">' + label + '</span>';
+}
 function updateCatchBtnState() {
   const locked = !gamesUnlockedForBreak();
   const done = gameDoneToday("catch");
   els.playGameBtn.disabled = done || locked;
-  els.playGameBtn.textContent = locked ? "Catch the Pearls 🔒"
-    : done ? "Catch the Pearls ✓ back tomorrow" : "Catch the Pearls 🎮";
+  setGameBtn(els.playGameBtn,
+    locked ? "lock" : done ? "check" : "games",
+    locked ? "Catch the Pearls" : done ? "Catch the Pearls, back tomorrow" : "Catch the Pearls");
 }
 function updatePlinkoBtnState() {
   const locked = !gamesUnlockedForBreak();
   const done = gameDoneToday("plinko");
   const left = state.devMode ? PLINKO_MAX_PLAYS : bankedPlays("plinko");
   els.playPlinkoBtn.disabled = done || locked;
-  els.playPlinkoBtn.textContent = locked ? "Boba Plinko 🔒"
-    : done ? "Boba Plinko ✓ back tomorrow"
-    : left < PLINKO_MAX_PLAYS ? `Boba Plinko 🎟️ ${left} left`
-    : "Boba Plinko 🎟️";
+  setGameBtn(els.playPlinkoBtn,
+    locked ? "lock" : done ? "check" : "plinko",
+    locked ? "Boba Plinko" : done ? "Boba Plinko, back tomorrow"
+      : left < PLINKO_MAX_PLAYS ? `Boba Plinko (${left} left)` : "Boba Plinko");
 }
 function updatePongBtnState() {
   const locked = !gamesUnlockedForBreak();
   const done = gameDoneToday("pong");
   const left = state.devMode ? PONG_MAX_PLAYS : bankedPlays("pong");
   els.playPongBtn.disabled = done || locked;
-  els.playPongBtn.textContent = locked ? "Cup Pong 🔒"
-    : done ? "Cup Pong ✓ back tomorrow"
-    : left < PONG_MAX_PLAYS ? `Cup Pong 🥤 ${left} left`
-    : "Cup Pong 🥤";
+  setGameBtn(els.playPongBtn,
+    locked ? "lock" : done ? "check" : "cup",
+    locked ? "Cup Pong" : done ? "Cup Pong, back tomorrow"
+      : left < PONG_MAX_PLAYS ? `Cup Pong (${left} left)` : "Cup Pong");
 }
 
 function openPlinko() {
@@ -3848,7 +3860,14 @@ const ICON = {
   pin:    '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5a6.5 6.5 0 0 0-6.5 6.5c0 4.6 5.6 11.3 6.1 11.9a.6.6 0 0 0 .9 0c.4-.6 6-7.3 6-11.9A6.5 6.5 0 0 0 12 2.5Zm0 9a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/></svg>',
   boba:   '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6.5 7h11l-1 12.5a1.6 1.6 0 0 1-1.6 1.5H9.1a1.6 1.6 0 0 1-1.6-1.5L6.5 7Z"/><path d="M5.6 7h12.8M14 3.2 12.6 7" stroke-linecap="round"/><circle cx="10" cy="17" r="1.3" fill="currentColor" stroke="none"/><circle cx="13.6" cy="17.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="14.6" r="1.3" fill="currentColor" stroke="none"/></svg>',
   cup:    '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 7h12l-1 12.4a1.6 1.6 0 0 1-1.6 1.6H8.6A1.6 1.6 0 0 1 7 19.4L6 7Z"/><path d="M5 7h14" stroke-linecap="round"/></svg>',
-  plinko: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.5" r="1.6"/><circle cx="7.5" cy="9.5" r="1.6"/><circle cx="16.5" cy="9.5" r="1.6"/><circle cx="5" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="19" cy="14.5" r="1.6"/><path d="M4 19h16v2H4z"/></svg>'
+  plinko: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.5" r="1.6"/><circle cx="7.5" cy="9.5" r="1.6"/><circle cx="16.5" cy="9.5" r="1.6"/><circle cx="5" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="19" cy="14.5" r="1.6"/><path d="M4 19h16v2H4z"/></svg>',
+  lock:   '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10" width="15" height="10.5" rx="3"/><path d="M8.2 10V7.4a3.8 3.8 0 0 1 7.6 0V10"/></svg>',
+  check:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.6l4.6 4.6L19.5 6.8"/></svg>',
+  ticket: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h13a2 2 0 0 1 2 2v1.3a2.2 2.2 0 0 0 0 4.4v1.3a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-1.3a2.2 2.2 0 0 0 0-4.4V8.5Z"/><path d="M13 7v2.2M13 14.8V17"/></svg>',
+  target: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.6"/></svg>',
+  star:   '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3.2 2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8L12 3.2Z"/></svg>',
+  pearl:  '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="7.6"/><ellipse cx="9.6" cy="9.2" rx="2.1" ry="1.5" fill="rgba(255,255,255,.5)" transform="rotate(-28 9.6 9.2)"/></svg>',
+  flame:  '<svg class="ico ico-flame" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 2.2c.6 3.1-.7 4.6-2 6-1.4 1.5-2.9 3-2.9 5.6a5.4 5.4 0 0 0 10.8 0c0-2.3-1-4-2.1-5.4-.5.9-1.2 1.5-2 1.7.7-2.9-.2-5.6-1.8-7.9Z"/></svg>'
 };
 
 function bobaPin(emoji, cls) {
@@ -4423,7 +4442,7 @@ function renderSquad() {
   const av = document.querySelector("#squadMeAvatar"); if (av) av.src = squadAvatar(me.skin);
   const nm = document.querySelector("#squadMeName"); if (nm) nm.textContent = me.name;
   const ms = document.querySelector("#squadMeStats");
-  if (ms) ms.textContent = `${formatFocusTotal(me.mins)} focused · ${me.streak}🔥`;
+  if (ms) ms.innerHTML = `${formatFocusTotal(me.mins)} focused &middot; ${me.streak}` + ICON.flame;
   const board = document.querySelector("#squadBoard"); if (!board) return;
   const live = squadCloudLive();
   let rows;
@@ -4445,7 +4464,7 @@ function renderSquad() {
         `<span class="squad-row-name">${escapeHtml(r.name)}${r.me ? ' <span class="squad-you">YOU</span>' : ""}</span>` +
         `<span class="squad-row-sub">${formatFocusTotal(r.mins)}</span>` +
       `</span>` +
-      `<span class="squad-row-stats">${r.streak}🔥</span>` +
+      `<span class="squad-row-stats">${r.streak}${ICON.flame}</span>` +
       (r.me ? "" : `<button class="squad-remove" data-id="${r.id}" aria-label="Remove ${escapeHtml(r.name)}">✕</button>`) +
       `</div>`;
   }).join("");
@@ -4831,7 +4850,7 @@ function pongDims() {
 
 function updatePongHUD() {
   els.pongThrows.textContent = `${pong.throwsLeft} left`;
-  els.pongScore.textContent = "⬡ " + pong.score;
+  els.pongScore.innerHTML = ICON.pearl + pong.score;
 }
 
 function resetPongPearl() {

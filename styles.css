@@ -101,15 +101,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Rounded before Inter. The app is illustrated kawaii and its primary
-     platform is iOS, where `ui-rounded` resolves to SF Pro Rounded — the exact
-     soft-terminal personality the art has, at zero bytes and zero network.
-     A webfont (Fredoka/Nunito) was the textbook answer here, but this is an
-     offline-first PWA precached by a service worker: a Google Fonts dependency
-     adds a blocking request, FOIT risk, and one more thing that can 404 the
-     SHELL. Non-Apple platforms fall through to the previous stack unchanged. */
-  font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
-               Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 .scene-wrap {
@@ -1798,13 +1790,6 @@ body {
 .icon-pill { position: relative; }
 
 /* Daily-quests nav icon: a little clipboard with a check */
-.nav-quest { border: 2.5px solid currentColor; border-radius: 6px; background: #ffd9b0; }
-.nav-quest::before {
-  content: ""; position: absolute; left: 8px; top: 5px;
-  width: 6px; height: 11px;
-  border: solid var(--teal); border-width: 0 3px 3px 0;
-  transform: rotate(40deg);
-}
 /* Count badge on the Quests pill (remaining quests today) */
 .nav-badge {
   position: absolute; top: 1px; right: 5px;
@@ -1818,116 +1803,27 @@ body {
 .nav-badge.hidden { display: none; }
 
 /* Cute CSS icons for the bottom bar */
+/* The five nav icons were each hand-drawn from borders and pseudo-elements —
+   five different constructions with five different stroke weights, which is why
+   they never read as one set. They are a single SVG family now: one 24 grid,
+   one 2px stroke, round caps and joins. */
+.nav-svg { width: 100%; height: 100%; display: block; }
 .nav-icon {
   position: relative;
-  width: 26px;
-  height: 24px;
-  display: inline-block;
+  width: 25px;
+  height: 25px;          /* square, so the 24-grid icons aren't squashed */
+  display: block;
   color: var(--bark);
 }
 
 /* Shopping bag: rectangle body + handle on top */
-.nav-bag {
-  border: 2.5px solid currentColor;
-  border-radius: 5px 5px 9px 9px;
-  background: #ffd9b0;
-  width: 22px;
-  height: 22px;
-  margin-top: 2px;
-}
-.nav-bag::before {
-  content: "";
-  position: absolute;
-  top: -7px;
-  left: 3px;
-  right: 3px;
-  height: 9px;
-  border: 2.5px solid currentColor;
-  border-bottom: none;
-  border-radius: 9px 9px 0 0;
-  background: transparent;
-}
-.nav-bag::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 60%;
-  transform: translate(-50%, -50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #d85f78;
-  box-shadow: -5px 1px 0 #5b3d46, 5px 1px 0 #5b3d46;
-}
 
 /* Painter's palette: oval with thumb hole + four colour dots */
-.nav-palette {
-  width: 24px;
-  height: 22px;
-  margin-top: 2px;
-  border: 2.5px solid currentColor;
-  border-radius: 60% / 70%;
-  background: #fff7e8;
-  position: relative;
-}
-.nav-palette::before {
-  /* colour dots */
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 4px;
-  width: 3.5px;
-  height: 3.5px;
-  border-radius: 50%;
-  background: #ef8aa0;
-  box-shadow:
-    6px 0 0 #76a86a,
-    12px 0 0 #b58bdc,
-    3px 7px 0 #f0bb4f;
-}
-.nav-palette::after {
-  /* thumb-hole notch */
-  content: "";
-  position: absolute;
-  bottom: -2px;
-  right: 1px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--cream-90);
-  border: 2px solid currentColor;
-}
 
 /* Settings gear — crisp SVG silhouette tinted with the nav color.
    URL-encoded data URI (encoded <,>,# ) so the mask works in every browser. */
-.nav-gear {
-  width: 24px;
-  height: 24px;
-  background: currentColor;
-  -webkit-mask: var(--gear-mask) center / contain no-repeat;
-  mask: var(--gear-mask) center / contain no-repeat;
-  --gear-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.03 7.03 0 00-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84a.48.48 0 00-.48.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.48.48 0 00-.59.22L2.74 8.87a.48.48 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.13.22.39.31.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.09.46 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z'/%3E%3C/svg%3E");
-}
 
 /* Map location pin */
-.nav-pin {
-  width: 17px;
-  height: 17px;
-  /* pad the 17px pin to the shared 24px icon slot so all four pills match height */
-  margin: 4px 0 3px;
-  border: 2.5px solid currentColor;
-  border-radius: 50% 50% 50% 0;
-  background: #d9f3ea;
-  transform: rotate(-45deg);
-}
-.nav-pin::after {
-  content: "";
-  position: absolute;
-  top: 4px; left: 4px;
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-}
 
 /* ── Slide-up sheets ────────────────────────────────────────────────────── */
 .sheet {
@@ -3402,13 +3298,6 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 
 /* Bottom-nav "Squad" people icon (matches the other CSS-mask icons) */
-.nav-people {
-  width: 26px; height: 24px;
-  background: currentColor;
-  -webkit-mask: var(--people-mask) center / contain no-repeat;
-  mask: var(--people-mask) center / contain no-repeat;
-  --people-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z'/%3E%3C/svg%3E");
-}
 
 /* ── Study Squad (friends leaderboard) ──────────────────────────────────────── */
 .squad-me {
@@ -3446,6 +3335,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 
 /* Your own friend code, readable so you can say it out loud or type it in
    manually. Before this it existed only inside the share sheet's message. */
+.squad-mycode.hidden { display: none; }   /* same trap as .block-pill.hidden */
 .squad-mycode {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; margin: 0 2px 10px; padding: 10px 14px;
@@ -3882,6 +3772,12 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 
 /* ── App-blocking discoverability: shield pill + start-focus prompt (2026-07) ─ */
+.block-pill.hidden {
+  /* the global `.hidden { display:none }` at ~3255 loses to the `display:inline-flex`
+     below it, so this pill stayed visible on web even though it is native-only.
+     It sat next to Reset in .session-row and pushed it out of alignment. */
+  display: none;
+}
 .block-pill {
   display: inline-flex;
   align-items: center;
@@ -3960,3 +3856,20 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   color: rgba(60, 32, 24, 0.55);
 }
 .game-launch-btn:disabled { opacity: 0.55; }
+
+/* ── inline icon sizing for the icons that replaced emoji ────────────── */
+.dg-icon { display: inline-flex; align-items: center; color: var(--bark-mid, #6b4a3a); }
+.dg-icon .ico { width: 15px; height: 15px; }
+.game-score { display: inline-flex; align-items: center; gap: 5px; }
+.game-score .ico { width: 15px; height: 15px; color: var(--boba, #3d2117); }
+.games-lock-note { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.games-lock-note .ico { width: 14px; height: 14px; flex-shrink: 0; }
+.squad-board-head { display: flex; align-items: center; gap: 7px; }
+.squad-board-head .ico { width: 17px; height: 17px; }
+.install-icon .ico { width: 26px; height: 26px; }
+.settings-action-btn .ico { width: 15px; height: 15px; display: inline-block; vertical-align: -2px; }
+.squad-stats, .squad-row-stats { display: inline-flex; align-items: center; gap: 1px; }
+.squad-stats .ico, .squad-row-stats .ico { width: 13px; height: 13px; color: #ef8a3c; }
+.g-label { display: inline; }
+
+.shop-boost-preview .ico { width: 54px; height: 54px; color: #7fb7bd; margin: 0 auto; }

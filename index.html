@@ -139,7 +139,7 @@
         <!-- Catch the Pearls game overlay -->
         <div id="pearlGame" class="pearl-game" style="display:none">
           <div class="game-hud">
-            <span id="gameScore" class="game-score">⬡ 0</span>
+            <span id="gameScore" class="game-score"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="7.6"/><ellipse cx="9.6" cy="9.2" rx="2.1" ry="1.5" fill="rgba(255,255,255,.5)" transform="rotate(-28 9.6 9.2)"/></svg>0</span>
             <span id="gameTimer" class="game-timer">0:20</span>
             <button id="quitGameBtn" class="game-quit-btn">Quit</button>
           </div>
@@ -182,7 +182,7 @@
         <!-- Cup Pong game overlay -->
         <div id="pongGame" class="pong-game" style="display:none">
           <div class="game-hud">
-            <span id="pongScore" class="game-score">⬡ 0</span>
+            <span id="pongScore" class="game-score"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="7.6"/><ellipse cx="9.6" cy="9.2" rx="2.1" ry="1.5" fill="rgba(255,255,255,.5)" transform="rotate(-28 9.6 9.2)"/></svg>0</span>
             <span id="pongThrows" class="game-timer">4 left</span>
             <button id="quitPongBtn" class="game-quit-btn">Quit</button>
           </div>
@@ -215,7 +215,7 @@
 
       <!-- ── Daily goal progress (always visible) ─────────────────── -->
       <div id="dailyGoal" class="daily-goal">
-        <span class="dg-icon">🎯</span>
+        <span class="dg-icon" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.6"/></svg></span>
         <div class="dg-track"><span id="dgFill" class="dg-fill"></span></div>
         <span id="dgLabel" class="dg-label">0/60</span>
       </div>
@@ -284,11 +284,11 @@
           </div>
           <div class="progress-track break-track"><span id="breakProgressBar"></span></div>
         </div>
-        <p id="gamesLockNote" class="games-lock-note hidden">🔒 Break games unlock after a 30 minute focus session</p>
+        <p id="gamesLockNote" class="games-lock-note hidden"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10" width="15" height="10.5" rx="3"/><path d="M8.2 10V7.4a3.8 3.8 0 0 1 7.6 0V10"/></svg>Break games unlock after a 30 minute focus session</p>
         <div class="break-games-row">
-          <button id="playGameBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="4.5"/><path d="M7 11v3M5.5 12.5h3M15.5 12h.01M18 14h.01"/></svg></span>Catch</button>
-          <button id="playPlinkoBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="4.5" r="1.6"/><circle cx="7.5" cy="9.5" r="1.6"/><circle cx="16.5" cy="9.5" r="1.6"/><circle cx="5" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="19" cy="14.5" r="1.6"/><path d="M4 19h16v2H4z"/></svg></span>Plinko</button>
-          <button id="playPongBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 12.4a1.6 1.6 0 0 1-1.6 1.6H8.6A1.6 1.6 0 0 1 7 19.4L6 7Z"/><path d="M5 7h14" stroke-linecap="round"/></svg></span>Cup Pong</button>
+          <button id="playGameBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="4.5"/><path d="M7 11v3M5.5 12.5h3M15.5 12h.01M18 14h.01"/></svg></span><span class="g-label">Catch the Pearls</span></button>
+          <button id="playPlinkoBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="4.5" r="1.6"/><circle cx="7.5" cy="9.5" r="1.6"/><circle cx="16.5" cy="9.5" r="1.6"/><circle cx="5" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="19" cy="14.5" r="1.6"/><path d="M4 19h16v2H4z"/></svg></span><span class="g-label">Boba Plinko</span></button>
+          <button id="playPongBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 12.4a1.6 1.6 0 0 1-1.6 1.6H8.6A1.6 1.6 0 0 1 7 19.4L6 7Z"/><path d="M5 7h14" stroke-linecap="round"/></svg></span><span class="g-label">Cup Pong</span></button>
         </div>
         <button id="skipBreakRunningBtn" class="reset-link">End Break</button>
       </div>
@@ -296,31 +296,31 @@
       <!-- ── Bottom navigation bar ────────────────────────────────── -->
       <nav class="bottom-bar">
         <button class="icon-pill" id="questsBtn" aria-label="Daily quests">
-          <span class="nav-icon nav-quest" aria-hidden="true"></span>
+          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/></svg></span>
           <span class="pill-label">Quests</span>
           <span id="questBadge" class="nav-badge hidden">3</span>
         </button>
         <button class="icon-pill" id="shopBtn" aria-label="Shop">
-          <span class="nav-icon nav-bag" aria-hidden="true"></span>
+          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 8h15l-1.1 11.2a2 2 0 0 1-2 1.8H7.6a2 2 0 0 1-2-1.8L4.5 8Z"/><path d="M8.8 8V6.4a3.2 3.2 0 0 1 6.4 0V8"/></svg></span>
           <span class="pill-label">Shop</span>
         </button>
         <button class="icon-pill" id="mapBtn" aria-label="Boba map">
-          <span class="nav-icon nav-pin" aria-hidden="true"></span>
+          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
           <span class="pill-label">Map</span>
         </button>
         <button class="icon-pill" id="friendsBtn" aria-label="Study Squad">
-          <span class="nav-icon nav-people" aria-hidden="true"></span>
+          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.6a3.2 3.2 0 0 1 0 5.8M17.5 20a5.5 5.5 0 0 0-2.2-4.4"/></svg></span>
           <span class="pill-label">Squad</span>
         </button>
         <button class="icon-pill" id="settingsBtn" aria-label="Settings">
-          <span class="nav-icon nav-gear" aria-hidden="true"></span>
+          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M19.2 14.4a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg></span>
           <span class="pill-label">Settings</span>
         </button>
       </nav>
 
       <!-- ── Install prompt (PWA) ─────────────────────────────────────── -->
       <div id="installBanner" class="install-banner" role="status" aria-live="polite" aria-label="Install Mr. Tapioca" hidden>
-        <span class="install-icon" aria-hidden="true">🧋</span>
+        <span class="install-icon" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 7h11l-1 12.5a1.6 1.6 0 0 1-1.6 1.5H9.1a1.6 1.6 0 0 1-1.6-1.5L6.5 7Z"/><path d="M5.6 7h12.8M14 3.2 12.6 7" stroke-linecap="round"/><circle cx="10" cy="17" r="1.3" fill="currentColor" stroke="none"/><circle cx="14" cy="17.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="14.6" r="1.3" fill="currentColor" stroke="none"/></svg></span>
         <p id="installText" class="install-text">Install Mr. Tapioca for the full-screen app.</p>
         <button id="installBtn" class="install-btn">Install</button>
         <button id="installDismiss" class="install-x" aria-label="Dismiss"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -422,7 +422,7 @@
 
           <div class="settings-row">
             <span class="settings-row-label">Love Mr. Tapioca?</span>
-            <button id="rateAppBtn" class="settings-action-btn">Rate it ⭐</button>
+            <button id="rateAppBtn" class="settings-action-btn">Rate it <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 3.2 2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8L12 3.2Z"/></svg></button>
           </div>
 
           <div class="settings-row hidden" id="deleteAccountRow">
@@ -516,7 +516,7 @@
             <img id="squadMeAvatar" class="squad-avatar" src="assets/Mr. Tapioca.png" alt="">
             <div class="squad-me-info">
               <span id="squadMeName" class="squad-name">You</span>
-              <div id="squadMeStats" class="squad-stats">0h · 0 drinks · 0🔥</div>
+              <div id="squadMeStats" class="squad-stats">0h &middot; 0 drinks &middot; 0<svg class="ico ico-flame" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 2.2c.6 3.1-.7 4.6-2 6-1.4 1.5-2.9 3-2.9 5.6a5.4 5.4 0 0 0 10.8 0c0-2.3-1-4-2.1-5.4-.5.9-1.2 1.5-2 1.7.7-2.9-.2-5.6-1.8-7.9Z"/></svg></div>
             </div>
           </div>
           <div id="squadMyCodeRow" class="squad-mycode hidden">
@@ -529,7 +529,7 @@
             <input id="squadCodeInput" class="squad-input" placeholder="Paste a friend's code here" autocomplete="off" autocapitalize="off" spellcheck="false">
             <button id="squadAddBtn" class="squad-add-btn">Add</button>
           </div>
-          <div class="squad-board-head">🏆 Leaderboard</div>
+          <div class="squad-board-head"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H4.5A2.5 2.5 0 0 0 7 9M17 5.5h2.5A2.5 2.5 0 0 1 17 9M12 14v3M8.5 20h7l-.7-3h-5.6l-.7 3Z"/></svg>Leaderboard</div>
           <div id="squadBoard" class="squad-board"></div>
         </div>
       </div>
