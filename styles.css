@@ -1569,10 +1569,7 @@ body {
     0 1px 0 #2a1610,
     0 5px 12px -6px rgba(60,32,24,0.44);
 }
-.start-btn:active {
-  transform: scale(0.97);
-  box-shadow: 0 3px 10px rgba(60,32,24,0.22);
-}
+
 /* While the focus session is running, the Start button becomes the Pause
    button — softer cream colour so it reads as "tap to pause" not "primary CTA" */
 /* Paused: same key, in paper instead of chocolate — its lip switches to the
@@ -1878,7 +1875,10 @@ body {
   position: absolute;
   bottom: 0; left: 0; right: 0;
   z-index: 50;
-  background: var(--cream);
+  /* Same paper as the rest of the chrome, with a lip along the top edge so the
+     sheet reads as a physical card sliding up over the scene. */
+  background: var(--ui-paper);
+  border-top: 2px solid var(--ui-edge);
   border-radius: 28px 28px 0 0;
   max-height: 88svh;
   display: flex;
@@ -1938,8 +1938,9 @@ body {
 .sheet-close {
   width: 40px; height: 40px;
   border-radius: 50%;
-  border: none;
-  background: rgba(60,32,24,0.07);
+  border: 2px solid var(--ui-edge);
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 2px 6px -3px rgba(60,32,24,0.3);
   color: var(--bark-mid);
   font-size: 0.9rem;
   font-weight: 950;
@@ -2594,9 +2595,15 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   gap: 10px;
   align-items: center;
   padding: 10px 12px;
-  border: 2px solid var(--line);
+  border: 2px solid var(--ui-edge);
   border-radius: 14px;
-  background: rgba(255,255,255,0.7);
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.08), 0 4px 10px -5px rgba(60,32,24,0.24);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+.shop-card:active {
+  transform: translateY(2px);
+  box-shadow: var(--ui-sheen), 0 1px 4px -2px rgba(60,32,24,0.28);
 }
 
 .shop-preview {
@@ -2643,7 +2650,21 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   font-size: 0.76rem;
   font-weight: 950;
   white-space: nowrap;
-  box-shadow: 2px 2px 0 rgba(60,32,24,0.12);
+  /* Same key as the main CTA, scaled down — the offset-square shadow it had was
+     a different depth language from everything else on screen. */
+  background: linear-gradient(180deg, #55362a 0%, #3c2018 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    0 3px 0 #2a1610,
+    0 6px 12px -6px rgba(60,32,24,0.45);
+  transition: transform 70ms ease, box-shadow 70ms ease;
+}
+.shop-buy-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.14),
+    0 1px 0 #2a1610,
+    0 3px 8px -5px rgba(60,32,24,0.4);
 }
 .shop-buy-btn:disabled { opacity: 0.36; cursor: not-allowed; box-shadow: none; }
 
@@ -2727,7 +2748,12 @@ dialog::backdrop { background: rgba(60,32,24,0.45); }
   border: 3px solid var(--bark);
   border-radius: 26px;
   background: linear-gradient(180deg, #fff6e6 0%, var(--cream) 46%);
-  box-shadow: 10px 10px 0 rgba(60,32,24,0.14);
+  /* Keeps its chunky offset (this is the celebration moment) but gains the same
+     ambient falloff everything else has, so it sits in the same room. */
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.9),
+    8px 8px 0 rgba(60,32,24,0.14),
+    0 18px 40px -18px rgba(60,32,24,0.45);
   color: var(--bark);
   text-align: center;
   overflow: hidden;
@@ -2919,8 +2945,13 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .sheet-close, .settings-action-btn, .game-quit-btn, .toggle {
   transition: transform 90ms ease, background 180ms, color 180ms, box-shadow 180ms;
 }
+/* Squish is for flat controls only. .primary and .shop-buy-btn are KEYS with a
+   lip beneath them and depress with translateY instead — they were listed here
+   too, and since this rule comes later it won the transform while their own
+   rule still removed the lip, so a press both squished AND flattened them. Two
+   depth metaphors at once reads as a glitch. */
 .size-btn:active, .choice:active, .base-option:active, .adj-btn:active,
-.primary:active, .quiet:active, .shop-buy-btn:active, .shop-equip-btn:active,
+.quiet:active, .shop-equip-btn:active,
 .shop-unequip-btn:active, .shop-preview-btn:active, .sheet-close:active,
 .settings-action-btn:active, .game-quit-btn:active {
   transform: scale(0.93);
@@ -3408,8 +3439,9 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .quest-card {
   display: flex; align-items: center; gap: 12px;
   padding: 13px 14px;
-  border: 2px solid var(--line); border-radius: 18px;
-  background: rgba(255,255,255,0.7);
+  border: 2px solid var(--ui-edge); border-radius: 18px;
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.08), 0 4px 10px -5px rgba(60,32,24,0.22);
   transition: background 240ms ease, border-color 240ms ease;
 }
 .quest-card.done { background: var(--mint); border-color: var(--teal); }
