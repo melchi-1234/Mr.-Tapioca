@@ -3835,6 +3835,22 @@ function relocateMap() {
   );
 }
 
+// ── Inline SVG icon set ──────────────────────────────────────────────────────
+// Replaces the last emoji doing structural work (onboarding steps, map pins,
+// game launch buttons). Vector, so they inherit currentColor, keep one stroke
+// weight, and render identically on every OS — none of which emoji can do.
+// Deliberately SVG rather than generated PNGs: these are UI chrome, so they
+// need to scale and re-colour, and they cost bytes we would otherwise precache.
+const ICON = {
+  games:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="11" rx="4.5"/><path d="M7 11v3M5.5 12.5h3M15.5 12h.01M18 14h.01"/></svg>',
+  trophy: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H4.5A2.5 2.5 0 0 0 7 9M17 5.5h2.5A2.5 2.5 0 0 1 17 9M12 14v3M8.5 20h7l-.7-3h-5.6l-.7 3Z"/></svg>',
+  map:    '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 4-6 2.5v13L9 17l6 2.5 6-2.5V4l-6 2.5L9 4Z"/><path d="M9 4v13M15 6.5v13"/></svg>',
+  pin:    '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5a6.5 6.5 0 0 0-6.5 6.5c0 4.6 5.6 11.3 6.1 11.9a.6.6 0 0 0 .9 0c.4-.6 6-7.3 6-11.9A6.5 6.5 0 0 0 12 2.5Zm0 9a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/></svg>',
+  boba:   '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6.5 7h11l-1 12.5a1.6 1.6 0 0 1-1.6 1.5H9.1a1.6 1.6 0 0 1-1.6-1.5L6.5 7Z"/><path d="M5.6 7h12.8M14 3.2 12.6 7" stroke-linecap="round"/><circle cx="10" cy="17" r="1.3" fill="currentColor" stroke="none"/><circle cx="13.6" cy="17.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="14.6" r="1.3" fill="currentColor" stroke="none"/></svg>',
+  cup:    '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 7h12l-1 12.4a1.6 1.6 0 0 1-1.6 1.6H8.6A1.6 1.6 0 0 1 7 19.4L6 7Z"/><path d="M5 7h14" stroke-linecap="round"/></svg>',
+  plinko: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.5" r="1.6"/><circle cx="7.5" cy="9.5" r="1.6"/><circle cx="16.5" cy="9.5" r="1.6"/><circle cx="5" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="19" cy="14.5" r="1.6"/><path d="M4 19h16v2H4z"/></svg>'
+};
+
 function bobaPin(emoji, cls) {
   return L.divIcon({
     className: "",
@@ -4041,7 +4057,7 @@ function buildMap(lat, lng, real, why) {
     attribution: "© OpenStreetMap"
   }).addTo(mapObj);
 
-  meMarker = L.marker([lat, lng], { icon: bobaPin("📍", "me") })
+  meMarker = L.marker([lat, lng], { icon: bobaPin(ICON.pin, "me") })
     .addTo(mapObj)
     .bindPopup(real
       ? `<div class="map-pop-name">You are here</div>`
@@ -4120,7 +4136,7 @@ function loadNearbyShops(lat, lng) {
 function placeShopMarkers(shops, lat, lng) {
   const items = shops.slice(0, 60).map(shop => {
     const dist = haversine(lat, lng, shop.lat, shop.lng);
-    const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin("🧋", "") })
+    const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin(ICON.boba, "") })
       .addTo(mapObj)
       .bindPopup(
         `<div class="map-pop-name">${escapeHtml(shop.name)}</div>` +
@@ -4143,7 +4159,7 @@ function renderShopList(items) {
     `<div class="map-list-head">${items.length} boba spot${items.length !== 1 ? "s" : ""} nearby</div>` +
     items.map((it, i) =>
       `<button type="button" class="map-shop-item" data-i="${i}">` +
-        `<span class="map-shop-emoji">🧋</span>` +
+        `<span class="map-shop-emoji">${ICON.boba}</span>` +
         `<span class="map-shop-text">` +
           `<span class="map-shop-name">${escapeHtml(it.shop.name)}</span>` +
           `<span class="map-shop-dist">${formatDistance(it.dist)} away</span>` +
@@ -4543,7 +4559,7 @@ const ONBOARD_STEPS = [
     body: "Your favorite study buddy. He brews boba while you focus."
   },
   {
-    emoji: "🎮",
+    emoji: ICON.games,
     title: "Work Hard, Play Hard!",
     body: "Break games live here: Catch the Pearls, Boba Plinko, and Cup Pong. Finish a real focus session to unlock them on your break and win bonus pearls."
   },
@@ -4558,12 +4574,12 @@ const ONBOARD_STEPS = [
     body: "Every 15 minutes = 1 pearl earned. Spend them on character skins and backgrounds in the shop."
   },
   {
-    emoji: "🏆",
+    emoji: ICON.trophy,
     title: "Share with Friends!",
     body: "Show off your focus stats with invited users on a group leaderboard."
   },
   {
-    emoji: "🗺️",
+    emoji: ICON.map,
     title: "Real Rewards Await!",
     body: "Mr. Tapioca wants to work at real shops. Stay tuned to unlock discounts at boba shops near you. Check out the in-app map to locate shops to visit."
   },
@@ -4586,7 +4602,7 @@ function showOnboarding() {
 function renderOnboardStep() {
   const step = ONBOARD_STEPS[onboardStep];
   if (step.emoji) {
-    els.onboardEmoji.textContent = step.emoji;
+    els.onboardEmoji.innerHTML = step.emoji;   // SVG markup, not a glyph
     els.onboardEmoji.classList.remove("hidden");
     els.onboardImg.classList.add("hidden");
   } else {

@@ -1504,6 +1504,12 @@ body {
 .block-pill-ico .ico { width: 15px; height: 15px; }
 .ico-lg { width: 44px; height: 44px; display: block; margin: 0 auto; }
 .block-shield { color: var(--teal); }
+/* Icon slots that previously held an emoji glyph and were sized by font-size. */
+.g-emoji { display: inline-flex; align-items: center; }
+.g-emoji .ico { width: 1.15em; height: 1.15em; }
+#onboardEmoji .ico { width: 62px; height: 62px; margin: 0 auto; color: var(--teal); }
+.boba-pin .ico { width: 19px; height: 19px; margin: 0 auto; }
+.map-shop-emoji .ico { width: 17px; height: 17px; }
 
 /* ── UI material system ────────────────────────────────────────────────────
    Every control was a cream rounded rect with the same flat blur and a generic
