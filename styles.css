@@ -217,12 +217,22 @@ body {
      the stack now sits ~47px lower, so the floor line follows it down and the
      shop gains that height. Capped at 330 so the tall desktop frame does not
      just grow the band back. */
-  --floor-rest: clamp(300px, 40vh, 330px);
+  --floor-rest: clamp(310px, 42vh, 350px);
   --floor-y: var(--floor-rest);
-  /* How much shorter the controls stack gets once the size picker is gone:
-     the picker's own height plus the stack's row gap. Keep in step with
-     .size-picker and .focus-controls { gap }. */
-  --floor-lift: 53px;
+  /* WAS 53px, the height of the size picker, on the assumption that the stack
+     is exactly that much shorter once a session starts and the picker leaves.
+     That invariant no longer holds. Idle now ALSO hides the 0% progress bar and
+     collapses the empty .session-row, and both of those come back during a
+     session, so the session stack is not shorter at all. Measured at 375x812:
+     idle 203px, running 215px, i.e. the session stack is 12px TALLER. Dropping
+     the floor 53px on top of that put the timer card 51px INTO the counter and
+     it never came back on pause or resume.
+
+     Now 0: the floor line does not move between idle and a session at all. The
+     band below is sized for the TALLER (session) stack, so neither state
+     overlaps and the shop never jumps when you press Start. If the stacks are
+     ever re-tuned, re-measure both rather than assuming a constant. */
+  --floor-lift: 0px;
   transition: --floor-y 420ms cubic-bezier(0.32, 0.72, 0.28, 1);
   /* Every theme MUST keep a floor under the counter. The themed rules below
      layer this gradient over their art — without it, tall windows crop the
@@ -1524,8 +1534,10 @@ body {
    `visibility: hidden`, which reserved its space so the stack could never
    shift, but that left a blank strip between the counter and the timer that
    read as a hole in the layout. Now the row is removed and the shop floor
-   drops by the same amount (see --floor-lift), so the counter follows the
-   controls down and the spacing matches idle exactly.
+   used to drop by the same amount (see --floor-lift), so the counter followed
+   the controls down. --floor-lift is now 0 because the session stack is no
+   longer shorter than idle, so the floor stays put and only the stack grows
+   upward into the gap that was reserved for it.
 
    Nothing below the picker moves: the stack is anchored from the bottom, so
    removing its top row leaves the timer, the button and the pill in place. */
