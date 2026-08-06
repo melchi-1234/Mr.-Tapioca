@@ -54,7 +54,10 @@
         <div class="cafe-glow" aria-hidden="true">
           <span></span><span></span><span></span>
         </div>
-        <!-- Premium-theme effects: twinkling stars (galaxy) / falling snow (winter). -->
+        <!-- Volumetric light through the window. Sits UNDER .theme-fx so weather
+             falls in front of the shafts, which is the right depth order. -->
+        <div class="scene-rays" aria-hidden="true"></div>
+        <!-- Per-theme ambient weather: petals, leaves, snow, dust, rain, sparkles. -->
         <div class="theme-fx" aria-hidden="true"></div>
         <!-- Cozy nap nook during breaks (shown only on break). The bed is TWO
              layers with him sandwiched between them: frame and pillow behind,

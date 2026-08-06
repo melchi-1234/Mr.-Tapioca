@@ -408,27 +408,77 @@ body {
 .theme-fx { position: absolute; left: 0; right: 0; top: 0; height: 54%; z-index: 1; pointer-events: none; overflow: hidden; }
 .theme-fx::before, .theme-fx::after { content: ""; position: absolute; inset: 0; }
 
+/* ── Window light ────────────────────────────────────────────────────────────
+   Volumetric shafts falling through the shop window. This is the single change
+   that stops the scene reading as a flat illustration and starts it reading as
+   a lit room, so it gets the full height of the scene rather than the sky band.
+
+   `assets/fx-rays.webp` is a MASK, not a picture: its RGB is flat white and its
+   ALPHA carries the shafts. CSS paints a per-theme gradient through it, so the
+   golden shop, the amber library, the peach sunset and the cold winter light
+   are one 20KB file instead of nine. (As a picture with real colour it was
+   277KB — the alpha plane of a big soft gradient is what costs.)
+
+   z-index 1 puts it behind the counter (8), the character (9) and every control
+   (10), so light passes behind him exactly as it should. The gradient's own
+   fade-to-transparent is what ends the shafts before the floor; there is no
+   mask-image fade, because the mask slot is already spent on the art. */
+.scene-rays {
+  position: absolute; inset: 0;
+  z-index: 1; pointer-events: none;
+  /* screen, not normal. The shop wall is already warm cream, so painting warm
+     cream ON it at any alpha changes almost nothing — measured under 2% at the
+     first attempt and the shafts were simply invisible. Light has to ADD. */
+  mix-blend-mode: screen;
+  background: linear-gradient(177deg,
+    rgba(255,246,214,0.92) 0%, rgba(255,232,176,0.52) 42%,
+    rgba(255,220,152,0.18) 66%, rgba(255,214,146,0) 82%);
+  -webkit-mask-image: url('assets/fx-rays.webp'); mask-image: url('assets/fx-rays.webp');
+  -webkit-mask-size: 150% auto;  mask-size: 150% auto;
+  -webkit-mask-position: 62% top; mask-position: 62% top;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  transform-origin: 62% 0;
+  animation: ray-breathe 17s ease-in-out infinite alternate;
+}
+/* Sway and brightness only. Never animate mask-position: it is not smoothly
+   interpolated everywhere, and a transform moves the mask with the element for
+   free and stays on the compositor. */
+@keyframes ray-breathe {
+  from { opacity: 0.34; transform: translate3d(-1.4%, 0, 0) scaleY(1); }
+  to   { opacity: 0.62; transform: translate3d(1.6%, 0, 0) scaleY(1.05); }
+}
+.scene[data-theme="library"] .scene-rays {
+  background: linear-gradient(177deg, rgba(255,226,158,0.86) 0%, rgba(255,201,110,0.44) 44%, rgba(255,190,96,0) 78%);
+}
+.scene[data-theme="sunset"] .scene-rays {
+  background: linear-gradient(177deg, rgba(255,214,176,0.85) 0%, rgba(255,168,116,0.44) 46%, rgba(255,150,100,0) 80%);
+}
+.scene[data-theme="sakura"] .scene-rays {
+  background: linear-gradient(177deg, rgba(255,236,240,0.72) 0%, rgba(255,206,220,0.34) 44%, rgba(255,200,214,0) 78%);
+}
+.scene[data-theme="autumn"] .scene-rays {
+  background: linear-gradient(177deg, rgba(255,226,178,0.80) 0%, rgba(248,180,104,0.40) 44%, rgba(240,168,90,0) 78%);
+}
+.scene[data-theme="winter"] .scene-rays {
+  background: linear-gradient(177deg, rgba(226,244,255,0.72) 0%, rgba(186,222,246,0.34) 46%, rgba(180,216,244,0) 78%);
+}
+.scene[data-theme="night"] .scene-rays {
+  background: linear-gradient(177deg, rgba(206,224,255,0.52) 0%, rgba(160,186,240,0.22) 46%, rgba(150,178,236,0) 76%);
+}
+.scene[data-theme="galaxy"] .scene-rays {
+  background: linear-gradient(177deg, rgba(226,206,255,0.48) 0%, rgba(176,150,236,0.20) 46%, rgba(168,146,232,0) 76%);
+}
+/* No sun through rain, and none in the break-mode bedroom. */
+.scene[data-theme="rainy"] .scene-rays { display: none; }
+.scene.is-on-break.is-on-break .scene-rays { display: none; }
+@media (prefers-reduced-motion: reduce) { .scene-rays { animation: none; opacity: 0.45; } }
+
 /* GALAXY ($1.99) — glowing twinkling stars + a drifting multi-colour nebula +
    an occasional shooting star. All confined to the sky zone (.theme-fx). */
 .scene[data-theme="galaxy"] .theme-fx::before {
-  background-repeat: no-repeat;
-  background-image:
-    radial-gradient(3.6px 3.6px at 12% 16%, #fff, transparent),
-    radial-gradient(3px 3px at 27% 40%, #fff, transparent),
-    radial-gradient(2.4px 2.4px at 46% 11%, #fff, transparent),
-    radial-gradient(3.6px 3.6px at 62% 30%, #e7d8ff, transparent),
-    radial-gradient(2.4px 2.4px at 77% 20%, #fff, transparent),
-    radial-gradient(3px 3px at 89% 44%, #d7ecff, transparent),
-    radial-gradient(2.4px 2.4px at 37% 26%, #fff, transparent),
-    radial-gradient(3px 3px at 8% 38%, #fff, transparent),
-    radial-gradient(2.4px 2.4px at 55% 50%, #fff, transparent),
-    radial-gradient(4.2px 4.2px at 18% 31%, #fff, transparent),
-    radial-gradient(3.6px 3.6px at 70% 8%, #fff, transparent),
-    radial-gradient(2.4px 2.4px at 33% 47%, #ffe9f6, transparent),
-    radial-gradient(3px 3px at 93% 27%, #fff, transparent),
-    radial-gradient(2.4px 2.4px at 5% 12%, #fff, transparent);
+  /* Art and motion come from the drawn-weather block near the end of this
+     file (fx-sparkle.webp). Only the bloom stays here. */
   filter: drop-shadow(0 0 5px rgba(255,255,255,0.9));
-  animation: star-twinkle 3.4s ease-in-out infinite;
 }
 @keyframes star-twinkle { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .scene[data-theme="galaxy"] .theme-fx::after {
@@ -458,39 +508,6 @@ body {
 }
 
 /* WINTER ($1.99) — denser falling snow (two drifting layers) + a soft aurora. */
-.scene[data-theme="winter"] .theme-fx::before,
-.scene[data-theme="winter"] .theme-fx::after {
-  background-repeat: repeat;
-  background-size: 100% 200px;
-  background-image:
-    radial-gradient(4.4px 4.4px at 20% 8px, rgba(255,255,255,1), transparent),
-    radial-gradient(3.4px 3.4px at 50% 40px, rgba(255,255,255,0.95), transparent),
-    radial-gradient(4px 4px at 80% 18px, rgba(255,255,255,1), transparent),
-    radial-gradient(3.4px 3.4px at 35% 90px, rgba(255,255,255,0.92), transparent),
-    radial-gradient(3.4px 3.4px at 66% 130px, rgba(255,255,255,0.95), transparent),
-    radial-gradient(3px 3px at 10% 160px, rgba(255,255,255,0.92), transparent),
-    radial-gradient(3.8px 3.8px at 90% 70px, rgba(255,255,255,0.95), transparent),
-    radial-gradient(2.8px 2.8px at 45% 178px, rgba(255,255,255,0.88), transparent);
-  filter: drop-shadow(0 0 3px rgba(120,170,205,0.6));
-  animation: snow-fall 8s linear infinite;
-}
-.scene[data-theme="winter"] .theme-fx::after { animation-duration: 13s; opacity: 0.7; background-position-x: 45px; }
-@keyframes snow-fall { from { background-position-y: -200px; } to { background-position-y: 0; } }
-/* Soft shimmering aurora across the top of the sky. background-POSITION shimmer
-   only (no opacity anim — that would fade the snow layers above it). */
-.scene[data-theme="winter"] .theme-fx {
-  background-repeat: no-repeat;
-  background-image:
-    linear-gradient(180deg, rgba(150,232,205,0.20), transparent 42%),
-    radial-gradient(70% 55% at 32% -8%, rgba(132,205,250,0.26), transparent 70%),
-    radial-gradient(60% 48% at 76% -4%, rgba(201,162,240,0.20), transparent 72%);
-  background-size: 150% 100%, 100% 100%, 100% 100%;
-  animation: aurora-shimmer 11s ease-in-out infinite alternate;
-}
-@keyframes aurora-shimmer {
-  from { background-position: 0% 0%, 0 0, 0 0; }
-  to   { background-position: 45% 0%, 0 0, 0 0; }
-}
 
 /* Break mode is the one place that used to skip var(--floor-grad), and the
    .scene comment above warns exactly what happens without it: the art's own
@@ -1337,23 +1354,32 @@ body {
   color: var(--bark);
 }
 
+/* Real drawn steam. This was three 3px border-left bars, which read as three
+   little white sticks floating over the lid rather than as vapour. Same mask
+   trick as .scene-rays: fx-steam.webp carries the wisps in its alpha (10KB) and
+   a white gradient is painted through it, so the steam fades out as it rises
+   instead of ending at a hard edge. */
 .steam {
   position: absolute;
-  left: 60px; top: -8px;
-  display: flex; gap: 9px;
+  left: 50%; top: -30px;
+  width: 78px; height: 62px;
+  margin-left: -39px;
+  display: block;
   z-index: 4;
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 240ms ease;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.88) 42%, #fff 100%);
+  -webkit-mask: url('assets/fx-steam.webp') center bottom / 100% auto no-repeat;
+          mask: url('assets/fx-steam.webp') center bottom / 100% auto no-repeat;
+  /* White vapour over a cream wall is nearly invisible on its own (measured, the
+     first version rendered at 0.7 opacity and could not be seen). The shadow is
+     what makes it read, exactly like the glow that rescued the dust motes. */
+  filter: drop-shadow(0 1px 3px rgba(122,86,64,0.34));
 }
-.scene.is-focusing .steam { opacity: 1; }
-.steam span {
-  width: 8px; height: 28px;
-  border-radius: 999px;
-  border-left: 3px solid rgba(255,255,255,0.82);
-  animation: steam-rise 1.8s ease-in-out infinite;
-}
-.steam span:nth-child(2) { animation-delay: 0.32s; }
-.steam span:nth-child(3) { animation-delay: 0.64s; }
+.scene.is-focusing .steam { opacity: 1; animation: steam-rise 4.2s ease-in-out infinite; }
+/* The three spans are kept in the markup so nothing that queries them breaks,
+   but the wisps are one drawing now. */
+.steam span { display: none; }
 
 /* ── Top HUD overlay ────────────────────────────────────────────────────── */
 .top-hud {
@@ -3578,9 +3604,10 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   50%       { transform: translateX(68%); }
 }
 @keyframes steam-rise {
-  0%   { transform: translateY(10px) scaleY(0.78); opacity: 0; }
-  45%  { opacity: 1; }
-  100% { transform: translateY(-14px) scaleY(1.15); opacity: 0; }
+  0%   { transform: translate3d(0, 12px, 0) scale(0.72); opacity: 0; }
+  30%  { opacity: 0.95; }
+  70%  { opacity: 0.7; }
+  100% { transform: translate3d(4px, -20px, 0) scale(1.18); opacity: 0; }
 }
 @keyframes cup-spill {
   0%   { transform: rotate(0deg); opacity: 1; }
@@ -3942,122 +3969,131 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
    winter: layers inside .theme-fx (sky zone), gradient sprites, position or
    opacity animation only. Paid themes stay the flashiest. */
 
-/* COZY (default) — warm dust motes drifting up the window light.
-   Retuned Aug 2026. The first pass used 1.4-2px dots at 0.4-0.55 alpha in warm
-   cream, drawn over a bright cream window: measured against the backdrop they
-   were under 4% contrast, so the effect ran perfectly and nobody could see it.
-   Particles are the one decoration that has to survive being 2px on a phone, so
-   they need SIZE and a glow that separates them from whatever is behind, not
-   just opacity. Two layers now, at different speeds, for depth. */
-.scene[data-theme="cozy"] .theme-fx::before,
-.scene[data-theme="cozy"] .theme-fx::after {
+/* ── Ambient weather, drawn (Aug 2026) ──────────────────────────────────────
+   These used to be stacks of `radial-gradient(2px 2px …)` — technically running
+   animations that nobody could see, because a 2px cream dot at 0.5 alpha over a
+   bright cream window is under 4% contrast. They are now REAL generated art:
+   petals, leaves, snowflakes, dust motes, sparkles and rain drawn as sheets and
+   keyed to alpha (`assets/fx-*.webp`, 400KB for all nine).
+
+   How a sheet becomes weather:
+   - `--fx-tile` sets a SQUARE background-size, so a round mote stays round. The
+     old code stretched one tile across the full width, which would have squashed
+     every particle by ~1.6x.
+   - `fx-fall` / `fx-rise` scroll exactly one tile, so the loop is seamless.
+   - `fx-sway` is a separate transform animation, not part of the scroll: drifting
+     via background-position-x cannot loop cleanly unless the drift is a whole
+     tile, which would look like a 45-degree gale. The pseudos are inset by -6%
+     so the sway never exposes an edge.
+   - Two layers per theme at different tile sizes and speeds = parallax, and it
+     also breaks up the tile repeat, which is otherwise visible at 375px wide.
+
+   The sheets are generated with clear margins so they tile without cutting a
+   petal in half at the seam. If a sheet is ever regenerated, keep that rule. */
+.theme-fx::before, .theme-fx::after {
+  inset: 0 -6%;
+  --fx-tile: 300px;
   background-repeat: repeat;
-  background-size: 100% 240px;
-  background-image:
-    radial-gradient(3.4px 3.4px at 30% 30px, rgba(255,236,186,0.95), transparent),
-    radial-gradient(2.8px 2.8px at 55% 110px, rgba(255,244,206,0.85), transparent),
-    radial-gradient(3.2px 3.2px at 44% 190px, rgba(255,236,186,0.9), transparent),
-    radial-gradient(2.6px 2.6px at 66% 60px, rgba(255,248,216,0.8), transparent),
-    radial-gradient(3px 3px at 16% 150px, rgba(255,236,186,0.85), transparent),
-    radial-gradient(2.4px 2.4px at 82% 210px, rgba(255,244,206,0.75), transparent);
-  filter: drop-shadow(0 0 4px rgba(255,206,132,0.85));
-  animation: mote-rise 16s linear infinite;
+  background-size: var(--fx-tile) var(--fx-tile);
+  will-change: background-position, transform;
+}
+@keyframes fx-fall { from { background-position-y: calc(var(--fx-tile) * -1); } to { background-position-y: 0; } }
+@keyframes fx-rise { from { background-position-y: var(--fx-tile); }            to { background-position-y: 0; } }
+@keyframes fx-sway { from { transform: translate3d(-2.2%, 0, 0); } to { transform: translate3d(2.2%, 0, 0); } }
+@keyframes fx-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* COZY (default) — warm dust in the window light, with big soft bokeh behind it. */
+.scene[data-theme="cozy"] .theme-fx::before {
+  --fx-tile: 300px;
+  background-image: url('assets/fx-dust.webp');
+  animation: fx-rise 26s linear infinite, fx-sway 9s ease-in-out infinite alternate;
   opacity: 0.9;
 }
 .scene[data-theme="cozy"] .theme-fx::after {
-  animation-duration: 25s; opacity: 0.55; background-position-x: 52px;
+  --fx-tile: 470px;
+  background-image: url('assets/fx-bokeh.webp');
+  animation: fx-rise 62s linear infinite, fx-sway 17s ease-in-out infinite alternate;
+  opacity: 0.3;
 }
-@keyframes mote-rise { from { background-position-y: 240px; } to { background-position-y: 0; } }
 
-/* NIGHT — fireflies: tiny warm dots that pulse and wander, plus faint stars. */
+/* NIGHT — fireflies (dust, pushed green-gold) under a field of stars. */
 .scene[data-theme="night"] .theme-fx::before {
-  background-repeat: no-repeat;
-  background-image:
-    radial-gradient(4.2px 4.2px at 16% 34%, rgba(255,244,150,1), transparent),
-    radial-gradient(3.4px 3.4px at 38% 52%, rgba(230,255,160,0.95), transparent),
-    radial-gradient(4px 4px at 64% 40%, rgba(255,244,150,1), transparent),
-    radial-gradient(3.4px 3.4px at 84% 55%, rgba(230,255,160,0.9), transparent),
-    radial-gradient(3px 3px at 50% 28%, rgba(255,250,180,0.88), transparent),
-    radial-gradient(3.6px 3.6px at 26% 62%, rgba(255,244,150,0.92), transparent),
-    radial-gradient(3px 3px at 74% 24%, rgba(230,255,160,0.85), transparent);
-  filter: drop-shadow(0 0 7px rgba(255,238,120,0.95));
-  animation: firefly-pulse 4.2s ease-in-out infinite;
+  --fx-tile: 340px;
+  background-image: url('assets/fx-dust.webp');
+  filter: hue-rotate(28deg) saturate(1.5) drop-shadow(0 0 6px rgba(226,255,140,0.85));
+  animation: fx-rise 30s linear infinite, fx-sway 6s ease-in-out infinite alternate, fx-twinkle 4.2s ease-in-out infinite;
 }
 .scene[data-theme="night"] .theme-fx::after {
-  background-repeat: no-repeat;
-  background-image:
-    radial-gradient(1.6px 1.6px at 22% 12%, #fff, transparent),
-    radial-gradient(1.4px 1.4px at 48% 8%, #fff, transparent),
-    radial-gradient(1.8px 1.8px at 72% 15%, #fff, transparent),
-    radial-gradient(1.4px 1.4px at 90% 10%, #fff, transparent);
-  animation: star-twinkle 4.8s ease-in-out infinite;
+  --fx-tile: 420px;
+  background-image: url('assets/fx-sparkle.webp');
+  animation: fx-twinkle 5.4s ease-in-out infinite;
   opacity: 0.8;
 }
-@keyframes firefly-pulse {
-  0%, 100% { opacity: 0.25; transform: translate3d(0, 0, 0); }
-  50%      { opacity: 1;    transform: translate3d(1.5%, -2%, 0); }
-}
 
-/* SAKURA — falling cherry petals, two layers drifting at different speeds. */
-.scene[data-theme="sakura"] .theme-fx::before,
-.scene[data-theme="sakura"] .theme-fx::after {
-  background-repeat: repeat;
-  background-size: 100% 220px;
-  background-image:
-    radial-gradient(7px 4.6px at 22% 20px, rgba(255,168,196,0.98), transparent),
-    radial-gradient(6px 3.8px at 56% 70px, rgba(255,188,210,0.95), transparent),
-    radial-gradient(7px 4.2px at 80% 40px, rgba(248,152,186,0.98), transparent),
-    radial-gradient(5.4px 3.4px at 38% 140px, rgba(255,188,210,0.9), transparent),
-    radial-gradient(6.4px 4.2px at 68% 180px, rgba(255,168,196,0.95), transparent),
-    radial-gradient(5.4px 3.4px at 10% 100px, rgba(255,200,218,0.88), transparent);
-  filter: drop-shadow(0 1px 2px rgba(190,90,130,0.35));
-  animation: petal-fall 9s linear infinite;
+/* SAKURA — drawn cherry petals, two depths falling at different speeds. */
+.scene[data-theme="sakura"] .theme-fx::before {
+  --fx-tile: 300px;
+  background-image: url('assets/fx-petals.webp');
+  animation: fx-fall 13s linear infinite, fx-sway 5.5s ease-in-out infinite alternate;
 }
 .scene[data-theme="sakura"] .theme-fx::after {
-  animation-duration: 14s; opacity: 0.65; background-position-x: 60px;
-}
-@keyframes petal-fall {
-  from { background-position-y: -220px; background-position-x: 0; }
-  to   { background-position-y: 0;      background-position-x: 26px; }
-}
-
-/* AUTUMN — drifting falling leaves in amber and rust. */
-.scene[data-theme="autumn"] .theme-fx::before,
-.scene[data-theme="autumn"] .theme-fx::after {
-  background-repeat: repeat;
-  background-size: 100% 260px;
-  background-image:
-    radial-gradient(7.6px 5.2px at 18% 30px, rgba(222,128,40,0.98), transparent),
-    radial-gradient(6.4px 4.6px at 52% 90px, rgba(236,168,74,0.95), transparent),
-    radial-gradient(7px 4.8px at 78% 50px, rgba(188,94,30,0.95), transparent),
-    radial-gradient(6px 4.2px at 34% 170px, rgba(236,168,74,0.9), transparent),
-    radial-gradient(7px 4.8px at 64% 220px, rgba(222,128,40,0.95), transparent),
-    radial-gradient(5.6px 3.8px at 88% 130px, rgba(206,112,36,0.88), transparent);
-  filter: drop-shadow(0 1px 2px rgba(120,60,20,0.35));
-  animation: leaf-fall 11s linear infinite;
-}
-.scene[data-theme="autumn"] .theme-fx::after {
-  animation-duration: 17s; opacity: 0.6; background-position-x: 70px;
-}
-@keyframes leaf-fall {
-  from { background-position-y: -260px; background-position-x: 0; }
-  to   { background-position-y: 0;      background-position-x: -38px; }
+  --fx-tile: 440px;
+  background-image: url('assets/fx-petals.webp');
+  animation: fx-fall 22s linear infinite, fx-sway 9s ease-in-out infinite alternate;
+  opacity: 0.5;
 }
 
-/* RAINY — two layers of rain streaks + a slow fog breath on the glass. */
-.scene[data-theme="rainy"] .theme-fx::before,
-.scene[data-theme="rainy"] .theme-fx::after {
-  background-repeat: repeat;
-  background-size: 62px 160px;
+/* AUTUMN — drawn maple and oval leaves, tumbling. */
+.scene[data-theme="autumn"] .theme-fx::before {
+  --fx-tile: 320px;
+  background-image: url('assets/fx-leaves.webp');
+  animation: fx-fall 15s linear infinite, fx-sway 6.5s ease-in-out infinite alternate;
+}
+.scene[data-theme="autumn"] .theme-fx::after {
+  --fx-tile: 470px;
+  background-image: url('assets/fx-leaves.webp');
+  animation: fx-fall 25s linear infinite, fx-sway 11s ease-in-out infinite alternate;
+  opacity: 0.45;
+}
+
+/* WINTER — drawn snowflakes over the aurora that already lived on .theme-fx. */
+.scene[data-theme="winter"] .theme-fx::before {
+  --fx-tile: 300px;
+  background-image: url('assets/fx-snow.webp');
+  animation: fx-fall 12s linear infinite, fx-sway 5s ease-in-out infinite alternate;
+}
+.scene[data-theme="winter"] .theme-fx::after {
+  --fx-tile: 450px;
+  background-image: url('assets/fx-snow.webp');
+  animation: fx-fall 20s linear infinite, fx-sway 8.5s ease-in-out infinite alternate;
+  opacity: 0.55;
+}
+.scene[data-theme="winter"] .theme-fx {
+  background-repeat: no-repeat;
   background-image:
-    linear-gradient(168deg, transparent 0 44%, rgba(206,228,244,0.85) 47% 53%, transparent 56% 100%);
-  animation: rain-fall 0.9s linear infinite;
+    linear-gradient(180deg, rgba(150,232,205,0.20), transparent 42%),
+    radial-gradient(70% 55% at 32% -8%, rgba(132,205,250,0.26), transparent 70%),
+    radial-gradient(60% 48% at 76% -4%, rgba(201,162,240,0.20), transparent 72%);
+  background-size: 150% 100%, 100% 100%, 100% 100%;
+  animation: aurora-shimmer 11s ease-in-out infinite alternate;
+}
+@keyframes aurora-shimmer {
+  from { background-position: 0% 0%, 0 0, 0 0; }
+  to   { background-position: 45% 0%, 0 0, 0 0; }
+}
+
+/* RAINY — drawn streaks, fast in front and slow behind, over the fog breath. */
+.scene[data-theme="rainy"] .theme-fx::before {
+  --fx-tile: 300px;
+  background-image: url('assets/fx-rain.webp');
+  animation: fx-fall 1.05s linear infinite;
 }
 .scene[data-theme="rainy"] .theme-fx::after {
-  background-size: 96px 220px;
-  animation-duration: 1.4s; opacity: 0.6; background-position-x: 40px;
+  --fx-tile: 460px;
+  background-image: url('assets/fx-rain.webp');
+  animation: fx-fall 1.75s linear infinite;
+  opacity: 0.5;
 }
-@keyframes rain-fall { from { background-position-y: -160px; } to { background-position-y: 0; } }
 .scene[data-theme="rainy"] .theme-fx {
   background-repeat: no-repeat;
   background-image: radial-gradient(80% 60% at 50% 30%, rgba(214,226,235,0.35), transparent 75%);
@@ -4065,24 +4101,16 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 @keyframes fog-breathe { from { opacity: 0.35; } to { opacity: 0.8; } }
 
-/* HONEY LIBRARY — golden dust motes rising through lamplight + a soft lamp
-   glow that breathes near the shelves. */
+/* HONEY LIBRARY — golden dust in the lamplight, over the lamp's own breath. */
 .scene[data-theme="library"] .theme-fx::before {
-  background-repeat: repeat;
-  background-size: 100% 220px;
-  background-image:
-    radial-gradient(3.6px 3.6px at 28% 40px, rgba(255,222,156,0.95), transparent),
-    radial-gradient(3px 3px at 52% 120px, rgba(255,234,186,0.9), transparent),
-    radial-gradient(3.4px 3.4px at 72% 70px, rgba(255,214,136,0.95), transparent),
-    radial-gradient(2.8px 2.8px at 40% 190px, rgba(255,234,186,0.85), transparent),
-    radial-gradient(3px 3px at 86% 150px, rgba(255,222,156,0.85), transparent),
-    radial-gradient(2.6px 2.6px at 12% 100px, rgba(255,240,200,0.8), transparent),
-    radial-gradient(3.2px 3.2px at 64% 165px, rgba(255,222,156,0.85), transparent);
-  filter: drop-shadow(0 0 5px rgba(214,148,54,0.75));
-  animation: mote-rise 13s linear infinite;
+  --fx-tile: 280px;
+  background-image: url('assets/fx-dust.webp');
+  filter: saturate(1.35) drop-shadow(0 0 5px rgba(214,148,54,0.7));
+  animation: fx-rise 21s linear infinite, fx-sway 7.5s ease-in-out infinite alternate;
 }
 .scene[data-theme="library"] .theme-fx::after {
   background-repeat: no-repeat;
+  background-size: 100% 100%;
   background-image:
     radial-gradient(45% 40% at 82% 62%, rgba(255,196,110,0.32), transparent 72%),
     radial-gradient(38% 34% at 12% 58%, rgba(255,206,130,0.22), transparent 70%);
@@ -4090,28 +4118,16 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 @keyframes lamp-breathe { from { opacity: 0.55; } to { opacity: 1; } }
 
-/* SEASIDE SUNSET — golden glints dancing on the water + a warm sun haze that
-   slowly breathes, like the last hour of golden light. */
+/* SEASIDE SUNSET — glints dancing on the water, under the sun haze. */
 .scene[data-theme="sunset"] .theme-fx::before {
-  background-repeat: no-repeat;
-  background-image:
-    radial-gradient(4.6px 2.6px at 34% 62%, rgba(255,246,206,1), transparent),
-    radial-gradient(3.6px 2.2px at 46% 68%, rgba(255,232,178,0.95), transparent),
-    radial-gradient(4.2px 2.4px at 56% 64%, rgba(255,246,206,1), transparent),
-    radial-gradient(3.6px 2.1px at 64% 70%, rgba(255,238,188,0.9), transparent),
-    radial-gradient(4px 2.3px at 42% 74%, rgba(255,246,206,0.95), transparent),
-    radial-gradient(3.2px 2px at 52% 78%, rgba(255,232,178,0.9), transparent),
-    radial-gradient(3.8px 2.2px at 28% 70%, rgba(255,246,206,0.9), transparent),
-    radial-gradient(3.4px 2px at 70% 60%, rgba(255,238,188,0.88), transparent);
-  filter: drop-shadow(0 0 5px rgba(255,214,132,0.85));
-  animation: water-glint 3.2s ease-in-out infinite;
-}
-@keyframes water-glint {
-  0%, 100% { opacity: 0.35; transform: translate3d(0, 0, 0); }
-  50%      { opacity: 1;    transform: translate3d(0.8%, 0, 0); }
+  --fx-tile: 260px;
+  background-image: url('assets/fx-sparkle.webp');
+  filter: hue-rotate(-22deg) saturate(1.5);
+  animation: fx-twinkle 3.2s ease-in-out infinite, fx-sway 6s ease-in-out infinite alternate;
 }
 .scene[data-theme="sunset"] .theme-fx::after {
   background-repeat: no-repeat;
+  background-size: 100% 100%;
   background-image:
     radial-gradient(60% 50% at 50% 45%, rgba(255,176,120,0.30), transparent 72%),
     radial-gradient(45% 38% at 30% 30%, rgba(255,200,150,0.22), transparent 70%);
@@ -4121,6 +4137,14 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 @keyframes sun-haze {
   from { opacity: 0.5;  transform: scale(1); }
   to   { opacity: 0.95; transform: scale(1.06); }
+}
+
+/* GALAXY — drawn stars over the drifting nebula and the shooting star, both of
+   which already lived on .theme-fx::after and .theme-fx and are kept. */
+.scene[data-theme="galaxy"] .theme-fx::before {
+  --fx-tile: 380px;
+  background-image: url('assets/fx-sparkle.webp');
+  animation: fx-twinkle 3.4s ease-in-out infinite, fx-sway 14s ease-in-out infinite alternate;
 }
 
 /* Stillness for those who ask for it */

@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v164";
+const CACHE = "mr-tapioca-v165";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -33,6 +33,18 @@ const SHELL = [
   "assets/Bedroom Background.png",
   "assets/bed-back.png",
   "assets/bed-front.png",
+  /* Ambient weather + window light (drawn, Aug 2026). Precached with the
+     rest of the shell: they are part of how the app LOOKS at rest, so a
+     cold offline launch must not fall back to a dead scene. 400KB total. */
+  "assets/fx-rays.webp",
+  "assets/fx-dust.webp",
+  "assets/fx-sparkle.webp",
+  "assets/fx-bokeh.webp",
+  "assets/fx-steam.webp",
+  "assets/fx-rain.webp",
+  "assets/fx-petals.webp",
+  "assets/fx-leaves.webp",
+  "assets/fx-snow.webp",
   "assets/counter-wood.png",
   "assets/floor-boards.png",
   "assets/break-desk.png",
