@@ -120,3 +120,40 @@ helper: `startBlocking()` on focus start, `stopBlocking()` on pause/break/finish
 and `pickApps()` from the Settings "Choose apps to block" button. On the plain
 web build the plugin is absent, so those calls safely do nothing — the browser
 version keeps working, and real blocking only kicks in inside the iPhone app.
+
+---
+
+## QA: Screen Time gotchas found in the field (Aug 2026)
+
+Real bug from a filmed demo (Aug 6 2026): Instagram had a PERSONAL 1-hour Screen
+Time limit set in iOS Settings. When that limit was hit, iOS showed its own
+hourglass shield, the user tapped "Ignore Limit for today", and from that moment
+Mr. Tapioca's boba shield no longer blocked Instagram for the rest of the day.
+Deleting and reinstalling Instagram did not bring blocking back.
+
+Two separate iOS behaviors stack up here:
+
+1. **"Ignore Limit" is a day-scoped, OS-level allowance.** iOS's own limit
+   shield takes over the app, and the "for today" exemption can suppress
+   third-party shields too. Nothing in our code can veto it; the app now
+   re-asserts the shield every 5 minutes during a session and every time the
+   app returns to the foreground, which is the strongest counter the API allows.
+2. **App tokens die silently when the blocked app is reinstalled** (documented
+   across Apple Developer Forums threads 788764 / 814571 / 771119; also seen
+   after some iOS updates). There is NO API to detect a dead token, and
+   re-confirming the old selection in the picker re-saves the same dead tokens.
+   The only real fix is re-picking from scratch, which is what the new
+   "Blocking Not Working? Re-pick Apps" button in Settings does (it opens the
+   picker EMPTY via `pickApps({ fresh: true })`).
+
+**QA checklist before each release (needs a real iPhone; Screen Time is dead in
+the simulator):**
+
+- Block an app that ALSO has a personal Screen Time limit. Hit the limit, tap
+  "Ignore Limit for today", then confirm whether the boba shield still holds
+  (record the result; this documents the OS behavior for support replies).
+- Delete and reinstall a blocked app mid-selection. Expect blocking to silently
+  skip it. Then run "Blocking Not Working? Re-pick Apps" and confirm blocking
+  resumes.
+- After any iOS update on the test phone, spot-check that blocking still fires
+  before trusting a demo.

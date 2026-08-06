@@ -2861,6 +2861,11 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   background: var(--ui-paper);
   box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.07), 0 5px 12px -6px rgba(60,32,24,0.24);
 }
+.blocked-panel .settings-action-btn { display: block; width: 100%; }
+.blocked-panel .settings-action-btn + .settings-action-btn { margin-top: 8px; }
+/* This display:block outranks the global .hidden, so the recovery button needs
+   its own hidden rule (same trap as gotcha #3 in CLAUDE.md). */
+.blocked-panel .settings-action-btn.hidden { display: none; }
 .app-locks {
   display: grid;
   grid-template-columns: repeat(2, minmax(0,1fr));

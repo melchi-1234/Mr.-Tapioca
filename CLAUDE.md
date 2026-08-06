@@ -48,6 +48,12 @@ These are all things that fail *silently*. Do not rediscover them.
    own `.foo.hidden { display:none }` rule.
 4. **Never write `textContent` on a button that carries an inline SVG icon.** It wipes the icon out.
    Rebuild the icon and the label together.
+5. **Screen Time shields can die silently on-device.** A user tapping "Ignore Limit" on their OWN
+   iOS app limit can suppress our shield for the day, and reinstalling a blocked app kills its
+   stored token permanently (no API detects this). The app re-asserts the shield every 5 min +
+   on foreground, and Settings has a "Blocking Not Working? Re-pick Apps" recovery button that
+   re-picks from scratch. QA details in SETUP_NATIVE.md. Test blocking against apps that have
+   personal Screen Time limits.
 
 ## Where it lives
 

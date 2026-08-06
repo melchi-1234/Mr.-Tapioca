@@ -19,6 +19,32 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private let store = ManagedSettingsStore()
 
+    // True while a focus session wants the shield up; drives the foreground
+    // re-assert in load(). In-memory only: if iOS kills the app mid-session,
+    // the shield itself persists in ManagedSettingsStore, and the web layer
+    // re-calls startBlocking on its periodic re-assert.
+    private var blockingActive = false
+    private var foregroundObserver: NSObjectProtocol?
+
+    // iOS can silently stop honoring a third-party shield (seen after the user
+    // taps "Ignore Limit" on their OWN Screen Time limit for the same app), so
+    // re-assert ours whenever the user returns to the app during a session.
+    public override func load() {
+        foregroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self = self, self.blockingActive else { return }
+            self.applyShield(SharedSelection.load())
+        }
+    }
+
+    deinit {
+        if let observer = foregroundObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
     // Report whether blocking is READY to use: Screen Time authorized AND the
     // user has picked at least one app/category to shield. The web app uses this
     // to decide whether to nudge the user to set up blocking when they start a
@@ -49,12 +75,17 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
     private var pickerDismissDelegate: PickerDismissDelegate?
 
     @objc func pickApps(_ call: CAPPluginCall) {
+        // fresh=true opens the picker EMPTY. ApplicationTokens die silently when
+        // the target app is reinstalled or after some iOS updates, and
+        // re-confirming a stale selection re-saves the same dead tokens, so the
+        // recovery flow must re-pick from scratch to mint live ones.
+        let fresh = call.getBool("fresh") ?? false
         DispatchQueue.main.async {
             guard let presenter = self.bridge?.viewController else {
                 call.reject("No view controller to present from")
                 return
             }
-            let model = PickerModel(initial: SharedSelection.load())
+            let model = PickerModel(initial: fresh ? FamilyActivitySelection() : SharedSelection.load())
             // Resolve at most once, whether the user taps Done, taps Cancel, or
             // swipes the sheet away.
             var settled = false
@@ -84,11 +115,13 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
         let active = !(selection.applicationTokens.isEmpty
             && selection.categoryTokens.isEmpty
             && selection.webDomainTokens.isEmpty)
+        blockingActive = active
         if active { applyShield(selection) }
         call.resolve(["active": active])
     }
 
     @objc func stopBlocking(_ call: CAPPluginCall) {
+        blockingActive = false
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         store.shield.webDomains = nil
@@ -96,6 +129,12 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func applyShield(_ selection: FamilyActivitySelection) {
+        // Clear first: writing an unchanged value can be treated as a no-op,
+        // and a cleared-then-set value forces the system to re-evaluate the
+        // shield (this is what makes the periodic re-asserts meaningful).
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
         store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
         store.shield.applicationCategories = selection.categoryTokens.isEmpty
             ? nil : .specific(selection.categoryTokens)

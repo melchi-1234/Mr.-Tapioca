@@ -278,6 +278,7 @@ const els = {
   premiumCopy:          document.querySelector("#premiumCopy"),
   saveRewardBtn:        document.querySelector("#saveRewardBtn"),
   chooseAppsBtn:        document.querySelector("#chooseAppsBtn"),
+  repickAppsBtn:        document.querySelector("#repickAppsBtn"),
   blockPrompt:          document.querySelector("#blockPrompt"),
   blockChooseBtn:       document.querySelector("#blockChooseBtn"),
   blockSkipBtn:         document.querySelector("#blockSkipBtn"),
@@ -1801,6 +1802,7 @@ function renderAll() {
 }
 
 let lastPersist = 0;
+let lastShieldAssert = 0;
 let pendingResume = false;   // set in loadState() if a running session needs resuming on launch
 
 function stopTicker() {
@@ -1832,6 +1834,16 @@ function tick() {
     saveState();
   }
 
+  // Re-assert the native shield every 5 minutes. iOS can silently stop
+  // honoring a third-party shield mid-session (seen live when the user tapped
+  // "Ignore Limit" on their OWN Screen Time limit for the same app). start()
+  // re-applies the same saved picks, so this is a cheap no-op when healthy.
+  if (now - lastShieldAssert > 300000
+      && (FocusBlocker.wasActive() || state.shieldWasUp === true)) {
+    lastShieldAssert = now;
+    FocusBlocker.start();
+  }
+
   if (progress() >= 1) {
     completeSession();
     return;
@@ -1860,10 +1872,14 @@ const FocusBlocker = {
     const p = this.plugin(); if (!p) return false;
     try { const r = await p.requestAuthorization(); return !!(r && r.granted); } catch (e) { return false; }
   },
-  async pickApps() {
+  // opts.fresh=true opens Apple's picker EMPTY instead of pre-checked with the
+  // saved selection. Recovery path: iOS app-tokens die silently when a blocked
+  // app is reinstalled (or after some iOS updates), and re-confirming the old
+  // selection re-saves the same dead tokens.
+  async pickApps(opts) {
     const p = this.plugin();
     if (!p) { showToast("App blocking runs in the installed iPhone app 🧋"); return; }
-    try { await p.pickApps(); } catch (e) {}
+    try { await p.pickApps(opts && opts.fresh ? { fresh: true } : {}); } catch (e) {}
   },
   _want: false,
   _active: false,   // did the native shield actually engage (real apps picked) this session?
@@ -2155,6 +2171,9 @@ function renderBlockPill() {
   // control those devices never show. Toggled here rather than with :has() so
   // the layout does not depend on selector support.
   const controls = document.querySelector(".focus-controls");
+  // The re-pick recovery button only means anything where the native plugin
+  // exists, so its visibility rides the same check as the pill.
+  if (els.repickAppsBtn) els.repickAppsBtn.classList.toggle("hidden", !FocusBlocker.available());
   if (!FocusBlocker.available()) {
     pill.classList.add("hidden");
     if (controls) controls.classList.remove("has-pill");
@@ -5750,6 +5769,18 @@ function wireEvents() {
     await FocusBlocker.pickApps();
     await FocusBlocker.refreshStatus();
     renderBlockPill();
+  });
+
+  // Recovery: if blocking quietly stopped working (blocked app reinstalled,
+  // iOS update, "Ignore Limit" tapped on a personal Screen Time limit), the
+  // stored picks may be dead. Re-picking from scratch mints live ones.
+  if (els.repickAppsBtn) els.repickAppsBtn.addEventListener("click", async () => {
+    playSfx("tap");
+    await FocusBlocker.requestAuthorization();
+    await FocusBlocker.pickApps({ fresh: true });
+    await FocusBlocker.refreshStatus();
+    renderBlockPill();
+    if (FocusBlocker._configured) showToast("Fresh picks saved. Blocking is back 🧋");
   });
 
   // Start-focus blocking prompt buttons
