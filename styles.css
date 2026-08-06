@@ -471,6 +471,12 @@ body {
 /* No sun through rain, and none in the break-mode bedroom. */
 .scene[data-theme="rainy"] .scene-rays { display: none; }
 .scene.is-on-break.is-on-break .scene-rays { display: none; }
+/* Weather stops at the bedroom door. Break mode swaps the shop for an interior
+   nap nook, and snow or rain falling through it reads as a bug. It was already
+   wrong with the old gradient particles, but they were too faint to notice;
+   drawn petals indoors are not. Doubled class for the same reason as everything
+   else in break mode: it has to beat `.scene[data-theme="x"]` on a tie. */
+.scene.is-on-break.is-on-break .theme-fx { display: none; }
 @media (prefers-reduced-motion: reduce) { .scene-rays { animation: none; opacity: 0.45; } }
 
 /* GALAXY ($1.99) — glowing twinkling stars + a drifting multi-colour nebula +
@@ -483,6 +489,13 @@ body {
 @keyframes star-twinkle { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .scene[data-theme="galaxy"] .theme-fx::after {
   background-repeat: no-repeat;
+  /* Required now that .theme-fx::before/::after carry a default
+     `background-size: var(--fx-tile) var(--fx-tile)` for the tiled weather
+     sheets. Without this the nebula inherits that 300px square and, being
+     no-repeat, renders as one small smudge in the top-left corner instead of
+     filling the sky. The other glow layers (library lamp, sunset haze) already
+     set this; galaxy lives in an earlier block and was missed. */
+  background-size: 100% 100%;
   background-image:
     radial-gradient(60% 46% at 22% 32%, rgba(149,94,224,0.42), transparent 70%),
     radial-gradient(55% 42% at 80% 20%, rgba(78,138,232,0.38), transparent 70%),
@@ -1368,13 +1381,22 @@ body {
   z-index: 4;
   opacity: 0;
   transition: opacity 240ms ease;
+  /* White vapour over a cream wall is nearly invisible on its own (measured, the
+     first version rendered at 0.7 opacity and could not be seen). The shadow is
+     what makes it read, exactly like the glow that rescued the dust motes.
+
+     The paint and the mask sit on ::before, NOT here, deliberately. Masking is
+     applied after filtering in the rendering model, so a filter and a mask on
+     the SAME element means the mask clips the shadow the filter just drew and
+     the shadow does nothing. One layer down, the shadow is computed from the
+     already-masked wisp and falls outside it, which is the whole point. */
+  filter: drop-shadow(0 1px 3px rgba(122,86,64,0.34));
+}
+.steam::before {
+  content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.88) 42%, #fff 100%);
   -webkit-mask: url('assets/fx-steam.webp') center bottom / 100% auto no-repeat;
           mask: url('assets/fx-steam.webp') center bottom / 100% auto no-repeat;
-  /* White vapour over a cream wall is nearly invisible on its own (measured, the
-     first version rendered at 0.7 opacity and could not be seen). The shadow is
-     what makes it read, exactly like the glow that rescued the dust motes. */
-  filter: drop-shadow(0 1px 3px rgba(122,86,64,0.34));
 }
 .scene.is-focusing .steam { opacity: 1; animation: steam-rise 4.2s ease-in-out infinite; }
 /* The three spans are kept in the markup so nothing that queries them breaks,
@@ -3974,7 +3996,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
    animations that nobody could see, because a 2px cream dot at 0.5 alpha over a
    bright cream window is under 4% contrast. They are now REAL generated art:
    petals, leaves, snowflakes, dust motes, sparkles and rain drawn as sheets and
-   keyed to alpha (`assets/fx-*.webp`, 400KB for all nine).
+   keyed to alpha (`assets/fx-*.webp`, 155KB for all nine).
 
    How a sheet becomes weather:
    - `--fx-tile` sets a SQUARE background-size, so a round mote stays round. The
@@ -3997,8 +4019,15 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   background-size: var(--fx-tile) var(--fx-tile);
   will-change: background-position, transform;
 }
-@keyframes fx-fall { from { background-position-y: calc(var(--fx-tile) * -1); } to { background-position-y: 0; } }
-@keyframes fx-rise { from { background-position-y: var(--fx-tile); }            to { background-position-y: 0; } }
+/* ⚠️ `fx-tile-*`, not `fx-*`. @keyframes names are GLOBAL and a second definition
+   does not merge, it replaces for every consumer. These were first written as
+   `fx-rise`/`fx-fall`, which collided with the `fx-rise` at the top of this file
+   that drives the six bubbles rising off the cup during a session — so those
+   bubbles silently started animating background-position-y, stayed at their base
+   opacity:0 forever, and six no-op animations ticked for the whole session.
+   Nothing errored. Namespace anything generic you add here. */
+@keyframes fx-tile-fall { from { background-position-y: calc(var(--fx-tile) * -1); } to { background-position-y: 0; } }
+@keyframes fx-tile-rise { from { background-position-y: var(--fx-tile); }            to { background-position-y: 0; } }
 @keyframes fx-sway { from { transform: translate3d(-2.2%, 0, 0); } to { transform: translate3d(2.2%, 0, 0); } }
 @keyframes fx-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 
@@ -4006,13 +4035,13 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="cozy"] .theme-fx::before {
   --fx-tile: 300px;
   background-image: url('assets/fx-dust.webp');
-  animation: fx-rise 26s linear infinite, fx-sway 9s ease-in-out infinite alternate;
+  animation: fx-tile-rise 26s linear infinite, fx-sway 9s ease-in-out infinite alternate;
   opacity: 0.9;
 }
 .scene[data-theme="cozy"] .theme-fx::after {
   --fx-tile: 470px;
   background-image: url('assets/fx-bokeh.webp');
-  animation: fx-rise 62s linear infinite, fx-sway 17s ease-in-out infinite alternate;
+  animation: fx-tile-rise 62s linear infinite, fx-sway 17s ease-in-out infinite alternate;
   opacity: 0.3;
 }
 
@@ -4021,7 +4050,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   --fx-tile: 340px;
   background-image: url('assets/fx-dust.webp');
   filter: hue-rotate(28deg) saturate(1.5) drop-shadow(0 0 6px rgba(226,255,140,0.85));
-  animation: fx-rise 30s linear infinite, fx-sway 6s ease-in-out infinite alternate, fx-twinkle 4.2s ease-in-out infinite;
+  animation: fx-tile-rise 30s linear infinite, fx-sway 6s ease-in-out infinite alternate, fx-twinkle 4.2s ease-in-out infinite;
 }
 .scene[data-theme="night"] .theme-fx::after {
   --fx-tile: 420px;
@@ -4034,12 +4063,12 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="sakura"] .theme-fx::before {
   --fx-tile: 300px;
   background-image: url('assets/fx-petals.webp');
-  animation: fx-fall 13s linear infinite, fx-sway 5.5s ease-in-out infinite alternate;
+  animation: fx-tile-fall 13s linear infinite, fx-sway 5.5s ease-in-out infinite alternate;
 }
 .scene[data-theme="sakura"] .theme-fx::after {
   --fx-tile: 440px;
   background-image: url('assets/fx-petals.webp');
-  animation: fx-fall 22s linear infinite, fx-sway 9s ease-in-out infinite alternate;
+  animation: fx-tile-fall 22s linear infinite, fx-sway 9s ease-in-out infinite alternate;
   opacity: 0.5;
 }
 
@@ -4047,12 +4076,12 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="autumn"] .theme-fx::before {
   --fx-tile: 320px;
   background-image: url('assets/fx-leaves.webp');
-  animation: fx-fall 15s linear infinite, fx-sway 6.5s ease-in-out infinite alternate;
+  animation: fx-tile-fall 15s linear infinite, fx-sway 6.5s ease-in-out infinite alternate;
 }
 .scene[data-theme="autumn"] .theme-fx::after {
   --fx-tile: 470px;
   background-image: url('assets/fx-leaves.webp');
-  animation: fx-fall 25s linear infinite, fx-sway 11s ease-in-out infinite alternate;
+  animation: fx-tile-fall 25s linear infinite, fx-sway 11s ease-in-out infinite alternate;
   opacity: 0.45;
 }
 
@@ -4060,12 +4089,12 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="winter"] .theme-fx::before {
   --fx-tile: 300px;
   background-image: url('assets/fx-snow.webp');
-  animation: fx-fall 12s linear infinite, fx-sway 5s ease-in-out infinite alternate;
+  animation: fx-tile-fall 12s linear infinite, fx-sway 5s ease-in-out infinite alternate;
 }
 .scene[data-theme="winter"] .theme-fx::after {
   --fx-tile: 450px;
   background-image: url('assets/fx-snow.webp');
-  animation: fx-fall 20s linear infinite, fx-sway 8.5s ease-in-out infinite alternate;
+  animation: fx-tile-fall 20s linear infinite, fx-sway 8.5s ease-in-out infinite alternate;
   opacity: 0.55;
 }
 .scene[data-theme="winter"] .theme-fx {
@@ -4086,12 +4115,12 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="rainy"] .theme-fx::before {
   --fx-tile: 300px;
   background-image: url('assets/fx-rain.webp');
-  animation: fx-fall 1.05s linear infinite;
+  animation: fx-tile-fall 1.05s linear infinite;
 }
 .scene[data-theme="rainy"] .theme-fx::after {
   --fx-tile: 460px;
   background-image: url('assets/fx-rain.webp');
-  animation: fx-fall 1.75s linear infinite;
+  animation: fx-tile-fall 1.75s linear infinite;
   opacity: 0.5;
 }
 .scene[data-theme="rainy"] .theme-fx {
@@ -4106,7 +4135,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   --fx-tile: 280px;
   background-image: url('assets/fx-dust.webp');
   filter: saturate(1.35) drop-shadow(0 0 5px rgba(214,148,54,0.7));
-  animation: fx-rise 21s linear infinite, fx-sway 7.5s ease-in-out infinite alternate;
+  animation: fx-tile-rise 21s linear infinite, fx-sway 7.5s ease-in-out infinite alternate;
 }
 .scene[data-theme="library"] .theme-fx::after {
   background-repeat: no-repeat;
