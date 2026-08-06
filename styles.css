@@ -4434,3 +4434,64 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   text-decoration: none;
   font-weight: 900;
 }
+
+/* ── Break screen: art tiles, and End Break out of exile ───────────────────
+   Three identical cream slabs in a row read as one undifferentiated block, and
+   End Break sat alone underneath them as a stranded pill costing a whole extra
+   row on a screen that already had four. Each game now carries its own
+   generated art on its own colour, and End Break rides the header. */
+.break-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+.break-head .break-title { align-self: auto; margin: 0; }
+.break-end {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.78rem;
+  /* Secondary to the Chill Mode title beside it: .reset-link's dark fill made
+     the exit the loudest thing in the header. */
+  background: var(--cream-75);
+  color: var(--bark-mid);
+  border: 2px solid var(--ui-edge);
+  box-shadow: var(--ui-sheen);
+}
+
+/* The tiles. .start-btn's padding and pill radius are both overridden: these are
+   art surfaces, not lozenges. */
+.break-games-row .game-launch-btn {
+  flex: 1; min-width: 0;
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  display: block;
+  text-align: center;
+  line-height: 1.1;
+}
+.break-games-row .g-emoji { display: none; }   /* the art replaces the glyph */
+.break-games-row .game-launch-btn::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 62px;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  border-bottom: 2px solid var(--ui-edge);
+}
+#playGameBtn::before   { background-image: url('assets/tile-catch.jpg'); }
+#playPlinkoBtn::before { background-image: url('assets/tile-plinko.jpg'); }
+#playPongBtn::before   { background-image: url('assets/tile-pong.jpg'); }
+.break-games-row .g-label {
+  display: block;
+  padding: 5px 4px 7px;
+  font-size: 0.72rem;
+  font-weight: 950;
+  color: var(--bark);
+}

@@ -3291,7 +3291,9 @@ function updateCatchBtnState() {
   els.playGameBtn.disabled = done || locked;
   setGameBtn(els.playGameBtn,
     locked ? "lock" : done ? "check" : "games",
-    locked ? "Catch the Pearls" : done ? "Catch the Pearls, back tomorrow" : "Catch the Pearls");
+    // Short labels: the tile is ~106px wide, so the full names wrapped to two
+    // lines and made every tile 17px taller. The art carries the identity now.
+    locked ? "Catch" : done ? "Tomorrow" : "Catch");
 }
 function updatePlinkoBtnState() {
   const locked = !gamesUnlockedForBreak();
@@ -3300,8 +3302,8 @@ function updatePlinkoBtnState() {
   els.playPlinkoBtn.disabled = done || locked;
   setGameBtn(els.playPlinkoBtn,
     locked ? "lock" : done ? "check" : "plinko",
-    locked ? "Boba Plinko" : done ? "Boba Plinko, back tomorrow"
-      : left < PLINKO_MAX_PLAYS ? `Boba Plinko (${left} left)` : "Boba Plinko");
+    locked ? "Plinko" : done ? "Tomorrow"
+      : left < PLINKO_MAX_PLAYS ? `Plinko · ${left}` : "Plinko");
 }
 function updatePongBtnState() {
   const locked = !gamesUnlockedForBreak();
@@ -3310,8 +3312,8 @@ function updatePongBtnState() {
   els.playPongBtn.disabled = done || locked;
   setGameBtn(els.playPongBtn,
     locked ? "lock" : done ? "check" : "cup",
-    locked ? "Cup Pong" : done ? "Cup Pong, back tomorrow"
-      : left < PONG_MAX_PLAYS ? `Cup Pong (${left} left)` : "Cup Pong");
+    locked ? "Pong" : done ? "Tomorrow"
+      : left < PONG_MAX_PLAYS ? `Pong · ${left}` : "Pong");
 }
 
 function openPlinko() {
