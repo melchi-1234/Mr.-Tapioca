@@ -208,7 +208,12 @@ body {
      1400), 1.16) is invalid — it silently poisoned every size that used it and
      collapsed the counter to 0 height. */
   --fig: 1;
-  --floor-rest: clamp(400px, 52vh, 450px);
+  /* Was clamp(400px, 52vh, 450px), which put the control band at 45% of the
+     screen and only ~11% of that band was empty, so the shop was being hidden by
+     controls rather than by dead space. The stack itself is now ~35px shorter
+     (idle progress bar hidden, tighter card and gap), and that height goes back
+     to the scene rather than to more padding. */
+  --floor-rest: clamp(330px, 43vh, 385px);
   --floor-y: var(--floor-rest);
   /* How much shorter the controls stack gets once the size picker is gone:
      the picker's own height plus the stack's row gap. Keep in step with
@@ -1537,7 +1542,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   padding: 0 20px;
 }
 
@@ -1548,7 +1553,7 @@ body {
   background: var(--ui-paper);
   border: 2px solid var(--ui-edge);
   border-radius: 999px;
-  padding: 4px;
+  padding: 3px;
   box-shadow: var(--ui-sheen), var(--ui-lift);
 }
 
@@ -1559,7 +1564,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 1px;
-  padding: 7px 6px;
+  padding: 5px 6px;
   border: none;
   background: none;
   border-radius: 999px;
@@ -1595,13 +1600,15 @@ body {
    meant for anything drawn above it. */
 .time-adj, .adj-btn, .sheet-close, .install-x,
 .shop-buy-btn, .shop-equip-btn, .shop-unequip-btn, .shop-preview-btn,
-.game-quit-btn, .settings-action-btn, .squad-remove, #resetBtn, #customizeDrinkBtn {
+.game-quit-btn, .settings-action-btn, .squad-remove, #resetBtn, #customizeDrinkBtn,
+.size-btn {
   position: relative;
 }
 .time-adj::after, .adj-btn::after, .sheet-close::after, .install-x::after,
 .shop-buy-btn::after, .shop-equip-btn::after, .shop-unequip-btn::after,
 .shop-preview-btn::after, .game-quit-btn::after, .settings-action-btn::after,
-.squad-remove::after, #resetBtn::after, #customizeDrinkBtn::after {
+.squad-remove::after, #resetBtn::after, #customizeDrinkBtn::after,
+.size-btn::after {
   content: "";
   position: absolute;
   top: 50%; left: 50%;
@@ -1661,7 +1668,7 @@ body {
   background: var(--ui-paper);
   border: 2px solid var(--ui-edge);
   border-radius: 22px;
-  padding: 9px 18px 8px;
+  padding: 7px 18px 6px;
   box-shadow: var(--ui-sheen), var(--ui-lift);
 }
 .timer-card.compact {
@@ -1672,7 +1679,7 @@ body {
 }
 
 .timer-time {
-  font-size: 2.15rem;
+  font-size: 1.95rem;
   font-weight: 950;
   color: var(--bark);
   line-height: 1;
@@ -1693,7 +1700,7 @@ body {
   color: var(--bark-mid);
   font-size: 0.78rem;
   font-weight: 900;
-  margin-top: 5px;
+  margin-top: 3px;
 }
 
 .timer-sub {
@@ -1703,6 +1710,14 @@ body {
   text-align: center;
   margin-top: 3px;
 }
+
+/* Before a session there is nothing to show: the bar sits at 0% and costs 18px
+   of the control stack (8px track + 10px margin) to say nothing. Hiding it while
+   idle is the single cheapest way to give the shop back some screen. */
+/* .focus-controls is a SIBLING of .scene inside .scene-wrap, and it carries its
+   own session-on class, so gate on that. (.scene-wrap never gets is-session and
+   .scene gets is-brewing, so neither of those works from here.) */
+.focus-controls:not(.session-on) .progress-track { display: none; }
 
 .progress-track {
   height: 8px;
@@ -4057,3 +4072,37 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .g-label { display: inline; }
 
 .shop-boost-preview .ico { width: 54px; height: 54px; color: #7fb7bd; margin: 0 auto; }
+
+/* ── In-world confirm / prompt / alert ─────────────────────────────────────
+   Replaces the ten window.confirm / prompt / alert calls. Those rendered as
+   stock OS alert boxes, and on the Capacitor build as UIAlertController, which
+   is the single hardest break of the app's world. They also fired on the most
+   trafficked paths: Reset mid-session, switching drink or cup size, and every
+   pearl purchase in Customize. Built from the existing .reward-card shell so it
+   inherits the app's material rather than inventing a fifth one. */
+.ask-card { max-width: 320px; text-align: center; }
+.ask-card h2 { margin: 2px 0 6px; font-size: 1.35rem; color: var(--bark); }
+.ask-card p  { color: var(--bark-mid); font-size: 0.92rem; line-height: 1.45; margin: 0 0 4px; white-space: pre-line; }
+.ask-input {
+  width: 100%;
+  margin: 10px 0 2px;
+  padding: 11px 14px;
+  min-height: 44px;
+  font: inherit;
+  font-weight: 850;
+  color: var(--bark);
+  text-align: center;
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  border-radius: 14px;
+  box-shadow: var(--ui-sheen);
+}
+.ask-input:focus { outline: 2px solid var(--bark-mid); outline-offset: 1px; }
+/* .hidden sits ABOVE this file's component rules, so any component that sets its
+   own display needs its own .hidden guard or the later display wins. */
+.ask-input.hidden { display: none; }
+.ask-card .block-actions { margin-top: 12px; }
+/* Destructive asks (clear progress, delete cloud account) read as destructive. */
+.ask-card.is-danger #askConfirmBtn { background: linear-gradient(180deg, #c2544f, #a8433f); }
+/* .block-actions children set their own display, so they need this guard. */
+.ask-card .block-actions button.hidden { display: none; }

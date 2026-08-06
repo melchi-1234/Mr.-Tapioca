@@ -673,6 +673,24 @@
       </div>
     </dialog>
 
+    <!-- In-world replacement for window.confirm / prompt / alert. The stock OS
+         boxes rendered as UIAlertController on the Capacitor build, which is the
+         hardest break of the app's world, and they fired on the most-used paths
+         (Reset mid-session, changing drink or size, every pearl purchase).
+         Driven by askConfirm() / askPrompt() / askAlert() in app.js. -->
+    <dialog id="askDialog">
+      <div class="reward-card ask-card">
+        <p class="eyebrow" id="askEyebrow">Just checking</p>
+        <h2 id="askTitle">Are you sure?</h2>
+        <p id="askCopy"></p>
+        <input id="askInput" class="ask-input hidden" type="text" autocomplete="off" spellcheck="false">
+        <div class="block-actions">
+          <button id="askConfirmBtn" type="button" class="primary">Yes</button>
+          <button id="askCancelBtn" type="button" class="quiet">Cancel</button>
+        </div>
+      </div>
+    </dialog>
+
     <dialog id="premiumDialog">
       <div class="reward-card premium-card">
         <p class="eyebrow">Premium skin</p>

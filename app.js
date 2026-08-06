@@ -260,6 +260,13 @@ const els = {
   rewardDrink:          document.querySelector("#rewardDrink"),
   partnerReward:        document.querySelector("#partnerReward"),
   premiumDialog:        document.querySelector("#premiumDialog"),
+  askDialog:            document.querySelector("#askDialog"),
+  askEyebrow:           document.querySelector("#askEyebrow"),
+  askTitle:             document.querySelector("#askTitle"),
+  askCopy:              document.querySelector("#askCopy"),
+  askInput:             document.querySelector("#askInput"),
+  askConfirmBtn:        document.querySelector("#askConfirmBtn"),
+  askCancelBtn:         document.querySelector("#askCancelBtn"),
   premiumTitle:         document.querySelector("#premiumTitle"),
   premiumCopy:          document.querySelector("#premiumCopy"),
   saveRewardBtn:        document.querySelector("#saveRewardBtn"),
@@ -1236,6 +1243,76 @@ function checkBadges(celebrate) {
 }
 
 let toastTimer = null;
+/* ── In-world confirm / prompt / alert ─────────────────────────────────────
+   window.confirm and friends render as stock OS boxes, and as UIAlertController
+   on the Capacitor build, which breaks the world harder than anything else in
+   the app. These three return Promises and drive #askDialog instead.
+
+   Every caller must await them, so call sites became async. They fall back to
+   the native calls if <dialog>.showModal is missing (very old WebViews), which
+   is the same defensive pattern showReward() already uses. */
+function askDialogOpen({ eyebrow, title, copy, confirmLabel, cancelLabel, danger, input, inputValue, inputPlaceholder }) {
+  const dlg = els.askDialog;
+  if (!dlg || typeof dlg.showModal !== "function") return null;   // caller falls back
+
+  els.askEyebrow.textContent = eyebrow || "Just checking";
+  els.askTitle.textContent   = title || "Are you sure?";
+  els.askCopy.textContent    = copy || "";
+  els.askCopy.classList.toggle("hidden", !copy);
+  dlg.querySelector(".ask-card").classList.toggle("is-danger", !!danger);
+
+  // Never write textContent on a button that carries an inline SVG icon; these
+  // two are plain-text buttons, so a plain label is safe here.
+  els.askConfirmBtn.textContent = confirmLabel || "Yes";
+  els.askCancelBtn.textContent  = cancelLabel  || "Cancel";
+
+  els.askInput.classList.toggle("hidden", !input);
+  if (input) {
+    els.askInput.value = inputValue || "";
+    els.askInput.placeholder = inputPlaceholder || "";
+  }
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      els.askConfirmBtn.removeEventListener("click", onYes);
+      els.askCancelBtn.removeEventListener("click", onNo);
+      dlg.removeEventListener("cancel", onCancel);
+      dlg.removeEventListener("close", onCancel);
+      if (dlg.open) dlg.close();
+      resolve(value);
+    };
+    const onYes    = () => finish(input ? els.askInput.value.trim() : true);
+    const onNo     = () => finish(input ? null : false);
+    const onCancel = () => finish(input ? null : false);
+    els.askConfirmBtn.addEventListener("click", onYes);
+    els.askCancelBtn.addEventListener("click", onNo);
+    dlg.addEventListener("cancel", onCancel);
+    dlg.addEventListener("close", onCancel);
+    dlg.showModal();
+    if (input) setTimeout(() => els.askInput.focus(), 30);
+  });
+}
+
+function askConfirm(copy, opts = {}) {
+  const p = askDialogOpen({ copy, input: false, ...opts });
+  return p === null ? Promise.resolve(window.confirm(copy)) : p;
+}
+
+function askPrompt(copy, defaultValue = "", opts = {}) {
+  const p = askDialogOpen({ copy, input: true, inputValue: defaultValue, confirmLabel: "Save", ...opts });
+  return p === null ? Promise.resolve(window.prompt(copy, defaultValue)) : p;
+}
+
+function askAlert(copy, opts = {}) {
+  const p = askDialogOpen({ copy, input: false, confirmLabel: "Got it", cancelLabel: "", ...opts });
+  if (p === null) { window.alert(copy); return Promise.resolve(); }
+  els.askCancelBtn.classList.add("hidden");
+  return p.then(() => { els.askCancelBtn.classList.remove("hidden"); });
+}
+
 function showToast(msg) {
   els.toast.textContent = msg;
   els.toast.classList.remove("hidden");
@@ -1359,13 +1436,14 @@ function refreshMaker() {
 
 // History hygiene: wipe earned progress so test/dev sessions don't skew stats
 // forever. Keeps settings (sound, music, dev mode, daily goal, onboarding).
-function clearProgress() {
+async function clearProgress() {
   playSfx("tap");
   if (state.running || state.elapsed > 0) {
-    alert("Finish or reset your current drink before clearing progress.");
+    await askAlert("Finish or reset your current drink before clearing progress.", { title: "Not just yet", eyebrow: "Progress" });
     return;
   }
-  if (!confirm("Clear all progress? This permanently deletes your drink shelf, treats, pearls, badges, and shop purchases. Settings are kept.")) return;
+  if (!(await askConfirm("This permanently deletes your drink shelf, treats, pearls, badges and shop purchases. Settings are kept.",
+        { title: "Clear all progress?", eyebrow: "Careful", confirmLabel: "Clear everything", danger: true }))) return;
   state.collection = [];
   state.rewards = [];
   state.owned = [];
@@ -2400,11 +2478,12 @@ function scheduleMakerBreakCycle() {
   setMakerState("sleeping");
 }
 
-function setMode(mode) {
+async function setMode(mode) {
   if (mode === state.mode) return;
   // Guard against wiping a drink that's partway filled
   if (state.elapsed > 0 && progress() < 1) {
-    const ok = confirm("Switch drinks? Your current drink's progress will be lost.");
+    const ok = await askConfirm("Your current drink's progress will be lost.",
+      { title: "Switch drinks?", eyebrow: "Heads up", confirmLabel: "Switch" });
     if (!ok) {
       // keep the previously-active button highlighted
       document.querySelectorAll(".size-btn").forEach(b => {
@@ -2421,10 +2500,11 @@ function setMode(mode) {
   resetSession();
 }
 
-function adjustCustomDuration(delta) {
+async function adjustCustomDuration(delta) {
   // Don't silently wipe an in-progress custom drink (mirrors setMode's guard)
   if (state.mode === "custom" && state.elapsed > 0 && progress() < 1) {
-    if (!confirm("Change cup size? Your current drink's progress will be lost.")) return;
+    if (!(await askConfirm("Your current drink's progress will be lost.",
+        { title: "Change cup size?", eyebrow: "Heads up", confirmLabel: "Change it" }))) return;
   }
   const d = state.customDuration;
   if (delta < 0) {
@@ -2521,13 +2601,14 @@ function renderCustomizeOptions() {
 }
 
 // Buy a locked customization with pearls. Returns true if it's now usable.
-function tryUnlock(kind, key, label, price) {
+async function tryUnlock(kind, key, label, price) {
   if (currentPearls() < price) {
     playSfx("tap"); haptic(8);
     showToast(`Need ${price - currentPearls()} more pearls for ${label} 🧋`);
     return false;
   }
-  if (!confirm(`Unlock ${label} for ${price} pearls?`)) return false;
+  if (!(await askConfirm(`This will spend ${price} of your ${currentPearls()} pearls.`,
+        { title: `Unlock ${label}?`, eyebrow: "Shop", confirmLabel: `Unlock for ${price}` }))) return false;
   (kind === "base" ? state.unlockedBases : state.unlockedToppings).push(key);
   state.spent += price;
   playSfx("coin"); haptic(10);
@@ -2535,8 +2616,8 @@ function tryUnlock(kind, key, label, price) {
   return true;
 }
 
-function setBase(base) {
-  if (!isBaseUnlocked(base) && !tryUnlock("base", base, BASES[base].label, BASES[base].price)) return;
+async function setBase(base) {
+  if (!isBaseUnlocked(base) && !(await tryUnlock("base", base, BASES[base].label, BASES[base].price))) return;
   state.base = base;
   saveState();
   renderCustomizeOptions();   // refresh active + lock states
@@ -2544,9 +2625,9 @@ function setBase(base) {
   els.makerSpeech.textContent = "Fresh tea base selected.";
 }
 
-function setChoice(type, value) {
+async function setChoice(type, value) {
   if (type === "topping" && !isToppingUnlocked(value) &&
-      !tryUnlock("topping", value, TOPPINGS[value].label, TOPPINGS[value].price)) return;
+      !(await tryUnlock("topping", value, TOPPINGS[value].label, TOPPINGS[value].price))) return;
   state[type] = value;
   saveState();
   renderCustomizeOptions();
@@ -4485,12 +4566,13 @@ function shareSquadCode() {
   }
 }
 const RENAME_PEARL_COST = 20;
-function editSquadName() {
+async function editSquadName() {
   const current = (state.displayName || "").trim();
 
   // No name yet (e.g. skipped onboarding) → the first set is FREE.
   if (!current) {
-    const name = window.prompt("Pick your boba shop name:", "");
+    const name = await askPrompt("This is how you show up to your Study Squad.",
+      "", { title: "Pick your shop name", eyebrow: "Study Squad", inputPlaceholder: "Boba HQ" });
     if (name === null) return;
     const n = name.trim().slice(0, 24);
     if (!n) return;
@@ -4509,8 +4591,10 @@ function editSquadName() {
       showToast(`A name change costs ${RENAME_PEARL_COST} pearls. Keep focusing to earn them!`);
       playSfx("tap"); return;
     }
-    if (!confirm(`Change your name for ${RENAME_PEARL_COST} pearls?\n\nHeads up: any change after this one becomes a small in-app purchase.`)) return;
-    const name = window.prompt("Your new name:", current);
+    if (!(await askConfirm(`This costs ${RENAME_PEARL_COST} pearls. Any change after this one becomes a small in-app purchase.`,
+          { title: "Change your name?", eyebrow: "Study Squad", confirmLabel: `Change for ${RENAME_PEARL_COST}` }))) return;
+    const name = await askPrompt("Pick something your squad will recognise.",
+      current, { title: "Your new name", eyebrow: "Study Squad" });
     if (name === null) return;
     const n = name.trim().slice(0, 24);
     if (!n || n === current) return;
@@ -5160,20 +5244,21 @@ function pongPoint(e) {
 function wireEvents() {
   // ── Main timer controls ──────────────────────────────────────────────────
   els.startPauseBtn.addEventListener("click", () => { playSfx("tap"); startPause(); });
-  els.resetBtn.addEventListener("click", () => {
+  els.resetBtn.addEventListener("click", async () => {
     playSfx("tap");
     // guard against erasing a partly-filled drink (mirrors the size-switch guard)
     if (state.elapsed > 0 && progress() < 1 &&
-        !confirm("Reset this drink? Your current progress will be lost.")) return;
+        !(await askConfirm("Your current progress will be lost.",
+          { title: "Reset this drink?", eyebrow: "Careful", confirmLabel: "Reset", danger: true }))) return;
     resetSession();
   });
 
   // ── Mode / size picker ───────────────────────────────────────────────────
   document.querySelectorAll(".size-btn").forEach(btn => {
-    btn.addEventListener("click", () => { playSfx("select"); setMode(btn.dataset.mode); });
+    btn.addEventListener("click", async () => { playSfx("select"); await setMode(btn.dataset.mode); });
   });
-  els.customMinus.addEventListener("click", () => { playSfx("select"); adjustCustomDuration(-CUSTOM_STEP); });
-  els.customPlus.addEventListener("click",  () => { playSfx("select"); adjustCustomDuration(CUSTOM_STEP); });
+  els.customMinus.addEventListener("click", async () => { playSfx("select"); await adjustCustomDuration(-CUSTOM_STEP); });
+  els.customPlus.addEventListener("click",  async () => { playSfx("select"); await adjustCustomDuration(CUSTOM_STEP); });
 
   // ── Daily goal stepper (Settings) ─────────────────────────────────────────
   els.goalMinus.addEventListener("click", () => { playSfx("select"); haptic(4); adjustDailyGoal(-GOAL_STEP); });
@@ -5297,7 +5382,7 @@ function wireEvents() {
         () => showToast("Couldn't copy. Read it out instead."));
     } else showToast("Your code is " + code);
   });
-  if (els.changeNameBtn) els.changeNameBtn.addEventListener("click", () => { editSquadName(); renderNameRow(); });
+  if (els.changeNameBtn) els.changeNameBtn.addEventListener("click", async () => { await editSquadName(); renderNameRow(); });
   const squadAddBtn = document.querySelector("#squadAddBtn");
   const squadInput = document.querySelector("#squadCodeInput");
   if (squadAddBtn && squadInput) {
@@ -5306,9 +5391,10 @@ function wireEvents() {
     squadInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doAdd(); });
   }
   const deleteAccountBtn = document.querySelector("#deleteAccountBtn");
-  if (deleteAccountBtn) deleteAccountBtn.addEventListener("click", () => {
+  if (deleteAccountBtn) deleteAccountBtn.addEventListener("click", async () => {
     if (!squadCloudLive() && !(window.SquadCloud && SquadCloud.enabled)) return;
-    if (!window.confirm("Delete your cloud account? This removes your profile, friends and stats from the server. Your on-device progress stays on this phone.")) return;
+    if (!(await askConfirm("This removes your profile, friends and stats from the server. Your on-device progress stays on this phone.",
+          { title: "Delete your cloud account?", eyebrow: "Study Squad", confirmLabel: "Delete account", danger: true }))) return;
     SquadCloud.deleteAccount().then(() => { showToast("Cloud account deleted."); renderSquad(); });
   });
 
@@ -5415,13 +5501,13 @@ function wireEvents() {
 
   // ── Customize sheet: tea base + topping (rendered from BASES/TOPPINGS) ────
   renderCustomizeOptions();
-  els.baseGrid.addEventListener("click", (e) => {
+  els.baseGrid.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-base]");
-    if (btn) setBase(btn.dataset.base);
+    if (btn) await setBase(btn.dataset.base);
   });
-  els.toppingRow.addEventListener("click", (e) => {
+  els.toppingRow.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-topping]");
-    if (btn) setChoice("topping", btn.dataset.topping);
+    if (btn) await setChoice("topping", btn.dataset.topping);
   });
 
   // ── App blocking (native picker on iPhone; preview/hint on web) ───────────
@@ -5683,7 +5769,9 @@ renderBlockPill();
   if (m) {
     // Ask first — a link click must not silently mutate the Squad (a crafted
     // link could overwrite a friend's stats or burn cloud follow-rate slots).
-    if (confirm("Add this friend to your Study Squad?")) addFriendByCode(m[1]);
+    askConfirm("Someone shared their Study Squad code with you.",
+      { title: "Add this friend?", eyebrow: "Study Squad", confirmLabel: "Add them" })
+      .then((yes) => { if (yes) addFriendByCode(m[1]); });
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { location.hash = ""; }
   }
 })();
