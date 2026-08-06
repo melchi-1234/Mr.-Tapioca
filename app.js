@@ -1145,7 +1145,29 @@ function renderWeekChart() {
   }
   const max = Math.max(60, ...days.map(d => d.mins));   // floor so tiny days aren't huge
 
-  els.weekChart.innerHTML = days.map(d => {
+  // Zero data is what EVERY new user sees, and it used to render as seven 4px
+  // min-height stubs pinned to the bottom edge under ~90px of void: a card that
+  // is ~95% empty and reads as broken rather than as "nothing yet". Say so.
+  const weekTotal = days.reduce((t, d) => t + d.mins, 0);
+  if (weekTotal === 0) {
+    els.weekChart.classList.add("is-empty");
+    els.weekChart.innerHTML =
+      // Deliberately NOT "No focus yet this week": renderInsights() prints
+      // exactly that sentence in the box directly below this card, and the two
+      // sat back to back. This one describes the CARD, that one gives the nudge.
+      `<div class="week-empty">
+         <p class="week-empty-title">Your week will chart here</p>
+         <p class="week-empty-copy">Each day you focus becomes a bar.</p>
+       </div>`;
+    return;
+  }
+  els.weekChart.classList.remove("is-empty");
+
+  // A goal line gives the bars something to be measured against, so a sparse
+  // week reads as a chart rather than as a few floating stubs.
+  const goalPct = Math.min(100, Math.round((state.dailyGoal / max) * 100));
+
+  els.weekChart.innerHTML = `<span class="week-goal-line" style="bottom:calc(${goalPct}% * 0.72 + 22px)" aria-hidden="true"></span>` + days.map(d => {
     const h = Math.round((d.mins / max) * 100);
     const isToday = d.ord === todayOrd;
     const cls = `week-bar ${d.mins === 0 ? "empty" : ""} ${isToday ? "today" : ""}`.trim();
