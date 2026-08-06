@@ -57,7 +57,14 @@
              Taro Galaxy the little moon, are part of the front plate, so they
              occlude the animation for free. Both are empty on themes that have
              no animated window yet. -->
-        <div class="win-fx" aria-hidden="true"></div>
+        <div class="win-fx" aria-hidden="true">
+          <!-- src is set by renderWindowLoop() per theme, not here: an unused
+               <video> with a src still costs a fetch and a decoder on themes
+               that have no loop. muted+playsinline are what let iOS autoplay it
+               at all. The CSS spin underneath stays as the fallback for when
+               autoplay is refused or motion is reduced. -->
+          <video class="win-video hidden" muted loop playsinline preload="none" aria-hidden="true"></video>
+        </div>
         <div class="scene-front" aria-hidden="true"></div>
         <!-- Soft cafe ambiance: gentle pastel light orbs (replaces the old
              crude jar/window/light blocks that read as unfinished). -->

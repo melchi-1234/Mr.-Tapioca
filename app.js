@@ -236,6 +236,7 @@ const state = {
 const els = {
   shopScene:            document.querySelector("#shopScene"),
   focusCup:             document.querySelector("#focusCup"),
+  winVideo:             document.querySelector(".win-video"),
   liquid:               document.querySelector("#liquid"),
   liqSurface:           document.querySelector("#liqSurface"),
   foamBand:             document.querySelector("#foamBand"),
@@ -993,6 +994,7 @@ function updateCup() {
   // Maker state is driven by the walk choreography (startPause/reset/break),
   // not here — updateCup runs every tick and would override the walk.
   els.shopScene.dataset.theme = state.shopTheme;
+  renderWindowLoop(state.shopTheme);
   els.shopScene.classList.toggle("is-focusing", state.running);
   // Drop the size picker for the WHOLE session, paused included. Keying this off
   // state.running alone made the picker (and with it the shop floor, which now
@@ -2182,6 +2184,52 @@ function onBlockPromptClose() {
 
 // Small always-visible shield pill under Start (native only) so blocking reads
 // as a real feature, not something buried in Settings.
+// ── Animated window loops ────────────────────────────────────────────────────
+// Themes whose window has a real generated video behind the glass. Anything not
+// listed here keeps the CSS layers, which is why .win-fx has a fallback at all.
+const WINDOW_LOOPS = { galaxy: "assets/win-galaxy.mp4" };
+let winLoopTheme = null;
+
+function renderWindowLoop(theme) {
+  // updateCup() runs every tick, so this MUST no-op on an unchanged theme:
+  // re-assigning src restarts the clip, and the window would visibly stutter
+  // back to frame one once a second for the whole session.
+  if (theme === winLoopTheme) return;
+  winLoopTheme = theme;
+  const v = els.winVideo;
+  const fx = document.querySelector(".win-fx");
+  if (!v || !fx) return;
+
+  const src = WINDOW_LOOPS[theme];
+  if (!src) {
+    v.pause();
+    v.removeAttribute("src");
+    v.load();                       // actually releases the decoder
+    v.classList.add("hidden");
+    fx.classList.remove("has-video");
+    return;
+  }
+  v.muted = true;                  // belt and braces: iOS only autoplays muted
+  v.src = src;
+
+  // Hand over on the `playing` EVENT, never on the play() promise. Setting src
+  // starts a load, and calling play() in the same tick gets aborted by it — the
+  // promise then resolves while the clip sits on frame one, so gating on the
+  // promise showed a frozen video and hid the CSS spin behind it. `playing` only
+  // fires when frames are actually being presented.
+  const reveal = () => { v.classList.remove("hidden"); fx.classList.add("has-video"); };
+  v.addEventListener("playing", reveal, { once: true });
+
+  const tryPlay = () => { const p = v.play(); if (p && p.catch) p.catch(() => {}); };
+  if (v.readyState >= 2) tryPlay();
+  else v.addEventListener("canplay", tryPlay, { once: true });
+
+  // If autoplay is refused outright, the CSS spin just stays and the video never
+  // appears. Retry once on the first real tap so it can still take over.
+  const onGesture = () => { if (v.paused) tryPlay(); };
+  document.addEventListener("pointerdown", onGesture, { once: true, passive: true });
+}
+
 function renderBlockPill() {
   const pill = els.blockPill;
   if (!pill) return;
@@ -5942,6 +5990,13 @@ function wireEvents() {
   // paused on hide, so on a phone the auto-lock killed every session before the
   // break.) We just bank progress on hide and catch up on return.
   document.addEventListener("visibilitychange", () => {
+    // The window loop is decorative and nobody can see it while the app is away,
+    // so it must not keep a decoder awake through a locked-screen session. The
+    // TIMER deliberately keeps running (see below); only the video stops.
+    if (els.winVideo && els.winVideo.getAttribute("src")) {
+      if (document.visibilityState === "hidden") els.winVideo.pause();
+      else { const p = els.winVideo.play(); if (p && p.catch) p.catch(() => {}); }
+    }
     if (document.visibilityState === "hidden") {
       if (state.running) saveState();   // persist in case the OS kills the tab
     } else if (document.visibilityState === "visible") {

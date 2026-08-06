@@ -481,6 +481,26 @@ body {
   transform: translate(-50%, -50%);
   will-change: transform;
 }
+/* A real generated loop, when the theme has one. Sized to just cover the window
+   rather than the whole scene: the mask clips it to the glass either way, and a
+   full-bleed video would mean decoding and compositing several times the pixels
+   that can actually be seen. Centred on the same measured window point as the
+   CSS layers. */
+.win-video {
+  position: absolute;
+  left: 47%; top: 32.5%;
+  width: 95%; aspect-ratio: 720 / 972;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  display: block;
+}
+/* This component sets its own `display`, so it needs its own .hidden — the trap
+   documented in CLAUDE.md. */
+.win-video.hidden { display: none; }
+/* When the video is really playing, the CSS spin underneath would double the
+   motion. It stays in the markup as the fallback and is hidden only once the
+   video is confirmed running. */
+.win-fx.has-video::before, .win-fx.has-video::after { display: none; }
 /* Rotation has to carry the centring translate, since one transform property
    does both jobs. */
 @keyframes win-spin {
