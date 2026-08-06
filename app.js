@@ -2150,8 +2150,18 @@ function onBlockPromptClose() {
 function renderBlockPill() {
   const pill = els.blockPill;
   if (!pill) return;
-  if (!FocusBlocker.available()) { pill.classList.add("hidden"); return; }
+  // .has-pill drives whether .session-row occupies any height at all. Without
+  // it the row still cost its 7px stack gap on every non-iOS device, for a
+  // control those devices never show. Toggled here rather than with :has() so
+  // the layout does not depend on selector support.
+  const controls = document.querySelector(".focus-controls");
+  if (!FocusBlocker.available()) {
+    pill.classList.add("hidden");
+    if (controls) controls.classList.remove("has-pill");
+    return;
+  }
   pill.classList.remove("hidden");
+  if (controls) controls.classList.add("has-pill");
   const on = FocusBlocker._configured === true;
   pill.classList.toggle("is-on", on);
   if (els.blockPillLabel) els.blockPillLabel.textContent = on ? "App blocking: On" : "App blocking: Off";
@@ -2689,6 +2699,33 @@ function updateCustomDisplay() {
 }
 
 let lastSheetTrigger = null;   // element to return focus to when a sheet closes
+
+// Scroll a sheet's OWN body to one of its sections.
+//
+// Never use scrollIntoView() for this. It walks up and scrolls EVERY scroll
+// container between the target and the document, and .scene-wrap is one of them:
+// it is overflow:hidden, but the sheets sit inside it translated 110% down while
+// closed, which gives it ~690px of scrollable overflow. So a scrollIntoView fired
+// during a sheet's 320ms open animation scrolled .scene-wrap itself, dragging the
+// entire app off the top of the phone frame. There is no scrollbar there and
+// nothing resets it, so the app stayed broken until a reload. That was the
+// streak-chip bug: tapping the flame emptied the screen.
+//
+// Setting .sheet-body's scrollTop directly touches exactly one scroller.
+// Jump, don't glide: a smooth scroll started while the sheet is still sliding
+// up gets interrupted and lands short (it stopped 748px early in testing). The
+// sheet is off-screen at this point anyway, so setting the position outright
+// means it slides in already showing the right section, with nothing to watch.
+function scrollSheetTo(sheetSel, targetSel) {
+  const body = document.querySelector(sheetSel + " .sheet-body");
+  const target = body && body.querySelector(targetSel);
+  if (!body || !target) return;
+  // Both rects carry the sheet's in-flight open transform, so the delta between
+  // them is correct even mid-animation. Only the transform is animated, so the
+  // body's height and scrollHeight are already final.
+  const top = body.scrollTop + (target.getBoundingClientRect().top - body.getBoundingClientRect().top);
+  body.scrollTop = Math.max(0, top - 8);
+}
 
 function openSheet(id) {
   clearInterval(squadPollId); squadPollId = null;   // stop squad polling when switching sheets
@@ -4442,8 +4479,13 @@ function renderShopList(items) {
       playSfx("tap");
       mapObj.setView([it.shop.lat, it.shop.lng], 17, { animate: true });
       it.marker.openPopup();
+      // Sheet-local scroll only. scrollIntoView would also scroll .scene-wrap
+      // and shove the whole app out of the phone frame (see scrollSheetTo).
       const mapEl = document.querySelector("#map");
-      if (mapEl) mapEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      const mapBody = document.querySelector("#mapSheet .sheet-body");
+      if (mapEl && mapBody && mapEl.getBoundingClientRect().top < mapBody.getBoundingClientRect().top) {
+        scrollSheetTo("#mapSheet", "#map");
+      }
     });
   });
 }
@@ -5586,8 +5628,7 @@ function wireEvents() {
     hudStreakEl.setAttribute("aria-label", "See your progress");
     hudStreakEl.addEventListener("click", () => {
       playSfx("open"); renderNameRow(); openSheet("settingsSheet");
-      const target = document.querySelector(".settings-section-title");
-      if (target) setTimeout(() => target.scrollIntoView({ block: "start", behavior: "smooth" }), 60);
+      scrollSheetTo("#settingsSheet", ".settings-section-title");
     });
   }
   const hudNameEl = document.querySelector("#hudName");
@@ -5601,6 +5642,18 @@ function wireEvents() {
       if (body) setTimeout(() => { body.scrollTop = 0; }, 60);
     });
   }
+  // Belt and braces for the bug above: .scene-wrap is never meant to scroll, but
+  // it IS a scroll container (overflow:hidden + the closed sheets' translate),
+  // so anything that scrolls an ancestor — scrollIntoView, focus(), an IME, a
+  // browser's own "keep the focused field visible" — can shove the whole app out
+  // of frame with no scrollbar to get it back. Snap it home if it ever moves.
+  const sceneWrapEl = document.querySelector(".scene-wrap");
+  if (sceneWrapEl) sceneWrapEl.addEventListener("scroll", () => {
+    if (sceneWrapEl.scrollTop || sceneWrapEl.scrollLeft) {
+      sceneWrapEl.scrollTop = 0; sceneWrapEl.scrollLeft = 0;
+    }
+  }, { passive: true });
+
   els.shopClose.addEventListener("click",     closeSheets);
   els.customizeClose.addEventListener("click",closeSheets);
   els.settingsClose.addEventListener("click", closeSheets);

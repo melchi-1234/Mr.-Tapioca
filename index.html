@@ -256,7 +256,13 @@
           </div>
           <div class="progress-track"><span id="progressBar"></span></div>
         </div>
-        <button id="startPauseBtn" class="start-btn">Start Focus</button>
+        <!-- Reset rides ALONGSIDE the primary button, not under it. It used to own
+             a whole 45px row of its own, which left a bare strip of floor between
+             Pause and the nav for the sake of one small undo. -->
+        <div class="start-row">
+          <button id="startPauseBtn" class="start-btn">Start Focus</button>
+          <button id="resetBtn" class="reset-link" aria-label="Reset this session"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3.5v5.5h5.5"/><path d="M3.6 15.2a9 9 0 1 0 1.7-8.9L3 9"/></svg><span class="reset-word">Reset</span></button>
+        </div>
         <!-- Shield pill: shown only on the native iPhone app (JS reveals it when the
              Screen Time plugin is present). Makes app blocking a visible feature
              instead of something buried in Settings. -->
@@ -266,7 +272,6 @@
             <span id="blockPillLabel">App blocking: Off</span>
             <span class="block-pill-chev" aria-hidden="true">›</span>
           </button>
-          <button id="resetBtn" class="reset-link">Reset</button>
         </div>
       </div>
 

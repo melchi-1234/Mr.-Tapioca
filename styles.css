@@ -229,7 +229,14 @@ body {
      the stack now sits ~47px lower, so the floor line follows it down and the
      shop gains that height. Capped at 330 so the tall desktop frame does not
      just grow the band back. */
-  --floor-rest: clamp(310px, 42vh, 350px);
+  /* Third pass, after Reset moved beside the primary button and .session-row
+     stopped reserving a row of its own: the control stack ends 54px lower than
+     it did, so leaving the floor where it was opened a wide bare strip of wood
+     between the counter and the timer card. Measured at 375x812: counter base
+     471, timer card top 537. The floor comes down by the same 54px so the
+     counter lands ~12px under the card again, exactly the clearance it had
+     before, and the scene keeps its composition. */
+  --floor-rest: clamp(256px, 35vh, 296px);
   --floor-y: var(--floor-rest);
   /* WAS 53px, the height of the size picker, on the assumption that the stack
      is exactly that much shorter once a session starts and the picker leaves.
@@ -406,21 +413,21 @@ body {
 .scene[data-theme="galaxy"] .theme-fx::before {
   background-repeat: no-repeat;
   background-image:
-    radial-gradient(2.5px 2.5px at 12% 16%, #fff, transparent),
-    radial-gradient(2px 2px at 27% 40%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 46% 11%, #fff, transparent),
-    radial-gradient(2.5px 2.5px at 62% 30%, #e7d8ff, transparent),
-    radial-gradient(1.5px 1.5px at 77% 20%, #fff, transparent),
-    radial-gradient(2px 2px at 89% 44%, #d7ecff, transparent),
-    radial-gradient(1.5px 1.5px at 37% 26%, #fff, transparent),
-    radial-gradient(2px 2px at 8% 38%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 55% 50%, #fff, transparent),
-    radial-gradient(3px 3px at 18% 31%, #fff, transparent),
-    radial-gradient(2.5px 2.5px at 70% 8%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 33% 47%, #ffe9f6, transparent),
-    radial-gradient(2px 2px at 93% 27%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 5% 12%, #fff, transparent);
-  filter: drop-shadow(0 0 3px rgba(255,255,255,0.7));
+    radial-gradient(3.6px 3.6px at 12% 16%, #fff, transparent),
+    radial-gradient(3px 3px at 27% 40%, #fff, transparent),
+    radial-gradient(2.4px 2.4px at 46% 11%, #fff, transparent),
+    radial-gradient(3.6px 3.6px at 62% 30%, #e7d8ff, transparent),
+    radial-gradient(2.4px 2.4px at 77% 20%, #fff, transparent),
+    radial-gradient(3px 3px at 89% 44%, #d7ecff, transparent),
+    radial-gradient(2.4px 2.4px at 37% 26%, #fff, transparent),
+    radial-gradient(3px 3px at 8% 38%, #fff, transparent),
+    radial-gradient(2.4px 2.4px at 55% 50%, #fff, transparent),
+    radial-gradient(4.2px 4.2px at 18% 31%, #fff, transparent),
+    radial-gradient(3.6px 3.6px at 70% 8%, #fff, transparent),
+    radial-gradient(2.4px 2.4px at 33% 47%, #ffe9f6, transparent),
+    radial-gradient(3px 3px at 93% 27%, #fff, transparent),
+    radial-gradient(2.4px 2.4px at 5% 12%, #fff, transparent);
+  filter: drop-shadow(0 0 5px rgba(255,255,255,0.9));
   animation: star-twinkle 3.4s ease-in-out infinite;
 }
 @keyframes star-twinkle { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
@@ -456,14 +463,15 @@ body {
   background-repeat: repeat;
   background-size: 100% 200px;
   background-image:
-    radial-gradient(2.6px 2.6px at 20% 8px, rgba(255,255,255,0.95), transparent),
-    radial-gradient(2px 2px at 50% 40px, rgba(255,255,255,0.9), transparent),
-    radial-gradient(2.4px 2.4px at 80% 18px, rgba(255,255,255,0.95), transparent),
-    radial-gradient(2px 2px at 35% 90px, rgba(255,255,255,0.85), transparent),
-    radial-gradient(2px 2px at 66% 130px, rgba(255,255,255,0.9), transparent),
-    radial-gradient(1.8px 1.8px at 10% 160px, rgba(255,255,255,0.85), transparent),
-    radial-gradient(2.2px 2.2px at 90% 70px, rgba(255,255,255,0.9), transparent),
-    radial-gradient(1.6px 1.6px at 45% 178px, rgba(255,255,255,0.8), transparent);
+    radial-gradient(4.4px 4.4px at 20% 8px, rgba(255,255,255,1), transparent),
+    radial-gradient(3.4px 3.4px at 50% 40px, rgba(255,255,255,0.95), transparent),
+    radial-gradient(4px 4px at 80% 18px, rgba(255,255,255,1), transparent),
+    radial-gradient(3.4px 3.4px at 35% 90px, rgba(255,255,255,0.92), transparent),
+    radial-gradient(3.4px 3.4px at 66% 130px, rgba(255,255,255,0.95), transparent),
+    radial-gradient(3px 3px at 10% 160px, rgba(255,255,255,0.92), transparent),
+    radial-gradient(3.8px 3.8px at 90% 70px, rgba(255,255,255,0.95), transparent),
+    radial-gradient(2.8px 2.8px at 45% 178px, rgba(255,255,255,0.88), transparent);
+  filter: drop-shadow(0 0 3px rgba(120,170,205,0.6));
   animation: snow-fall 8s linear infinite;
 }
 .scene[data-theme="winter"] .theme-fx::after { animation-duration: 13s; opacity: 0.7; background-position-x: 45px; }
@@ -1558,39 +1566,58 @@ body {
 .scene.is-brewing { --floor-y: calc(var(--floor-rest) - var(--floor-lift)); }
 /* One fixed-height row for the shield pill + Reset: the pill stays centered,
    Reset docks at the right edge, and toggling either never moves the stack. */
-.session-row { position: relative; width: 100%; min-height: 38px; display: flex; align-items: center; justify-content: center; }
-/* Idle, both of this row's children are display:none, but min-height still
-   reserved 38px of bare floor directly under Start Focus. The min-height is
-   only needed once the row has content, because .reset-link is absolutely
-   positioned and contributes no height of its own. Collapsing it while idle
-   lets the whole stack sit lower and the floor line come down with it.
-   Gated rather than removed: the block pill is an in-flow child, so a visible
-   pill still sizes the row on its own. */
-.focus-controls:not(.session-on) .session-row { min-height: 0; }
+/* Reset sits beside the primary button now, so this row carries only the iOS
+   shield pill and is display:none everywhere else. It used to reserve 45px
+   whether or not it had anything in it, which is the bare strip of floor that
+   showed between Pause and the nav on every non-iOS device. */
+.session-row { position: relative; width: 100%; display: none; align-items: center; justify-content: center; }
+.focus-controls.has-pill .session-row { display: flex; }
 .session-row .block-pill { margin: 0; }
-/* Anchored to the row's BOTTOM, not its middle. The row reserves 38px so a
-   visible block pill has somewhere to sit, but Reset is only 27px and was
-   centred in that 38px, so it ended 19px above the row's base. Idle's last
-   visible control (the full-width Start Focus bar) ends 9px above the same
-   base, so starting a session moved the last thing on screen UP by 10px and
-   swapped a wide bar for a small pill — which reads as a gap opening above the
-   nav. bottom: 4px lands Reset on exactly the line Start Focus occupied (695),
-   measured rather than derived, so
-   nothing appears to move when you press Start. */
+/* The primary button and Reset share one row. Reset is a circle that matches the
+   bar's height exactly, so the pair reads as one control group instead of a
+   button with an orphan underneath it. */
+.start-row { display: flex; align-items: stretch; gap: 8px; width: 100%; }
+.start-row .start-btn { flex: 1 1 auto; min-width: 0; width: auto; }
+/* Same material construction as .start-btn (bright top edge, solid lip, ambient
+   shadow, press-onto-the-lip) so the two read as one pair, but a mid brown that
+   is plainly subordinate to the chocolate CTA. Cream was the other candidate and
+   was rejected: it would have tied visually with the cream nav pills 6px below
+   and pulled more attention than the primary button. */
+.start-row #resetBtn {
+  flex: 0 0 auto;
+  width: 56px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  justify-content: center;
+  background: linear-gradient(180deg, #8d6a5b, #785649);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.22),
+    inset 0 -2px 0 rgba(0,0,0,0.18),
+    0 5px 0 #573c31,
+    0 12px 22px -8px rgba(60,32,24,0.42);
+  transition: transform 70ms ease, box-shadow 70ms ease;
+}
+.start-row #resetBtn:active {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.16),
+    inset 0 -2px 0 rgba(0,0,0,0.18),
+    0 1px 0 #573c31,
+    0 5px 12px -6px rgba(60,32,24,0.4);
+}
+/* Icon only here: the word would cost another 40px of the CTA's width, and the
+   button already carries aria-label="Reset this session" for screen readers. */
+.start-row #resetBtn .reset-word { display: none; }
+.start-row #resetBtn .ico { width: 21px; height: 21px; stroke-width: 2.3; }
 /* Selector carries the ID deliberately. The 44px hit-target list further down
    this file contains `#resetBtn { position: relative }`, which is (1,0,0) and
-   beats a class-only selector here (0,2,0) — so `position: absolute` silently
-   lost, the element stayed relatively positioned, and `bottom` then shifted it
-   UP from its static spot instead of anchoring it. `.session-row #resetBtn` is
-   (1,1,0) and wins. Fourth same-specificity/priority collision in this file. */
-.session-row #resetBtn { position: relative; right: auto; top: auto; bottom: auto; transform: none; }
-/* Reset now sits in FLOW, centred by the row's own flex, and the row's height is
-   what places it. Cleaner than the absolute positioning it replaces, which never
-   actually applied (see above) and which would also have overlapped the block
-   pill on iOS, since that pill is an in-flow child of the same row.
-   45px = Reset's 27px + 9px above and below, which lands its base on y=695 —
-   exactly where idle's Start Focus button ends. Measured, not derived. */
-.focus-controls.session-on .session-row { min-height: 45px; }
+   beats a class-only selector here (0,2,0), so any positioning written with
+   classes alone silently loses. `.start-row #resetBtn` is (1,1,0) and wins.
+   That collision has now cost time four separate times in this file. */
+.start-row #resetBtn { position: relative; right: auto; top: auto; bottom: auto; transform: none; }
 .focus-controls {
   position: absolute;
   /* add the home-indicator inset so the Reset link clears the bottom nav (which
@@ -1848,6 +1875,9 @@ body {
 }
 
 .reset-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: rgba(60, 32, 24, 0.55);
   color: var(--cream);
   border: 1.5px solid rgba(253, 245, 236, 0.3);
@@ -1859,6 +1889,15 @@ body {
   -webkit-backdrop-filter: blur(8px);
   letter-spacing: 0.02em;
 }
+/* This component now sets its own `display`, which is the exact shape of the
+   trap documented in CLAUDE.md: `.hidden { display: none }` is (0,1,0), so any
+   later same-specificity `display` silently defeats it. `.hidden` happens to sit
+   below this rule today and still wins, but that is source order, not intent.
+   Pin it, because #resetBtn IS toggled with .hidden (idle, no elapsed time). */
+.reset-link.hidden { display: none; }
+/* Skip / End Break keep the original size: they are the break screen's main
+   controls, not an afterthought like Reset. */
+.break-panel .reset-link { font-size: 0.74rem; }
 
 /* ── Break panels ───────────────────────────────────────────────────────── */
 /* bottom clears the nav rather than guessing at it. .bottom-bar measures 102px
@@ -3730,7 +3769,14 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   /* --floor-rest, not --floor-y: .scene sets --floor-y from it, and a :root
      value would lose to that rule and leave short phones on the tall layout.
      The lift shrinks too because this breakpoint tightens the stack gap to 7px. */
-  .scene { --floor-rest: 290px; --floor-lift: 48px; }
+  /* --floor-lift drops the floor when a session starts, on the old assumption
+     that the session stack is TALLER than idle. It is not any more: with Reset
+     beside the primary button the session stack is 26px SHORTER than idle, so
+     lifting on top of that drove the timer card 66px INTO the counter at this
+     breakpoint (it was already 41px in before this change). Zero, matching the
+     tall breakpoint, and --floor-rest measured so the counter clears the card by
+     ~9px running and ~31px idle. */
+  .scene { --floor-rest: 263px; --floor-lift: 0px; }
   /* Keep the break nook lifted clear of the compact panel, but lower than on tall
      phones so the bed doesn't crowd the top HUD on short screens. */
   .scene.is-on-break.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }
@@ -3896,18 +3942,30 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
    winter: layers inside .theme-fx (sky zone), gradient sprites, position or
    opacity animation only. Paid themes stay the flashiest. */
 
-/* COZY (default) — the softest touch: warm dust motes drifting up the window
-   light, barely-there. The default theme must whisper, not shout. */
-.scene[data-theme="cozy"] .theme-fx::before {
+/* COZY (default) — warm dust motes drifting up the window light.
+   Retuned Aug 2026. The first pass used 1.4-2px dots at 0.4-0.55 alpha in warm
+   cream, drawn over a bright cream window: measured against the backdrop they
+   were under 4% contrast, so the effect ran perfectly and nobody could see it.
+   Particles are the one decoration that has to survive being 2px on a phone, so
+   they need SIZE and a glow that separates them from whatever is behind, not
+   just opacity. Two layers now, at different speeds, for depth. */
+.scene[data-theme="cozy"] .theme-fx::before,
+.scene[data-theme="cozy"] .theme-fx::after {
   background-repeat: repeat;
   background-size: 100% 240px;
   background-image:
-    radial-gradient(2px 2px at 30% 30px, rgba(255,226,170,0.55), transparent),
-    radial-gradient(1.6px 1.6px at 55% 110px, rgba(255,236,190,0.45), transparent),
-    radial-gradient(1.8px 1.8px at 44% 190px, rgba(255,226,170,0.5), transparent),
-    radial-gradient(1.4px 1.4px at 66% 60px, rgba(255,240,200,0.4), transparent);
+    radial-gradient(3.4px 3.4px at 30% 30px, rgba(255,236,186,0.95), transparent),
+    radial-gradient(2.8px 2.8px at 55% 110px, rgba(255,244,206,0.85), transparent),
+    radial-gradient(3.2px 3.2px at 44% 190px, rgba(255,236,186,0.9), transparent),
+    radial-gradient(2.6px 2.6px at 66% 60px, rgba(255,248,216,0.8), transparent),
+    radial-gradient(3px 3px at 16% 150px, rgba(255,236,186,0.85), transparent),
+    radial-gradient(2.4px 2.4px at 82% 210px, rgba(255,244,206,0.75), transparent);
+  filter: drop-shadow(0 0 4px rgba(255,206,132,0.85));
   animation: mote-rise 16s linear infinite;
-  opacity: 0.8;
+  opacity: 0.9;
+}
+.scene[data-theme="cozy"] .theme-fx::after {
+  animation-duration: 25s; opacity: 0.55; background-position-x: 52px;
 }
 @keyframes mote-rise { from { background-position-y: 240px; } to { background-position-y: 0; } }
 
@@ -3915,12 +3973,14 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="night"] .theme-fx::before {
   background-repeat: no-repeat;
   background-image:
-    radial-gradient(2.6px 2.6px at 16% 34%, rgba(255,244,150,0.9), transparent),
-    radial-gradient(2px 2px at 38% 52%, rgba(230,255,160,0.8), transparent),
-    radial-gradient(2.4px 2.4px at 64% 40%, rgba(255,244,150,0.85), transparent),
-    radial-gradient(2px 2px at 84% 55%, rgba(230,255,160,0.75), transparent),
-    radial-gradient(1.8px 1.8px at 50% 28%, rgba(255,250,180,0.7), transparent);
-  filter: drop-shadow(0 0 4px rgba(255,244,150,0.8));
+    radial-gradient(4.2px 4.2px at 16% 34%, rgba(255,244,150,1), transparent),
+    radial-gradient(3.4px 3.4px at 38% 52%, rgba(230,255,160,0.95), transparent),
+    radial-gradient(4px 4px at 64% 40%, rgba(255,244,150,1), transparent),
+    radial-gradient(3.4px 3.4px at 84% 55%, rgba(230,255,160,0.9), transparent),
+    radial-gradient(3px 3px at 50% 28%, rgba(255,250,180,0.88), transparent),
+    radial-gradient(3.6px 3.6px at 26% 62%, rgba(255,244,150,0.92), transparent),
+    radial-gradient(3px 3px at 74% 24%, rgba(230,255,160,0.85), transparent);
+  filter: drop-shadow(0 0 7px rgba(255,238,120,0.95));
   animation: firefly-pulse 4.2s ease-in-out infinite;
 }
 .scene[data-theme="night"] .theme-fx::after {
@@ -3944,12 +4004,13 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   background-repeat: repeat;
   background-size: 100% 220px;
   background-image:
-    radial-gradient(4px 2.6px at 22% 20px, rgba(255,183,205,0.9), transparent),
-    radial-gradient(3.4px 2.2px at 56% 70px, rgba(255,199,216,0.85), transparent),
-    radial-gradient(4px 2.4px at 80% 40px, rgba(250,170,196,0.9), transparent),
-    radial-gradient(3px 2px at 38% 140px, rgba(255,199,216,0.8), transparent),
-    radial-gradient(3.6px 2.4px at 68% 180px, rgba(255,183,205,0.85), transparent),
-    radial-gradient(3px 2px at 10% 100px, rgba(255,210,224,0.75), transparent);
+    radial-gradient(7px 4.6px at 22% 20px, rgba(255,168,196,0.98), transparent),
+    radial-gradient(6px 3.8px at 56% 70px, rgba(255,188,210,0.95), transparent),
+    radial-gradient(7px 4.2px at 80% 40px, rgba(248,152,186,0.98), transparent),
+    radial-gradient(5.4px 3.4px at 38% 140px, rgba(255,188,210,0.9), transparent),
+    radial-gradient(6.4px 4.2px at 68% 180px, rgba(255,168,196,0.95), transparent),
+    radial-gradient(5.4px 3.4px at 10% 100px, rgba(255,200,218,0.88), transparent);
+  filter: drop-shadow(0 1px 2px rgba(190,90,130,0.35));
   animation: petal-fall 9s linear infinite;
 }
 .scene[data-theme="sakura"] .theme-fx::after {
@@ -3966,11 +4027,13 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   background-repeat: repeat;
   background-size: 100% 260px;
   background-image:
-    radial-gradient(4.4px 3px at 18% 30px, rgba(224,141,60,0.9), transparent),
-    radial-gradient(3.6px 2.6px at 52% 90px, rgba(233,169,86,0.85), transparent),
-    radial-gradient(4px 2.8px at 78% 50px, rgba(196,108,44,0.85), transparent),
-    radial-gradient(3.4px 2.4px at 34% 170px, rgba(233,169,86,0.8), transparent),
-    radial-gradient(4px 2.8px at 64% 220px, rgba(224,141,60,0.85), transparent);
+    radial-gradient(7.6px 5.2px at 18% 30px, rgba(222,128,40,0.98), transparent),
+    radial-gradient(6.4px 4.6px at 52% 90px, rgba(236,168,74,0.95), transparent),
+    radial-gradient(7px 4.8px at 78% 50px, rgba(188,94,30,0.95), transparent),
+    radial-gradient(6px 4.2px at 34% 170px, rgba(236,168,74,0.9), transparent),
+    radial-gradient(7px 4.8px at 64% 220px, rgba(222,128,40,0.95), transparent),
+    radial-gradient(5.6px 3.8px at 88% 130px, rgba(206,112,36,0.88), transparent);
+  filter: drop-shadow(0 1px 2px rgba(120,60,20,0.35));
   animation: leaf-fall 11s linear infinite;
 }
 .scene[data-theme="autumn"] .theme-fx::after {
@@ -3985,14 +4048,14 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="rainy"] .theme-fx::before,
 .scene[data-theme="rainy"] .theme-fx::after {
   background-repeat: repeat;
-  background-size: 90px 160px;
+  background-size: 62px 160px;
   background-image:
-    linear-gradient(168deg, transparent 0 46%, rgba(174,199,220,0.55) 48% 52%, transparent 54% 100%);
+    linear-gradient(168deg, transparent 0 44%, rgba(206,228,244,0.85) 47% 53%, transparent 56% 100%);
   animation: rain-fall 0.9s linear infinite;
 }
 .scene[data-theme="rainy"] .theme-fx::after {
-  background-size: 130px 220px;
-  animation-duration: 1.4s; opacity: 0.5; background-position-x: 40px;
+  background-size: 96px 220px;
+  animation-duration: 1.4s; opacity: 0.6; background-position-x: 40px;
 }
 @keyframes rain-fall { from { background-position-y: -160px; } to { background-position-y: 0; } }
 .scene[data-theme="rainy"] .theme-fx {
@@ -4008,11 +4071,14 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   background-repeat: repeat;
   background-size: 100% 220px;
   background-image:
-    radial-gradient(2.2px 2.2px at 28% 40px, rgba(255,214,140,0.75), transparent),
-    radial-gradient(1.8px 1.8px at 52% 120px, rgba(255,226,170,0.65), transparent),
-    radial-gradient(2px 2px at 72% 70px, rgba(255,206,120,0.7), transparent),
-    radial-gradient(1.6px 1.6px at 40% 190px, rgba(255,226,170,0.6), transparent),
-    radial-gradient(1.8px 1.8px at 86% 150px, rgba(255,214,140,0.6), transparent);
+    radial-gradient(3.6px 3.6px at 28% 40px, rgba(255,222,156,0.95), transparent),
+    radial-gradient(3px 3px at 52% 120px, rgba(255,234,186,0.9), transparent),
+    radial-gradient(3.4px 3.4px at 72% 70px, rgba(255,214,136,0.95), transparent),
+    radial-gradient(2.8px 2.8px at 40% 190px, rgba(255,234,186,0.85), transparent),
+    radial-gradient(3px 3px at 86% 150px, rgba(255,222,156,0.85), transparent),
+    radial-gradient(2.6px 2.6px at 12% 100px, rgba(255,240,200,0.8), transparent),
+    radial-gradient(3.2px 3.2px at 64% 165px, rgba(255,222,156,0.85), transparent);
+  filter: drop-shadow(0 0 5px rgba(214,148,54,0.75));
   animation: mote-rise 13s linear infinite;
 }
 .scene[data-theme="library"] .theme-fx::after {
@@ -4029,12 +4095,15 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="sunset"] .theme-fx::before {
   background-repeat: no-repeat;
   background-image:
-    radial-gradient(2.6px 1.6px at 34% 62%, rgba(255,235,180,0.95), transparent),
-    radial-gradient(2px 1.4px at 46% 68%, rgba(255,220,160,0.85), transparent),
-    radial-gradient(2.4px 1.5px at 56% 64%, rgba(255,235,180,0.9), transparent),
-    radial-gradient(2px 1.3px at 64% 70%, rgba(255,225,170,0.8), transparent),
-    radial-gradient(2.2px 1.4px at 42% 74%, rgba(255,235,180,0.85), transparent),
-    radial-gradient(1.8px 1.2px at 52% 78%, rgba(255,220,160,0.8), transparent);
+    radial-gradient(4.6px 2.6px at 34% 62%, rgba(255,246,206,1), transparent),
+    radial-gradient(3.6px 2.2px at 46% 68%, rgba(255,232,178,0.95), transparent),
+    radial-gradient(4.2px 2.4px at 56% 64%, rgba(255,246,206,1), transparent),
+    radial-gradient(3.6px 2.1px at 64% 70%, rgba(255,238,188,0.9), transparent),
+    radial-gradient(4px 2.3px at 42% 74%, rgba(255,246,206,0.95), transparent),
+    radial-gradient(3.2px 2px at 52% 78%, rgba(255,232,178,0.9), transparent),
+    radial-gradient(3.8px 2.2px at 28% 70%, rgba(255,246,206,0.9), transparent),
+    radial-gradient(3.4px 2px at 70% 60%, rgba(255,238,188,0.88), transparent);
+  filter: drop-shadow(0 0 5px rgba(255,214,132,0.85));
   animation: water-glint 3.2s ease-in-out infinite;
 }
 @keyframes water-glint {
