@@ -1625,14 +1625,14 @@ body {
 .time-adj, .adj-btn, .sheet-close, .install-x,
 .shop-buy-btn, .shop-equip-btn, .shop-unequip-btn, .shop-preview-btn,
 .game-quit-btn, .settings-action-btn, .squad-remove, #resetBtn, #customizeDrinkBtn,
-.size-btn {
+.size-btn, .shelf-chip {
   position: relative;
 }
 .time-adj::after, .adj-btn::after, .sheet-close::after, .install-x::after,
 .shop-buy-btn::after, .shop-equip-btn::after, .shop-unequip-btn::after,
 .shop-preview-btn::after, .game-quit-btn::after, .settings-action-btn::after,
 .squad-remove::after, #resetBtn::after, #customizeDrinkBtn::after,
-.size-btn::after {
+.size-btn::after, .shelf-chip::after {
   content: "";
   position: absolute;
   top: 50%; left: 50%;
@@ -4130,3 +4130,112 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .ask-card.is-danger #askConfirmBtn { background: linear-gradient(180deg, #c2544f, #a8433f); }
 /* .block-actions children set their own display, so they need this guard. */
 .ask-card .block-actions button.hidden { display: none; }
+
+/* ── Your Shelf ────────────────────────────────────────────────────────────
+   The collection layer's screen. Everything here draws from the existing
+   --ui-* material so it sits in the same room as the rest of the app. */
+.shelf-chip {
+  border: 2px solid var(--ui-edge);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 950;
+  color: var(--bark);
+  gap: 5px;
+}
+.shelf-ico { display: flex; color: var(--bark-mid); }
+.shelf-ico .ico { width: 17px; height: 17px; }
+
+.coll-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.coll-tab {
+  flex: 1;
+  min-height: 44px;
+  padding: 9px 6px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 950;
+  color: var(--bark-mid);
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  border-radius: 14px;
+  box-shadow: var(--ui-sheen);
+}
+.coll-tab.active { color: var(--bark); box-shadow: var(--ui-sheen), var(--ui-lift); }
+/* .hidden is declared above several rules that set display, so panels that set
+   their own display need their own guard or the later rule wins. */
+.coll-panel.hidden { display: none; }
+
+.coll-count { font-size: 0.78rem; font-weight: 900; color: var(--bark-mid); margin: 0 0 10px; text-align: center; }
+
+.coll-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.coll-drink {
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  border-radius: 16px;
+  box-shadow: var(--ui-sheen);
+  padding: 10px 6px 8px;
+  text-align: center;
+}
+/* A small stand-in cup tinted to the drink's own base colour, so a shelf of
+   finished drinks reads as a row of different drinks rather than a list. */
+.coll-cup {
+  position: relative;
+  width: 30px; height: 42px;
+  margin: 0 auto 6px;
+  border: 2px solid var(--bark);
+  border-radius: 4px 4px 11px 11px;
+  background: var(--cream);
+  overflow: hidden;
+}
+.coll-cup-liquid {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 68%;
+  background: var(--drink-color, #d9a86c);
+}
+.coll-cup-lid {
+  position: absolute; left: -2px; right: -2px; top: 0; height: 7px;
+  background: var(--cream); border-bottom: 2px solid var(--bark);
+}
+.coll-drink-name { margin: 0; font-size: 0.64rem; font-weight: 950; color: var(--bark); line-height: 1.2; }
+/* Size and date on their own lines: "Custom Cup · Aug 6" wrapped mid-date in
+   a 3-up grid at 375px, breaking after "Aug". */
+.coll-drink-meta { margin: 2px 0 0; font-size: 0.58rem; font-weight: 850; color: var(--bark-mid); line-height: 1.2; }
+.coll-drink-date { margin: 0; font-size: 0.56rem; font-weight: 850; color: var(--bark-mid); opacity: 0.85; }
+
+.coll-treat {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  border-radius: 16px;
+  box-shadow: var(--ui-sheen);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.coll-treat-main { flex: 1; min-width: 0; }
+.coll-treat-title { margin: 0; font-size: 0.88rem; font-weight: 950; color: var(--bark); }
+.coll-treat-copy { margin: 2px 0 0; font-size: 0.72rem; font-weight: 850; color: var(--bark-mid); }
+.coll-treat-pearls {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.82rem; font-weight: 950; color: var(--bark);
+  flex-shrink: 0;
+}
+.coll-treat-pearls .ico { width: 14px; height: 14px; }
+
+.coll-badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.coll-badge {
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  border-radius: 16px;
+  box-shadow: var(--ui-sheen);
+  padding: 12px 6px 10px;
+  text-align: center;
+  opacity: 0.5;
+}
+.coll-badge.is-earned { opacity: 1; box-shadow: var(--ui-sheen), var(--ui-lift); }
+.coll-badge-ico { font-size: 1.5rem; line-height: 1; display: block; margin-bottom: 5px; }
+.coll-badge:not(.is-earned) .coll-badge-ico { color: var(--bark-mid); font-weight: 950; }
+.coll-badge-name { margin: 0; font-size: 0.64rem; font-weight: 950; color: var(--bark); line-height: 1.2; }
+.coll-badge-desc { margin: 2px 0 0; font-size: 0.56rem; font-weight: 850; color: var(--bark-mid); line-height: 1.25; }
+
+.coll-empty { text-align: center; padding: 26px 18px 30px; }
+.coll-empty-art { width: 92px; height: auto; opacity: 0.75; margin-bottom: 10px; }
+.coll-empty-title { margin: 0; font-size: 1rem; font-weight: 950; color: var(--bark); }
+.coll-empty-copy { margin: 5px auto 0; max-width: 250px; font-size: 0.8rem; font-weight: 850; color: var(--bark-mid); line-height: 1.45; }

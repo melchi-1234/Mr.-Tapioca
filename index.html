@@ -215,6 +215,14 @@
           </div>
         </div>
         <div class="pearl-chip hud-name hidden" id="hudName"></div>
+        <!-- The bar is full width but everything above lives in its left 41%, so
+             space-between had nothing to push against. This chip both fills that
+             dead half and finally gives the drink shelf / treat jar / badges a
+             way in: they were all being written to state and never rendered. -->
+        <button class="pearl-chip shelf-chip" id="shelfChip" aria-label="Open your shelf">
+          <span class="shelf-ico" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5h17M3.5 15.5h17"/><path d="M6.5 8.5v-2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/><path d="M14 15.5v-2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg></span>
+          <span id="shelfCount">0</span>
+        </button>
       </header>
 
       <!-- ── Daily goal progress (always visible) ─────────────────── -->
@@ -548,6 +556,31 @@
         <div class="sheet-body">
           <p class="quests-intro">Three fresh challenges to earn pearls every day!</p>
           <div id="questsList" class="quests-list"></div>
+        </div>
+      </div>
+
+      <!-- ── Your shelf: finished drinks, treats and badges ──────────
+           Every finished drink has always been pushed to state.collection and
+           every reward to state.rewards, and twelve badges unlock in
+           checkBadges(), but none of it had a screen. Badges surfaced only as a
+           2-second toast and were then gone forever, and the reward dialog's own
+           button says "Saved to my Treat Jar" for a Treat Jar that did not
+           exist. This is that screen. -->
+      <div id="collectionSheet" class="sheet hidden" role="dialog" aria-label="Your shelf" aria-modal="true">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+          <h2>Your Shelf</h2>
+          <button class="sheet-close" id="collectionClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="sheet-body">
+          <div class="coll-tabs" role="tablist">
+            <button class="coll-tab active" id="collTabDrinks" data-tab="drinks" role="tab">Drinks</button>
+            <button class="coll-tab" id="collTabTreats" data-tab="treats" role="tab">Treats</button>
+            <button class="coll-tab" id="collTabBadges" data-tab="badges" role="tab">Badges</button>
+          </div>
+          <div id="collDrinks" class="coll-panel"></div>
+          <div id="collTreats" class="coll-panel hidden"></div>
+          <div id="collBadges" class="coll-panel hidden"></div>
         </div>
       </div>
 

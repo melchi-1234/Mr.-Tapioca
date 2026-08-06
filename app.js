@@ -260,6 +260,13 @@ const els = {
   rewardDrink:          document.querySelector("#rewardDrink"),
   partnerReward:        document.querySelector("#partnerReward"),
   premiumDialog:        document.querySelector("#premiumDialog"),
+  collectionSheet:      document.querySelector("#collectionSheet"),
+  collectionClose:      document.querySelector("#collectionClose"),
+  collDrinks:           document.querySelector("#collDrinks"),
+  collTreats:           document.querySelector("#collTreats"),
+  collBadges:           document.querySelector("#collBadges"),
+  shelfChip:            document.querySelector("#shelfChip"),
+  shelfCount:           document.querySelector("#shelfCount"),
   askDialog:            document.querySelector("#askDialog"),
   askEyebrow:           document.querySelector("#askEyebrow"),
   askTitle:             document.querySelector("#askTitle"),
@@ -1313,6 +1320,107 @@ function askAlert(copy, opts = {}) {
   return p.then(() => { els.askCancelBtn.classList.remove("hidden"); });
 }
 
+/* ── Your Shelf: the collection layer finally gets a screen ────────────────
+   state.collection, state.rewards and state.badges have all been written since
+   the app shipped and never rendered anywhere. Badges appeared as a 2-second
+   toast and were gone; the reward dialog's own button says "Saved to my Treat
+   Jar" for a jar that did not exist; the marketing rail promises "Finished
+   drinks fill your shelf" and there was no shelf. */
+function renderCollection() {
+  const drinks  = state.collection || [];
+  const rewards = state.rewards || [];
+  const owned   = new Set(state.badges || []);
+
+  // ── Drinks ──────────────────────────────────────────────────────────────
+  if (!drinks.length) {
+    els.collDrinks.innerHTML = emptyState(
+      "No drinks yet",
+      "Finish a focus session and the drink lands here, with the day you earned it."
+    );
+  } else {
+    els.collDrinks.innerHTML =
+      // minuteLabel() already renders "N focused minutes", so no "of focus" suffix.
+      `<p class="coll-count">${drinks.length} drink${drinks.length === 1 ? "" : "s"}` +
+      ` · ${minuteLabel(drinks.reduce((t, d) => t + (d.minutes || 0), 0))}</p>` +
+      `<div class="coll-grid">` +
+      drinks.map(d => `
+        <div class="coll-drink">
+          <div class="coll-cup" style="--drink-color:${d.color || "#d9a86c"}">
+            <span class="coll-cup-liquid"></span>
+            <span class="coll-cup-lid"></span>
+          </div>
+          <p class="coll-drink-name">${escapeHTML(d.name || "Boba")}</p>
+          <p class="coll-drink-meta">${escapeHTML(d.size || "")}</p>
+          <p class="coll-drink-date">${prettyDate(d.dateKey)}</p>
+        </div>`).join("") +
+      `</div>`;
+  }
+
+  // ── Treats ──────────────────────────────────────────────────────────────
+  if (!rewards.length) {
+    els.collTreats.innerHTML = emptyState(
+      "The jar is empty",
+      "Every finished drink earns a treat to redeem in the real world. Go get one."
+    );
+  } else {
+    els.collTreats.innerHTML = rewards.map(r => `
+      <div class="coll-treat">
+        <div class="coll-treat-main">
+          <p class="coll-treat-title">${escapeHTML(r.name || r.size || "Treat")}</p>
+          <p class="coll-treat-copy">${escapeHTML(r.copy || "")}</p>
+        </div>
+        <span class="coll-treat-pearls">${ICON.pearl}${r.pearls || 0}</span>
+      </div>`).join("");
+  }
+
+  // ── Badges ──────────────────────────────────────────────────────────────
+  els.collBadges.innerHTML =
+    `<p class="coll-count">${owned.size} of ${BADGES.length} earned</p>` +
+    `<div class="coll-badges">` +
+    BADGES.map(b => {
+      const got = owned.has(b.id);
+      return `<div class="coll-badge${got ? " is-earned" : ""}">
+        <span class="coll-badge-ico" aria-hidden="true">${got ? b.icon : "?"}</span>
+        <p class="coll-badge-name">${escapeHTML(b.name)}</p>
+        <p class="coll-badge-desc">${escapeHTML(b.desc)}</p>
+      </div>`;
+    }).join("") +
+    `</div>`;
+
+  if (els.shelfCount) els.shelfCount.textContent = drinks.length;
+}
+
+function emptyState(title, copy) {
+  return `<div class="coll-empty">
+    <img class="coll-empty-art" src="assets/poses/base-sleeping.png" alt="" aria-hidden="true">
+    <p class="coll-empty-title">${escapeHTML(title)}</p>
+    <p class="coll-empty-copy">${escapeHTML(copy)}</p>
+  </div>`;
+}
+
+/* dateKey is a local YYYY-MM-DD string (see localDateKey). Parse the parts by
+   hand: new Date("2026-08-06") is parsed as UTC and shifts a day in negative
+   offsets, which would mis-date every drink for anyone west of Greenwich. */
+function prettyDate(key) {
+  if (!key || typeof key !== "string") return "";
+  const [y, m, d] = key.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function escapeHTML(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function showCollectionTab(tab) {
+  document.querySelectorAll(".coll-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  els.collDrinks.classList.toggle("hidden", tab !== "drinks");
+  els.collTreats.classList.toggle("hidden", tab !== "treats");
+  els.collBadges.classList.toggle("hidden", tab !== "badges");
+}
+
 function showToast(msg) {
   els.toast.textContent = msg;
   els.toast.classList.remove("hidden");
@@ -1655,6 +1763,8 @@ function renderAll() {
   renderShop();
   renderQuests();
   updateQuestBadge();
+  // Keeps the HUD shelf count live; the sheet body itself re-renders on open.
+  if (els.shelfCount) els.shelfCount.textContent = (state.collection || []).length;
 }
 
 let lastPersist = 0;
@@ -5497,6 +5607,18 @@ function wireEvents() {
   if (featureTourBtn) featureTourBtn.addEventListener("click", () => {
     playSfx("tap");
     setTimeout(startFeatureTour, 200);   // let the sheet close first so targets are visible
+  });
+
+  // ── Your Shelf ────────────────────────────────────────────────────────────
+  if (els.shelfChip) els.shelfChip.addEventListener("click", () => {
+    playSfx("tap");
+    renderCollection();
+    showCollectionTab("drinks");
+    openSheet("collectionSheet");
+  });
+  if (els.collectionClose) els.collectionClose.addEventListener("click", () => { playSfx("tap"); closeSheets(); });
+  document.querySelectorAll(".coll-tab").forEach(btn => {
+    btn.addEventListener("click", () => { playSfx("select"); showCollectionTab(btn.dataset.tab); });
   });
 
   // ── Customize sheet: tea base + topping (rendered from BASES/TOPPINGS) ────
