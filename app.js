@@ -4311,7 +4311,12 @@ function buildMap(lat, lng, real, why) {
   mapBuilding = false;
   lastFix = { lat, lng, real };
   setMapStatus("");
-  mapObj = L.map("map", { zoomControl: true }).setView([lat, lng], 15);
+  // prefix: "Leaflet" keeps the library credit but drops its default prefix,
+  // which ships a blue underlined link and a flag emoji — neither of which
+  // belongs in a cozy boba sheet. The OpenStreetMap attribution below is a
+  // LICENCE requirement and stays exactly as it is.
+  mapObj = L.map("map", { zoomControl: true, attributionControl: true }).setView([lat, lng], 15);
+  if (mapObj.attributionControl) mapObj.attributionControl.setPrefix("Leaflet");
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "© OpenStreetMap"

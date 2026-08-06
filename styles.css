@@ -4349,3 +4349,51 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   border-top: 1.5px dashed rgba(60,32,24,0.20);
   pointer-events: none;
 }
+
+/* ── Leaflet furniture ─────────────────────────────────────────────────────
+   The tiles were already warmed to match the app, but the widget chrome on top
+   of them was stock: square white +/- buttons in the corner and a white
+   attribution bar carrying a blue underlined link and a flag emoji. Inside a
+   cozy sheet that read as an embedded iframe rather than part of the shop.
+   The OpenStreetMap credit itself is a LICENCE requirement and is kept; only
+   its presentation changes.
+
+   The doubled .map-canvas.map-canvas is deliberate. leaflet.css is loaded AFTER
+   styles.css, and its `.leaflet-touch .leaflet-bar a` has the same specificity
+   (0,2,1) as a single-class selector here, so on the tie the later sheet won and
+   these rules silently did nothing. Doubling makes them (0,3,1). It also works
+   whether or not Leaflet has added .leaflet-touch, which it only does on touch
+   devices. No !important needed. */
+.map-canvas.map-canvas .leaflet-control-zoom {
+  border: none;
+  box-shadow: none;
+}
+.map-canvas.map-canvas .leaflet-control-zoom a {
+  width: 36px; height: 36px;
+  line-height: 34px;
+  color: var(--bark);
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  box-shadow: var(--ui-sheen), 0 2px 6px -2px rgba(60,32,24,0.30);
+  font-weight: 950;
+}
+.map-canvas.map-canvas .leaflet-control-zoom a:first-child { border-radius: 12px 12px 4px 4px; }
+.map-canvas.map-canvas .leaflet-control-zoom a:last-child  { border-radius: 4px 4px 12px 12px; margin-top: 3px; }
+.map-canvas.map-canvas .leaflet-control-zoom a:hover { background: var(--cream); }
+
+.map-canvas.map-canvas .leaflet-control-attribution {
+  background: var(--cream-75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--bark-mid);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 850;
+  padding: 3px 7px;
+  border-radius: 10px 0 0 0;
+}
+.map-canvas.map-canvas .leaflet-control-attribution a {
+  color: var(--bark-mid);
+  text-decoration: none;
+  font-weight: 900;
+}
