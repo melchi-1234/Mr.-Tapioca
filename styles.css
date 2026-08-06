@@ -114,10 +114,22 @@ body {
 
 /* Only frame it as a floating "phone" (with a height cap) when the window is big
    enough that the wrap doesn't fill the screen. On an actual phone it stays
-   edge-to-edge with NO max-height, so there's no white strip top or bottom. */
-@media (min-width: 480px) and (min-height: 940px) {
+   edge-to-edge with NO max-height, so there's no white strip top or bottom.
+
+   The gate was min-height: 940px, which meant 1280x900 — one of the most common
+   laptop viewports, and the size mrtapioca.me is most often opened at — fell
+   through it: the marketing rails DID show (they gate at 700px) but the app
+   between them rendered as a hard-edged 460x900 rectangle with square corners
+   and no shadow, wedged floor to ceiling. The live demo, which is the centre of
+   the landing page, looked like an unstyled iframe.
+
+   Now gated to match the rails at 700px, with the cap expressed against the
+   viewport so the frame always keeps a margin instead of needing a magic number:
+   min(920px, 100dvh - 48px) gives 852px at a 900-tall window and still 920px on
+   anything taller. body is flex-centred on both axes, so the frame floats. */
+@media (min-width: 480px) and (min-height: 700px) {
   .scene-wrap {
-    max-height: 920px;
+    max-height: min(920px, calc(100dvh - 48px));
     border-radius: 28px;
     box-shadow: var(--shadow);
   }
