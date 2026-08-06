@@ -425,9 +425,21 @@ body {
   -webkit-mask: url('assets/win-mask-galaxy.webp') top center / cover no-repeat;
           mask: url('assets/win-mask-galaxy.webp') top center / cover no-repeat;
 }
+/* 60s, not 150s. At 150s the spiral turned 2.4 deg/sec, which on a smooth
+   near-radially-symmetric shape is invisible: with no feature to track, slow
+   rotation reads as a still image. 60s is 6 deg/sec, about 12px/sec at the
+   window's edge, and the art now carries distinct little stars the eye can
+   follow. Two layers turning OPPOSITE ways is what actually sells the depth. */
 .scene[data-theme="galaxy"] .win-fx::before {
   background-image: url('assets/win-galaxy.webp');
-  animation: win-spin 150s linear infinite;
+  animation: win-spin 60s linear infinite;
+}
+.scene[data-theme="galaxy"] .win-fx::after {
+  background-image: url('assets/fx-sparkle.webp');
+  background-size: 55%;
+  background-repeat: repeat;
+  animation: win-spin-back 95s linear infinite;
+  opacity: 0.75;
 }
 .scene[data-theme="galaxy"] .work-counter {
   --counter-tint: rgba(120,95,180,0.24);
@@ -458,7 +470,7 @@ body {
    1280x900, because the crop is horizontal-only and the window is near-centred.
    150% square gives a 795px diagonal against the window's 418px, so no corner
    can ever swing into view no matter the rotation. */
-.win-fx::before {
+.win-fx::before, .win-fx::after {
   content: "";
   position: absolute;
   left: 47%; top: 32.5%;
@@ -474,6 +486,10 @@ body {
 @keyframes win-spin {
   from { transform: translate(-50%, -50%) rotate(0deg); }
   to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes win-spin-back {
+  from { transform: translate(-50%, -50%) rotate(360deg); }
+  to   { transform: translate(-50%, -50%) rotate(0deg); }
 }
 /* Break mode swaps the whole room for the bedroom, so the shop's window plate
    and its animation must go with it. */
@@ -543,6 +559,9 @@ body {
 }
 /* No sun through rain, and none in the break-mode bedroom. */
 .scene[data-theme="rainy"] .scene-rays { display: none; }
+/* No sun shafts at night through a galaxy either, and at 0.34 screen they were
+   tinting the cream wall lavender at the top corners. */
+.scene[data-theme="galaxy"] .scene-rays { display: none; }
 .scene.is-on-break.is-on-break .scene-rays { display: none; }
 /* Weather stops at the bedroom door. Break mode swaps the shop for an interior
    nap nook, and snow or rain falling through it reads as a bug. It was already
