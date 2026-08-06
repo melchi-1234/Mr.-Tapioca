@@ -4517,3 +4517,23 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   box-shadow: var(--ui-sheen);
 }
 .break-games-row .game-launch-btn:disabled .g-emoji .ico { width: 15px; height: 15px; }
+
+/* ── Nav icons get their own colours ───────────────────────────────────────
+   All five rendered in the same --bark, so the bar read as one undifferentiated
+   row and you navigated by reading the label rather than recognising the shape.
+
+   These stay INLINE SVG rather than generated art on purpose. I piloted a
+   generated icon and rendered it at the real 25px nav size: it turned to mush,
+   while a 2px vector stroke stays crisp. Generated art earns its place where it
+   has room (the 106px game tiles, the break desk); at 25px it loses to vector.
+   Colour is the part of "more colourful" that actually survives at this size.
+   Every hue is checked to clear WCAG 1.4.11's 3:1 minimum for non-text graphics
+   against the cream pill; gold and rose both failed at their palette values
+   (2.04 and 2.65) and are darkened here rather than shipped illegible.
+   The icons inherit `currentColor`, so a colour on the pill is all it takes. */
+#questsBtn   .nav-icon { color: #b8801f; }   /* gold darkened to 3.16:1 on the cream pill */
+#shopBtn     .nav-icon { color: #e0507a; }   /* rose darkened to 3.47:1 */
+#mapBtn      .nav-icon { color: #5f9455; }   /* matcha, 3.32:1 */
+#friendsBtn  .nav-icon { color: #8f66c4; }   /* taro, 4.00:1 */
+#settingsBtn .nav-icon { color: var(--teal); }   /* 3.62:1 */
+/* Labels stay --bark: five coloured icons plus five coloured words is noise. */
