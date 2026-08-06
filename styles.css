@@ -1568,7 +1568,29 @@ body {
    pill still sizes the row on its own. */
 .focus-controls:not(.session-on) .session-row { min-height: 0; }
 .session-row .block-pill { margin: 0; }
-.session-row .reset-link { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+/* Anchored to the row's BOTTOM, not its middle. The row reserves 38px so a
+   visible block pill has somewhere to sit, but Reset is only 27px and was
+   centred in that 38px, so it ended 19px above the row's base. Idle's last
+   visible control (the full-width Start Focus bar) ends 9px above the same
+   base, so starting a session moved the last thing on screen UP by 10px and
+   swapped a wide bar for a small pill — which reads as a gap opening above the
+   nav. bottom: 4px lands Reset on exactly the line Start Focus occupied (695),
+   measured rather than derived, so
+   nothing appears to move when you press Start. */
+/* Selector carries the ID deliberately. The 44px hit-target list further down
+   this file contains `#resetBtn { position: relative }`, which is (1,0,0) and
+   beats a class-only selector here (0,2,0) — so `position: absolute` silently
+   lost, the element stayed relatively positioned, and `bottom` then shifted it
+   UP from its static spot instead of anchoring it. `.session-row #resetBtn` is
+   (1,1,0) and wins. Fourth same-specificity/priority collision in this file. */
+.session-row #resetBtn { position: relative; right: auto; top: auto; bottom: auto; transform: none; }
+/* Reset now sits in FLOW, centred by the row's own flex, and the row's height is
+   what places it. Cleaner than the absolute positioning it replaces, which never
+   actually applied (see above) and which would also have overlapped the block
+   pill on iOS, since that pill is an in-flow child of the same row.
+   45px = Reset's 27px + 9px above and below, which lands its base on y=695 —
+   exactly where idle's Start Focus button ends. Measured, not derived. */
+.focus-controls.session-on .session-row { min-height: 45px; }
 .focus-controls {
   position: absolute;
   /* add the home-indicator inset so the Reset link clears the bottom nav (which
