@@ -3388,7 +3388,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
      cropped and the composition is identical on every screen. The old backdrop
      was the shop background cover-scaled into a different shape, which left the
      bottom 45% a dead colour void. */
-  background: #f3e6d6 url('assets/pong-board.png') center / 100% 100% no-repeat;
+  background: #f3e6d6 url('assets/pong-board.jpg') center / 100% 100% no-repeat;
   overflow: hidden;
 }
 .pong-canvas {

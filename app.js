@@ -2212,7 +2212,7 @@ async function shareDrink(reward) {
   } catch (e) {
     if (!(e && e.name === "AbortError")) showToast("Couldn't make the card — try again.");
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "Share my drink 🧋"; }
+    if (btn) { btn.disabled = false; btn.textContent = "Share my drink"; }
   }
 }
 
@@ -2244,7 +2244,7 @@ function showReward(reward) {
   // The reward moment wins; the tour can be replayed from Settings.
   if (tourOn) endFeatureTour(false);
   lastReward = reward;
-  els.rewardTitle.textContent  = `${reward.size} complete! 🎉`;
+  els.rewardTitle.textContent  = `${reward.size} complete!`;
   els.rewardCopy.textContent   = reward.copy;
   els.rewardPearls.textContent = `+${reward.pearls} pearl${reward.pearls !== 1 ? "s" : ""}`;
   els.rewardDrink.style.setProperty("--drink-color", BASES[state.base].color);
@@ -5038,10 +5038,16 @@ function drawPong(d) {
   ctx.fillStyle = "rgba(255,255,255,0.18)";
   ctx.fillRect(0, tableY, d.W, 3);
 
-  // ── soft shadow grounding the cup ──
-  ctx.fillStyle = "rgba(45,36,40,0.12)";
+  // ── shadow cast on the wall BEHIND the cup, not a contact shadow under it ──
+  // The cup is a floating target: its rim sits at mouthY (0.34 of the canvas)
+  // while the table is down at startY + PONG_R + 4, roughly 280px lower. The old
+  // tight ellipse sat 6px under the cup's base and read as a contact shadow, so
+  // it promised a surface that is not there and the cup looked like it was
+  // resting on nothing. Offset down and to the right, wider and softer, it reads
+  // as the cup's shadow falling on the back wall, which is what actually happens.
+  ctx.fillStyle = "rgba(45,36,40,0.09)";
   ctx.beginPath();
-  ctx.ellipse(cx, botY + 6, botHalf + 8, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx + 12, (topY + botY) / 2 + 16, botHalf + 14, d.cupH * 0.46, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // ── cup body (rounded, glossy boba cup with an OPEN top for tossing) ──

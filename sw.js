@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v147";
+const CACHE = "mr-tapioca-v148";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -42,7 +42,7 @@ const SHELL = [
   "assets/poses/base-mixing.png",
   "assets/poses/base-sleeping.png",
   "assets/poses/base-shocked.png",
-  "assets/pong-board.png",
+  "assets/pong-board.jpg",
   "assets/catch-board.jpg",
   "assets/plinko-board.png",
   "assets/icon-192.png",
