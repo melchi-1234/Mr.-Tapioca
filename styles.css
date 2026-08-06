@@ -4239,3 +4239,54 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .coll-empty-art { width: 92px; height: auto; opacity: 0.75; margin-bottom: 10px; }
 .coll-empty-title { margin: 0; font-size: 1rem; font-weight: 950; color: var(--bark); }
 .coll-empty-copy { margin: 5px auto 0; max-width: 250px; font-size: 0.8rem; font-weight: 850; color: var(--bark-mid); line-height: 1.45; }
+
+/* ── Shop: sell the art ────────────────────────────────────────────────────
+   Backgrounds are 768x1344 illustrations and skins are 500x500 character
+   drawings, and both were being sold through the same 48px square. A buyer of
+   the $1.99 backdrops saw a sliver of window. Backgrounds now get a wide banner
+   cropped to the TOP of the art (where the window, lights and shelves are; the
+   bottom third is floor the app covers with its own floor band anyway), and
+   skins get a bigger thumb. */
+/* NO overflow:hidden here, deliberately. These cards are items of the
+   .shop-grid CSS grid, and a grid item whose overflow is not visible has its
+   automatic minimum size resolve to 0 instead of min-content: the row collapsed
+   to 4px (just the 2px borders), clipping a 132px banner to nothing and letting
+   the cards overlap each other. Isolated by experiment: overflow:visible ->
+   193px, overflow:hidden -> 4px. The banner rounds its OWN top corners instead,
+   which is all the clipping this card actually needed. */
+.shop-card-wide {
+  display: block;
+  padding: 0;
+}
+/* Fixed height, NOT aspect-ratio. .shop-grid is a CSS grid and these cards are
+   grid items; an aspect-ratio box with a percentage width contributes nothing to
+   the item's intrinsic height, so the row collapsed to 4px and clipped the
+   banner away entirely. A pixel height sidesteps the circular sizing. */
+.shop-banner {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  border-bottom: 2px solid var(--ui-edge);
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+}
+.shop-banner .shop-theme-preview { border-radius: 0; }
+.shop-wide-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+.shop-wide-row > div:first-child { flex: 1; min-width: 0; }
+.shop-card-wide .shop-premium-flag { top: 8px; right: 8px; }
+
+/* Skins: 500x500 character art deserves more than 48px. */
+.shop-card:not(.shop-card-wide) { grid-template-columns: 64px 1fr auto; }
+.shop-card:not(.shop-card-wide) .shop-preview { width: 64px; height: 64px; }
+
+/* Pearl prices now carry the pearl mark, so give it room and align it. */
+.shop-buy-btn { display: inline-flex; align-items: center; gap: 5px; }
+.shop-buy-btn .ico { width: 13px; height: 13px; }
+/* The customize rows reuse the shelf's tinted cup; size it to the 64px thumb. */
+.option-row .shop-preview .coll-cup { width: 26px; height: 36px; margin: 0; }
+.shop-buy-btn.as-price { display: inline-flex; align-items: center; gap: 4px; }

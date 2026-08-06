@@ -1627,7 +1627,7 @@ function renderShop() {
     const canBuy = pearls >= item.price && !atCap;
     const action = atCap
       ? `<span class="shop-equipped-badge">Stocked</span>`
-      : `<button class="shop-buy-btn" data-buy-consumable="${item.id}" ${canBuy ? "" : "disabled"}>${item.price}</button>`;
+      : `<button class="shop-buy-btn" data-buy-consumable="${item.id}" ${canBuy ? "" : "disabled"}>${ICON.pearl}${item.price}</button>`;
     return `
       <article class="shop-card">
         <div class="shop-preview" style="background:#eaf4f3"><div class="shop-boost-preview">${item.icon || FREEZE_ICON}</div></div>
@@ -1657,7 +1657,9 @@ function renderShop() {
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
-      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>${item.price}</button>`;
+      // The free currency was the only price with no unit on it, while paid items
+      // got "✦ $1.99". A bare "40" does not read as pearls.
+      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>${ICON.pearl}${item.price}</button>`;
     }
 
     return `
@@ -1686,7 +1688,7 @@ function renderShop() {
     };
     const bg = THEME_BG[item.value];
     // Show the actual backdrop art (color stays as the load fallback).
-    const preview   = `<div class="shop-theme-preview" style="background:${item.color}${bg ? ` url('${bg}') center/cover no-repeat` : ""}"></div>`;
+    const preview   = `<div class="shop-theme-preview" style="background:${item.color}${bg ? ` url('${bg}') center 28%/cover no-repeat` : ""}"></div>`;
 
     let action = "";
     if (equipped) {
@@ -1701,14 +1703,23 @@ function renderShop() {
     } else if (owned) {
       action = `<button class="shop-equip-btn" data-equip="${item.id}">Equip</button>`;
     } else {
-      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>${item.price}</button>`;
+      // The free currency was the only price with no unit on it, while paid items
+      // got "✦ $1.99". A bare "40" does not read as pearls.
+      action = `<button class="shop-buy-btn" data-buy="${item.id}" ${canBuy ? "" : "disabled"}>${ICON.pearl}${item.price}</button>`;
     }
 
+    // A 768x1344 illustration cannot sell itself through a 48px centre crop: a
+    // buyer saw a sliver of window and nothing else. Backgrounds get a wide
+    // banner instead, cropped to the TOP of the art where the window, lights
+    // and shelves actually live (the bottom third is floor that the app covers
+    // with its own floor band anyway).
     return `
-      <article class="shop-card">
-        <div class="shop-preview">${preview}${item.premium ? '<span class="shop-premium-flag">✦</span>' : ""}</div>
-        <div><strong>${item.name}</strong><small>${item.desc}</small></div>
-        <div class="shop-card-action">${action}</div>
+      <article class="shop-card shop-card-wide">
+        <div class="shop-banner">${preview}${item.premium ? '<span class="shop-premium-flag">✦</span>' : ""}</div>
+        <div class="shop-wide-row">
+          <div><strong>${item.name}</strong><small>${item.desc}</small></div>
+          <div class="shop-card-action">${action}</div>
+        </div>
       </article>`;
   }
 
@@ -2690,9 +2701,14 @@ function isToppingUnlocked(key) {
 function customizeCard(attr, key, label, color, locked, price, isDefault, isActive) {
   const tag = isDefault ? `<span class="shop-equipped-badge">Default</span>`
     : isActive ? `<span class="shop-equipped-badge">Equipped</span>`
-    : locked ? `<span class="shop-buy-btn as-price">${price}</span>` : "";
+    : locked ? `<span class="shop-buy-btn as-price">${ICON.pearl}${price}</span>` : "";
   return `<button class="shop-card option-row${isActive ? " active" : ""}${locked ? " locked" : ""}" ${attr}="${key}" aria-label="${label}${locked ? `, ${price} pearls to unlock` : ""}">
-    <div class="shop-preview"><div class="shop-theme-preview" style="background:${color}"></div></div>
+    <!-- Was a flat colour square, so every tea base and topping was sold as a
+         swatch: Classic Milk Tea was an orange square, Taro a purple one. This
+         is the app's core personalisation surface and each option costs pearls,
+         so people were buying a colour chip. Reuses the same tinted mini cup the
+         shelf uses, which is what the option actually produces. -->
+    <div class="shop-preview"><div class="coll-cup" style="--drink-color:${color}"><span class="coll-cup-liquid"></span><span class="coll-cup-lid"></span></div></div>
     <div><strong>${label}</strong></div>
     <div class="shop-card-action">${tag}</div>
   </button>`;
