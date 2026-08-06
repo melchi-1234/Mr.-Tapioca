@@ -1,4 +1,5 @@
 import Capacitor
+import DeviceActivity
 import FamilyControls
 import ManagedSettings
 import SwiftUI
@@ -55,7 +56,11 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
             && selection.categoryTokens.isEmpty
             && selection.webDomainTokens.isEmpty)
         let authorized = AuthorizationCenter.shared.authorizationStatus == .approved
-        call.resolve(["authorized": authorized, "hasSelection": hasSelection])
+        var payload: [String: Any] = ["authorized": authorized, "hasSelection": hasSelection]
+        // "defeated" = the watchdog saw a shielded app accrue real usage this
+        // session, i.e. iOS is letting it through (Ignore Limit exemption).
+        payload["defeated"] = SharedSelection.defeatedAt() != nil
+        call.resolve(payload)
     }
 
     @objc func requestAuthorization(_ call: CAPPluginCall) {
@@ -116,16 +121,44 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
             && selection.categoryTokens.isEmpty
             && selection.webDomainTokens.isEmpty)
         blockingActive = active
-        if active { applyShield(selection) }
+        if active {
+            applyShield(selection)
+            startWatchdog(selection)
+        }
         call.resolve(["active": active])
     }
 
     @objc func stopBlocking(_ call: CAPPluginCall) {
         blockingActive = false
+        DeviceActivityCenter().stopMonitoring([DeviceActivityName(SharedSelection.watchdogName)])
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         store.shield.webDomains = nil
         call.resolve()
+    }
+
+    // Usage-threshold watchdog: the only supported way to DETECT "shield set
+    // but not enforced". If a shielded app accrues a minute of real usage, the
+    // monitor extension flags it in the App Group and the web layer warns the
+    // user honestly. Best-effort: a throw here must never break startBlocking.
+    private func startWatchdog(_ selection: FamilyActivitySelection) {
+        SharedSelection.clearDefeated()
+        let center = DeviceActivityCenter()
+        center.stopMonitoring([DeviceActivityName(SharedSelection.watchdogName)])
+        // Whole-day interval: always over the 15-minute schedule minimum, and
+        // "now" is inside it so monitoring starts counting immediately.
+        let schedule = DeviceActivitySchedule(
+            intervalStart: DateComponents(hour: 0, minute: 0),
+            intervalEnd: DateComponents(hour: 23, minute: 59),
+            repeats: false)
+        let event = DeviceActivityEvent(
+            applications: selection.applicationTokens,
+            categories: selection.categoryTokens,
+            webDomains: [],
+            threshold: DateComponents(minute: 1))
+        try? center.startMonitoring(DeviceActivityName(SharedSelection.watchdogName),
+                                    during: schedule,
+                                    events: [DeviceActivityEvent.Name("blockedAppUsed"): event])
     }
 
     private func applyShield(_ selection: FamilyActivitySelection) {

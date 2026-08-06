@@ -1841,7 +1841,9 @@ function tick() {
   if (now - lastShieldAssert > 300000
       && (FocusBlocker.wasActive() || state.shieldWasUp === true)) {
     lastShieldAssert = now;
-    FocusBlocker.start();
+    // Await the flag read before start() re-arms the watchdog (which clears it),
+    // otherwise the two bridge calls race and the warning can be lost.
+    (async () => { await FocusBlocker.checkDefeated(); FocusBlocker.start(); })();
   }
 
   if (progress() >= 1) {
@@ -1899,11 +1901,30 @@ const FocusBlocker = {
     } catch (e) { this._active = false; }
   },
   async stop()  {
-    this._want = false; this._active = false;
+    this._want = false; this._active = false; this._defeatedWarned = false;
     if (state.shieldWasUp) { state.shieldWasUp = false; saveState(); }
     const p = this.plugin(); if (!p) return; try { await p.stopBlocking(); } catch (e) {}
   },
   wasActive() { return this._active; },   // was a real shield up during this focus session?
+
+  // Honest-failure detection: the native watchdog flags "defeated" when a
+  // supposedly-blocked app accrues a minute of real usage mid-session (iOS
+  // lets an app through for the rest of the day after the user taps Ignore
+  // Limit on their own Screen Time limit for it; device-level, can't be
+  // vetoed). Warn once per session instead of silently pretending.
+  _defeatedWarned: false,
+  async checkDefeated() {
+    const p = this.plugin(); if (!p) return false;
+    try {
+      const r = await p.status();
+      const defeated = !!(r && r.defeated);
+      if (defeated && !this._defeatedWarned && state.running) {
+        this._defeatedWarned = true;
+        showToast("Heads up: iOS is letting a blocked app through today (Ignore Limit). Blocking comes back after midnight.");
+      }
+      return defeated;
+    } catch (e) { return false; }
+  },
 
   // Is blocking READY to use (Screen Time authorized AND apps picked)? Cached in
   // _configured so the UI can read it synchronously; refreshed via refreshStatus.

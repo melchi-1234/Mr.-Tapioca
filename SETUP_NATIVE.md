@@ -134,10 +134,15 @@ Deleting and reinstalling Instagram did not bring blocking back.
 Two separate iOS behaviors stack up here:
 
 1. **"Ignore Limit" is a day-scoped, OS-level allowance.** iOS's own limit
-   shield takes over the app, and the "for today" exemption can suppress
-   third-party shields too. Nothing in our code can veto it; the app now
-   re-asserts the shield every 5 minutes during a session and every time the
-   app returns to the foreground, which is the strongest counter the API allows.
+   shield takes over the app, and the "for today" exemption suppresses
+   third-party shields too. CONFIRMED device-level the same evening: Focus
+   Friend (an unrelated blocker) is bypassed identically, and the exemption
+   survived deleting the limit, restarting the phone, AND a fresh re-pick.
+   Other shielded apps (TikTok, YouTube) kept blocking, so it is scoped to
+   the exempted bundle. Nothing in our code can veto it; the app re-asserts
+   the shield every 5 minutes and on foreground, and a DeviceActivity
+   usage-watchdog (1 min of real usage on a "blocked" app) detects the
+   defeated state and warns the user honestly instead of pretending.
 2. **App tokens die silently when the blocked app is reinstalled** (documented
    across Apple Developer Forums threads 788764 / 814571 / 771119; also seen
    after some iOS updates). There is NO API to detect a dead token, and
@@ -152,6 +157,12 @@ the simulator):**
 - Block an app that ALSO has a personal Screen Time limit. Hit the limit, tap
   "Ignore Limit for today", then confirm whether the boba shield still holds
   (record the result; this documents the OS behavior for support replies).
+- After an Ignore Limit bypass, check again the NEXT day: blocking should
+  self-heal once the day rolls over. If it does not, that is new information
+  (the Aug 6 incident predicts midnight recovery; unverified until observed).
+- During a session with a bypassed app, use it for over a minute, then reopen
+  Mr. Tapioca: the "iOS is letting a blocked app through" warning toast should
+  appear within about 5 minutes (the DeviceActivity watchdog check).
 - Delete and reinstall a blocked app mid-selection. Expect blocking to silently
   skip it. Then run "Blocking Not Working? Re-pick Apps" and confirm blocking
   resumes.
