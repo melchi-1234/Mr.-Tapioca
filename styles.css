@@ -213,7 +213,11 @@ body {
      controls rather than by dead space. The stack itself is now ~35px shorter
      (idle progress bar hidden, tighter card and gap), and that height goes back
      to the scene rather than to more padding. */
-  --floor-rest: clamp(330px, 43vh, 385px);
+  /* Second pass, after the empty idle .session-row stopped reserving 38px:
+     the stack now sits ~47px lower, so the floor line follows it down and the
+     shop gains that height. Capped at 330 so the tall desktop frame does not
+     just grow the band back. */
+  --floor-rest: clamp(300px, 40vh, 330px);
   --floor-y: var(--floor-rest);
   /* How much shorter the controls stack gets once the size picker is gone:
      the picker's own height plus the stack's row gap. Keep in step with
@@ -1531,6 +1535,14 @@ body {
 /* One fixed-height row for the shield pill + Reset: the pill stays centered,
    Reset docks at the right edge, and toggling either never moves the stack. */
 .session-row { position: relative; width: 100%; min-height: 38px; display: flex; align-items: center; justify-content: center; }
+/* Idle, both of this row's children are display:none, but min-height still
+   reserved 38px of bare floor directly under Start Focus. The min-height is
+   only needed once the row has content, because .reset-link is absolutely
+   positioned and contributes no height of its own. Collapsing it while idle
+   lets the whole stack sit lower and the floor line come down with it.
+   Gated rather than removed: the block pill is an in-flow child, so a visible
+   pill still sizes the row on its own. */
+.focus-controls:not(.session-on) .session-row { min-height: 0; }
 .session-row .block-pill { margin: 0; }
 .session-row .reset-link { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
 .focus-controls {
