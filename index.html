@@ -69,6 +69,10 @@
           <div id="makerSpeech" class="speech-bubble">Mr. Tapioca is ready to make your focus drink.</div>
         </div>
         <img id="breakBedFront" class="break-bed-front" src="assets/bed-front.png" alt="" aria-hidden="true">
+        <!-- The near plane in break mode: the desk you are sitting at, in front
+             of the room. Purely decorative, break-only, drawn above the bed and
+             the mascot but below the panel and the nav. -->
+        <div class="fg-desk" aria-hidden="true"></div>
         <div class="work-counter">
           <!-- Counter dressing. Measured free space is only ~30px left of the
                character and ~24px right of the cup, so these are small and sit
@@ -260,7 +264,7 @@
 
       <!-- ── Break offer panel ────────────────────────────────────── -->
       <div id="breakOffer" class="break-panel hidden">
-        <p class="break-title">Session complete! Nice work 🎉</p>
+        <p class="break-title">Session complete! Nice work</p>
         <div class="break-adjust-row">
           <button id="breakMinus" class="adj-btn" aria-label="Decrease break time">−</button>
           <div class="timer-card compact">
@@ -275,7 +279,7 @@
 
       <!-- ── Break running panel ──────────────────────────────────── -->
       <div id="breakRunningPanel" class="break-panel hidden">
-        <p class="break-title">Chill Mode 🍵</p>
+        <p class="break-title">Chill Mode</p>
         <div class="timer-card">
           <div class="timer-time" id="breakTimerText">10:00</div>
           <div class="timer-meta">

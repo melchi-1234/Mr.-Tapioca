@@ -1,8 +1,22 @@
 # Mr. Tapioca Roadmap
 
+> **Status note (2026-08-04): this is now mostly a historical document.**
+> Phases 1 through 5 are **done and shipped** — the app is live on the App Store
+> (https://apps.apple.com/app/id6786023560) and on the web at https://mrtapioca.me.
+> Two things below did not land the way they were planned:
+> - **Phase 2 was built with Capacitor, not SwiftUI.** The web app is the app; it is
+>   wrapped natively, with custom Swift plugins only for Screen Time blocking, the
+>   Live Activity, and StoreKit purchases.
+> - **Step 3, the spill mechanic, was built and then removed.** Leaving mid-session
+>   now pauses and banks your progress instead, because long drinks are meant to be
+>   filled across several sittings.
+>
+> **Phase 6 (boba shop partnerships) is the one section still genuinely ahead.**
+> Everything above it is kept for context, not as a to-do list.
+
 ## Prototype build order
 
-These are the next features to build in the web prototype, in order.
+These were the features built into the web prototype, in order. All shipped.
 
 ### Step 1: Break timer mode
 After you finish a focus session and your drink is complete, a short break timer kicks in before your next session starts. This gives you a proper rest period and makes the app feel like a full study routine, not just a one-shot timer.

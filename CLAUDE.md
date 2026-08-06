@@ -1,7 +1,8 @@
 # Mr. Tapioca — project guide for Claude Code
 
-A cozy boba-themed focus/study timer. Pick a drink size, start a session, and a
-round tapioca-pearl mascot brews your bubble tea while you work. Finishing a
+A cozy boba-themed focus/study timer. Set a Custom Cup (15 min to 4 hr) or your
+Goal Cup, start a session, and a round tapioca-pearl mascot brews your bubble tea
+while you work. Finishing a
 session adds the drink to your collection and earns pearls. The headline iPhone
 feature is real app blocking during focus sessions via Apple's Screen Time
 (Family Controls). Built as a web app first, then wrapped natively with Capacitor.
@@ -10,18 +11,43 @@ feature is real app blocking during focus sessions via Apple's Screen Time
 
 - **Plain HTML/CSS/JS, no build step.** The whole app is:
   - `index.html` — markup + all dialogs/sheets
-  - `app.js` — ~5400 lines, all logic (timer, economy, games, squad, audio, map, sprite engine, native bridges)
+  - `app.js` — ~5800 lines, all logic (timer, economy, games, squad, audio, map, poses, icons, native bridges)
   - `styles.css` — all styling + themes + animations
   - `sw.js` — service worker (offline + install). `const CACHE = "mr-tapioca-vNN"` MUST be bumped on every release or installed users keep the old shell.
   - `config.js` — optional Supabase keys for the live Study Squad (feature-flagged; app works fully without them). The key in here is the PUBLIC anon/publishable key by design.
   - `squad-cloud.js` — Study Squad cloud sync.
-- **Assets:** `assets/` (lowercase). Character art is 500x500 PNGs; shop backgrounds 768x1344; sprite sheets under `assets/sprites/<skin>/<state>.png` with a manifest `assets/sprites/sprites.json` (each frame cell is 410x460, sheet width = frames * 410).
+- **Assets:** `assets/` (lowercase). Character art is 500x500 PNGs; shop backgrounds 768x1344.
+  - **Character poses live in `assets/poses/<skin>-<state>.png`**, 500x500, 14 skins x 4 states
+    (`idle`, `mixing`, `sleeping`, `shocked`) = 56 files. `const SKIN_POSES` in `app.js` builds the
+    lookup. There is **no sprite sheet system** — it was deleted in Aug 2026. Poses are still
+    drawings; all motion on top of them is CSS keyframes, not frame flipping. Adding a skin means
+    adding all four PNGs, listing them in the `sw.js` SHELL, and bumping the cache.
+  - Scene art (drawn, not CSS gradients): `counter-*.png` for the shop counter, `bed-back.png` +
+    `bed-front.png` for the two-layer break-mode bedroom (he tucks between the layers), and
+    `catch-board.png` / `plinko-board.png` / `pong-board.png` for the three game boards.
 - **Native iOS:** Capacitor. `ios/App/` is the Xcode project. Custom Swift plugins in `ios/App/*.swift` (also mirrored in `native-ios/` as source-of-truth copies): FocusShieldPlugin (Screen Time blocking), FocusActivityPlugin (Live Activity countdown), IAPPlugin (StoreKit 2 purchases). `tools/register-ios-plugins.mjs` re-registers them after `cap copy`.
 
 ## How to run / preview
 
 - Serve the folder and open in a browser: `python3 -m http.server 4173` then visit `http://127.0.0.1:4173`. (The app registers a service worker; clear it + caches when testing CSS/JS edits, or serve from a fresh port.)
 - Visual QC is done headless with puppeteer-core driving system Chrome at iPhone viewport (see scratchpad scripts from past sessions). Point it at your local server, seed `localStorage.bobaFocusOnboarded="true"` + `bobaFocusTourDone="1"` to skip onboarding.
+- **Verify every visual change at BOTH 375x812 and 1280x900** before calling it done. A change that
+  was only checked at phone width has shipped a desktop regression before.
+
+## Gotchas that have already cost real time
+
+These are all things that fail *silently*. Do not rediscover them.
+
+1. **Run `python3 tools/check-shell.py` before every release.** One missing path in the `sw.js`
+   SHELL list blocks ALL updates app-wide, with no error anywhere. Bumping
+   `const CACHE = "mr-tapioca-vNN"` is also required, but the bump alone is not enough.
+2. **The browser will serve you stale `app.js` / `styles.css`.** To actually see an edit: unregister
+   all service workers AND delete all caches, THEN navigate twice. One reload is not enough.
+3. **`.hidden { display:none }` sits ABOVE several component rules that set `display`**, so a later
+   `display:inline-flex` silently defeats it. Any component that sets its own `display` needs its
+   own `.foo.hidden { display:none }` rule.
+4. **Never write `textContent` on a button that carries an inline SVG icon.** It wipes the icon out.
+   Rebuild the icon and the label together.
 
 ## Where it lives
 
@@ -49,14 +75,50 @@ feature is real app blocking during focus sessions via Apple's Screen Time
 - Match existing comment density and naming when editing.
 - The economy must stay fair: pearls come from real focus time (~4/hour). Never introduce a way to farm or double-credit pearls.
 
+### Design system (added Aug 2026, do not drift from it)
+
+- **The font is Inter** (`font-family: Inter, ui-sans-serif, system-ui, …`). A rounded face
+  (`ui-rounded` / SF Pro Rounded) was tried and **rejected** — the blockier text reads better here.
+  Do not re-propose a rounded font.
+- **One UI material.** Panels, cards, and sheets are built from four `:root` custom properties in
+  `styles.css`: `--ui-paper` (the warm paper gradient), `--ui-edge` (2px border), `--ui-sheen`
+  (inset top highlight), `--ui-lift` (the layered drop shadow). New surfaces use these, not
+  one-off gradients and shadows. They are on `:root` on purpose: the controls and the nav live
+  outside `.scene-wrap`, so scoping them there left those elements with no background at all.
+- **One icon family.** All icons are inline SVG: `viewBox="0 0 24 24"`, `fill="none"`,
+  `stroke="currentColor"`, `stroke-width="2"`, round caps and joins. `const ICON = {…}` in `app.js`
+  is the shared map for JS-built icons; `.ico` sizes them to `1em` inside a label and `.nav-svg`
+  fills the nav slot. **No emoji is ever used AS AN ICON** — do not reintroduce one as a shortcut.
+  (A few emoji do survive inside body copy: the reward dialog, the pong hint and the two
+  "Made with" lines. Those are decoration, not structure. The break-panel titles had them and
+  they were removed in Aug 2026.)
+- **Break mode has a near plane.** `.fg-desk` draws a desk in FRONT of the room, its top edge
+  `--desk-rise` above the floor line, so it occludes the bedroom art's own drawn floorboards.
+  That is the fix for the double-floor seam: the room's floor and any code-drawn floor are in
+  different perspectives and can never be matched, only hidden. Do not "restore" the floor there.
+- Interactive targets have a **44px minimum hit area**.
+
 ## Collaboration
 
 - Two people work on this repo (both push to `feature-work`). **Pull/rebase before you start** to avoid conflicts. If you see uncommitted changes that aren't yours (e.g. outreach tracking files), stash around them rather than committing them.
 - Prefer separate branches for big parallel work, then merge.
 
-## Current status (as of early July 2026)
+## Current status (as of 2026-08-04)
 
-- Submitted to the App Store; first submission (Build 4) was rejected on standard first-timer checklist items (support URL, IAPs not attached to the submission, iPad UI, Screen Time discoverability). All four are fixed in code. **Build 5 is the resubmission** and also carries: iPhone-only, a prominent app-blocking prompt at Start Focus, new skins/themes, real frame animations, and fixes from two multi-agent regression audits.
-- `REJECTION_RESPONSE.md` has the exact resubmission steps + the reply to Apple.
+- **Shipped and live.** v1.0 went up around Jul 30 2026; **v1.0.1 (build 6) went live Aug 4 2026**.
+  The web app is live at https://mrtapioca.me and auto-deploys from `feature-work`.
+- **Nothing is in review right now.** The Xcode project sits at `MARKETING_VERSION = 1.1.0` /
+  `CURRENT_PROJECT_VERSION = 7`. Build 7 has never been archived, so **no version bump is needed**
+  before the next archive — bumping now would just skip a build number. Shipping it is the owner's
+  own Apple-ID work (Xcode > Archive > Upload); Claude does not do those steps.
+- ⚠️ `ios/App/App/public` is currently STALE (the floor-texture change landed after the last sync).
+  Run `npm run copyweb && npx cap copy ios && node tools/register-ios-plugins.mjs` before archiving.
+- Aug 4 2026 was a large visual overhaul: sprite sheets deleted in favor of poses, break mode
+  rebuilt as a real bedroom, drawn art for the counter and all three game boards, the `--ui-*`
+  material system, and one inline-SVG icon family replacing every last emoji in UI chrome.
+- The old Build 4 rejection (support URL, IAPs not attached, iPad UI, Screen Time discoverability)
+  is fully resolved and shipped. `REJECTION_RESPONSE.md` is kept for reference only.
 - `IAP_SETUP.md` documents the 6 in-app purchases. `APP_STORE_LISTING.md` has all store copy.
 - TestFlight beta is live (public link in the Business/TestFlight section of App Store Connect).
+- Traction is still early: friends and family plus a small number of test purchases. Do not describe
+  the userbase as large or as an established customer base.

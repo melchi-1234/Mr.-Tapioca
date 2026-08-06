@@ -5702,9 +5702,10 @@ if ("serviceWorker" in navigator) {
     });
     // sw.js does skipWaiting + clients.claim and deletes the old versioned
     // cache on activate, so a new deploy can swap the cache out from under an
-    // already-open page: its in-memory code and sprites.json then mix with
-    // newer assets (the "three stretched mascots" glitch). Reload ONCE the
-    // moment a new SW claims us so everything comes from one cache version.
+    // already-open page: its in-memory code and asset paths then mix with
+    // newer assets (in the sprite-sheet era this showed up as the "three
+    // stretched mascots" glitch). Reload ONCE the moment a new SW claims us
+    // so everything comes from one cache version.
     // hadController guards the very first install, which also fires
     // controllerchange but needs no reload.
     let hadController = !!navigator.serviceWorker.controller;

@@ -220,10 +220,28 @@ body {
      art's baked-in floor away and the counter looks like it floats mid-air. */
   --floor-a: #cf9d7b;   /* floor stripe (front edge) */
   --floor-b: #e6c8a0;   /* floor fill */
-  --floor-grad: linear-gradient(180deg,
-      transparent 0 calc(100% - var(--floor-y)),
-      var(--floor-a) calc(100% - var(--floor-y)) calc(100% - var(--floor-y) + 26px),
-      var(--floor-b) calc(100% - var(--floor-y) + 26px) 100%);
+  /* Theme wash laid OVER the drawn boards, same trick as --counter-tint: one
+     neutral wood texture serves all ten themes and each one just tints it to
+     its own light. Alpha is tuned per theme below — warm themes barely need
+     any, cool and dark ones need enough to pull the wood off warm. */
+  --floor-tint: rgba(230,200,160,0.40);
+  /* Three layers, front to back:
+       1. the theme wash (semi-transparent, floor band only)
+       2. the drawn boards, mapped onto EXACTLY the band code owns
+       3. the original flat gradient, still fully opaque
+     Layer 3 is deliberate: if floor-boards.png ever fails to load, the floor
+     is still solid and the counter still has something to stand on, which is
+     the one thing this variable must never stop doing. */
+  --floor-grad:
+      linear-gradient(180deg,
+        transparent 0 calc(100% - var(--floor-y)),
+        var(--floor-tint) calc(100% - var(--floor-y)) 100%) no-repeat,
+      url('assets/floor-boards.png')
+        bottom center / 100% var(--floor-y) no-repeat,
+      linear-gradient(180deg,
+        transparent 0 calc(100% - var(--floor-y)),
+        var(--floor-a) calc(100% - var(--floor-y)) calc(100% - var(--floor-y) + 26px),
+        var(--floor-b) calc(100% - var(--floor-y) + 26px) 100%);
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -254,6 +272,7 @@ body {
 .scene[data-theme="night"] {
   --floor-a: #3a3450;
   --floor-b: #4a4364;
+  --floor-tint: rgba(74,67,100,0.80);   /* darkest wash: the boards must read as night */
   background: var(--floor-grad) no-repeat,
               #2e3b57 url('assets/Shop Background Night.png') top center / cover no-repeat;
 }
@@ -279,6 +298,7 @@ body {
 .scene[data-theme="sakura"] {
   --floor-a: #d9a3ae;
   --floor-b: #ecc6cd;
+  --floor-tint: rgba(236,198,205,0.55);
   background: var(--floor-grad) no-repeat,
               #f6e0e6 url('assets/Shop Background Sakura.png') top center / cover no-repeat;
 }
@@ -291,6 +311,7 @@ body {
 .scene[data-theme="autumn"] {
   --floor-a: #c08b5a;
   --floor-b: #dcae7e;
+  --floor-tint: rgba(220,174,126,0.42);
   background: var(--floor-grad) no-repeat,
               #f0dcb8 url('assets/Shop Background Autumn.png') top center / cover no-repeat;
 }
@@ -304,6 +325,7 @@ body {
 .scene[data-theme="rainy"] {
   --floor-a: #9aa5ae;
   --floor-b: #b9c2c9;
+  --floor-tint: rgba(185,194,201,0.62);   /* cool themes need more wash to pull the wood off warm */
   background: var(--floor-grad) no-repeat,
               #d6dee6 url('assets/Shop Background Rainy.png') top center / cover no-repeat;
 }
@@ -317,6 +339,7 @@ body {
 .scene[data-theme="winter"] {
   --floor-a: #aebfc7;
   --floor-b: #cfdce2;
+  --floor-tint: rgba(207,220,226,0.62);
   background: var(--floor-grad) no-repeat,
               #ece3d4 url('assets/Shop Background Winter.png') top center / cover no-repeat;
 }
@@ -330,6 +353,7 @@ body {
 .scene[data-theme="galaxy"] {
   --floor-a: #b9a8d6;
   --floor-b: #cfc2e6;
+  --floor-tint: rgba(207,194,230,0.55);
   background: var(--floor-grad) no-repeat,
               #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
 }
@@ -437,9 +461,17 @@ body {
    floor at y=422 — so the bed sat 245px up the wall, inside the window arch,
    with nothing under it. Restoring the gradient (with the art's own wood
    colours, sampled from the background) puts a real floor back under him. */
-.scene.is-on-break {
+/* ⚠️ The doubled .is-on-break.is-on-break is DELIBERATE, do not "tidy" it away.
+   `.scene.is-on-break` and `.scene[data-theme="x"]` have identical specificity
+   (0,2,0), so on a tie the LAST rule in the file wins. Honey Library and Seaside
+   Sunset were appended at the bottom in Jul 2026, after these rules, which meant
+   break mode silently showed the SHOP backdrop in those two themes instead of the
+   bedroom — no error, just the wrong room. Doubling the class makes break mode
+   (0,3,0) so it outranks every theme no matter where a future theme is added. */
+.scene.is-on-break.is-on-break {
   --floor-a: #d2a878;   /* wood, matches the room's floorboards */
   --floor-b: #dcb98f;   /* wood, matches the room's floorboards */
+  --floor-tint: rgba(220,185,143,0.40);   /* the drawn boards already match the bedroom, so barely wash them */
   /* The room is authored SQUARE to match the STAGE — the part of .scene above
      the controls — and is sized to the stage explicitly rather than with cover.
      cover sizes against .scene, which is the full viewport height, so a square
@@ -447,19 +479,29 @@ body {
      (100% - --floor-y) maps the art onto exactly the band the user can see, and
      crops about 27px per side instead. The +8px keeps it meeting the floor line
      as --floor-y shifts between modes; background-color backs it up. */
-  background: var(--floor-grad) no-repeat,
+  /* Soften the join. Everywhere else the board texture's darker top edge lands
+     under the counter and reads as its contact shadow, which is what we want.
+     Here there is no counter: the bedroom art's own floor runs down to the cut
+     at rgb(214,169,138), so that same dark edge lands mid-floor and reads as a
+     false seam instead. Fade the art's exact floor tone over the first 54px of
+     the texture so the two floors meet as one surface. */
+  background: linear-gradient(180deg,
+                transparent 0 calc(100% - var(--floor-y)),
+                rgba(214,169,138,0.95) calc(100% - var(--floor-y)),
+                rgba(214,169,138,0) calc(100% - var(--floor-y) + 54px)) no-repeat,
+              var(--floor-grad) no-repeat,
               #c9bfe0 url('assets/Bedroom Background.png') top center /
                 auto calc(100% - var(--floor-y) + 8px) no-repeat;
 }
-.scene.is-on-break .work-counter {
+.scene.is-on-break.is-on-break .work-counter {
   background: linear-gradient(180deg, #fbf7ff 0, #f1ecf8 16px, #e3daf0 100%);
   border-color: rgba(70,55,110,0.13);
   border-top-color: rgba(255,255,255,0.85);
 }
-.scene.is-on-break .speech-bubble { background: #f5f0ff; }
+.scene.is-on-break.is-on-break .speech-bubble { background: #f5f0ff; }
 /* Break = rest: no drink + no shop counter, just a cozy nap nook. */
-.scene.is-on-break .cup-stage,
-.scene.is-on-break .work-counter { display: none; }
+.scene.is-on-break.is-on-break .cup-stage,
+.scene.is-on-break.is-on-break .work-counter { display: none; }
 
 /* Not a rug anymore — a soft contact SHADOW tucked directly under the bed.
    (The old freestanding lavender disc read as a random puddle hovering below
@@ -474,7 +516,7 @@ body {
     rgba(88, 58, 108, 0.30) 0%, rgba(88, 58, 108, 0.16) 55%, transparent 76%);
   z-index: 3; display: none; pointer-events: none;
 }
-.scene.is-on-break .break-rug { display: block; }
+.scene.is-on-break.is-on-break .break-rug { display: block; }
 
 /* Cozy nap bed, in two layers with the character sandwiched between them.
    One --bed-w drives both halves and they were drawn in a single render at
@@ -507,8 +549,95 @@ body {
   bottom: calc(var(--floor-y) + 6px);
   z-index: 10;                      /* blanket, IN FRONT of him = tucked in */
 }
-.scene.is-on-break .break-bed-back,
-.scene.is-on-break .break-bed-front { display: block; }
+.scene.is-on-break.is-on-break .break-bed-back,
+.scene.is-on-break.is-on-break .break-bed-front { display: block; }
+
+/* ── Foreground desk: the near plane, break mode only ──────────────────────
+   Everything above --floor-y is the room. This is an OBJECT in front of it.
+   Its TOP edge sits --desk-rise ABOVE the code-owned floor line, so it crosses
+   the bed's base and hides the bedroom art's own drawn floorboards. That is the
+   actual fix for the seam: the bedroom paints a converging plank floor with a
+   skirting board, it was guillotined at the floor line, and a flat
+   non-perspective texture started immediately below. Two contradicting
+   perspectives meeting at a hard full-width line is what the eye catches, and
+   tinting cannot fix geometry. Occlusion can.
+
+   It NEVER declares a floor line of its own, it only crosses the one --floor-y
+   already owns, so it inherits that registered property's transition for free.
+
+   Break mode always paints the bedroom (.is-on-break.is-on-break is (0,3,0) and
+   outranks every .scene[data-theme] at (0,2,0)), so this needs NO per-theme tint
+   and NO per-theme asset. It is deliberately ABSENT on the focus screen, where
+   .work-counter is already a lit wooden ledge with its own bright lip and
+   grained front face. Two lit ledges 12px apart is worse than one.
+
+   The gradient is BOTH the fallback and the continuation: the PNG only draws the
+   top of the surface, and the flat --desk-mid band below it runs to the bottom of
+   the frame at any height, so there is never a gap and never a squash. */
+.scene {
+  --desk-rise: 46px;
+  --desk-lip:  #d6a882;   /* far edge catching the light */
+  /* Sampled from the SHIPPED break-desk.png bottom row, not picked by eye. The
+     art only draws the top of the desk and this gradient continues it to the
+     bottom of the frame, so any mismatch here is a full-width seam. */
+  --desk-mid:  #d4945b;
+  /* Desaturated as they darken, not just dimmed. Carrying --desk-mid's
+     saturation down to the near edge turned the bottom third into a hot orange
+     slab at desktop, where the desk is ~55% of the frame. Wood falling away
+     from a lamp loses chroma as well as value. */
+  --desk-low:  #c08b64;
+  --desk-deep: #a87a56;   /* darkest; below this it reads as a bar, not a desk */
+}
+@media (min-width: 480px)  { .scene { --desk-rise: 54px; } }
+@media (max-height: 720px) { .scene { --desk-rise: 34px; } }
+
+.fg-desk {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--floor-y) + var(--desk-rise));
+  z-index: 10;
+  pointer-events: none;
+  display: none;
+  background: linear-gradient(180deg,
+    rgba(60,32,24,0.34) 0 2px,
+    var(--desk-lip)     2px 10px,
+    var(--desk-mid)     10px 58%,
+    var(--desk-low)     86%,
+    var(--desk-deep)    100%);
+}
+.scene.is-on-break.is-on-break .fg-desk { display: block; }
+
+/* The drawn surface. aspect-ratio derives height from the frame WIDTH, so the
+   near plane gets BIGGER on the wider desktop frame instead of being the same
+   small furniture in more space, and nothing is ever resampled non-uniformly.
+   margin-top is a PERCENTAGE, which resolves against the containing block's
+   WIDTH, so the transparent headroom above the desk's drawn far edge scales
+   with the art at every width from ONE constant.
+   -19.401% = the measured far-edge row (298) / asset width (1536). Both numbers
+   were read off the shipped file, not assumed. */
+.fg-desk::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  aspect-ratio: 1536 / 1024;
+  margin-top: -19.401%;
+  background: url('assets/break-desk.png') center / 100% 100% no-repeat;
+}
+
+/* Lamp pool + the recessed strip the nav pills sit in. Above the surface so the
+   art and the CSS read as ONE lit object. This strip is what gives the pills
+   their contrast in break, which is why .bottom-bar drops its own scrim there. */
+.fg-desk::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 0 calc(100% - 102px),
+      rgba(46,26,18,0.28) calc(100% - 102px) calc(100% - 100px),
+      rgba(46,26,18,0.12) calc(100% - 100px) 100%),
+    radial-gradient(130% 54% at 50% 22%,
+      rgba(255,240,214,0.30), rgba(255,240,214,0) 76%);
+}
 
 /* Character naps IN the bed on break: centred on the mattress and seated so the
    blanket layer crosses his chest.
@@ -518,7 +647,7 @@ body {
    with a 1050ms transition for the walk choreography, and that transition owns
    the transform property, so a scale declared here is silently dropped. Size the
    bed instead; --bed-w is the knob. */
-.scene.is-on-break .maker-wrap {
+.scene.is-on-break.is-on-break .maker-wrap {
   left: calc(50% - 102px);
   bottom: calc(var(--floor-y) + 122px);
 }
@@ -745,9 +874,12 @@ body {
       transparent 45px 88px, rgba(60,32,24,0.05) 88px 89px,
       transparent 89px 152px, rgba(60,32,24,0.04) 152px 153px,
       transparent 153px),
-    /* plank joins */
-    repeating-linear-gradient(90deg,
-      transparent 0 74px, rgba(60,32,24,0.05) 74px 75.5px),
+    /* (The "plank joins" layer that used to sit here was a repeating 90deg
+       gradient at a CONSTANT 74px pitch. The board seams above it converge
+       16/44/88/152px, which implies a specific camera height, so a constant
+       vertical pitch crossing them contradicted that perspective and turned the
+       floor into a tile grid. Removing it is the single biggest free win on the
+       focus screen.) */
     /* corners fall away */
     radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(60,32,24,0.16) 100%);
 }
@@ -798,7 +930,7 @@ body {
 .prop-plant  { right: 2px; width: calc(25px * var(--fig)); }
 /* The counter is hidden on break, and so are its props (inherited), but be
    explicit so a future layout change can't leave them floating in the bedroom. */
-.scene.is-on-break .counter-prop { display: none; }
+.scene.is-on-break.is-on-break .counter-prop { display: none; }
 
 /* Wood grain on the front face only. Very low contrast on purpose: it should
    read as material at a glance and never compete with the character. */
@@ -1656,15 +1788,31 @@ body {
 }
 
 /* ── Break panels ───────────────────────────────────────────────────────── */
+/* bottom clears the nav rather than guessing at it. .bottom-bar measures 102px
+   tall on phone (62px pills + 12/28 padding), so the old flat 96px let Skip's
+   last 6px sit UNDER the nav: hit-testing the pill at 80% and 95% of its height
+   returned .bottom-bar, not the button, so the bottom fifth of Skip was dead.
+   132px also closes the 81.6px of bare floor that used to sit between the floor
+   line and the panel top, which was pure layout: the break-RUNNING panel is
+   283.7px tall in the identical band and left only 10.3px of the same gap. */
 .break-panel {
   position: absolute;
-  bottom: 96px; left: 0; right: 0;
+  bottom: 132px; left: 0; right: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 0 20px;
+}
+/* Skip was 27px tall, the only control in the app under the 44px floor that the
+   hit-target system at the top of this file exists to enforce. */
+.break-panel .reset-link {
+  min-height: 44px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .break-panel.hidden { display: none; }
 
@@ -1693,7 +1841,7 @@ body {
    44vh clamp made that distance grow with the screen, which opened a ~104px band
    under the nook on a Pro Max while a 390-wide phone sat at 74px. Pinning it
    keeps the nook the same distance above the panel on every size. */
-.scene.is-on-break { --floor-y: 390px; }
+.scene.is-on-break.is-on-break { --floor-y: 390px; }
 /* Desktop windows (no phone is 480px wide): the break arch is cover art,
    top-anchored and height-fit, so its baked-in ledge sits at 47% of the
    frame height, while the flat 390px floor above was tuned for an 844px
@@ -1707,29 +1855,55 @@ body {
    specificity). Derivation: ledge = 1 - 712/1344 of frame height from the
    bottom; 301px = panel height 223px + the phone's 78px ledge-to-pill band. */
 @media (min-width: 480px) {
-  .scene.is-on-break { --floor-y: min(47dvh - 7px, 426px); }
-  .break-panel { bottom: max(96px, min(47dvh, 433px) - 301px); }
+  .scene.is-on-break.is-on-break { --floor-y: min(47dvh - 7px, 426px); }
+  /* 291px, not 301px: the old constant was derived from "panel height 223px",
+     which matches neither real panel (break-offer measures 212.4, break-running
+     283.7), so desktop opened a +20px gap where phone had a -6px overlap. */
+  .break-panel { bottom: max(112px, min(47dvh, 433px) - 291px); }
 }
 
+/* On the material system, not a fifth material. This was a dark translucent
+   glass pill (rgba(60,32,24,0.55) + blur, radius 999px) in a band that already
+   carried four different surfaces. As a cream paper card it becomes an object
+   lying on the desk, matching the timer card and the nav pills. */
 .break-title {
-  color: var(--cream);
+  color: var(--bark);
   font-size: 1rem;
   font-weight: 950;
   align-self: center;
-  /* Plate behind the title so it stays legible over the light mascot/scene. */
-  background: rgba(60,32,24,0.55);
-  padding: 5px 16px;
-  border-radius: 999px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  box-shadow: var(--ui-sheen), var(--ui-lift);
+  padding: 7px 18px;
+  border-radius: 14px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
+/* The row declared width:100% but its content only spanned x 56.8..318.2,
+   leaving 36.8px of dead gutter inside it on each side while #startBreakBtn
+   used the full 20px rail. space-between + a growing card puts the stepper on
+   the same rail as everything else. */
 .break-adjust-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
+}
+#breakOffer .timer-card.compact { flex: 1; width: auto; min-width: 0; }
+
+/* The stepper did not look attached to its card because it was made of
+   different stuff: frosted cream circles flanking a paper card. Scoped to the
+   break steppers only; the Custom/Goal steppers sit INSIDE a .timer-card where
+   the frosted look is still correct. */
+#breakMinus, #breakPlus {
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
+  border-radius: 16px;
+  box-shadow: var(--ui-sheen), var(--ui-lift);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .adj-btn {
@@ -1763,9 +1937,14 @@ body {
   justify-content: space-around;
   align-items: center;
   gap: 6px;
-  padding: 12px 12px 28px;
+  /* 20px side padding, not 12px: the nav rail was 12/363 while every control
+     above it used 20/355, an 8px misalignment on both sides. */
+  padding: 12px 20px 28px;
   background: linear-gradient(0deg, rgba(60,32,24,0.18) 0%, transparent 100%);
 }
+/* In break the desk's ::after draws a proper recessed strip with a dark lip for
+   the pills to sit in, so the generic scrim would double up on it. */
+.scene.is-on-break.is-on-break ~ .bottom-bar { background: none; }
 
 .icon-pill {
   display: flex;
@@ -1785,7 +1964,10 @@ body {
   transform: translateY(2px);
   box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.12), 0 3px 8px -3px rgba(60,32,24,0.30);
 }
-.icon-pill:active { transform: scale(0.95); }
+/* (A second `.icon-pill:active { transform: scale(0.95) }` used to sit here.
+   Same selector, later in the file, so it silently overrode the translateY(2px)
+   above and the pills never performed the press-onto-the-lip motion the
+   box-shadow beside it was written for.) */
 .pill-label { font-size: 0.58rem; font-weight: 950; color: var(--bark); letter-spacing: 0.01em; }
 .icon-pill { position: relative; }
 
@@ -3462,7 +3644,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .scene { --floor-rest: 290px; --floor-lift: 48px; }
   /* Keep the break nook lifted clear of the compact panel, but lower than on tall
      phones so the bed doesn't crowd the top HUD on short screens. */
-  .scene.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }
+  .scene.is-on-break.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }
   .maker-wrap { width: 176px; height: 188px; bottom: calc(var(--floor-y) + 12px); }
   .cup-stage { width: 112px; height: 150px; top: -100px; }
   .work-counter { height: 72px; }
@@ -3579,6 +3761,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="library"] {
   --floor-a: #c08b5a;
   --floor-b: #dcae7e;
+  --floor-tint: rgba(220,174,126,0.42);
   background: var(--floor-grad) no-repeat,
               #f0e0c2 url('assets/Shop Background Library.png') top center / cover no-repeat;
 }
@@ -3593,6 +3776,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="sunset"] {
   --floor-a: #d0906c;
   --floor-b: #ecc0a0;
+  --floor-tint: rgba(236,192,160,0.42);
   background: var(--floor-grad) no-repeat,
               #f7e3d3 url('assets/Shop Background Sunset.png') top center / cover no-repeat;
 }
