@@ -1865,12 +1865,12 @@ body {
    tall on phone (62px pills + 12/28 padding), so the old flat 96px let Skip's
    last 6px sit UNDER the nav: hit-testing the pill at 80% and 95% of its height
    returned .bottom-bar, not the button, so the bottom fifth of Skip was dead.
-   132px also closes the 81.6px of bare floor that used to sit between the floor
-   line and the panel top, which was pure layout: the break-RUNNING panel is
-   283.7px tall in the identical band and left only 10.3px of the same gap. */
+   117px, down from 132px, so the break panel clears the nav by the same 15px the
+   focus controls do rather than 30px. Combined with dropping the lock-note row,
+   the whole cluster sits lower and the desk art gets the height back. */
 .break-panel {
   position: absolute;
-  bottom: 132px; left: 0; right: 0;
+  bottom: 117px; left: 0; right: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -1932,7 +1932,7 @@ body {
   /* 291px, not 301px: the old constant was derived from "panel height 223px",
      which matches neither real panel (break-offer measures 212.4, break-running
      283.7), so desktop opened a +20px gap where phone had a -6px overlap. */
-  .break-panel { bottom: max(112px, min(47dvh, 433px) - 291px); }
+  .break-panel { bottom: max(97px, min(47dvh, 433px) - 306px); }
 }
 
 /* On the material system, not a fifth material. This was a dark translucent
@@ -4495,3 +4495,25 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   font-weight: 950;
   color: var(--bark);
 }
+
+/* Locked / already-played tiles. The "Games unlock after..." line is gone, and
+   the art tiles hide .g-emoji, so the lock glyph setGameBtn puts in the button
+   had nowhere to show. Without this, a disabled tile would look identical to a
+   playable one with no explanation anywhere on the screen. */
+.break-games-row .game-launch-btn { position: relative; }
+.break-games-row .game-launch-btn:disabled::before { filter: saturate(0.45) brightness(1.1); opacity: 0.6; }
+.break-games-row .game-launch-btn:disabled .g-label { color: var(--bark-mid); }
+.break-games-row .game-launch-btn:disabled .g-emoji {
+  display: flex;
+  position: absolute;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  width: 30px; height: 30px;
+  align-items: center; justify-content: center;
+  color: var(--bark);
+  background: var(--cream-90);
+  border: 2px solid var(--ui-edge);
+  border-radius: 50%;
+  box-shadow: var(--ui-sheen);
+}
+.break-games-row .game-launch-btn:disabled .g-emoji .ico { width: 15px; height: 15px; }

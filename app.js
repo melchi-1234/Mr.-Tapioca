@@ -3272,8 +3272,9 @@ function renderBreakGameButtons() {
   updateCatchBtnState();
   updatePlinkoBtnState();
   updatePongBtnState();
-  const note = document.getElementById("gamesLockNote");
-  if (note) note.classList.toggle("hidden", gamesUnlockedForBreak());
+  // The "Games unlock after a 30 minute session" line was removed: it cost a
+  // whole row on a screen the owner wanted tighter. The lock now lives ON the
+  // tile (dimmed art + a lock badge), driven by the buttons' disabled state.
 }
 
 // The three launch buttons carry an inline SVG icon in the markup. Writing
