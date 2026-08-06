@@ -3757,14 +3757,20 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   0%, 100% { box-shadow: 0 0 0 9999px rgba(43, 26, 18, 0.62), 0 0 0 0 rgba(255, 244, 224, 0.45); }
   50%      { box-shadow: 0 0 0 9999px rgba(43, 26, 18, 0.62), 0 0 0 9px rgba(255, 244, 224, 0); }
 }
+/* The tour that teaches the app was built from the PRE-overhaul material: flat
+   --cream with a --line hairline and one drop shadow, no --ui-paper, no
+   --ui-sheen, no --ui-lift. So the card doing the explaining was visibly flatter
+   than every panel it was pointing at. It floats over a dimming scrim, so it
+   keeps a heavier shadow than an in-page card, but the surface itself now
+   matches everything else. */
 .coach-tip {
   position: absolute;
   width: min(320px, calc(100% - 24px));
-  background: var(--cream, #fbf6ef);
-  border: 2px solid var(--line, #ead9c7);
+  background: var(--ui-paper);
+  border: 2px solid var(--ui-edge);
   border-radius: 20px;
   padding: 16px 18px 14px;
-  box-shadow: 0 12px 34px rgba(43, 26, 18, 0.35);
+  box-shadow: var(--ui-sheen), 0 12px 34px rgba(43, 26, 18, 0.35);
   transition: top 380ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .coach-tip h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--bark, #3d2117); }
@@ -3777,16 +3783,25 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 .coach-dot.on { background: var(--bark); }
 .coach-btns { display: flex; gap: 8px; }
+/* Both were min-height: 40px, under the 44px floor this file spends twelve
+   comment lines defending. They are the only two controls in the tour, so a
+   first-time user's first two taps were the undersized ones. */
 .coach-skip {
-  border: none; background: none; color: var(--bark-mid, #6b4a3a);
+  border: none; background: none; color: var(--bark-mid);
   font: inherit; font-weight: 800; font-size: 0.85rem;
-  padding: 9px 10px; cursor: pointer; min-height: 40px;
+  padding: 9px 14px; cursor: pointer; min-height: 44px;
 }
 .coach-next {
   border: none; border-radius: 999px;
-  background: var(--bark); color: #fff;
+  background: var(--bark); color: var(--cream);
   font: inherit; font-weight: 900; font-size: 0.9rem;
-  padding: 9px 22px; cursor: pointer; min-height: 40px;
+  padding: 9px 22px; cursor: pointer; min-height: 44px;
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.18), 0 3px 0 #2a1610;
+  transition: transform 70ms ease, box-shadow 70ms ease;
+}
+.coach-next:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.18), 0 1px 0 #2a1610;
 }
 
 
