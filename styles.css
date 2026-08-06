@@ -392,8 +392,42 @@ body {
   --floor-a: #b9a8d6;
   --floor-b: #cfc2e6;
   --floor-tint: rgba(207,194,230,0.55);
+  /* Room art moved to .scene-front so a rotating galaxy can live behind the
+     glass. Only the wall colour stays here, as the base under everything. */
+  background: #efe4d2;
+}
+.scene[data-theme="galaxy"] .win-fx,
+.scene[data-theme="galaxy"] .scene-front { display: block; }
+/* .cafe-glow is big soft coloured orbs that existed to fake depth on a flat
+   backdrop. With a real galaxy turning behind the glass it stops reading as
+   atmosphere and starts reading as fog: bisected in the browser, it was what
+   turned the cream wall lavender-blue and washed the whole room out. A theme
+   with an animated window does not need it. */
+/* ⚠️ The doubled .cafe-glow.cafe-glow is DELIBERATE, same as break mode's doubled
+   class. The premium-theme block further down this file sets these orbs up with
+   `.scene[data-theme="galaxy"] .cafe-glow`, an identical (0,3,0), and on a tie
+   the LAST rule wins — so a single-class version of this rule silently did
+   nothing. That is the sixth same-specificity collision in this file; assume it
+   rather than rediscover it. */
+.scene[data-theme="galaxy"] .cafe-glow.cafe-glow { display: none; }
+/* The floor gradient rides the front plate, not .scene: .scene-front is a CHILD,
+   so anything painted on .scene's own background would be covered by it. */
+.scene[data-theme="galaxy"] .scene-front {
   background: var(--floor-grad) no-repeat,
-              #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
+              url('assets/bg-galaxy-front.webp') top center / cover no-repeat;
+}
+/* The mask is authored on the SAME 768x1344 canvas as the backdrop and given the
+   identical `top center / cover` sizing. That is the only thing that makes it
+   track the window at every viewport: cover-scaling crops a different amount of
+   width per aspect ratio, so positioning the glass with percentages alone drifts
+   off the frame on some phones and not others. */
+.scene[data-theme="galaxy"] .win-fx {
+  -webkit-mask: url('assets/win-mask-galaxy.webp') top center / cover no-repeat;
+          mask: url('assets/win-mask-galaxy.webp') top center / cover no-repeat;
+}
+.scene[data-theme="galaxy"] .win-fx::before {
+  background-image: url('assets/win-galaxy.webp');
+  animation: win-spin 150s linear infinite;
 }
 .scene[data-theme="galaxy"] .work-counter {
   --counter-tint: rgba(120,95,180,0.24);
@@ -407,6 +441,45 @@ body {
    character, or controls in the lower half. */
 .theme-fx { position: absolute; left: 0; right: 0; top: 0; height: 54%; z-index: 1; pointer-events: none; overflow: hidden; }
 .theme-fx::before, .theme-fx::after { content: ""; position: absolute; inset: 0; }
+
+/* ── Animated window ─────────────────────────────────────────────────────────
+   Off by default; a theme opts in by setting display:block on both layers plus
+   a mask and a content image. Ordered before every other scene child and given
+   no z-index, so they stack by DOM order underneath .cafe-glow / .scene-rays /
+   .theme-fx (z-index 1), the counter (8), the character (9) and the UI (10). */
+.win-fx, .scene-front {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  display: none;
+}
+.win-fx { overflow: hidden; }
+/* Sized and centred on the WINDOW, not the scene. Measured: under cover-scaling
+   the window's centre lands at 47% / 32.5% of the scene at both 375x812 and
+   1280x900, because the crop is horizontal-only and the window is near-centred.
+   150% square gives a 795px diagonal against the window's 418px, so no corner
+   can ever swing into view no matter the rotation. */
+.win-fx::before {
+  content: "";
+  position: absolute;
+  left: 47%; top: 32.5%;
+  width: 150%; aspect-ratio: 1;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+/* Rotation has to carry the centring translate, since one transform property
+   does both jobs. */
+@keyframes win-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+/* Break mode swaps the whole room for the bedroom, so the shop's window plate
+   and its animation must go with it. */
+.scene.is-on-break.is-on-break .win-fx,
+.scene.is-on-break.is-on-break .scene-front { display: none; }
+@media (prefers-reduced-motion: reduce) { .win-fx::before { animation: none; } }
 
 /* ── Window light ────────────────────────────────────────────────────────────
    Volumetric shafts falling through the shop window. This is the single change
@@ -1351,21 +1424,6 @@ body {
 .cup-dome     { fill: rgba(255,255,255,0.5); stroke: var(--bark); stroke-width: 2.4; stroke-linejoin: round; }
 .cup-dome-hl  { fill: #fff; opacity: 0.55; }
 
-.cup-sticker {
-  position: absolute;
-  left: 50%; top: 55%;
-  z-index: 4;
-  min-width: 38px; max-width: 50px;
-  padding: 2px 5px;
-  transform: translate(-50%, -50%) rotate(-5deg);
-  border: 2px solid var(--bark);
-  background: rgba(255,255,255,0.94);
-  font-size: 0.52rem;
-  font-weight: 950;
-  text-align: center;
-  overflow-wrap: anywhere;
-  color: var(--bark);
-}
 
 /* Real drawn steam. This was three 3px border-left bars, which read as three
    little white sticks floating over the lid rather than as vapour. Same mask

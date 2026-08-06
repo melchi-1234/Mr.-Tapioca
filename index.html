@@ -49,6 +49,16 @@
 
       <!-- ── Full-screen boba shop scene ─────────────────────────── -->
       <section id="shopScene" class="scene" aria-label="Boba shop" data-theme="cozy">
+        <!-- ── Animated window ──────────────────────────────────────
+             The backdrop is one flat PNG, so nothing inside the window could
+             ever move. These two layers fix that: .win-fx paints animated
+             content masked to the glass, and .scene-front is the SAME room art
+             with the glass cut out, sitting on top of it. The frame, and on
+             Taro Galaxy the little moon, are part of the front plate, so they
+             occlude the animation for free. Both are empty on themes that have
+             no animated window yet. -->
+        <div class="win-fx" aria-hidden="true"></div>
+        <div class="scene-front" aria-hidden="true"></div>
         <!-- Soft cafe ambiance: gentle pastel light orbs (replaces the old
              crude jar/window/light blocks that read as unfinished). -->
         <div class="cafe-glow" aria-hidden="true">
@@ -129,7 +139,6 @@
                 <path class="cup-dome" d="M23,50 C23,30 39,24 60,24 C81,24 97,30 97,50 Z"/>
                 <ellipse class="cup-dome-hl" cx="46" cy="36" rx="9" ry="4"/>
               </svg>
-              <div id="focusSticker" class="cup-sticker">Focus</div>
             </div>
           </div>
         </div>

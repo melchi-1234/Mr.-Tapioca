@@ -239,7 +239,6 @@ const els = {
   liquid:               document.querySelector("#liquid"),
   liqSurface:           document.querySelector("#liqSurface"),
   foamBand:             document.querySelector("#foamBand"),
-  focusSticker:         document.querySelector("#focusSticker"),
   focusMakerCharacter:  document.querySelector("#focusMakerCharacter"),
   makerWrap:            document.querySelector("#makerWrap"),
   makerSpeech:          document.querySelector("#makerSpeech"),
@@ -991,7 +990,6 @@ function updateCup() {
   els.focusCup.classList.toggle("has-fill", pct > 0);
   els.progressBar.style.width = `${pct}%`;
   els.focusCup.dataset.topping = state.topping;
-  els.focusSticker.textContent = state.sticker;
   // Maker state is driven by the walk choreography (startPause/reset/break),
   // not here — updateCup runs every tick and would override the walk.
   els.shopScene.dataset.theme = state.shopTheme;

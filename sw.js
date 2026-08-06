@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v168";
+const CACHE = "mr-tapioca-v169";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -45,6 +45,11 @@ const SHELL = [
   "assets/fx-petals.webp",
   "assets/fx-leaves.webp",
   "assets/fx-snow.webp",
+  /* Animated window layers (Taro Galaxy). The room plate has its glass cut
+     out and the spiral turns behind it. */
+  "assets/bg-galaxy-front.webp",
+  "assets/win-galaxy.webp",
+  "assets/win-mask-galaxy.webp",
   "assets/counter-wood.png",
   "assets/floor-boards.png",
   "assets/break-desk.png",
