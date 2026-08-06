@@ -3107,7 +3107,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   flex-direction: column;
   /* Same fix as pong. The old backdrop was over-scaled badly enough that
      cropped clouds carried heavier outlines than the catcher itself. */
-  background: #f7ece0 url('assets/catch-board.png') center / 100% 100% no-repeat;
+  background: #f7ece0 url('assets/catch-board.jpg') center / 100% 100% no-repeat;
   border-radius: 0;
 }
 
