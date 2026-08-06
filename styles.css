@@ -1961,11 +1961,27 @@ body {
   flex-shrink: 0;
 }
 
+/* These three sit side by side on the break screen and inherit .start-btn, the
+   app's primary chocolate CTA, then used to override it to a flat #8272aa with
+   a single blurred shadow: no --ui-paper, no --ui-edge, no --ui-sheen, no lip,
+   no press state. They were the only controls in the app opting out of the
+   material system, and being the widest thing on the break screen they read as
+   another app's toolbar. They are SECONDARY actions (a break game is optional),
+   so they take the paper material rather than a third chocolate CTA. */
 .game-launch-btn {
-  background: #8272aa;
-  color: var(--cream);
-  box-shadow: 0 6px 20px rgba(130,114,170,0.4);
+  background: var(--ui-paper);
+  color: var(--bark);
+  border: 2px solid var(--ui-edge);
+  box-shadow:
+    var(--ui-sheen),
+    0 3px 0 rgba(96,58,36,0.16),
+    0 10px 18px -10px rgba(60,32,24,0.34);
 }
+.game-launch-btn:active {
+  transform: translateY(2px);
+  box-shadow: var(--ui-sheen), 0 1px 0 rgba(96,58,36,0.16), 0 4px 9px -5px rgba(60,32,24,0.30);
+}
+.game-launch-btn .g-emoji { color: var(--bark-mid); }
 
 /* ── Bottom navigation bar ──────────────────────────────────────────────── */
 .bottom-bar {
@@ -2599,7 +2615,7 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   border: none;
   border-radius: 999px;
   padding: 8px 18px;
-  background: var(--boba, #c98a5e);
+  background: var(--bark);
   color: #fff;
   font: inherit;
   font-weight: 900;
@@ -3747,7 +3763,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   width: 6px; height: 6px; border-radius: 50%;
   background: rgba(107, 74, 58, 0.25);
 }
-.coach-dot.on { background: var(--boba, #c98a5e); }
+.coach-dot.on { background: var(--bark); }
 .coach-btns { display: flex; gap: 8px; }
 .coach-skip {
   border: none; background: none; color: var(--bark-mid, #6b4a3a);
@@ -3756,7 +3772,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 .coach-next {
   border: none; border-radius: 999px;
-  background: var(--boba, #c98a5e); color: #fff;
+  background: var(--bark); color: #fff;
   font: inherit; font-weight: 900; font-size: 0.9rem;
   padding: 9px 22px; cursor: pointer; min-height: 40px;
 }
@@ -4084,7 +4100,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .dg-icon { display: inline-flex; align-items: center; color: var(--bark-mid, #6b4a3a); }
 .dg-icon .ico { width: 15px; height: 15px; }
 .game-score { display: inline-flex; align-items: center; gap: 5px; }
-.game-score .ico { width: 15px; height: 15px; color: var(--boba, #3d2117); }
+.game-score .ico { width: 15px; height: 15px; color: var(--bark); }
 .games-lock-note { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .games-lock-note .ico { width: 14px; height: 14px; flex-shrink: 0; }
 .squad-board-head { display: flex; align-items: center; gap: 7px; }
