@@ -2230,11 +2230,19 @@ function completeSession() {
   // Did this drink push today across the daily goal?
   const goalWasUnmet = todayMinutes() < state.dailyGoal;
 
-  // Bigger drinks (more study time) map to bigger real-world partner perks
-  let partner;
+  // Bigger drinks (more study time) map to bigger real-world partner perks.
+  // Under 90 minutes there is no perk yet, and the old copy ("Save this treat
+  // for later") sat in a grey dashed box, which is the visual language of an
+  // empty drop zone or a locked coupon. That shipped in the single most
+  // celebratory moment in the app, on the default 30-minute cup. Say what the
+  // next tier actually is instead, so the slot is a goal rather than a hole.
+  let partner, partnerNext = false;
   if (minutes >= 300)      partner = "🌟 20% off at a partner boba shop";
   else if (minutes >= 90)  partner = "🌟 10% off at a partner boba shop";
-  else                     partner = "Save this treat for later";
+  else {
+    partner = `Next perk at ${minuteLabel(90)} in one drink`;
+    partnerNext = true;
+  }
 
   const reward = {
     id: uuid(),
@@ -2244,7 +2252,8 @@ function completeSession() {
     name: drink.name,       // for the shareable card
     minutes,                // for the shareable card
     pearls: pearlsEarned,
-    partner
+    partner,
+    partnerNext
   };
 
   state.collection.unshift(drink);
@@ -2448,8 +2457,11 @@ function showReward(reward) {
   els.rewardPearls.textContent = `+${reward.pearls} pearl${reward.pearls !== 1 ? "s" : ""}`;
   els.rewardDrink.style.setProperty("--drink-color", BASES[state.base].color);
   els.partnerReward.textContent = reward.partner;
-  // Highlight the perk as a real reward only when there is one
-  els.partnerReward.classList.toggle("has-perk", reward.partner.startsWith("🌟"));
+  // Three states, not two: an earned perk reads as a coupon, a not-yet perk
+  // reads as a quiet next-goal line, and neither reads as an empty slot.
+  const earned = reward.partner.startsWith("🌟");
+  els.partnerReward.classList.toggle("has-perk", earned);
+  els.partnerReward.classList.toggle("is-next", !earned);
 
   if (typeof els.rewardDialog.showModal === "function") {
     els.rewardDialog.showModal();

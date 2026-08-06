@@ -4290,3 +4290,16 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 /* The customize rows reuse the shelf's tinted cup; size it to the 64px thumb. */
 .option-row .shop-preview .coll-cup { width: 26px; height: 36px; margin: 0; }
 .shop-buy-btn.as-price { display: inline-flex; align-items: center; gap: 4px; }
+
+/* The not-yet-earned perk. A dashed border over a grey fill is the visual
+   language of an empty drop zone or a locked coupon, and it was shipping on the
+   default 30-minute cup, i.e. in the app's most celebratory moment. Solid, on
+   the paper material, reading as the next goal rather than a hole. */
+.partner.is-next {
+  border: 2px solid var(--ui-edge);
+  border-style: solid;
+  background: var(--ui-paper);
+  box-shadow: var(--ui-sheen);
+  color: var(--bark-mid);
+  font-size: 0.82rem;
+}
