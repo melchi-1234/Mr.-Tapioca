@@ -4322,7 +4322,11 @@ function overpassQuery(lat, lng, radius) {
 // if mappers later add these shops to OSM.
 const CURATED_SHOPS = [
   { name: "Taichi Bubble Tea",  lat: 42.43013, lng: -76.50853 },   // 740 S Meadow St, Ithaca
-  { name: "Panda Tea Lounge",   lat: 42.44192, lng: -76.48724 },   // 407 Eddy St, Collegetown
+  { name: "U Tea",              lat: 42.44153, lng: -76.48486 },   // 205 Dryden Rd, Collegetown
+  { name: "Kung Fu Tea",        lat: 42.44150, lng: -76.48597 },   // 143 Dryden Rd, Collegetown
+  { name: "Dream Tea & Poké",   lat: 42.44064, lng: -76.49722 },   // 130 E Seneca St, downtown
+  // Panda Tea Lounge (407 Eddy St) removed Aug 2026: permanently closed,
+  // storefront is now Sweet N' Salty (same LLC, different concept).
 ];
 
 function curatedNear(lat, lng, radius) {
