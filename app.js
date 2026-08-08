@@ -4325,7 +4325,7 @@ const CURATED_SHOPS = [
   { name: "U Tea",              lat: 42.44153, lng: -76.48486 },   // 205 Dryden Rd, Collegetown
   { name: "Kung Fu Tea",        lat: 42.44150, lng: -76.48597 },   // 143 Dryden Rd, Collegetown
   { name: "Dream Tea & Poké",   lat: 42.44064, lng: -76.49722 },   // 130 E Seneca St, downtown
-  { name: "Cha Chi",            lat: 42.44206, lng: -76.48359 },   // 114 Dryden Rd, Collegetown (formerly Ninja Chicken & Friends)
+  { name: "Cha Chi (Ninja Chicken)", lat: 42.44206, lng: -76.48359 },   // 114 Dryden Rd, Collegetown — storefront carries BOTH signs (Melchi, Aug 2026)
   // Panda Tea Lounge (407 Eddy St) removed Aug 2026: permanently closed,
   // storefront is now Sweet N' Salty (same LLC, different concept).
 ];
