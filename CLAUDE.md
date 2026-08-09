@@ -74,6 +74,25 @@ These are all things that fail *silently*. Do not rediscover them.
 - **Landing page** (separate, Higgsfield-hosted): https://icy-plaza-859.higgsfield.app
 - **iOS:** bump build number in Xcode → Archive → Upload to App Store Connect. Run `npm run copyweb && npx cap copy ios && node tools/register-ios-plugins.mjs` first to sync the web bundle + plugins into the native project.
 
+## Adding or removing a partner shop
+
+**Edit `partners.json`, push. That is the whole job. Never ship an app build for
+this.** GitHub Pages redeploys mrtapioca.me about a minute later and every client,
+including installed iPhones, picks the new list up on the next Boba Map open.
+Pulling a shop is the same edit in reverse, which is what lets us keep the promise
+the pitch makes: they come off the app the day they ask.
+
+- `PARTNER_SHOPS` in `app.js` is only the **bundled offline floor** for a fresh
+  install with no signal. It is not the live list. `livePartners` is.
+- A shop goes in only after it has agreed **in writing**, and `perk` is that
+  shop's own words. Perks are per shop and will not look alike (a percentage,
+  a free topping, a whole drink). **Never invent a perk or a number.**
+- `minMinutes` is floored at 15 by `validPartner()`. A zero would make every user
+  instantly holding a redeemable perk.
+- `sw.js` deliberately exempts `partners.json` from the cache-first handler. Do
+  not "fix" that: the worker uses `ignoreSearch`, so it would pin the first copy
+  forever and no new shop would ever reach an installed client.
+
 ## Conventions
 
 - **User-facing copy avoids em-dashes** (house style — they read as AI-generated). Use periods, commas, or parentheses.
