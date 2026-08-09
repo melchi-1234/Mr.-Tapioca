@@ -2543,13 +2543,23 @@ async function shareDrink(reward) {
 }
 
 // ── App Store rating ask ─────────────────────────────────────────────────
-// Ask right after a finished drink (the happy moment), iPhone only. Hard
-// gates keep it from ever nagging: a few drinks brewed, a real session (not
-// a 5-minute taste), and a long cooldown. iOS additionally rate-limits the
-// sheet to ~3 shows a year and may silently show nothing, so this is
-// fire-and-forget with no UI of our own.
-const REVIEW_ASK_MIN_DRINKS = 3;
-const REVIEW_ASK_MIN_MINUTES = 25;
+// Ask right after a finished drink (the happy moment), iPhone only. Gates keep
+// it from ever nagging: a finished drink, a real session, and a long cooldown.
+// iOS additionally rate-limits the sheet to ~3 shows a year and may silently
+// show nothing, so this is fire-and-forget with no UI of our own.
+//
+// LOOSENED 2026-08-09. The old gates (3 drinks AND a 25 minute session) were
+// tuned to protect a large userbase from nagging, but they were doing real
+// damage at this stage: CUSTOM_MIN is 15 minutes, so every user who runs short
+// sessions was excluded permanently, and requiring 3 finished drinks meant
+// almost nobody ever reached the ask. The reference teardown (current.kev,
+// 1000 reviews on 10k downloads) argues the opposite: ask at the first moment
+// real value lands, while the user is inside the app looking at what they
+// earned. One finished drink IS that moment here. 15 minutes is the shortest
+// session the app allows, so this now includes every genuine session and still
+// excludes a dev-mode taste. Cooldown is unchanged.
+const REVIEW_ASK_MIN_DRINKS = 1;
+const REVIEW_ASK_MIN_MINUTES = 15;
 const REVIEW_ASK_COOLDOWN_DAYS = 45;
 
 function maybeRequestReview() {
