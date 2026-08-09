@@ -4314,20 +4314,53 @@ function overpassQuery(lat, lng, radius) {
     `);out center 120;`;
 }
 
-// Hand-verified boba spots that OpenStreetMap is missing (checked against the
-// 2026 Ithaca student guides / Yelp / the shops' own sites). OSM's small-town
-// coverage is thin — this guarantees the launch market is complete no matter
-// what the live query returns, and it's the seed of the future partner list.
-// Add new cities as { name, lat, lng } — merge + dedupe below handles overlap
-// if mappers later add these shops to OSM.
+// Hand-verified boba spots that OpenStreetMap is missing, for the three places
+// our people actually are: Ithaca (Cornell), Honolulu/Kaimuki, and Medford/
+// Somerville (Tufts). Checked Aug 2026 against the live Overpass results, the
+// shops' own sites, 2026 Yelp/Honolulu Magazine listings, and in-person visits.
+// OSM's coverage is uneven — thin in Ithaca, strong around Boston, patchy on
+// O'ahu — so this guarantees each home market is complete no matter what the
+// live query returns, and it doubles as the seed of the partner list.
+// Every entry below is a shop the live query does NOT return. Add new cities as
+// { name, lat, lng } — merge + dedupe handles overlap if mappers later add them.
+// Coordinates are geocoded from street addresses and spot-checked; a shop that
+// only resolved to its building sits at the building, which is close enough for
+// a 120 m dedupe and for walking there.
 const CURATED_SHOPS = [
+  // --- ITHACA, NY (Cornell) ---
   { name: "Taichi Bubble Tea",  lat: 42.43013, lng: -76.50853 },   // 740 S Meadow St, Ithaca
   { name: "U Tea",              lat: 42.44153, lng: -76.48486 },   // 205 Dryden Rd, Collegetown
   { name: "Kung Fu Tea",        lat: 42.44150, lng: -76.48597 },   // 143 Dryden Rd, Collegetown
   { name: "Dream Tea & Poké",   lat: 42.44064, lng: -76.49722 },   // 130 E Seneca St, downtown
   { name: "Cha Chic (Ninja Chicken)", lat: 42.44206, lng: -76.48359 },   // 114 Dryden Rd, Collegetown — bottles/straws say CHA CHIC, outdoor signs still show Ninja Chicken (Melchi, in person, Aug 8 2026)
+  { name: "Lilo's & E-Life Market", lat: 42.44190, lng: -76.48762 },   // 410 Eddy St, Collegetown — big boba selection (Melchi, in person)
+  { name: "Saigon Kitchen",     lat: 42.43944, lng: -76.50753 },   // 526 W State St, West End — Vietnamese, serves boba
+  { name: "Sushi Osaka",        lat: 42.43943, lng: -76.49840 },   // 113 E State St, Ithaca Commons — serves boba
   // Panda Tea Lounge (407 Eddy St) removed Aug 2026: permanently closed,
   // storefront is now Sweet N' Salty (same LLC, different concept).
+
+  // --- HONOLULU / KAIMUKI, HI ---
+  // OSM already carries ~28 O'ahu boba spots (Cowcow's, Teapresso, Sharetea,
+  // Chaya, Taste Tea's neighbours...). These are the ones it does NOT have.
+  { name: "Taste Tea",          lat: 21.28688, lng: -157.80766 },  // 3221 Waialae Ave, Kaimuki Shopping Center
+  { name: "Boba House",         lat: 21.29718, lng: -157.83565 },  // 1610 S King St, Mo'ili'ili (near UH Manoa)
+  { name: "Shaka Shaka Tea Express", lat: 21.29181, lng: -157.82133 },  // 2600 S King St, Puck's Alley
+  { name: "Summer Café Hawai'i", lat: 21.28431, lng: -157.81334 }, // 909 Kapahulu Ave #4, Kapahulu
+  { name: "Sun Tea Mix",        lat: 21.29912, lng: -157.86132 },  // 400 Keawe St #107, Kaka'ako
+  { name: "It's Tea",           lat: 21.29502, lng: -157.85102 },  // 435 Kamake'e St #102, Kaka'ako
+  { name: "Momo Tea",           lat: 21.29640, lng: -157.85627 },  // 320 Ward Ave #116, Kaka'ako
+  { name: "Wave Tea",           lat: 21.29630, lng: -157.85066 },  // 1067 Kapiolani Blvd, Ala Moana
+  { name: "Drincup Cafe",       lat: 21.29485, lng: -157.84715 },  // 1221 Kapiolani Blvd Ste 112A (formerly Cheese Tea)
+  { name: "Cloud Nine Cafe",    lat: 21.29485, lng: -157.84715 },  // 1221 Kapiolani Blvd #111 — VERIFY: may have moved to Market City, 2919 Kapiolani
+  { name: "Thang's French Coffee & Bubble Tea", lat: 21.32180, lng: -157.87583 },  // 1286 Kalani St Ste B108, Kalihi
+  { name: "Heeretea Hawai'i",   lat: 21.33162, lng: -157.87622 },  // 1810 N King St, Kalihi
+
+  // --- MEDFORD / SOMERVILLE, MA (Tufts) ---
+  // OSM is strong here already (22 shops incl. Davis Sq, Harvard Ave, Malden).
+  // These three are the gaps.
+  { name: "Cuddle Cup Cafe & Tea", lat: 42.42361, lng: -71.09066 },  // 454 B Salem St, Medford — took over King Boba Tea's space (closed Feb 2026)
+  { name: "HoneyHoney Dessert Cafe", lat: 42.42725, lng: -71.06709 },  // 480 Main St Unit 1, Malden — on OSM but untagged for boba, so the live query misses it
+  { name: "Wantea",             lat: 42.38944, lng: -71.12026 },   // 1925 Massachusetts Ave #B, North Cambridge (Porter Sq)
 ];
 
 function curatedNear(lat, lng, radius) {
@@ -4345,7 +4378,14 @@ function mergeCurated(shops, lat, lng, radius) {
     // proximity must be TIGHT; same-name matching gets a looser radius.
     const dup = out.some(s => {
       const d = haversine(s.lat, s.lng, c.lat, c.lng);
-      const sameName = s.name.toLowerCase().includes(c.name.toLowerCase().slice(0, 9));
+      // Anchor the name test at the START of both names. An unanchored
+      // includes() let a SHORT name vanish inside a longer neighbour:
+      // "kung fu tea".includes("u tea") is true, so U Tea (92 m away) was
+      // silently deduped against Kung Fu Tea. Both directions, because OSM
+      // often carries a suffix ("U Tea Collegetown") and our list often
+      // carries a parenthetical ("Cha Chic (Ninja Chicken)").
+      const a = s.name.toLowerCase(), b = c.name.toLowerCase();
+      const sameName = a.startsWith(b.slice(0, 9)) || b.startsWith(a.slice(0, 9));
       return d < 40 || (sameName && d < 250);
     });
     if (!dup) out.push(c);
@@ -4517,6 +4557,11 @@ function loadNearbyShops(lat, lng) {
       // Live search down (mirrors overloaded / offline)? The hand-verified
       // curated spots still work — never show an empty map in a covered city.
       const fallback = mergeCurated([], lat, lng, 6000);
+      // Nearest first, same as the live path. Without this the fallback list
+      // came out in CURATED_SHOPS array order, so a Kalihi shop could sit above
+      // one two blocks away. Overpass mirrors time out often enough that this
+      // is a path users really see.
+      fallback.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng));
       if (fallback.length) {
         setMapStatus("Live search is busy — showing verified boba spots nearby.",
           () => loadNearbyShops(lat, lng));
