@@ -843,7 +843,7 @@ function minuteLabel(minutes) {
 function durationLabel(minutes) {
   const h = Math.floor(minutes / 60), m = minutes % 60;
   if (!h) return `${m} min`;
-  if (!m) return `${h} hr`;
+  if (!m) return `${h} hr${h > 1 ? "s" : ""}`;
   return `${h} hr ${m} min`;
 }
 
@@ -2379,7 +2379,9 @@ function completeSession() {
   if (minutes >= PERK_MIN_MINUTES) {
     partner = "🌟 Partner perk unlocked. Check the Boba Map";
   } else {
-    partner = `Next perk at ${minuteLabel(PERK_MIN_MINUTES)} in one drink`;
+    // durationLabel, not minuteLabel: at the 3 hr bar that would read
+    // "Next perk at 180 focused minutes".
+    partner = `Next perk at ${durationLabel(PERK_MIN_MINUTES)} in one drink`;
     partnerNext = true;
   }
 
@@ -4277,12 +4279,18 @@ function bobaPin(emoji, cls) {
 }
 
 // A perk that is still in hand: unlocked by a long enough drink and not yet
-// handed over a counter. Rewards banked before reward.minutes existed fall back
-// to their baked copy, so nobody loses a perk they already earned.
+// handed over a counter.
+//
+// A reward has to PROVE it cleared the bar. Rewards banked before reward.minutes
+// existed cannot, so they do not count, and neither does one earned under an
+// easier bar than the shop's current one. Both of those would let somebody walk
+// into U Tea today holding a discount they earned in ninety minutes last week,
+// which is exactly the "can't get it right away" this is for. The alternative
+// (trusting the baked "🌟" copy) hands a real business's money to an unverified
+// claim, and a stale reward is a much smaller loss than that.
 function isLivePerk(r) {
   if (!r || r.redeemedAt) return false;
-  if (typeof r.minutes === "number") return r.minutes >= PERK_MIN_MINUTES;
-  return !!r.partner && r.partner.startsWith("🌟");
+  return typeof r.minutes === "number" && r.minutes >= PERK_MIN_MINUTES;
 }
 
 function earnedPerkCount() {
@@ -4456,7 +4464,11 @@ const PARTNER_SHOPS = [
     address: "205 Dryden Rd, Collegetown",
     lat: 42.44153, lng: -76.48486,
     perk: "10% off your drink",
-    minMinutes: 90,
+    // Three hours in ONE drink. A real discount at a real business should cost
+    // a real afternoon: nobody installs the app and walks in with a reward the
+    // same hour. Reachable via a 3 hr Custom Cup or a 3 hr Goal Cup (Custom
+    // runs 15 min to 4 hr in 5 min steps, so 180 is on a step).
+    minMinutes: 180,
     since: "2026-08-09"      // Kongchi Lui, by email. The first partner shop.
   }
 ];
