@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#3c2018">
+<title>Get Mr. Tapioca</title>
+<!--
+  Instagram / Threads / Facebook in-app browsers silently swallow App Store links.
+  A plain apps.apple.com link does nothing, and so does a normal website that
+  merely links to the App Store - the store page will not load inside their
+  webview at all.
+
+  The fix is to break OUT of the in-app browser first, then land on the store.
+  Mechanism per platform:
+    Android           -> intent:// hands the URL to the real browser
+    iOS + Instagram   -> instagram://extbrowser/ pops it into the system browser
+    iOS + Facebook    -> x-safari- prefix opens Safari
+  Anything else is already a real browser, so we go straight to the store.
+
+  Point the Instagram bio link at https://mrtapioca.me/get - never at
+  apps.apple.com directly.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1.25rem; padding: 2rem 1.5rem; text-align: center;
+    font: 500 17px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: #fdf6ec; color: #3c2018;
+  }
+  h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; }
+  p  { margin: 0; color: #8a6a55; font-size: 0.95rem; max-width: 22rem; }
+  .spinner {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 3px solid rgba(60, 32, 24, 0.2); border-top-color: #3c2018;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+  a.btn {
+    display: inline-block; margin-top: 0.25rem;
+    padding: 0.9rem 1.6rem; border-radius: 999px;
+    background: #3c2018; color: #fdf6ec; text-decoration: none; font-weight: 700;
+  }
+  a.btn:active { opacity: 0.85; }
+  #manual { display: none; }
+  #manual.show { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #241310; color: #fdf6ec; }
+    p { color: #c2a290; }
+    .spinner { border-color: rgba(253, 246, 236, 0.2); border-top-color: #fdf6ec; }
+    a.btn { background: #fdf6ec; color: #3c2018; }
+  }
+</style>
+</head>
+<body>
+  <div class="spinner" id="spinner" aria-hidden="true"></div>
+  <h1 id="headline">Taking you to Mr. Tapioca</h1>
+  <p id="sub">Hang tight, we're opening the App Store.</p>
+
+  <div id="manual">
+    <p>Instagram blocks the App Store inside its own browser. Tap below and it'll
+       open properly.</p>
+    <a class="btn" id="store" href="https://apps.apple.com/app/id6786023560">Open the App Store</a>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var APP_STORE = "https://apps.apple.com/app/id6786023560";
+
+  // Carry the ?src= tag through as Apple's campaign token. Real attribution
+  // additionally needs a provider token from App Store Connect > App Analytics;
+  // without it this is harmless and simply ignored.
+  var src = new URLSearchParams(location.search).get("src");
+  var target = APP_STORE + (src ? "?ct=" + encodeURIComponent(src.slice(0, 40)) + "&mt=8" : "");
+  document.getElementById("store").href = target;
+
+  var ua = navigator.userAgent || "";
+  var isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var isAndroid  = /Android/i.test(ua);
+  // "Barcelona" is Threads' webview.
+  var inInstagram = /Instagram|Barcelona/i.test(ua);
+  var inFacebook  = /FBAN|FBAV|FB_IAB|Messenger/i.test(ua);
+
+  function escapeInAppBrowser(url) {
+    if (isAndroid) {
+      location.href = "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=https;end";
+      return true;
+    }
+    if (isIOS && inInstagram) {
+      location.href = "instagram://extbrowser/?url=" + encodeURIComponent(url);
+      return true;
+    }
+    if (isIOS && inFacebook) {
+      window.open("x-safari-" + url, "_blank");
+      return true;
+    }
+    return false;
+  }
+
+  function showManual() {
+    var s = document.getElementById("spinner");
+    if (s) s.remove();
+    document.getElementById("headline").textContent = "One more tap";
+    document.getElementById("sub").remove();
+    document.getElementById("manual").className = "show";
+  }
+
+  // Already a real browser: no escape needed, go straight there.
+  if (!escapeInAppBrowser(target)) {
+    location.replace(target);
+    // If the store somehow refuses to open, surface the button rather than
+    // leaving a dead spinner on screen.
+    setTimeout(showManual, 2500);
+    return;
+  }
+
+  // We attempted an escape. If the page goes hidden, it worked and we stop.
+  // If we're still visible after a beat, the hand-off was blocked - show the
+  // manual button so the user is never stranded.
+  var left = false;
+  function markLeft() { left = true; }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") markLeft();
+  });
+  window.addEventListener("pagehide", markLeft);
+  setTimeout(function () { if (!left) showManual(); }, 1500);
+})();
+</script>
+</body>
+</html>
