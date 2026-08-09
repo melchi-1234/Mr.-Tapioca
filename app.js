@@ -210,6 +210,10 @@ const state = {
   timerId: null,
   collection: [],
   rewards: [],
+  // One entry per perk actually handed over a counter: {at, shop, perk}. Perks
+  // earned are derived from total focus time, so this ledger is the only thing
+  // that has to be remembered, and its length is what stops a double-spend.
+  perkRedemptions: [],
   owned: [],
   spent: 0,
   phase: "focus",
@@ -611,6 +615,8 @@ function loadState(opts) {
   try {
     state.collection  = readJSON("bobaFocusCollection",  []);
     state.rewards     = readJSON("bobaFocusRewards",     []);
+    state.perkRedemptions = readJSON("bobaFocusPerkRedemptions", []);
+    if (!Array.isArray(state.perkRedemptions)) state.perkRedemptions = [];
     state.owned       = readJSON("bobaFocusOwned",       []);
     state.spent       = readJSON("bobaFocusSpent",       0);
     state.bonusPearls = readJSON("bobaFocusBonusPearls", 0);
@@ -754,6 +760,7 @@ function readJSON(key, fallback) {
 function saveState() {
   localStorage.setItem("bobaFocusCollection",  JSON.stringify(state.collection));
   localStorage.setItem("bobaFocusRewards",      JSON.stringify(state.rewards));
+  localStorage.setItem("bobaFocusPerkRedemptions", JSON.stringify(state.perkRedemptions || []));
   localStorage.setItem("bobaFocusOwned",        JSON.stringify(state.owned));
   localStorage.setItem("bobaFocusSpent",        JSON.stringify(state.spent));
   localStorage.setItem("bobaFocusBonusPearls",  JSON.stringify(state.bonusPearls));
@@ -2375,13 +2382,21 @@ function completeSession() {
   // shop had ever agreed to. What a finished drink is worth in the real world
   // is set by whichever shop the student walks into, so the reward unlocks the
   // perk and the Boba Map says what each partner actually gives.
+  // Perks are cumulative, so the question is whether THIS drink pushed the running
+  // total across another whole bar. Note the drink is not in state.collection yet
+  // (it gets unshifted below), so its minutes have to be added by hand or the card
+  // is always one drink behind what the map is about to show.
+  const perkBar = perkMinMinutes();
+  const totalBefore = totalMinutes();
+  const totalAfter  = totalBefore + minutes;
   let partner, partnerNext = false;
-  if (minutes >= perkMinMinutes()) {
+  if (perkBar > 0 && Math.floor(totalAfter / perkBar) > Math.floor(totalBefore / perkBar)) {
     partner = "🌟 Partner perk unlocked. Check the Boba Map";
   } else {
-    // durationLabel, not minuteLabel: at the 3 hr bar that would read
-    // "Next perk at 180 focused minutes".
-    partner = `Next perk at ${durationLabel(perkMinMinutes())} in one drink`;
+    // Show what is LEFT, not the size of the bar. "40 min to go" is a reason to
+    // start another cup; "next perk at 4 hrs" reads like a wall.
+    const left = perkBar > 0 ? perkBar - (totalAfter % perkBar) : 0;
+    partner = `${durationLabel(left)} of focus until your next partner perk`;
     partnerNext = true;
   }
 
@@ -4278,29 +4293,39 @@ function bobaPin(emoji, cls) {
   });
 }
 
-// A perk that is still in hand: unlocked by a long enough drink and not yet
-// handed over a counter.
+// ── PERKS ARE EARNED CUMULATIVELY ────────────────────────────────────────────
+// A perk is NOT attached to one long drink. It is bought with total focus time
+// across as many sittings as it takes.
 //
-// A reward has to PROVE it cleared the bar. Rewards banked before reward.minutes
-// existed cannot, so they do not count, and neither does one earned under an
-// easier bar than the shop's current one. Both of those would let somebody walk
-// into U Tea today holding a discount they earned in ninety minutes last week,
-// which is exactly the "can't get it right away" this is for. The alternative
-// (trusting the baked "🌟" copy) hands a real business's money to an unverified
-// claim, and a stale reward is a much smaller loss than that.
-function isLivePerk(r) {
-  if (!r || r.redeemedAt) return false;
-  return typeof r.minutes === "number" && r.minutes >= perkMinMinutes();
+// The single-session version was incoherent with the rest of the app: the daily
+// goal defaults to an hour, so demanding three unbroken hours asked for a session
+// nobody actually runs, and it punished exactly the student the app is built for
+// (someone who studies in ordinary chunks). Melchi caught that. Four hours
+// cumulative is the bar he set.
+//
+// The accounting is deliberately the simplest thing that cannot be gamed or
+// double-spent: how many whole bars of focus you have banked, minus how many you
+// have already handed over a counter.
+function perksEarnedTotal() {
+  const bar = perkMinMinutes();
+  return bar > 0 ? Math.floor(totalMinutes() / bar) : 0;
+}
+
+function perksRedeemedTotal() {
+  return Array.isArray(state.perkRedemptions) ? state.perkRedemptions.length : 0;
 }
 
 function earnedPerkCount() {
-  return state.rewards.filter(isLivePerk).length;
+  return Math.max(0, perksEarnedTotal() - perksRedeemedTotal());
 }
 
-// Oldest first, so a student spends the reward they have been sitting on.
-function oldestLivePerk() {
-  const live = state.rewards.filter(isLivePerk);
-  return live.length ? live[live.length - 1] : null;
+// Focus minutes banked toward the NEXT perk, and what is still owed. Drives the
+// progress line on the drink-complete card, which is a far better thing to show
+// than a flat "not yet".
+function perkProgress() {
+  const bar = perkMinMinutes();
+  const done = bar > 0 ? totalMinutes() % bar : 0;
+  return { bar, done, left: Math.max(0, bar - done) };
 }
 
 function haversine(la1, lo1, la2, lo2) {
@@ -4464,11 +4489,11 @@ const PARTNER_SHOPS = [
     address: "205 Dryden Rd, Collegetown",
     lat: 42.44153, lng: -76.48486,
     perk: "10% off your drink",
-    // Three hours in ONE drink. A real discount at a real business should cost
-    // a real afternoon: nobody installs the app and walks in with a reward the
-    // same hour. Reachable via a 3 hr Custom Cup or a 3 hr Goal Cup (Custom
-    // runs 15 min to 4 hr in 5 min steps, so 180 is on a step).
-    minMinutes: 180,
+    // Four hours of focus, ADDED UP across as many sittings as it takes. Not a
+    // single session: the app's own daily goal is an hour, so a one-sitting bar
+    // asked for a session nobody runs. Four hours of real study is still a real
+    // afternoon, so nobody installs the app and walks in with a reward.
+    minMinutes: 240,
     since: "2026-08-09"      // Kongchi Lui, by email. The first partner shop.
   }
 ];
@@ -4802,7 +4827,9 @@ function renderPerkBanner(nearbyPartners) {
     // reward is waiting somewhere down the street.
     msg = `🌟 ${earned} reward${earned !== 1 ? "s" : ""} saved. No partner shop near you yet.`;
   } else if (near > 0) {
-    msg = `${nearbyPartners[0].name} is a partner shop. Focus for ${durationLabel(nearbyPartners[0].minMinutes)} in one drink to earn ${nearbyPartners[0].perk.toLowerCase()}.`;
+    // Cumulative, so speak to how far off they actually are rather than quoting
+    // the full bar at someone who is most of the way there.
+    msg = `${nearbyPartners[0].name} is a partner shop. ${durationLabel(perkProgress().left)} more focus to earn ${nearbyPartners[0].perk.toLowerCase()}.`;
   }
   el.textContent = msg;
   el.classList.toggle("hidden", !msg);
@@ -4875,12 +4902,15 @@ function openRedeem(partner) {
   els.redeemAddress.textContent = partner.address || "";
   els.redeemPerk.textContent   = partner.perk;
 
-  const perk = oldestLivePerk();
-  const ready = !!perk;
+  const have = earnedPerkCount();
+  const ready = have > 0;
+  const prog = perkProgress();
   els.redeemConfirmBtn.disabled = !ready;
+  // Not-ready shows how much focus is LEFT, not the whole bar. Someone three and
+  // a half hours in should see thirty minutes to go, not "focus for 4 hrs".
   els.redeemNote.textContent = ready
-    ? `You have ${earnedPerkCount()} reward${earnedPerkCount() !== 1 ? "s" : ""} saved.`
-    : `Focus for ${durationLabel(partner.minMinutes)} in one drink to earn this.`;
+    ? `You have ${have} reward${have !== 1 ? "s" : ""} saved.`
+    : `${durationLabel(prog.left)} of focus to go.`;
   els.redeemDialog.classList.toggle("not-ready", !ready);
 
   // Tick every second while the card is open. Cleared on close so a backgrounded
@@ -4905,11 +4935,13 @@ function closeRedeem() {
 }
 
 function confirmRedeem() {
-  const perk = oldestLivePerk();
-  if (!perk || !redeemPartner) return;
-  perk.redeemedAt   = Date.now();
-  perk.redeemedShop = redeemPartner.name;
-  perk.redeemedPerk = redeemPartner.perk;
+  if (earnedPerkCount() <= 0 || !redeemPartner) return;
+  if (!Array.isArray(state.perkRedemptions)) state.perkRedemptions = [];
+  state.perkRedemptions.push({
+    at: Date.now(),
+    shop: redeemPartner.name,
+    perk: redeemPartner.perk
+  });
   saveState();
   playSfx("success");
   showToast(`Used at ${redeemPartner.name}. Enjoy 🧋`);

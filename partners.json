@@ -14,7 +14,8 @@
     "  address     shown on the counter card",
     "  lat, lng    the storefront",
     "  perk        EXACTLY what that shop agreed to, in words a barista can honour",
-    "  minMinutes  focus time in ONE drink that unlocks it (minimum 15)",
+    "  minMinutes  CUMULATIVE focus time that unlocks it, added up across any",
+    "              number of sittings, not one long session (minimum 15)",
     "  since       the day they said yes",
     "",
     "Never invent a perk or a number. A shop goes in here only after it has",
@@ -29,7 +30,7 @@
       "lat": 42.44153,
       "lng": -76.48486,
       "perk": "10% off your drink",
-      "minMinutes": 180,
+      "minMinutes": 240,
       "since": "2026-08-09"
     }
   ]
