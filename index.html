@@ -536,7 +536,7 @@
           <button class="sheet-close" id="mapClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="sheet-body map-body">
-          <p class="map-intro"><strong>Find real boba shops near you</strong> (and collect pearls to earn discounts for when shops join Mr. Tapioca's network!)</p>
+          <p class="map-intro"><strong>Find real boba shops near you.</strong> Starred shops are partners: finish a long drink and they will honour a real reward in person.</p>
           <div id="mapPerkBanner" class="map-perk-banner hidden"></div>
           <div id="map" class="map-canvas">
             <div id="mapStatus" class="map-status">Loading the map…</div>
@@ -715,6 +715,26 @@
           <form method="dialog">
             <!-- The drink + reward are already banked by completeSession(). -->
             <button id="saveRewardBtn" class="primary" value="save">Saved to my Treat Jar</button>
+          </form>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Shown to a barista across the counter. Big shop name, big perk, and a
+         ticking clock so a screenshot cannot stand in for the live app. -->
+    <dialog id="redeemDialog">
+      <div class="reward-card redeem-card">
+        <div class="redeem-star" aria-hidden="true"><svg class="ico-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.7l6.1-.9L12 3.2Z"/></svg></div>
+        <p class="eyebrow">Show this at the counter</p>
+        <h2 id="redeemShop">Partner shop</h2>
+        <p id="redeemAddress" class="redeem-address"></p>
+        <div id="redeemPerk" class="redeem-perk"></div>
+        <p id="redeemStamp" class="redeem-stamp"></p>
+        <p id="redeemNote" class="redeem-note"></p>
+        <div class="dialog-actions">
+          <button id="redeemConfirmBtn" type="button" class="primary">Use one reward</button>
+          <form method="dialog">
+            <button class="secondary" value="cancel">Not now</button>
           </form>
         </div>
       </div>

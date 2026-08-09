@@ -344,6 +344,13 @@ const els = {
   mapBtn:               document.querySelector("#mapBtn"),
   mapClose:             document.querySelector("#mapClose"),
   mapPerkBanner:        document.querySelector("#mapPerkBanner"),
+  redeemDialog:         document.querySelector("#redeemDialog"),
+  redeemShop:           document.querySelector("#redeemShop"),
+  redeemAddress:        document.querySelector("#redeemAddress"),
+  redeemPerk:           document.querySelector("#redeemPerk"),
+  redeemStamp:          document.querySelector("#redeemStamp"),
+  redeemNote:           document.querySelector("#redeemNote"),
+  redeemConfirmBtn:     document.querySelector("#redeemConfirmBtn"),
   mapShopList:          document.querySelector("#mapShopList"),
   friendsBtn:           document.querySelector("#friendsBtn"),
   friendsClose:         document.querySelector("#friendsClose"),
@@ -828,6 +835,16 @@ function totalMinutes() {
 
 function minuteLabel(minutes) {
   return `${minutes} focused ${minutes === 1 ? "minute" : "minutes"}`;
+}
+
+// Same duration, but as a plain noun phrase that survives mid-sentence.
+// minuteLabel reads fine after "at" ("Next perk at 90 focused minutes") and
+// badly everywhere else ("Finish a 90 focused minutes drink").
+function durationLabel(minutes) {
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  if (!h) return `${m} min`;
+  if (!m) return `${h} hr`;
+  return `${h} hr ${m} min`;
 }
 
 function currentDrinkName() {
@@ -2354,11 +2371,15 @@ function completeSession() {
   // empty drop zone or a locked coupon. That shipped in the single most
   // celebratory moment in the app, on the default 30-minute cup. Say what the
   // next tier actually is instead, so the slot is a goal rather than a hole.
+  // This used to name a discount ("20% off at a partner boba shop") that no
+  // shop had ever agreed to. What a finished drink is worth in the real world
+  // is set by whichever shop the student walks into, so the reward unlocks the
+  // perk and the Boba Map says what each partner actually gives.
   let partner, partnerNext = false;
-  if (minutes >= 300)      partner = "🌟 20% off at a partner boba shop";
-  else if (minutes >= 90)  partner = "🌟 10% off at a partner boba shop";
-  else {
-    partner = `Next perk at ${minuteLabel(90)} in one drink`;
+  if (minutes >= PERK_MIN_MINUTES) {
+    partner = "🌟 Partner perk unlocked. Check the Boba Map";
+  } else {
+    partner = `Next perk at ${minuteLabel(PERK_MIN_MINUTES)} in one drink`;
     partnerNext = true;
   }
 
@@ -4255,8 +4276,23 @@ function bobaPin(emoji, cls) {
   });
 }
 
+// A perk that is still in hand: unlocked by a long enough drink and not yet
+// handed over a counter. Rewards banked before reward.minutes existed fall back
+// to their baked copy, so nobody loses a perk they already earned.
+function isLivePerk(r) {
+  if (!r || r.redeemedAt) return false;
+  if (typeof r.minutes === "number") return r.minutes >= PERK_MIN_MINUTES;
+  return !!r.partner && r.partner.startsWith("🌟");
+}
+
 function earnedPerkCount() {
-  return state.rewards.filter(r => r.partner && r.partner.startsWith("🌟")).length;
+  return state.rewards.filter(isLivePerk).length;
+}
+
+// Oldest first, so a student spends the reward they have been sitting on.
+function oldestLivePerk() {
+  const live = state.rewards.filter(isLivePerk);
+  return live.length ? live[live.length - 1] : null;
 }
 
 function haversine(la1, lo1, la2, lo2) {
@@ -4403,6 +4439,73 @@ function mergeCurated(shops, lat, lng, radius) {
   return out;
 }
 
+// ── REAL PARTNER SHOPS ───────────────────────────────────────────────────────
+// Shops that have actually agreed, in writing, to honour a reward in person.
+// The deal is negotiated shop by shop, so `perk` is whatever THAT shop offered
+// and nothing here is a shared default: one gives a percentage off, the next
+// might give a free topping or a whole drink. Never invent a number. A shop
+// goes in only after it says yes, and comes straight back out the day it wants
+// to stop (the app promises them exactly that).
+//   perk       what the student actually gets, in the words shown at a counter
+//   minMinutes focus time in ONE drink that unlocks it
+//   since      the day they agreed
+const PARTNER_SHOPS = [
+  {
+    id: "u-tea-collegetown",
+    name: "U Tea",
+    address: "205 Dryden Rd, Collegetown",
+    lat: 42.44153, lng: -76.48486,
+    perk: "10% off your drink",
+    minMinutes: 90,
+    since: "2026-08-09"      // Kongchi Lui, by email. The first partner shop.
+  }
+];
+
+// The lowest bar any partner sets. Under this, no shop on earth can honour
+// anything, so the reward dialog must not imply a perk is sitting there.
+// Derived, not hardcoded: sign a shop that rewards a 60-minute drink and every
+// screen follows automatically.
+const PERK_MIN_MINUTES = PARTNER_SHOPS.length
+  ? Math.min(...PARTNER_SHOPS.map(p => p.minMinutes))
+  : 90;
+
+// Attach partner status to whichever record for that shop actually reached the
+// list. U Tea is in CURATED_SHOPS *and* in OSM, so this annotates the existing
+// entry instead of adding another — otherwise a partner shows up twice with a
+// star on only one of the two pins.
+function partnerFor(shop) {
+  return PARTNER_SHOPS.find(p => {
+    const d = haversine(shop.lat, shop.lng, p.lat, p.lng);
+    // Proximity ALONE is only trustworthy at point-blank range. Collegetown has
+    // distinct shops 92 m apart: a 150 m radius handed U Tea's star to Kung Fu
+    // Tea down the block, which is exactly the trap mergeCurated documents.
+    // Starring the wrong shop is the worst failure this feature has, because a
+    // student walks in and asks a business for a discount it never agreed to.
+    if (d <= 40) return true;
+    // Past that, the name has to agree too. A geocode can be a building or two
+    // out, so the name match gets a wider radius, never an unbounded one: a
+    // "U Tea" in another state is a different shop with no deal.
+    const a = shop.name.trim().toLowerCase(), b = p.name.trim().toLowerCase();
+    const sameName = a.startsWith(b.slice(0, 9)) || b.startsWith(a.slice(0, 9));
+    return sameName && d <= 400;
+  }) || null;
+}
+
+// Stamp partner data onto a shop list, and make sure a partner in range is on
+// the map even if neither OSM nor the curated list happens to carry it.
+function withPartners(shops, lat, lng, radius) {
+  const out = shops.map(s => {
+    const p = partnerFor(s);
+    return p ? Object.assign({}, s, { partner: p }) : s;
+  });
+  for (const p of PARTNER_SHOPS) {
+    if (haversine(lat, lng, p.lat, p.lng) > radius) continue;
+    if (out.some(s => s.partner && s.partner.id === p.id)) continue;
+    out.push({ name: p.name, lat: p.lat, lng: p.lng, partner: p });
+  }
+  return out;
+}
+
 function fetchRealBobaShops(lat, lng, radius = 6000) {
   // 24h cache keyed by ~1km cell — makes reopening instant and rides out API
   // flakiness. v2: query cleanup (beer/leaf-tea pollution) — old cells ignored.
@@ -4509,14 +4612,10 @@ function buildMap(lat, lng, real, why) {
       ? `<div class="map-pop-name">You are here</div>`
       : `<div class="map-pop-name">Example area</div><div class="map-pop-meta">Allow location to see real shops near you</div>`);
 
-  // Perk banner reflects rewards you've earned (redeemable once partners sign on)
-  const earned = earnedPerkCount();
-  if (earned > 0) {
-    els.mapPerkBanner.textContent = `🎉 You have ${earned} reward${earned !== 1 ? "s" : ""} saved for partner shops!`;
-    els.mapPerkBanner.classList.remove("hidden");
-  } else {
-    els.mapPerkBanner.classList.add("hidden");
-  }
+  // Provisional banner: no shops are loaded yet, so it can only speak to what
+  // the student is holding. placeShopMarkers calls this again with the real
+  // partners once the query lands.
+  renderPerkBanner([]);
 
   setTimeout(() => mapObj.invalidateSize(), 250);
 
@@ -4585,18 +4684,54 @@ function loadNearbyShops(lat, lng) {
 
 // Drop pins + fill the list for a set of shops (shared by live + fallback paths)
 function placeShopMarkers(shops, lat, lng) {
-  const items = shops.slice(0, 60).map(shop => {
-    const dist = haversine(lat, lng, shop.lat, shop.lng);
-    const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin(ICON.boba, "") })
+  // Partner status is stamped here, not at either call site, so the live path
+  // and the Overpass-is-down fallback can never disagree about who is starred.
+  const all = withPartners(shops, lat, lng, 6000)
+    .map(shop => ({ shop, dist: haversine(lat, lng, shop.lat, shop.lng) }));
+
+  // Partners float to the top of the list. They are the only shops where the
+  // app can promise anything, so burying one behind four closer non-partners
+  // hides the whole point of the map. Distance still orders within each group,
+  // and the 60-shop cap is applied after, so a partner is never cut.
+  all.sort((a, b) => (b.shop.partner ? 1 : 0) - (a.shop.partner ? 1 : 0) || a.dist - b.dist);
+
+  const items = all.slice(0, 60).map(({ shop, dist }) => {
+    const p = shop.partner;
+    const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin(p ? ICON.star : ICON.boba, p ? "partner" : "") })
       .addTo(mapObj)
       .bindPopup(
         `<div class="map-pop-name">${escapeHtml(shop.name)}</div>` +
-        `<div class="map-pop-meta">${formatDistance(dist)} away · real boba shop</div>`
+        `<div class="map-pop-meta">${formatDistance(dist)} away · ${p ? "partner shop" : "real boba shop"}</div>` +
+        (p ? `<div class="map-pop-perk">${escapeHtml(p.perk)}</div>` : "")
       );
     shopMarkers.push(marker);
     return { shop, dist, marker };
   });
+  renderPerkBanner(items.filter(it => it.shop.partner).map(it => it.shop.partner));
   renderShopList(items);
+}
+
+// The banner is the honest status line for the whole partner feature: how many
+// perks are in hand, and whether anywhere nearby can actually honour one.
+function renderPerkBanner(nearbyPartners) {
+  const el = els.mapPerkBanner;
+  if (!el) return;
+  const earned = earnedPerkCount();
+  const near = (nearbyPartners || []).length;
+  let msg = "";
+  if (earned > 0 && near > 0) {
+    msg = near === 1
+      ? `🌟 ${earned} reward${earned !== 1 ? "s" : ""} ready. ${nearbyPartners[0].name} gives ${nearbyPartners[0].perk.toLowerCase()}.`
+      : `🌟 ${earned} reward${earned !== 1 ? "s" : ""} ready at ${near} partner shops near you.`;
+  } else if (earned > 0) {
+    // Earned, but no partner in range. Say so plainly rather than implying a
+    // reward is waiting somewhere down the street.
+    msg = `🌟 ${earned} reward${earned !== 1 ? "s" : ""} saved. No partner shop near you yet.`;
+  } else if (near > 0) {
+    msg = `${nearbyPartners[0].name} is a partner shop. Focus for ${durationLabel(nearbyPartners[0].minMinutes)} in one drink to earn ${nearbyPartners[0].perk.toLowerCase()}.`;
+  }
+  el.textContent = msg;
+  el.classList.toggle("hidden", !msg);
 }
 
 // Scannable list of the nearby real shops under the map; tapping one pans the map
@@ -4608,16 +4743,30 @@ function renderShopList(items) {
   el.classList.remove("hidden");
   el.innerHTML =
     `<div class="map-list-head">${items.length} boba spot${items.length !== 1 ? "s" : ""} nearby</div>` +
-    items.map((it, i) =>
-      `<button type="button" class="map-shop-item" data-i="${i}">` +
-        `<span class="map-shop-emoji">${ICON.boba}</span>` +
-        `<span class="map-shop-text">` +
-          `<span class="map-shop-name">${escapeHtml(it.shop.name)}</span>` +
-          `<span class="map-shop-dist">${formatDistance(it.dist)} away</span>` +
-        `</span>` +
-        `<span class="map-shop-go" aria-hidden="true">›</span>` +
-      `</button>`
-    ).join("");
+    items.map((it, i) => {
+      const p = it.shop.partner;
+      // A partner row carries a second control, so it is a wrapper with two
+      // sibling buttons. Nesting the redeem button inside the row button would
+      // be invalid HTML and the inner tap would fire both.
+      return `<div class="map-shop-row${p ? " is-partner" : ""}">` +
+        `<button type="button" class="map-shop-item" data-i="${i}">` +
+          `<span class="map-shop-emoji">${p ? ICON.star : ICON.boba}</span>` +
+          `<span class="map-shop-text">` +
+            `<span class="map-shop-name">${escapeHtml(it.shop.name)}</span>` +
+            `<span class="map-shop-dist">${formatDistance(it.dist)} away</span>` +
+            (p ? `<span class="map-shop-perk">${escapeHtml(p.perk)}</span>` : "") +
+          `</span>` +
+          `<span class="map-shop-go" aria-hidden="true">›</span>` +
+        `</button>` +
+        (p ? `<button type="button" class="map-shop-redeem" data-p="${i}">Show at the counter</button>` : "") +
+      `</div>`;
+    }).join("");
+  el.querySelectorAll(".map-shop-redeem").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const it = items[+btn.dataset.p];
+      if (it && it.shop.partner) openRedeem(it.shop.partner);
+    });
+  });
   el.querySelectorAll(".map-shop-item").forEach((btn) => {
     btn.addEventListener("click", () => {
       const it = items[+btn.dataset.i];
@@ -4634,6 +4783,68 @@ function renderShopList(items) {
       }
     });
   });
+}
+
+// ── REDEEMING A PERK AT THE COUNTER ──────────────────────────────────────────
+// What a barista actually sees. It has to be readable across a counter in one
+// second, and it has to be hard to fake with a screenshot, which is what the
+// ticking timestamp is for (a still image freezes, this does not). There is no
+// scanner and no account on the shop's side. That was the promise made to the
+// shops: nothing to install, nothing to manage.
+let redeemPartner = null;
+let redeemClock = null;
+
+function openRedeem(partner) {
+  redeemPartner = partner;
+  playSfx("tap");
+  els.redeemShop.textContent   = partner.name;
+  els.redeemAddress.textContent = partner.address || "";
+  els.redeemPerk.textContent   = partner.perk;
+
+  const perk = oldestLivePerk();
+  const ready = !!perk;
+  els.redeemConfirmBtn.disabled = !ready;
+  els.redeemNote.textContent = ready
+    ? `You have ${earnedPerkCount()} reward${earnedPerkCount() !== 1 ? "s" : ""} saved.`
+    : `Focus for ${durationLabel(partner.minMinutes)} in one drink to earn this.`;
+  els.redeemDialog.classList.toggle("not-ready", !ready);
+
+  // Tick every second while the card is open. Cleared on close so a backgrounded
+  // sheet is not holding a timer forever.
+  const tick = () => {
+    els.redeemStamp.textContent = new Date().toLocaleString(undefined, {
+      weekday: "short", month: "short", day: "numeric",
+      hour: "numeric", minute: "2-digit", second: "2-digit"
+    });
+  };
+  tick();
+  clearInterval(redeemClock);
+  redeemClock = setInterval(tick, 1000);
+
+  if (typeof els.redeemDialog.showModal === "function") els.redeemDialog.showModal();
+  else showToast(`${partner.name}: ${partner.perk}`);
+}
+
+function closeRedeem() {
+  clearInterval(redeemClock);
+  redeemClock = null;
+}
+
+function confirmRedeem() {
+  const perk = oldestLivePerk();
+  if (!perk || !redeemPartner) return;
+  perk.redeemedAt   = Date.now();
+  perk.redeemedShop = redeemPartner.name;
+  perk.redeemedPerk = redeemPartner.perk;
+  saveState();
+  playSfx("success");
+  showToast(`Used at ${redeemPartner.name}. Enjoy 🧋`);
+  try { els.redeemDialog.close(); } catch (e) {}
+  renderAll();
+  // The banner counts live perks, and one just stopped being live. Re-render
+  // from the pins already on the map rather than re-running the whole query.
+  if (mapObj) renderPerkBanner(PARTNER_SHOPS.filter(p =>
+    lastFix && haversine(lastFix.lat, lastFix.lng, p.lat, p.lng) <= 6000));
 }
 
 // ── Study Squad (friends leaderboard via shareable codes — no backend) ────────
@@ -5924,6 +6135,10 @@ function wireEvents() {
     await FocusBlocker.refreshStatus();
     renderBlockPill();
   });
+
+  // ── Redeem-at-the-counter dialog ─────────────────────────────────────────
+  if (els.redeemDialog) els.redeemDialog.addEventListener("close", closeRedeem);
+  if (els.redeemConfirmBtn) els.redeemConfirmBtn.addEventListener("click", confirmRedeem);
 
   // ── Reward dialog ────────────────────────────────────────────────────────
   els.rewardDialog.addEventListener("close", onRewardDialogClose);

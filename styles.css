@@ -2916,6 +2916,86 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 }
 .map-pop-perk.locked { background: rgba(60,32,24,0.05); border-color: var(--line); color: var(--bark-mid); }
 
+/* ── Partner shops in the map list ──────────────────────────────────────────
+   A partner row is a wrapper, not a single button: it carries the row tap AND
+   a redeem button, and a button cannot legally contain another button. */
+.map-shop-row { display: flex; flex-direction: column; }
+.map-shop-row .map-shop-item { width: 100%; }
+.map-shop-row.is-partner .map-shop-item {
+  border-color: var(--gold);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-width: 0;
+}
+.map-shop-perk {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  color: var(--teal);
+}
+.map-shop-redeem {
+  width: 100%;
+  padding: 9px 13px;
+  border: 2px solid var(--gold);
+  border-top: 2px dashed rgba(96,58,36,0.28);
+  border-radius: 0 0 14px 14px;
+  background: var(--gold);
+  color: var(--bark);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 950;
+  cursor: pointer;
+  min-height: 44px;
+}
+.map-shop-redeem:active { transform: scale(0.98); }
+
+/* ── Redeem card (the screen a barista reads) ─────────────────────────────── */
+.redeem-card { text-align: center; }
+.redeem-star { color: var(--gold); margin-bottom: 2px; }
+.redeem-address { font-size: 0.8rem; font-weight: 800; color: var(--bark-mid); margin-top: 2px; }
+.redeem-perk {
+  margin: 13px 0 9px;
+  padding: 15px 14px;
+  border: 2.5px dashed var(--teal);
+  border-radius: 16px;
+  background: var(--mint);
+  color: var(--bark);
+  font-size: 1.18rem;
+  font-weight: 950;
+  line-height: 1.25;
+}
+/* Tabular figures so the ticking seconds do not jiggle the line width. */
+.redeem-stamp {
+  font-size: 0.78rem;
+  font-weight: 850;
+  color: var(--bark-mid);
+  font-variant-numeric: tabular-nums;
+}
+.redeem-note { margin-top: 6px; font-size: 0.8rem; font-weight: 800; color: var(--bark-mid); }
+/* .reward-card deliberately flips these two, because Share is the hero on the
+   drink-complete card. Here the hero is spending the reward, so put the gold
+   back on .primary and let "Not now" be the quiet one. Selected by dialog id
+   on purpose: `.redeem-card .primary` ties with `.reward-card .primary` on
+   specificity and loses, because that rule sits further down this file. */
+#redeemDialog .primary {
+  min-height: 52px;
+  background: var(--gold);
+  color: var(--bark);
+  border: 2px solid var(--bark);
+  border-radius: 999px;
+  font-size: 1rem;
+  box-shadow: 3px 3px 0 rgba(60,32,24,0.16);
+}
+#redeemDialog .secondary {
+  background: transparent;
+  color: var(--bark-mid);
+  border-color: rgba(60,32,24,0.22);
+  box-shadow: none;
+}
+#redeemDialog.not-ready .redeem-perk { border-color: var(--line); background: rgba(60,32,24,0.05); color: var(--bark-mid); }
+#redeemConfirmBtn:disabled { opacity: 0.45; cursor: default; }
+
 /* ── Pearl economy info card (Settings sheet) ───────────────────────────── */
 .pearl-info-card {
   padding: 16px 16px 14px;
