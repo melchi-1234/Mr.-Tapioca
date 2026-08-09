@@ -4351,7 +4351,7 @@ const CURATED_SHOPS = [
   { name: "Momo Tea",           lat: 21.29640, lng: -157.85627 },  // 320 Ward Ave #116, Kaka'ako
   { name: "Wave Tea",           lat: 21.29630, lng: -157.85066 },  // 1067 Kapiolani Blvd, Ala Moana
   { name: "Drincup Cafe",       lat: 21.29485, lng: -157.84715 },  // 1221 Kapiolani Blvd Ste 112A (formerly Cheese Tea)
-  { name: "Cloud Nine Cafe",    lat: 21.29485, lng: -157.84715 },  // 1221 Kapiolani Blvd #111 — VERIFY: may have moved to Market City, 2919 Kapiolani
+  { name: "Cloud Nine Cafe",    lat: 21.29485, lng: -157.84715 },  // 1221 Kapiolani Blvd Ste 111 — confirmed current Aug 2026 (their own site + Yelp/Grubhub); the 2919 Kapiolani listing is the older location
   { name: "Thang's French Coffee & Bubble Tea", lat: 21.32180, lng: -157.87583 },  // 1286 Kalani St Ste B108, Kalihi
   { name: "Heeretea Hawai'i",   lat: 21.33162, lng: -157.87622 },  // 1810 N King St, Kalihi
 
