@@ -2376,12 +2376,12 @@ function completeSession() {
   // is set by whichever shop the student walks into, so the reward unlocks the
   // perk and the Boba Map says what each partner actually gives.
   let partner, partnerNext = false;
-  if (minutes >= PERK_MIN_MINUTES) {
+  if (minutes >= perkMinMinutes()) {
     partner = "🌟 Partner perk unlocked. Check the Boba Map";
   } else {
     // durationLabel, not minuteLabel: at the 3 hr bar that would read
     // "Next perk at 180 focused minutes".
-    partner = `Next perk at ${durationLabel(PERK_MIN_MINUTES)} in one drink`;
+    partner = `Next perk at ${durationLabel(perkMinMinutes())} in one drink`;
     partnerNext = true;
   }
 
@@ -4290,7 +4290,7 @@ function bobaPin(emoji, cls) {
 // claim, and a stale reward is a much smaller loss than that.
 function isLivePerk(r) {
   if (!r || r.redeemedAt) return false;
-  return typeof r.minutes === "number" && r.minutes >= PERK_MIN_MINUTES;
+  return typeof r.minutes === "number" && r.minutes >= perkMinMinutes();
 }
 
 function earnedPerkCount() {
@@ -4473,20 +4473,78 @@ const PARTNER_SHOPS = [
   }
 ];
 
-// The lowest bar any partner sets. Under this, no shop on earth can honour
-// anything, so the reward dialog must not imply a perk is sitting there.
-// Derived, not hardcoded: sign a shop that rewards a 60-minute drink and every
-// screen follows automatically.
-const PERK_MIN_MINUTES = PARTNER_SHOPS.length
-  ? Math.min(...PARTNER_SHOPS.map(p => p.minMinutes))
-  : 90;
+// ── THE LIVE PARTNER LIST COMES OVER THE NETWORK ─────────────────────────────
+// The array above is only the OFFLINE FLOOR, baked into the bundle so a fresh
+// install with no signal still knows about U Tea. The list the app actually
+// uses is fetched from partners.json on mrtapioca.me.
+//
+// Why: signing a shop is data, not code. If partners lived only in the bundle,
+// every new shop would need an Xcode archive and an App Review queue, so a shop
+// that said yes on Monday would not appear on anyone's iPhone until Thursday.
+// It also breaks the promise the pitch makes to every shop, that they come off
+// the app the day they ask. Now adding or pulling a shop is one edit to
+// partners.json plus a push, live everywhere on the next map open.
+//
+// It is fetched cross-origin from the native build, and sw.js is told to leave
+// this one URL alone on web (the worker is cache-first for everything else,
+// with ignoreSearch, so it would otherwise pin the first copy forever).
+const PARTNERS_URL = "https://mrtapioca.me/partners.json";
+const PARTNERS_CACHE_KEY = "bobaPartners1";
+
+let livePartners = PARTNER_SHOPS.slice();
+
+// A partner list is the one piece of remote data that can cost a real business
+// real money, so a malformed entry is DROPPED, never guessed at. The minMinutes
+// floor matters most: a zero would hand every user an instantly redeemable perk,
+// which is the exact thing the 3 hour bar exists to prevent.
+function validPartner(p) {
+  return !!p && typeof p.name === "string" && p.name.trim().length > 0
+    && typeof p.perk === "string" && p.perk.trim().length > 0
+    && typeof p.lat === "number" && isFinite(p.lat) && Math.abs(p.lat) <= 90
+    && typeof p.lng === "number" && isFinite(p.lng) && Math.abs(p.lng) <= 180
+    && typeof p.minMinutes === "number" && isFinite(p.minMinutes)
+    && p.minMinutes >= 15 && p.minMinutes <= 1440;
+}
+
+// Never rejects: a partner refresh failing must not take the map down with it.
+function loadPartners() {
+  // Seed from the last good copy first, so an offline open still stars shops.
+  try {
+    const c = JSON.parse(localStorage.getItem(PARTNERS_CACHE_KEY));
+    if (c && Array.isArray(c.shops)) livePartners = c.shops.filter(validPartner);
+  } catch (e) {}
+
+  return fetch(PARTNERS_URL + "?t=" + Date.now(), { cache: "no-store" })
+    .then(r => r.ok ? r.json() : Promise.reject(new Error("http " + r.status)))
+    .then(data => {
+      const shops = Array.isArray(data) ? data : (data && data.shops);
+      if (!Array.isArray(shops)) throw new Error("shape");
+      const ok = shops.filter(validPartner);
+      // An EMPTY list is legitimate (every shop paused, or the last one asked to
+      // come off). A non-empty list that yields zero valid entries is corruption,
+      // so keep whatever we already had rather than silently unstarring a shop.
+      if (shops.length > 0 && ok.length === 0) throw new Error("all invalid");
+      livePartners = ok;
+      localStorage.setItem(PARTNERS_CACHE_KEY, JSON.stringify({ t: Date.now(), shops: ok }));
+    })
+    .catch(() => {});   // cached or bundled list stands
+}
+
+// The lowest bar any live partner sets. Under this, no shop can honour anything,
+// so the reward dialog must not imply a perk is sitting there. Derived, not
+// hardcoded: sign a shop that rewards a shorter drink and every screen follows.
+function perkMinMinutes() {
+  return livePartners.length
+    ? Math.min(...livePartners.map(p => p.minMinutes))
+    : 180;
+}
 
 // Attach partner status to whichever record for that shop actually reached the
 // list. U Tea is in CURATED_SHOPS *and* in OSM, so this annotates the existing
 // entry instead of adding another — otherwise a partner shows up twice with a
 // star on only one of the two pins.
 function partnerFor(shop) {
-  return PARTNER_SHOPS.find(p => {
+  return livePartners.find(p => {
     const d = haversine(shop.lat, shop.lng, p.lat, p.lng);
     // Proximity ALONE is only trustworthy at point-blank range. Collegetown has
     // distinct shops 92 m apart: a 150 m radius handed U Tea's star to Kung Fu
@@ -4510,7 +4568,7 @@ function withPartners(shops, lat, lng, radius) {
     const p = partnerFor(s);
     return p ? Object.assign({}, s, { partner: p }) : s;
   });
-  for (const p of PARTNER_SHOPS) {
+  for (const p of livePartners) {
     if (haversine(lat, lng, p.lat, p.lng) > radius) continue;
     if (out.some(s => s.partner && s.partner.id === p.id)) continue;
     out.push({ name: p.name, lat: p.lat, lng: p.lng, partner: p });
@@ -4656,8 +4714,12 @@ function loadNearbyShops(lat, lng) {
   setMapStatus("Finding real boba spots near you…");
   shopMarkers.forEach(m => { try { mapObj.removeLayer(m); } catch (e) {} });
   shopMarkers = [];
-  fetchRealBobaShops(lat, lng)
-    .then(shops => {
+  // Refresh the partner list alongside the shop query, not before it: the two
+  // are independent and the partner file is tiny, so this costs no wall clock.
+  // loadPartners never rejects, so a failure here still leaves the catch below
+  // meaning exactly what it did (the Overpass query died).
+  Promise.all([loadPartners(), fetchRealBobaShops(lat, lng)])
+    .then(([, shops]) => {
       shopsLoading = false;
       if (!shops.length) {
         setMapStatus("No boba spots listed within ~6 km. OpenStreetMap may not have your local shops mapped yet.",
@@ -4855,7 +4917,7 @@ function confirmRedeem() {
   renderAll();
   // The banner counts live perks, and one just stopped being live. Re-render
   // from the pins already on the map rather than re-running the whole query.
-  if (mapObj) renderPerkBanner(PARTNER_SHOPS.filter(p =>
+  if (mapObj) renderPerkBanner(livePartners.filter(p =>
     lastFix && haversine(lastFix.lat, lastFix.lng, p.lat, p.lng) <= 6000));
 }
 

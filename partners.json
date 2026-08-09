@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "THE LIVE PARTNER SHOP LIST. Edit this file, push, done.",
+    "",
+    "Adding a shop does NOT need an App Store build. Every push to feature-work",
+    "redeploys mrtapioca.me in about a minute, and every copy of the app (web",
+    "AND the installed iPhone app) picks this up the next time the Boba Map is",
+    "opened. Removing a shop is the same edit in reverse, which is how we keep",
+    "the promise made in the pitch: it comes off the app the day they ask.",
+    "",
+    "Fields, per shop:",
+    "  id          stable slug, never reused for a different shop",
+    "  name        as the student will read it on the map",
+    "  address     shown on the counter card",
+    "  lat, lng    the storefront",
+    "  perk        EXACTLY what that shop agreed to, in words a barista can honour",
+    "  minMinutes  focus time in ONE drink that unlocks it (minimum 15)",
+    "  since       the day they said yes",
+    "",
+    "Never invent a perk or a number. A shop goes in here only after it has",
+    "agreed in writing. Anything malformed is dropped by the app rather than",
+    "guessed at, and a minMinutes under 15 is rejected outright."
+  ],
+  "shops": [
+    {
+      "id": "u-tea-collegetown",
+      "name": "U Tea",
+      "address": "205 Dryden Rd, Collegetown",
+      "lat": 42.44153,
+      "lng": -76.48486,
+      "perk": "10% off your drink",
+      "minMinutes": 180,
+      "since": "2026-08-09"
+    }
+  ]
+}

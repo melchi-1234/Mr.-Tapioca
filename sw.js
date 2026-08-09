@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v179";
+const CACHE = "mr-tapioca-v180";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -100,7 +100,14 @@ self.addEventListener("activate", (event) => {
 // version bump (see the fetch comment below).
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
+  const url = new URL(req.url);
+  if (req.method !== "GET" || url.origin !== self.location.origin) return;
+
+  // partners.json is LIVE DATA, not shell. Everything below is cache-first with
+  // ignoreSearch, which would pin the first copy forever and make a cache-buster
+  // useless, so a shop signed today would never reach anyone already installed.
+  // Leave it to the network (GitHub Pages serves it with max-age=600).
+  if (url.pathname.endsWith("/partners.json")) return;
 
   const cacheCopy = (res) => {
     if (res && res.status === 200 && res.type === "basic") {
