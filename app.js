@@ -4408,6 +4408,7 @@ function overpassQuery(lat, lng, radius) {
 const CURATED_SHOPS = [
   // --- ITHACA, NY (Cornell) ---
   { name: "Taichi Bubble Tea",  lat: 42.43013, lng: -76.50853 },   // 740 S Meadow St, Ithaca
+  { name: "Taichi Bubble Tea",  lat: 42.43940, lng: -76.49602 },   // 215 E State St Ste 200, Ithaca Commons — Taichi's SECOND Ithaca store, opened 2026. Same name on purpose: it matches OSM so the dedupe can merge it, and the two stores are 1.5 km apart so they never collapse into each other. Flyer up here (Melchi, in person, Aug 10 2026)
   { name: "U Tea",              lat: 42.44153, lng: -76.48486 },   // 205 Dryden Rd, Collegetown
   { name: "Kung Fu Tea",        lat: 42.44150, lng: -76.48597 },   // 143 Dryden Rd, Collegetown
   { name: "Dream Tea & Poké",   lat: 42.44064, lng: -76.49722 },   // 130 E Seneca St, downtown
