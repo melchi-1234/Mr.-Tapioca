@@ -32,6 +32,16 @@
       "perk": "10% off your drink",
       "minMinutes": 240,
       "since": "2026-08-09"
+    },
+    {
+      "id": "dream-tea-poke-ithaca",
+      "name": "Dream Tea & Poké",
+      "address": "130 E Seneca St, Ithaca",
+      "lat": 42.44064,
+      "lng": -76.49722,
+      "perk": "5% off your drink",
+      "minMinutes": 240,
+      "since": "2026-08-10"
     }
   ]
 }
