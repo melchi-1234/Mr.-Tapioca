@@ -77,8 +77,16 @@ These are all things that fail *silently*. Do not rediscover them.
 ## Adding or removing a partner shop
 
 **Edit `partners.json`, push. That is the whole job. Never ship an app build for
-this.** GitHub Pages redeploys mrtapioca.me about a minute later and every client,
-including installed iPhones, picks the new list up on the next Boba Map open.
+this.** GitHub Pages redeploys mrtapioca.me about a minute later and every client
+picks the new list up on the next Boba Map open.
+
+⚠️ **"Every client" means every client that HAS the partner system. As of Aug 2026
+that is the web app only.** The live App Store build (1.0.1 / build 6) and the build
+in review (1.1.0 / build 7) were both archived before the partner code existed, so
+they ignore `partners.json` entirely. The code is staged in `ios/App/App/public` and
+reaches phones with **1.1.1 / build 8**. Until that ships, a shop added here is live
+on mrtapioca.me and invisible on iPhone. Do not tell anyone a new shop is on their
+phone before checking `CURRENT_PROJECT_VERSION` against the build that has partners.
 Pulling a shop is the same edit in reverse, which is what lets us keep the promise
 the pitch makes: they come off the app the day they ask.
 
