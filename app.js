@@ -2235,6 +2235,17 @@ function renderWindowLoop(theme) {
   }
   v.muted = true;                  // belt and braces: iOS only autoplays muted
   v.src = src;
+  // <video preload="none"> only defers the IMPLICIT load a `.src` change queues —
+  // it does NOT start fetching on its own, so readyState sits at 0 forever and
+  // `canplay` below never fires. `.load()` is a script-requested load, which the
+  // browser honours immediately regardless of `preload`. Without this line the
+  // window never gets past the CSS spin on its own: confirmed live, setting
+  // `.src` alone produced zero network activity for the mp4 even after several
+  // seconds, and adding `.load()` right after it made the fetch start at once.
+  // This is the actual root cause of "loads with the CSS swirl, only the real
+  // galaxy video after tapping a button" — a click's own play() (the gesture
+  // fallback below) forces a load too, which is why any tap "fixed" it before.
+  v.load();
 
   // Hand over on the `playing` EVENT, never on the play() promise. Setting src
   // starts a load, and calling play() in the same tick gets aborted by it — the
