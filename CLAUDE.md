@@ -54,6 +54,16 @@ These are all things that fail *silently*. Do not rediscover them.
    on foreground, and Settings has a "Blocking Not Working? Re-pick Apps" recovery button that
    re-picks from scratch. QA details in SETUP_NATIVE.md. Test blocking against apps that have
    personal Screen Time limits.
+6. **`<video preload="none">` never fetches just because `.src` changed.** Setting `.src` alone
+   produces zero network activity — confirmed live, no request for the mp4 even after several
+   seconds. `preload="none"` defers loading until something explicitly requests it, so any code
+   that sets `.src` then waits for `canplay`/`readyState` before calling `play()` (see
+   `renderWindowLoop()` in `app.js`, the animated theme windows) will wait forever: nothing was
+   ever asked to load. Call `v.load()` right after setting `.src` — that's a script-requested
+   load and the browser honors it immediately regardless of `preload`. This is exactly what made
+   the galaxy theme's window load with the duller static CSS spin and only switch to the real
+   animated video after tapping a button: a click's own `play()` call was the only thing in the
+   whole flow that ever forced a load. Fixed 2026-08-12.
 
 ## Where it lives
 
