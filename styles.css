@@ -514,30 +514,47 @@ body {
   -webkit-mask: url('assets/win-mask-library.webp') top center / cover no-repeat;
           mask: url('assets/win-mask-library.webp') top center / cover no-repeat;
   --win-x: 50%; --win-y: 34%; --win-w: 150%;
-  /* Base glow stays at FULL opacity always — dimming the whole element (the
-     first cut of this animated opacity 0.55-1, same as lamp-breathe) read as
-     the whole window fading in and out, not a light breathing. The actual
-     pulse now lives on ::after as a localised bright patch instead, closer to
-     what .theme-fx's own library glow does. */
-  background: linear-gradient(165deg, #f6c987 0%, #ffdda0 45%, #fff2ce 100%);
+  background: linear-gradient(165deg, #f0b968 0%, #ffcf82 40%, #fff0c4 100%);
+  /* Round 2 wasn't enough ("1% of what I want") — this isn't a subtler-tool
+     problem, it's the WHOLE window's brightness needs to swing, not just an
+     overlay patch. filter:brightness on the element itself (not opacity)
+     is the fix: it makes the actual gradient+dust genuinely brighter/dimmer
+     without fading toward transparent, which is what made round 1 read as
+     "disappearing" instead of "glowing". 3s so it's obviously alive, not a
+     slow drift you have to stare at to catch. */
+  animation: lamp-breathe-bright 3s ease-in-out infinite alternate;
+}
+@keyframes lamp-breathe-bright {
+  from { filter: brightness(0.72) saturate(0.85); }
+  to   { filter: brightness(1.4) saturate(1.2); }
 }
 .scene[data-theme="library"] .win-fx::before {
-  --fx-tile: 110px;
+  --fx-tile: 85px;
   background-image: url('assets/fx-dust.webp');
   background-size: var(--fx-tile) var(--fx-tile);
   background-repeat: repeat;
-  /* Denser tile + brighter/whiter filter than .theme-fx's own dust layer on
-     purpose: amber dust on an amber gradient was barely visible at the
-     original tuning ("no noticeable change" — fair catch). */
-  filter: saturate(1.6) brightness(1.4) drop-shadow(0 0 6px rgba(255,224,160,0.95));
-  animation: fx-tile-rise 16s linear infinite, fx-sway 6s ease-in-out infinite alternate;
+  /* Denser + brighter again — round 2's tuning was still too close to the
+     background color to register. */
+  filter: saturate(2) brightness(1.8) drop-shadow(0 0 8px rgba(255,235,180,1));
+  animation: fx-tile-rise 11s linear infinite, fx-sway 4.5s ease-in-out infinite alternate;
   opacity: 1;
 }
+/* A real additive flare, not a translucent patch: mix-blend-mode:screen only
+   ADDS light, it can't muddy/darken the gradient under it the way a normal
+   alpha overlay can, so at its peak this reads as an unmistakable bright
+   flare rather than a faint wash. Scale pulses too, not just opacity, for an
+   actual "growing" sensation. Synced to the same 3s as the brightness pulse
+   above so the whole window breathes as one thing, not two effects fighting. */
 .scene[data-theme="library"] .win-fx::after {
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  background-image: radial-gradient(55% 45% at 50% 55%, rgba(255,214,140,0.65), transparent 70%);
-  animation: lamp-breathe 5s ease-in-out infinite alternate;
+  background-image: radial-gradient(58% 50% at 50% 48%, rgba(255,248,224,1) 0%, rgba(255,214,140,0.75) 40%, transparent 74%);
+  mix-blend-mode: screen;
+  animation: lamp-flare 3s ease-in-out infinite alternate;
+}
+@keyframes lamp-flare {
+  from { opacity: 0.15; transform: translate(-50%, -50%) scale(0.8); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
 }
 
 .scene[data-theme="sunset"] .win-fx,
