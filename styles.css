@@ -514,17 +514,30 @@ body {
   -webkit-mask: url('assets/win-mask-library.webp') top center / cover no-repeat;
           mask: url('assets/win-mask-library.webp') top center / cover no-repeat;
   --win-x: 50%; --win-y: 34%; --win-w: 150%;
+  /* Base glow stays at FULL opacity always — dimming the whole element (the
+     first cut of this animated opacity 0.55-1, same as lamp-breathe) read as
+     the whole window fading in and out, not a light breathing. The actual
+     pulse now lives on ::after as a localised bright patch instead, closer to
+     what .theme-fx's own library glow does. */
   background: linear-gradient(165deg, #f6c987 0%, #ffdda0 45%, #fff2ce 100%);
-  animation: lamp-breathe 6s ease-in-out infinite alternate;
 }
 .scene[data-theme="library"] .win-fx::before {
-  --fx-tile: 150px;
+  --fx-tile: 110px;
   background-image: url('assets/fx-dust.webp');
   background-size: var(--fx-tile) var(--fx-tile);
   background-repeat: repeat;
-  filter: saturate(1.35) drop-shadow(0 0 5px rgba(214,148,54,0.7));
-  animation: fx-tile-rise 22s linear infinite, fx-sway 8s ease-in-out infinite alternate;
-  opacity: 0.75;
+  /* Denser tile + brighter/whiter filter than .theme-fx's own dust layer on
+     purpose: amber dust on an amber gradient was barely visible at the
+     original tuning ("no noticeable change" — fair catch). */
+  filter: saturate(1.6) brightness(1.4) drop-shadow(0 0 6px rgba(255,224,160,0.95));
+  animation: fx-tile-rise 16s linear infinite, fx-sway 6s ease-in-out infinite alternate;
+  opacity: 1;
+}
+.scene[data-theme="library"] .win-fx::after {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-image: radial-gradient(55% 45% at 50% 55%, rgba(255,214,140,0.65), transparent 70%);
+  animation: lamp-breathe 5s ease-in-out infinite alternate;
 }
 
 .scene[data-theme="sunset"] .win-fx,
