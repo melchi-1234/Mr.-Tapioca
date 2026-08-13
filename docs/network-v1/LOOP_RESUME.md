@@ -4,7 +4,7 @@
 RESUME HERE at the bottom. Do NOT re-run the 43-agent inspection; its findings are in
 GROUNDING.md and were adversarially verified.
 
-**Last updated:** 2026-08-13, loop 6 (red-team landed, 7 real holes fixed in the SQL).
+**Last updated:** 2026-08-13, end of loop 6. Suite GREEN at 153/153. Local checkpoint commit `b0ad0db` made (NOT pushed).
 
 ---
 
@@ -120,13 +120,24 @@ were **my own bugs**, in `supabase-reward-v2.sql`. Seven are fixed and mirrored 
    and blamed `failed_capped`. Wrap-around handled; window refusals now return a distinct
    `failed_outside_window`.
 6. **F9 (window half).** A half-set window meant NO restriction, failing open. Now refused.
-7. **F12.** A consumed handoff code could be re-minted (unhandled PK violation in SQL,
+8. **F15 (found while fixing the others, and caused by them).** `check_code` gained NONE
+   of the three refusals the F1/F7/F8 fixes added to `redeem_by_code`, so the cashier's
+   read-only page showed VALID and the spend then refused. That is precisely the failure
+   the comment above both implementations of that function forbids. `check_code` now calls
+   the shared gate and compares the handoff's pinned offer version. A standing test guards
+   the parity: any refusal added to spend and not to check turns it red.
+9. **F12.** A consumed handoff code could be re-minted (unhandled PK violation in SQL,
    destroyed audit row in the mock). Codes are now checked against every row, and the mint
    loop is **bounded at 60 attempts** returning `failed_code_unavailable`. The bound is
    load-bearing: never-reuse plus an unbounded retry hangs the process, which it did.
 
-**Still open, logged not fixed:**
+**Still open, logged not fixed** (each has a green test asserting the TRUE current
+behaviour, so closing one will turn its test red on purpose):
 
+- F2 residue: the handoff pin closed the mid-handoff case, but a passport reward still
+  carries `offer_version` NULL of its own, so an offer changed BEFORE the card is opened
+  is honoured at the new wording. Whether that is a bug is a business call: a passport
+  promises "a perk at any partner", not "this exact perk".
 - F3 a shop joining a passport policy is instantly liable for every reward every existing
   user already banked (pilot_cap is the only brake).
 - F5 deleting a shop is not executable server-side once anyone has opened a card there
@@ -203,9 +214,10 @@ no reward id, no handoff code and no revenue vocabulary.
 
 ## TEST COUNT + LAST PASS
 
-- **150 tests total** (90 + 60 red-team). At last check 8 were failing **on purpose**:
-  they were written green against the old broken behaviour and are being flipped to assert
-  the fixes (workflow `wlzxw5wnz`). **Re-run before trusting any count in this file.**
+- **153 / 153 passing.** All FINDING tests were flipped to assert the fixes and renamed to
+  the invariant each now defends, with the finding number kept in the comment.
+- The flip was mutation-tested: reverting each fix one at a time in a scratch copy
+  reddened exactly the intended test and nothing else, so no test passes incidentally.
 - Use `node --test --test-timeout=30000 tests/*.test.js`. A timeout matters: an unbounded
   code-mint retry hung the whole suite once already.
 - Files: `tests/reward-config.test.js`, `reward-session.test.js`,
@@ -300,6 +312,27 @@ Already established and adversarially verified. Do not spend agents rediscoverin
 - Onboarding is 16 steps on web, 17 on iPhone. Notification capability is **zero**.
   Squad live presence does not exist and the value sent is always `idle`.
 - The staged iOS bundle lacking reward files is **intentional**, not a defect.
+
+## WHAT GOES LIVE ON THE NEXT PUSH TO `feature-work`
+
+Read this before pushing. GitHub Pages auto-deploys the web app from this branch, so a
+push ships these to mrtapioca.me. The commit is local only; nothing has shipped.
+
+**Inert (flagged off, no behaviour change):** everything Reward V2, the cashier page, and
+all analytics.
+
+**Real, user-visible changes on the live WEB app:**
+
+1. **Break games now require a completed 30-minute session on web.** They previously had
+   no gate at all there. This is the 33x pearl exploit being closed, and it is the one
+   change an existing web user would notice.
+2. **Dev mode earns no pearls** and no longer posts to the drink counter.
+3. **`privacy.html` is materially rewritten** and is now accurate. Worth reading before it
+   ships, since it is a published policy.
+4. **The onboarding reward slide** no longer says "Stay tuned to unlock discounts."
+
+Not shipped by a web push: anything iOS. 1.1.0 is in review and partner rewards are
+intentionally for the build after it.
 
 ## ENVIRONMENT NOTES
 
