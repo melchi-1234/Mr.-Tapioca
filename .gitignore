@@ -25,3 +25,14 @@ __pycache__/
 
 # scratch output from tools/gen-poses.py (cells are reviewed, then copied into assets/poses/)
 build/
+
+# ── Internal build notes. NEVER commit these: the repo is PUBLIC. ─────────────
+# docs/network-v1/GROUNDING.md is a step-by-step guide to forging rewards in the
+# LIVE app (the exact localStorage keys, and the payload that produced 416 free
+# rewards at a real partner shop). Publishing it hands that to anyone, and the
+# shop pays for it. The rest of the folder describes the same holes.
+#
+# The files stay on this Mac. They are just never pushed. Back them up outside
+# the repo if you want them somewhere safe.
+docs/network-v1/
+docs/qa-screenshots-network-v1/
