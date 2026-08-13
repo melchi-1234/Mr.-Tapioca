@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mr. Tapioca, eLab 2026-27</title>
+<style>
+:root{
+  --bark:#3c2018; --bark-mid:#8b5e4a; --bark-light:#c4956a;
+  --cream:#fdf5ec; --card:#fffdf9;
+  --rose:#ef6f8d; --teal:#158f92; --gold:#f0bb4f; --taro:#ad83d6;
+  --tea:#c98555; --mint:#d9f3ea; --floor:#e8b77f;
+  --line:rgba(60,32,24,.12);
+  --shadow:0 18px 50px rgba(60,32,24,.14);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#efe3d4;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:var(--bark)}
+h1,h2,h3,.rounded{font-family:'Arial Rounded MT Bold','Hiragino Maru Gothic ProN',-apple-system,sans-serif;font-weight:700}
+
+.slide{position:relative;width:1280px;height:720px;background:var(--cream);overflow:hidden;padding:56px 64px;display:flex;flex-direction:column}
+.slide .deco{position:absolute;border-radius:50%;background:var(--bark);opacity:.05;pointer-events:none}
+
+/* screen mode: one slide at a time, centered */
+@media screen{
+  body{display:flex;flex-direction:column;align-items:center;padding:24px 0;gap:24px}
+  .slide{box-shadow:var(--shadow);border-radius:18px;display:none;flex-direction:column}
+  .slide.active{display:flex}
+  .nav{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;z-index:50;background:rgba(60,32,24,.85);color:#fdf5ec;padding:8px 16px;border-radius:999px;font-size:14px}
+  .nav button{background:none;border:none;color:#fdf5ec;font-size:16px;cursor:pointer}
+}
+@media print{
+  body{background:none}
+  .slide{page-break-after:always}
+  .nav{display:none}
+}
+@page{size:1280px 720px;margin:0}
+
+.kicker{font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);font-weight:700;margin-bottom:10px}
+.h2{font-size:44px;line-height:1.12;margin-bottom:26px}
+.h2 .hl{color:var(--rose)}
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:22px;box-shadow:0 10px 28px rgba(60,32,24,.08)}
+.pill{display:inline-block;background:var(--bark);color:var(--cream);border-radius:999px;padding:8px 18px;font-size:15px;font-weight:700}
+.chip{display:inline-block;background:var(--mint);color:var(--teal);border-radius:999px;padding:6px 14px;font-size:14px;font-weight:700}
+.foot{position:absolute;bottom:22px;left:64px;right:64px;display:flex;justify-content:space-between;font-size:13px;color:var(--bark-mid)}
+.small{font-size:13px;color:var(--bark-mid)}
+.push{margin-top:auto}
+.pushend{margin-bottom:auto}
+
+/* S1 cover */
+.cover{align-items:center;justify-content:center;text-align:center}
+.cover img.pearl{width:225px;filter:drop-shadow(0 16px 30px rgba(60,32,24,.25))}
+.cover h1{font-size:96px;letter-spacing:-.01em;margin:6px 0 10px}
+.cover .tag{font-size:27px;color:var(--bark-mid);margin-bottom:22px}
+.cover .glow{position:absolute;width:760px;height:760px;border-radius:50%;background:radial-gradient(circle,rgba(240,187,79,.28),rgba(240,187,79,0) 65%);top:-160px;left:260px}
+
+/* generic grids */
+.cols{display:grid;gap:22px;flex:1;min-height:0}
+.two{grid-template-columns:1fr 1fr}
+.three{grid-template-columns:1fr 1fr 1fr}
+.four{grid-template-columns:repeat(4,1fr)}
+
+/* S2 problem */
+.bigstat{font-size:74px;color:var(--teal);line-height:1}
+.problem-card{padding:30px}
+.quote{background:#fbeee4;border-radius:18px;padding:18px 20px;font-size:18px;line-height:1.45;color:var(--bark);border-left:6px solid var(--rose);font-style:italic}
+.strip{margin-top:22px;background:var(--bark);color:var(--cream);border-radius:18px;padding:16px 24px;font-size:20px;text-align:center}
+.strip b{color:var(--gold)}
+
+/* S3 product phones */
+.phones{display:grid;grid-template-columns:1fr 1fr 1fr;gap:26px;flex:1;min-height:0;align-items:start}
+.phone{text-align:center}
+.phone img{height:400px;border-radius:22px;border:5px solid var(--bark);box-shadow:var(--shadow)}
+.phone p{margin-top:12px;font-size:16.5px;font-weight:600;color:var(--bark)}
+.phone .small{font-weight:400;margin-top:3px}
+
+/* S4 loop */
+.loop{display:grid;grid-template-columns:1fr 44px 1fr 44px 1fr 44px 1fr;align-items:stretch;gap:0;flex:0 0 auto}
+.loop .step{padding:20px 18px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.loop .n{width:34px;height:34px;border-radius:50%;background:var(--rose);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:17px}
+.loop .step h3{font-size:18.5px;line-height:1.25}
+.loop .step p{font-size:14.5px;color:var(--bark-mid);line-height:1.35}
+.arrow{display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--bark-light);font-weight:800}
+.fair{display:flex;gap:12px;justify-content:center;margin-top:18px}
+
+/* S5 metrics */
+.metric{padding:26px 22px;text-align:center;display:flex;flex-direction:column;gap:8px;justify-content:center}
+.metric .v{font-size:46px;color:var(--rose)}
+.metric .l{font-size:16.5px;font-weight:700}
+.metric p{font-size:13.5px;color:var(--bark-mid);line-height:1.35}
+
+/* S8 discovery */
+.disc{padding:26px;display:flex;flex-direction:column}
+.disc .hypo{margin-top:auto}
+.disc h3{font-size:22px;margin-bottom:10px}
+.disc h3 .emoji{margin-right:8px}
+.disc ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+.disc li{font-size:16.5px;line-height:1.4;padding-left:22px;position:relative}
+.disc li::before{content:"●";color:var(--gold);position:absolute;left:0;font-size:12px;top:4px}
+.hypo{background:#fbeee4;border-radius:14px;padding:12px 16px;font-size:15.5px;margin-top:12px}
+.hypo b{color:var(--teal)}
+
+/* S9 team */
+.member{padding:28px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.member img{height:120px}
+.member h3{font-size:23px}
+.member .role{color:var(--teal);font-weight:700;font-size:15px}
+.member p{font-size:15px;color:var(--bark-mid);line-height:1.45}
+
+/* S10 ask */
+.ask-list{display:flex;flex-direction:column;gap:14px}
+.ask-item{display:flex;gap:14px;align-items:flex-start;font-size:18.5px;line-height:1.4}
+.ask-item .dot{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:var(--gold);color:var(--bark);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px}
+.target{padding:20px 24px;display:flex;align-items:center;gap:16px}
+.target .v{font-size:40px;color:var(--teal);min-width:120px;text-align:center}
+.target p{font-size:16.5px;line-height:1.35}
+</style>
+</head>
+<body>
+
+<!-- 1 · COVER -->
+<section class="slide cover active">
+  <div class="glow"></div>
+  <img class="pearl" src="img/pearl.png" alt="Mr. Tapioca">
+  <h1>Mr. Tapioca</h1>
+  <p class="tag">The study app that ends at a boba counter.</p>
+  <span class="pill">🧋 Live on the App Store</span>
+  <div class="foot"><span>Melchi Goldfarb · Cornell University</span><span>eLab application · 2026-27</span></div>
+</section>
+
+<!-- 2 · PROBLEM -->
+<section class="slide">
+  <div class="kicker">The problem</div>
+  <div class="h2">Students will focus for a reward.<br>The rewards are <span class="hl">fake</span>.</div>
+  <div class="cols two">
+    <div class="card problem-card" style="display:flex;flex-direction:column;justify-content:center">
+      <div class="bigstat">60M+</div>
+      <p style="font-size:19px;font-weight:700;margin:6px 0 8px">people use Forest, the biggest focus app</p>
+      <p style="font-size:16px;color:var(--bark-mid);line-height:1.45">They lock their phones for hours to grow a tree that only exists on the screen. The focus-for-a-reward loop is proven at massive scale.</p>
+    </div>
+    <div class="card problem-card" style="display:flex;flex-direction:column;justify-content:space-between">
+      <p style="font-size:21px;font-weight:700;line-height:1.35">Six hours of studying earns you a cartoon tree. You can't drink a tree.</p>
+      <div class="quote">"Every focus app we tried was either a spreadsheet with a timer attached or a subscription in a trench coat."<span style="display:block;font-style:normal;font-size:13px;margin-top:6px;color:var(--bark-mid)">from our App Store listing</span></div>
+    </div>
+  </div>
+  <div class="strip">The focus loop works. Nobody has connected it to a reward <b>you can actually taste</b>.</div>
+</section>
+
+<!-- 3 · PRODUCT -->
+<section class="slide">
+  <div class="kicker">The product · live on the App Store since July 2026</div>
+  <div class="h2">Block apps. <span class="hl">Brew a drink.</span></div>
+  <div class="phones">
+    <div class="phone"><img src="img/home.png" alt="Home"><p>Pick a drink, 5 minutes to 6 hours</p><p class="small">Big drinks resume across study sessions</p></div>
+    <div class="phone"><img src="img/session.png" alt="Session"><p>Distracting apps stay blocked while it brews</p><p class="small">Apple Screen Time blocking, not a guilt trip</p></div>
+    <div class="phone"><img src="img/map.png" alt="Boba map"><p>The Boba Map already shows real shops</p><p class="small">Partner shops get the star. That's the business.</p></div>
+  </div>
+</section>
+
+<!-- 4 · THE MODEL -->
+<section class="slide">
+  <div class="kicker">The business idea</div>
+  <div class="h2">Finish the drink. <span class="hl">Then go drink it.</span></div>
+  <div class="loop push">
+    <div class="card step"><div class="n">1</div><h3>Start a Large</h3><p>6 hours of real focus, banked across sittings</p></div>
+    <div class="arrow">→</div>
+    <div class="card step"><div class="n">2</div><h3>Study, apps shielded</h3><p>The cup fills while distracting apps stay blocked</p></div>
+    <div class="arrow">→</div>
+    <div class="card step"><div class="n">3</div><h3>Drink done, reward unlocked</h3><p>The shop sets it: 20% off, a free topping, their call</p></div>
+    <div class="arrow">→</div>
+    <div class="card step"><div class="n">4</div><h3>Redeem at the counter</h3><p>In person only. The student walks in and buys a drink</p></div>
+  </div>
+  <div class="strip" style="margin-top:26px">A partner shop never discounts a stranger. The only person who can redeem is a student <b>already standing at their counter</b>.</div>
+  <div class="fair pushend">
+    <span class="chip">Shop picks the reward</span>
+    <span class="chip">In-person redemption only</span>
+    <span class="chip">Free for shops to join</span>
+  </div>
+</section>
+
+<!-- 5 · TRACTION -->
+<section class="slide">
+  <div class="kicker">Traction</div>
+  <div class="h2">Built in a summer. <span class="hl">Selling in week one.</span></div>
+  <div class="cols four push" style="flex:0 0 auto">
+    <div class="card metric"><div class="v">Live</div><div class="l">on the App Store</div><p>Shipped July 2026 after passing full App Review</p></div>
+    <div class="card metric"><div class="v">Wk 1</div><div class="l">first paying customers</div><p>$1.99 cosmetic skins and backgrounds, no ads, no subscriptions</p></div>
+    <div class="card metric"><div class="v">✓</div><div class="l">Apple Family Controls</div><p>The restricted Screen Time entitlement real app blocking requires</p></div>
+    <div class="card metric"><div class="v">$0</div><div class="l">raised, 2 students</div><p>Web app, landing site, and 8 in-app products, all live</p></div>
+  </div>
+  <div class="strip pushend" style="margin-top:26px">Real app blocking requires a restricted Apple entitlement that takes weeks of review. <b>We have it, approved for distribution.</b></div>
+</section>
+
+<!-- 6 · MARKET -->
+<section class="slide">
+  <div class="kicker">The market</div>
+  <div class="h2">Boba is a <span class="hl">$3B habit</span> parked next to campus.</div>
+  <div class="cols three push" style="flex:0 0 auto">
+    <div class="card metric"><div class="v">~$3B</div><div class="l">global bubble tea sales</div><p>Growing roughly 8-10% a year (2025 industry estimates)</p></div>
+    <div class="card metric"><div class="v">60M+</div><div class="l">Forest users</div><p>Demand for gamified focus is already proven at scale</p></div>
+    <div class="card metric"><div class="v">5</div><div class="l">boba shops near downtown Ithaca</div><p>Straight from our own in-app map. The pilot market walks to class</p></div>
+  </div>
+  <div class="strip pushend" style="margin-top:26px">College towns concentrate both sides of this market: students who study and shops that want them. <b>We start in ours.</b></div>
+</section>
+
+<!-- 7 · BUSINESS MODEL -->
+<section class="slide">
+  <div class="kicker">How it makes money</div>
+  <div class="h2">Free for students. <span class="hl">Shops pay when it works.</span></div>
+  <div class="cols three push" style="flex:0 0 auto">
+    <div class="card disc"><h3><span class="chip" style="background:#f6e3d0;color:var(--tea)">Now · live</span></h3>
+      <ul><li>$1.99 one-time cosmetic skins and shop backgrounds</li><li>No ads, no subscriptions, no tracking</li><li>First purchases came in launch week</li></ul></div>
+    <div class="card disc"><h3><span class="chip">This fall · pilot</span></h3>
+      <ul><li>Founding partner shops join free</li><li>We hand-track every redemption</li><li>Shops fund only the reward itself</li></ul></div>
+    <div class="card disc"><h3><span class="chip" style="background:#efe4f8;color:var(--taro)">After the pilot</span></h3>
+      <ul><li>Small per-redemption fee, or a flat partner rate</li><li>Priced under any advertising a shop could buy</li><li>They pay only for a customer at the counter</li></ul></div>
+  </div>
+  <div class="strip pushend" style="margin-top:26px">For a shop, a redeemed drink is <b>performance marketing priced like a topping</b>.</div>
+</section>
+
+<!-- 8 · FALL PLAN -->
+<section class="slide">
+  <div class="kicker">Our fall semester</div>
+  <div class="h2">We would spend eLab doing <span class="hl">exactly what eLab teaches.</span></div>
+  <div class="cols two">
+    <div class="card disc">
+      <h3><span class="emoji">🧋</span>Shop discovery</h3>
+      <ul>
+        <li>Interview every boba shop in Collegetown and downtown Ithaca</li>
+        <li>Starting with the five already on our map: Dream Tea &amp; Poké, Panda Tea Lounge, Kung Fu Tea, U Tea, and neighbors</li>
+      </ul>
+      <div class="hypo"><b>Hypothesis to test:</b> shops will fund a reward for verified student walk-ins.</div>
+    </div>
+    <div class="card disc">
+      <h3><span class="emoji">📚</span>Student discovery</h3>
+      <ul>
+        <li>100+ student interviews across campus</li>
+        <li>In-app data: session length, completion, redemption intent</li>
+      </ul>
+      <div class="hypo"><b>Hypothesis to test:</b> a real drink stretches focus further than any cosmetic reward.</div>
+    </div>
+  </div>
+  <div class="strip">By December: <b>3 founding partner shops</b>, first tracked redemptions, and a keep-or-kill answer on the partner model.</div>
+</section>
+
+<!-- 9 · TEAM -->
+<section class="slide">
+  <div class="kicker">Team</div>
+  <div class="h2">Two students who ship. <span class="hl">Looking for a third.</span></div>
+  <div class="cols three push pushend" style="flex:0 0 auto">
+    <div class="card member"><img src="img/pearl.png" alt="">
+      <h3>Melchi Goldfarb</h3><div class="role">Cornell · founder</div>
+      <p>Designed and shipped Mr. Tapioca end to end: Screen Time blocking, StoreKit, App Review. Shipped a second app (RampUp, MCAT prep) the same summer.</p></div>
+    <div class="card member"><img src="img/strawberry.png" alt="">
+      <h3>Dasha Nguyen</h3><div class="role">Tufts · art &amp; brand</div>
+      <p>Character art, skins, and the cozy look that makes people open the app twice.</p></div>
+    <div class="card member" style="border-style:dashed;border-width:2px"><img src="img/gradcap.png" alt="">
+      <h3>Your name here</h3><div class="role">Cornell · growth &amp; partnerships</div>
+      <p>We're recruiting our first Cornell teammate through eLab to run growth and shop partnerships with us.</p></div>
+  </div>
+</section>
+
+<!-- 10 · THE ASK -->
+<section class="slide">
+  <div class="kicker">The ask</div>
+  <div class="h2">The app is built. <span class="hl">The business is the discovery.</span></div>
+  <div class="cols two" style="align-items:center;margin-bottom:34px">
+    <div>
+      <p style="font-size:19px;font-weight:700;margin-bottom:16px">What we want from eLab</p>
+      <div class="ask-list">
+        <div class="ask-item"><div class="dot">1</div><div>Structure and reps for real customer discovery with shops and students</div></div>
+        <div class="ask-item"><div class="dot">2</div><div>Mentors in food &amp; beverage and consumer products</div></div>
+        <div class="ask-item"><div class="dot">3</div><div>Our first Cornell teammate</div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <p style="font-size:19px;font-weight:700">By Demo Day, May 2027</p>
+      <div class="card target"><div class="v">5</div><p>partner shops live in Ithaca with real rewards</p></div>
+      <div class="card target"><div class="v">1,000</div><p>finished drinks earned by students</p></div>
+      <div class="card target"><div class="v">1</div><p>partner playbook that copies to any college town</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>Melchi Goldfarb · mjg426@cornell.edu</span><span>Mr. Tapioca: Boba Focus Timer · on the App Store</span></div>
+</section>
+
+<div class="nav"><button onclick="go(-1)">←</button><span id="c">1</span>/<span id="t">10</span><button onclick="go(1)">→</button></div>
+<script>
+const s=[...document.querySelectorAll('.slide')];let i=0;document.getElementById('t').textContent=s.length;
+function show(n){i=Math.max(0,Math.min(s.length-1,n));s.forEach((el,j)=>el.classList.toggle('active',j===i));document.getElementById('c').textContent=i+1;}
+function go(d){show(i+d)}
+addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' ')go(1);if(e.key==='ArrowLeft')go(-1)});
+show(0);
+</script>
+</body>
+</html>

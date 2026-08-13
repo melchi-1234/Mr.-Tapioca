@@ -345,10 +345,14 @@ begin
 
   -- Sweep our own stale active session first. A session abandoned by an app kill
   -- would otherwise block every future one via the one-active index.
-  update public.reward_sessions
+  -- ALIASED, and every column qualified. `returns table (id, started_at, state,
+  -- planned_minutes)` puts variables of those names in scope, so a bare
+  -- `state = 'active'` is ambiguous and Postgres refuses the whole function at
+  -- RUN time with 42702. A syntax check cannot see this; only executing it can.
+  update public.reward_sessions s
     set state = 'abandoned', ended_at = now()
-    where user_id = v_me and state = 'active'
-      and started_at < now() - interval '12 hours';
+    where s.user_id = v_me and s.state = 'active'
+      and s.started_at < now() - interval '12 hours';
 
   begin
     insert into public.reward_sessions (id, user_id, planned_minutes, platform, shield_claimed)
@@ -398,25 +402,25 @@ begin
   -- Under 5 real minutes is not a session. Over 12 h means the app was killed and
   -- the row is stale; neither credits anything.
   if v_elapsed < 5 or v_elapsed > 720 then
-    update public.reward_sessions
+      update public.reward_sessions s
       set state = 'abandoned', ended_at = now(), credited_minutes = 0
-      where id = p_session_id;
+      where s.id = p_session_id;
     return query select p_session_id, 'abandoned'::text, 0, public.reward_eligible_minutes(v_me);
     return;
   end if;
 
   v_credit := least(v_elapsed, v_row.planned_minutes);
 
-  select coalesce(sum(credited_minutes),0)::int into v_day_used
-    from public.reward_sessions
-    where user_id = v_me and state = 'completed'
-      and ended_at >= date_trunc('day', now());
+  select coalesce(sum(s.credited_minutes),0)::int into v_day_used
+    from public.reward_sessions s
+    where s.user_id = v_me and s.state = 'completed'
+      and s.ended_at >= date_trunc('day', now());
   v_credit := greatest(0, least(v_credit, DAILY_CAP - v_day_used));
 
-  update public.reward_sessions
+  update public.reward_sessions s
     set state = 'completed', ended_at = now(), credited_minutes = v_credit,
-        shield_claimed = coalesce(p_shield_held, shield_claimed)
-    where id = p_session_id;
+        shield_claimed = coalesce(p_shield_held, s.shield_claimed)
+    where s.id = p_session_id;
 
   return query select p_session_id, 'completed'::text, v_credit, public.reward_eligible_minutes(v_me);
 end; $$;

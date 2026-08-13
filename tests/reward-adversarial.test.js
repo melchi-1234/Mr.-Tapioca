@@ -1432,14 +1432,16 @@ test("unicode and bidi text in a shop name survives parsing without throwing", (
   assert.equal(RC.parse({ shops: [SHOP({ name: "  " })] }).shops.length, 0, "whitespace is not a name");
 });
 
-test("the live partners.json still parses clean and still refuses to issue", () => {
+test("the live partners.json parses clean and matches what the shops were told", () => {
   // The regression rail for everything above. Whatever else changes, the two real
-  // shops keep their agreed numbers, and with no rewardPolicy declared Reward V2
-  // issuance must stay off rather than guess a business model.
+  // shops keep their agreed numbers and the shared 240-minute bar the managers
+  // were actually given: study 4 cumulative hours, redeem at their shop.
   const LIVE = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "partners.json"), "utf8"));
   const cfg = RC.parse(LIVE);
   assert.deepEqual(cfg.errors, []);
-  assert.equal(cfg.policyState, "undeclared");
+  assert.equal(cfg.policyState, "declared");
+  assert.equal(cfg.policies[0].kind, "global_passport");
+  assert.equal(cfg.policies[0].requiredMinutes, 240);
   assert.equal(cfg.shops.length, 2);
   const u = cfg.shops.find((s) => s.id === "u-tea-collegetown");
   const d = cfg.shops.find((s) => s.id === "dream-tea-poke-ithaca");

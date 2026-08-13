@@ -1,0 +1,24 @@
+TITLE
+The boba app that blocks your distractions
+
+DESCRIPTION
+my screen time was not it, so now a boba man holds me accountable. you focus, he brews, your apps stay blocked until the drink is done. free on iPhone.
+https://apps.apple.com/app/id6786023560
+#studytok #focus #boba #productivity #screentime
+
+TAGS
+focus app, study app, screen time, app blocker, boba, study with me, pomodoro, productivity
+
+PINNED COMMENT
+first drink is a 5 minute tasting, no excuses
+
+NOTES
+- Source: unrealugc.com (AI creator "Hana", voice Freya, kling-2.6 pipeline, 473 credits)
+- This file = RAW AI clip (original TTS voice).
+- **FINAL (Aug 1) = mrtapioca-ugc-ai-v3.mp4** (10.0s): ElevenLabs "Jessica" voice via speech-to-speech (lips still synced), pink karaoke captions, hook "A BOBA APP FIXED MY SCREEN TIME", app b-roll, good-night-lofi-cozy bed, brown "Free on the App Store" pill. Voice-swapped master in swap/.
+- His verdict: "still very obviously AI" -- may never post. If posting: ElevenLabs Starter ($5) FIRST for the commercial license.
+- archive/ = superseded: v1 + v1-musiconly (old TTS voice, latent stutter bug), v2 ("boba boba" stutter). The musiconly style can be rebuilt clean in one command if ever wanted.
+- Rebuild from RampUp-iOS/marketing/ugc-ad with CLIPS=swap SCRIPT_FILE=build-script.txt BROLL=broll.json CTA="Free on the App Store" CTA_BG="146,94,62" HIGHLIGHT="#F472B6" DISC="" BROLL_TOP="252,242,232" BROLL_BOT="240,218,200" BED=good-night-lofi-cozy WORKDIR=<scratch>
+- 11.5s, 1072x1928 (9:16), works on TikTok / Reels / Shorts / X
+- Script: "I couldn't study for ten minutes without grabbing my phone. Then I got Mr. Tapioca. You focus, he brews you a boba, and your distracting apps stay blocked until the drink is done. It's free on the App Store."
+- Master also in his unrealugc account: Dashboard > My Videos ("Ten minutes")

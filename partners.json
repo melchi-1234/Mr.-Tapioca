@@ -20,7 +20,17 @@
     "",
     "Never invent a perk or a number. A shop goes in here only after it has",
     "agreed in writing. Anything malformed is dropped by the app rather than",
-    "guessed at, and a minMinutes under 15 is rejected outright."
+    "guessed at, and a minMinutes under 15 is rejected outright.",
+    "",
+    "REWARD POLICY (added 2026-08-13, matches what the shops were told).",
+    "  A student studies 4 CUMULATIVE hours and can then redeem at their shop.",
+    "  One shared bar, so a reward earned anywhere is spendable at any partner.",
+    "  That is what 'global_passport' means, and it mirrors the live server row",
+    "  in public.reward_policies. If you change one, change the other.",
+    "",
+    "  Every shop must carry a policyId. A shop with none, or one whose",
+    "  minMinutes disagrees with its policy's requiredMinutes, is rejected",
+    "  rather than guessed at."
   ],
   "shops": [
     {
@@ -31,7 +41,8 @@
       "lng": -76.48486,
       "perk": "10% off your drink",
       "minMinutes": 240,
-      "since": "2026-08-09"
+      "since": "2026-08-09",
+      "policyId": "ithaca-passport"
     },
     {
       "id": "dream-tea-poke-ithaca",
@@ -41,7 +52,18 @@
       "lng": -76.49722,
       "perk": "5% off your drink",
       "minMinutes": 240,
-      "since": "2026-08-10"
+      "since": "2026-08-10",
+      "policyId": "ithaca-passport"
     }
-  ]
+  ],
+  "rewardPolicy": {
+    "policies": [
+      {
+        "id": "ithaca-passport",
+        "kind": "global_passport",
+        "requiredMinutes": 240,
+        "expiresDays": null
+      }
+    ]
+  }
 }

@@ -36,10 +36,31 @@ test("live shops keep their exact agreed perks and bars", () => {
   assert.equal(d.minMinutes, 240);
 });
 
-test("live config has no reward policy declared, so V2 issuance stays off", () => {
+test("live config declares the shared 240-minute passport the shops were told about", () => {
+  // DECIDED 2026-08-13. The deal the shop managers were actually given is: a
+  // student studies 4 CUMULATIVE hours and can then redeem at their shop. One
+  // shared bar, so a reward earned anywhere is spendable at any partner.
+  //
+  // This test used to assert "undeclared", which was true while the decision was
+  // still being treated as open. It never really was: per-shop bars would mean 8
+  // hours to earn both shops' rewards, and would change terms two real businesses
+  // had already agreed to.
+  //
+  // These numbers mirror the live server row in public.reward_policies. If one
+  // changes and the other does not, redemption breaks at a counter.
   const cfg = RC.parse(LIVE);
-  assert.equal(cfg.policyState, "undeclared");
-  assert.deepEqual(cfg.policies, []);
+  assert.deepEqual(cfg.errors, []);
+  assert.equal(cfg.policyState, "declared");
+  assert.equal(cfg.policies.length, 1);
+  const pol = cfg.policies[0];
+  assert.equal(pol.id, "ithaca-passport");
+  assert.equal(pol.kind, "global_passport", "shared bar, not per shop");
+  assert.equal(pol.requiredMinutes, 240, "4 cumulative hours");
+  assert.equal(pol.expiresDays, null, "rewards do not expire");
+  for (const s of cfg.shops) {
+    assert.equal(s.policyId, "ithaca-passport", s.id + " is on the shared policy");
+    assert.equal(s.minMinutes, pol.requiredMinutes, s.id + " agrees with the policy bar");
+  }
 });
 
 test("new optional fields default to today's behaviour, not to new promises", () => {
