@@ -4,7 +4,7 @@
 RESUME HERE at the bottom. Do NOT re-run the 43-agent inspection; its findings are in
 GROUNDING.md and were adversarially verified.
 
-**Last updated:** 2026-08-13, end of loop 7. Suite GREEN at 153/153. **12 of the 14 red-team findings are closed.** Local commits only, nothing pushed.
+**Last updated:** 2026-08-13, end of loop 8 (reward UI + notifications). Previously: loop 7. Suite GREEN at 153/153. **12 of the 14 red-team findings are closed.** Local commits only, nothing pushed.
 
 ---
 
@@ -190,6 +190,72 @@ invented-id one and leaks no shop name); monotonicity; a failed redemption not c
 cap headroom; one reward buying exactly one drink even with two live codes at two shops;
 prototype-pollution payloads never polluting; the merchant report carrying no account id,
 no reward id, no handoff code and no revenue vocabulary.
+
+## REWARD UI STATUS (P1 client, done)
+
+`VERIFIED` in a real browser, both modes, zero console errors.
+
+Every reward surface now asks **one** pair of functions, `rewardsInHand()` and
+`rewardProgressNow()`, so the choice of authority lives in one place instead of spread
+across the UI. `rewardServerMode()` tells the UI which mode it is in, because the two
+show genuinely different things at the counter.
+
+| | flag OFF (live today) | flag ON (server mode) |
+|---|---|---|
+| authority | v1 local arithmetic, unchanged | the server; local numbers not consulted at all |
+| counter card | ticking timestamp, proves nothing | short server-issued code the shop can verify |
+| spend | pushes a local ledger entry | the one atomic `redeem_by_code` RPC |
+
+`VERIFIED` end to end against `reward-mock.js` loaded into the page: code `FVD36J`
+rendered, "Show this code to the cashier", spend succeeded once, rewards in hand dropped
+1 → 0, dialog closed, and reopening showed the not-ready state with the code hidden.
+Flag-off arm was byte-identical to v1: no code element, ticking stamp, local redemption.
+
+Screenshots: `09-counter-card-v1-flagoff.png`, `09-counter-card-v2-code.png`,
+`10-counter-card-v2-consumed.png`.
+
+Two details worth keeping: a stale in-flight response is dropped if the sheet closed or
+reopened on a different shop (showing shop A's code under shop B's name is how a cashier
+hands over something their shop never agreed to), and every server refusal has
+plain-English cashier copy rather than a `failed_*` string.
+
+## NOTIFICATIONS STATUS (P7, done for web; native needs one install)
+
+Capability before this loop: **zero**. `VERIFIED` in a real browser.
+
+`notifications.js`. Two notifications, and only two:
+1. Your focus session finished.
+2. An optional daily nudge at a time the user picks.
+
+**Deliberately not built:** streak-loss warnings, "we miss you" re-engagement, and a
+reward-ready nudge. The first two are threats dressed as features and the app's tone is a
+boba shop; the third could only be honest at a moment the user is already looking at the
+app.
+
+**How completion actually works:** nothing can run at the end of a backgrounded timer, so
+the notification is SCHEDULED at session start for the moment the session will end, and
+CANCELLED on pause, reset, or an in-app finish. `VERIFIED` lifecycle call order:
+`schedule, cancel, schedule, cancel` across start → pause → resume → complete.
+
+**Permission is requested on the first toggle the user turns on**, never at boot and never
+on a bare Settings open. iOS gives one prompt per install and spending it before the user
+has said what they want is how an app ends up permanently unable to tell someone their
+timer finished.
+
+**Denial is handled, `VERIFIED`:** with permission denied, toggling stores **nothing**
+(a pref that is on while permission is off is a switch that lies), the toggle stays off,
+and the copy points at device settings instead of asking again, because the OS will not
+re-prompt.
+
+> **FOUNDER ACTION for native.** `@capacitor/local-notifications` is **NOT installed**, so
+> on iOS `MrTNotify.backend` is `""` and the whole Reminders row hides. That is the safe
+> failure (nothing rather than a dead toggle), but it means **notifications do not work on
+> iPhone until the plugin is added**:
+> ```
+> npm i @capacitor/local-notifications && npx cap sync ios
+> ```
+> `NOT YET TESTED` on a device. The web path is `VERIFIED` and is explicitly described in
+> the UI as lasting only while the tab is open.
 
 ## GROWTH / SHARING STATUS (P8, partial)
 

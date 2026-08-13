@@ -450,6 +450,33 @@
             </button>
           </div>
 
+          <!-- Notifications. Two, and only two. No streak warnings and no "we
+               miss you" nudges: this app is a boba shop, not a collections
+               agency. The whole row hides when no backend exists (a desktop
+               browser without the Notification API), because a toggle that
+               cannot do anything is worse than no toggle. -->
+          <div class="settings-row stack hidden" id="notifyRow">
+            <span class="settings-row-label">Reminders</span>
+            <p class="settings-note" id="notifyNote">Mr. Tapioca can tell you when your
+              drink is ready, so you can put your phone down and forget about it.</p>
+            <div class="notify-line">
+              <span>When my drink is ready</span>
+              <button id="notifyDoneToggle" class="toggle" role="switch" aria-checked="false">
+                <span class="toggle-knob"></span>
+              </button>
+            </div>
+            <div class="notify-line">
+              <span>Daily nudge to study</span>
+              <button id="notifyDailyToggle" class="toggle" role="switch" aria-checked="false">
+                <span class="toggle-knob"></span>
+              </button>
+            </div>
+            <div class="notify-line hidden" id="notifyTimeLine">
+              <span>Nudge me at</span>
+              <input id="notifyTime" class="notify-time" type="time" value="20:00" aria-label="Daily reminder time">
+            </div>
+          </div>
+
           <div class="settings-row">
             <span class="settings-row-label">Welcome Tour</span>
             <button id="replayIntroBtn" class="settings-action-btn">Replay</button>
@@ -729,6 +756,10 @@
         <h2 id="redeemShop">Partner shop</h2>
         <p id="redeemAddress" class="redeem-address"></p>
         <div id="redeemPerk" class="redeem-perk"></div>
+        <!-- Server-issued handoff code. Hidden entirely unless Reward V2 is on
+             and the server actually returned one, so with the flag down this
+             element never renders and the card is exactly the v1 card. -->
+        <p id="redeemCode" class="redeem-code hidden" aria-live="polite"></p>
         <p id="redeemStamp" class="redeem-stamp"></p>
         <p id="redeemNote" class="redeem-note"></p>
         <div class="dialog-actions">
@@ -791,6 +822,9 @@
     <!-- Product analytics, feature-flagged OFF in config.js. Inert with the flag
          down: no queue, no network, no storage writes. -->
     <script src="analytics.js"></script>
+    <!-- Local notifications. Inert with no backend and schedules nothing until
+         the user turns a preference on in Settings. -->
+    <script src="notifications.js"></script>
     <!-- Reward V2, feature-flagged OFF in config.js. Both files return
          immediately when the flag is down, so with it off this is two script
          tags and no behaviour change. reward-config.js must load first:

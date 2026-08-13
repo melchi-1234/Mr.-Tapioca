@@ -352,6 +352,7 @@ const els = {
   redeemShop:           document.querySelector("#redeemShop"),
   redeemAddress:        document.querySelector("#redeemAddress"),
   redeemPerk:           document.querySelector("#redeemPerk"),
+  redeemCode:           document.querySelector("#redeemCode"),
   redeemStamp:          document.querySelector("#redeemStamp"),
   redeemNote:           document.querySelector("#redeemNote"),
   redeemConfirmBtn:     document.querySelector("#redeemConfirmBtn"),
@@ -384,6 +385,12 @@ const els = {
   installBtn:           document.querySelector("#installBtn"),
   installDismiss:       document.querySelector("#installDismiss"),
   devToggle:            document.querySelector("#devToggle"),
+  notifyRow:            document.querySelector("#notifyRow"),
+  notifyNote:           document.querySelector("#notifyNote"),
+  notifyDoneToggle:     document.querySelector("#notifyDoneToggle"),
+  notifyDailyToggle:    document.querySelector("#notifyDailyToggle"),
+  notifyTimeLine:       document.querySelector("#notifyTimeLine"),
+  notifyTime:           document.querySelector("#notifyTime"),
   statStreak:           document.querySelector("#statStreak"),
   streakFreezeNote:     document.querySelector("#streakFreezeNote"),
   statTotalTime:        document.querySelector("#statTotalTime"),
@@ -2190,6 +2197,14 @@ function beginFocus() {
       .catch(() => {});
   }
   const plannedMin = Math.round(modeDuration() / 60);
+  // Schedule "your drink is ready" for when this session will actually end.
+  // Nothing can RUN at the end of a backgrounded timer, so it is scheduled now
+  // and cancelled on pause, reset, or an in-app finish. No-op unless the user
+  // turned it on and granted permission.
+  if (window.MrTNotify) {
+    const endsAt = Date.now() + (modeDuration() - state.elapsed) * 1000;
+    Promise.resolve(MrTNotify.scheduleSessionDone(endsAt, currentDrinkName())).catch(() => {});
+  }
   trkOnce("first_focus_started", { planned_minutes: plannedMin });
   trk("session_started", {
     planned_minutes: plannedMin,
@@ -2208,6 +2223,9 @@ function pauseFocus() {
   stopMusic();
   FocusBlocker.stop();        // lift the shield when paused
   FocusActivity.stop();       // clear the Lock Screen countdown
+  // The session is no longer going to end when it said it would, so the pending
+  // "your drink is ready" would be a lie. beginFocus reschedules on resume.
+  if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});
   walkToStation("idle");      // walk back to his spot
   saveState();                // bank progress whenever the user pauses
 }
@@ -2402,6 +2420,9 @@ function completeSession() {
   if (window.RewardV2 && RewardV2.enabled) {
     Promise.resolve(RewardV2.completeSession()).catch(() => {});
   }
+  // Finished with the app open, so the user is already looking at the reward
+  // dialog. Firing the notification too would be talking to someone in the room.
+  if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});
   trkOnce("first_focus_completed", { actual_minutes: Math.round(state.elapsed / 60) });
   trk("session_completed", {
     planned_minutes: Math.round(modeDuration() / 60),
@@ -4437,6 +4458,37 @@ function earnedPerkCount() {
   return Math.max(0, perksEarnedTotal() - perksRedeemedTotal());
 }
 
+// ── ONE QUESTION, TWO POSSIBLE ANSWERERS ─────────────────────────────────────
+// Every reward surface (the map banner, the counter card, the drink-complete
+// line) asks these two functions and never the underlying ledger, so the choice
+// of authority lives in one place instead of being spread across the UI.
+//
+// Flag DOWN: the v1 local arithmetic below, byte for byte unchanged.
+// Flag UP:   the server, and the local numbers are not consulted at all. That is
+//            the whole point. v1's count is derived from localStorage the user
+//            can edit, so mixing the two would just reintroduce the hole.
+function rewardsInHand() {
+  if (window.RewardV2 && RewardV2.enabled && RewardV2.ready) return RewardV2.available().length;
+  return earnedPerkCount();
+}
+
+// { bar, done, left } in minutes, whoever is answering.
+function rewardProgressNow() {
+  if (window.RewardV2 && RewardV2.enabled && RewardV2.ready) {
+    const p = RewardV2.progress();
+    if (p) return { bar: p.bar, done: p.done, left: p.left };
+  }
+  return perkProgress();
+}
+
+// True when the server is the authority right now. The UI needs to know, because
+// the two modes show DIFFERENT things at the counter: v1 shows a ticking clock
+// that proves nothing, v2 shows a short server-issued code that the shop can
+// actually verify.
+function rewardServerMode() {
+  return !!(window.RewardV2 && RewardV2.enabled && RewardV2.ready);
+}
+
 // Focus minutes banked toward the NEXT perk, and what is still owed. Drives the
 // progress line on the drink-complete card, which is a far better thing to show
 // than a flat "not yet".
@@ -4934,7 +4986,7 @@ function placeShopMarkers(shops, lat, lng) {
 function renderPerkBanner(nearbyPartners) {
   const el = els.mapPerkBanner;
   if (!el) return;
-  const earned = earnedPerkCount();
+  const earned = rewardsInHand();
   const near = (nearbyPartners || []).length;
   let msg = "";
   if (earned > 0 && near > 0) {
@@ -4948,7 +5000,7 @@ function renderPerkBanner(nearbyPartners) {
   } else if (near > 0) {
     // Cumulative, so speak to how far off they actually are rather than quoting
     // the full bar at someone who is most of the way there.
-    msg = `${nearbyPartners[0].name} is a partner shop. ${durationLabel(perkProgress().left)} more focus to earn ${nearbyPartners[0].perk.toLowerCase()}.`;
+    msg = `${nearbyPartners[0].name} is a partner shop. ${durationLabel(rewardProgressNow().left)} more focus to earn ${nearbyPartners[0].perk.toLowerCase()}.`;
   }
   el.textContent = msg;
   el.classList.toggle("hidden", !msg);
@@ -5013,6 +5065,25 @@ function renderShopList(items) {
 // shops: nothing to install, nothing to manage.
 let redeemPartner = null;
 let redeemClock = null;
+let redeemCode = null;      // server-issued handoff code, server mode only
+
+// Plain English for every refusal the server can return. A student reading
+// "failed_offer_changed" at a counter learns nothing and cannot act; each of
+// these says what actually happened and what to do about it.
+function redeemFailCopy(reason) {
+  switch (reason) {
+    case "failed_already_redeemed": return "This reward has already been used.";
+    case "failed_expired":          return "This reward has expired.";
+    case "failed_code_expired":     return "That code timed out. Close this and open it again.";
+    case "failed_wrong_partner":    return "This reward is for a different shop.";
+    case "failed_partner_paused":   return "This shop is not offering the reward right now.";
+    case "failed_offer_changed":    return "This shop has changed its offer. Open this again for the new one.";
+    case "failed_outside_window":   return "This shop's reward is not available at this time of day.";
+    case "failed_capped":           return "This shop has reached its limit for now.";
+    case "offline":                 return "Could not reach the server. Try again with a signal.";
+    default:                        return "Could not get a code. Try again in a moment.";
+  }
+}
 
 function openRedeem(partner) {
   redeemPartner = partner;
@@ -5024,9 +5095,9 @@ function openRedeem(partner) {
   els.redeemAddress.textContent = partner.address || "";
   els.redeemPerk.textContent   = partner.perk;
 
-  const have = earnedPerkCount();
+  const have = rewardsInHand();
   const ready = have > 0;
-  const prog = perkProgress();
+  const prog = rewardProgressNow();
   els.redeemConfirmBtn.disabled = !ready;
   // Not-ready shows how much focus is LEFT, not the whole bar. Someone three and
   // a half hours in should see thirty minutes to go, not "focus for 4 hrs".
@@ -5034,6 +5105,48 @@ function openRedeem(partner) {
     ? `You have ${have} reward${have !== 1 ? "s" : ""} saved.`
     : `${durationLabel(prog.left)} of focus to go.`;
   els.redeemDialog.classList.toggle("not-ready", !ready);
+
+  // Server mode: ask for a short code the shop can actually verify. Everything
+  // that can refuse this reward is checked NOW, on the student's own screen,
+  // rather than at the counter with a queue behind them.
+  redeemCode = null;
+  if (els.redeemCode) {
+    els.redeemCode.textContent = "";
+    els.redeemCode.classList.add("hidden");
+  }
+  if (rewardServerMode() && ready) {
+    const held = RewardV2.rewardFor(partner.id);
+    if (!held) {
+      els.redeemNote.textContent = "No reward for this shop yet.";
+      els.redeemConfirmBtn.disabled = true;
+    } else {
+      els.redeemNote.textContent = "Getting your code…";
+      els.redeemConfirmBtn.disabled = true;
+      Promise.resolve(RewardV2.openRedemption(held.id, partner.id)).then((res) => {
+        // The sheet may have been closed, or reopened on a different shop, while
+        // the request was in flight. Dropping a stale response matters here:
+        // showing shop A's code under shop B's name is how a cashier hands over
+        // something their shop never agreed to.
+        if (!els.redeemDialog.open || redeemPartner !== partner) return;
+        if (res && res.ok) {
+          redeemCode = res.code;
+          if (els.redeemCode) {
+            els.redeemCode.textContent = res.code;
+            els.redeemCode.classList.remove("hidden");
+          }
+          els.redeemNote.textContent = "Show this code to the cashier.";
+          els.redeemConfirmBtn.disabled = false;
+        } else {
+          els.redeemNote.textContent = redeemFailCopy(res && res.reason);
+          els.redeemDialog.classList.add("not-ready");
+        }
+      }).catch(() => {
+        if (!els.redeemDialog.open || redeemPartner !== partner) return;
+        els.redeemNote.textContent = redeemFailCopy("offline");
+        els.redeemDialog.classList.add("not-ready");
+      });
+    }
+  }
 
   // Tick every second while the card is open. Cleared on close so a backgrounded
   // sheet is not holding a timer forever.
@@ -5054,10 +5167,45 @@ function openRedeem(partner) {
 function closeRedeem() {
   clearInterval(redeemClock);
   redeemClock = null;
+  redeemCode = null;
 }
 
 function confirmRedeem() {
-  if (earnedPerkCount() <= 0 || !redeemPartner) return;
+  if (!redeemPartner) return;
+
+  // Server mode: the ONE atomic spend. Normally the cashier does this from the
+  // verification page on their own device, which is what makes it a merchant
+  // action rather than a student self-declaration. This is the fallback for a
+  // shop that would rather the student tap it, and it hits the identical RPC.
+  if (rewardServerMode()) {
+    if (!redeemCode) return;
+    const btn = els.redeemConfirmBtn;
+    if (btn) btn.disabled = true;
+    const code = redeemCode;
+    redeemCode = null;                 // a double tap cannot fire a second spend
+    Promise.resolve(RewardV2.redeemByCode(code)).then((res) => {
+      if (res && res.ok) {
+        trk("redemption_completed", { partner_id: redeemPartner.id || null });
+        playSfx("success");
+        showToast(`Used at ${res.partner_name || redeemPartner.name}. Enjoy 🧋`);
+        try { els.redeemDialog.close(); } catch (e) {}
+        renderAll();
+      } else {
+        trk("redemption_failed", { partner_id: redeemPartner.id || null,
+                                   reason: (res && res.reason) || "unknown" });
+        els.redeemNote.textContent = redeemFailCopy(res && res.reason);
+        els.redeemDialog.classList.add("not-ready");
+        if (els.redeemCode) els.redeemCode.classList.add("hidden");
+      }
+    }).catch(() => {
+      els.redeemNote.textContent = redeemFailCopy("offline");
+      if (btn) btn.disabled = false;
+    });
+    return;
+  }
+
+  // v1, unchanged: a local ledger entry. Live today.
+  if (earnedPerkCount() <= 0) return;
   if (!Array.isArray(state.perkRedemptions)) state.perkRedemptions = [];
   state.perkRedemptions.push({
     at: Date.now(),
@@ -6574,6 +6722,80 @@ if (window.SquadCloud && SquadCloud.enabled) {
 // A failure here must never reach the app, hence the swallow.
 if (window.RewardV2 && RewardV2.enabled) {
   Promise.resolve(RewardV2.init()).catch(() => {});
+}
+
+// ── Notification settings ────────────────────────────────────────────────────
+// Permission is requested on the FIRST toggle the user turns on, never at boot
+// and never on a bare Settings open. iOS gives one prompt per install, and
+// spending it before the user has said what they want is how an app ends up
+// permanently unable to tell someone their timer finished.
+function renderNotifySettings() {
+  if (!els.notifyRow) return;
+  const has = !!(window.MrTNotify && MrTNotify.available());
+  els.notifyRow.classList.toggle("hidden", !has);
+  if (!has) return;
+
+  const p = MrTNotify.prefs();
+  const denied = MrTNotify.permission === "denied";
+
+  els.notifyDoneToggle.classList.toggle("on", p.done && !denied);
+  els.notifyDoneToggle.setAttribute("aria-checked", String(p.done && !denied));
+  els.notifyDailyToggle.classList.toggle("on", p.daily && !denied);
+  els.notifyDailyToggle.setAttribute("aria-checked", String(p.daily && !denied));
+  els.notifyTimeLine.classList.toggle("hidden", !(p.daily && !denied));
+
+  const hh = String(Math.floor(p.dailyMin / 60)).padStart(2, "0");
+  const mm = String(p.dailyMin % 60).padStart(2, "0");
+  els.notifyTime.value = hh + ":" + mm;
+
+  // Denial is a dead end inside the app: the OS will not re-prompt, so saying
+  // "allow notifications" again would send the user in a circle. Say where the
+  // switch actually lives instead.
+  els.notifyNote.textContent = denied
+    ? "Notifications are turned off for Mr. Tapioca in your device settings. You can turn them back on there."
+    : (MrTNotify.backend === "web"
+      ? "Your browser can tell you when your drink is ready, as long as this tab stays open."
+      : "Mr. Tapioca can tell you when your drink is ready, so you can put your phone down and forget about it.");
+}
+
+async function toggleNotifyPref(key) {
+  if (!(window.MrTNotify && MrTNotify.available())) return;
+  const p = MrTNotify.prefs();
+  const turningOn = !p[key];
+
+  if (turningOn && MrTNotify.permission !== "granted") {
+    const res = await MrTNotify.requestPermission();
+    if (res !== "granted") {
+      // Do NOT store the preference. A pref that is on while permission is off
+      // is a switch that lies about what the app is going to do.
+      renderNotifySettings();
+      showToast("Notifications are off in your device settings.");
+      return;
+    }
+  }
+  await MrTNotify.setPref(key, turningOn);
+  playSfx("tap");
+  renderNotifySettings();
+}
+
+function wireNotifySettings() {
+  if (!els.notifyRow) return;
+  els.notifyDoneToggle.addEventListener("click", () => toggleNotifyPref("done"));
+  els.notifyDailyToggle.addEventListener("click", () => toggleNotifyPref("daily"));
+  els.notifyTime.addEventListener("change", async () => {
+    const parts = String(els.notifyTime.value || "").split(":");
+    const mins = (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+    if (!isFinite(mins)) return;
+    await MrTNotify.setPref("dailyMin", mins);
+    renderNotifySettings();
+  });
+}
+
+// Re-arm the daily reminder the user already asked for. Schedules nothing on a
+// fresh install: a notification nobody opted into is spam by definition.
+if (window.MrTNotify) {
+  Promise.resolve(MrTNotify.init()).then(renderNotifySettings).catch(() => {});
+  wireNotifySettings();
 }
 
 // Reflect persisted prefs in the UI before first paint

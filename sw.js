@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v187";
+const CACHE = "mr-tapioca-v188";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -18,6 +18,7 @@ const SHELL = [
   "squad-cloud.js",
   "metrics.js",
   "analytics.js",
+  "notifications.js",
   "reward-config.js",
   "reward-v2.js",
   "app.js",

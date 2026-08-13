@@ -4,7 +4,7 @@
   "private": true,
   "description": "Mr. Tapioca — boba focus app. Web app + Capacitor iOS shell (with a native Screen Time blocker).",
   "scripts": {
-    "copyweb": "rm -rf www && mkdir www && cp index.html styles.css app.js config.js squad-cloud.js metrics.js analytics.js reward-config.js reward-v2.js sw.js manifest.json www/ && cp -R assets www/assets && find www -name '.DS_Store' -delete",
+    "copyweb": "rm -rf www && mkdir www && cp index.html styles.css app.js config.js squad-cloud.js metrics.js analytics.js notifications.js reward-config.js reward-v2.js sw.js manifest.json www/ && cp -R assets www/assets && find www -name '.DS_Store' -delete",
     "test": "node --test tests/*.test.js",
     "ios:register": "node tools/register-ios-plugins.mjs",
     "ios:sync": "npm run copyweb && npx cap sync ios ; node tools/register-ios-plugins.mjs",

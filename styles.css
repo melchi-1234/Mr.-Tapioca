@@ -3094,6 +3094,56 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   line-height: 1.25;
 }
 /* Tabular figures so the ticking seconds do not jiggle the line width. */
+/* The server-issued handoff code, in SERVER mode only. It has to be readable
+   across a counter at arm's length and unambiguous when read aloud, so it is
+   large, wide-tracked and tabular. The alphabet already drops 0/O and 1/I; the
+   spacing is what stops "8" and "B" blurring together at a glance.
+   .hidden needs restating because this rule sets its own display. */
+/* Notification settings rows. Reuses the existing .toggle switch and the
+   --ui-* material; only the layout of each line is new. */
+.notify-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;          /* the house 44px hit area */
+}
+.notify-line.hidden { display: none; }
+.notify-line > span { font-weight: 700; }
+.settings-note {
+  margin: 2px 0 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: .78;
+}
+.notify-time {
+  font: inherit;
+  font-weight: 800;
+  padding: 8px 10px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: var(--ui-edge, 2px solid rgba(60,32,24,.18));
+  background: rgba(255,255,255,.7);
+  color: inherit;
+}
+
+.redeem-code {
+  display: block;
+  margin: 10px auto 2px;
+  padding: 10px 14px;
+  max-width: max-content;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  font-variant-numeric: tabular-nums;
+  color: var(--bark, #3c2018);
+  background: rgba(255, 255, 255, .72);
+  border: 2px solid rgba(60, 32, 24, .18);
+  border-radius: 14px;
+}
+.redeem-code.hidden { display: none; }
+
 .redeem-stamp {
   font-size: 0.78rem;
   font-weight: 850;
