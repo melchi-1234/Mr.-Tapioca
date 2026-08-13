@@ -4,7 +4,7 @@
 RESUME HERE at the bottom. Do NOT re-run the 43-agent inspection; its findings are in
 GROUNDING.md and were adversarially verified.
 
-**Last updated:** 2026-08-13, end of loop 8 (reward UI + notifications). Previously: loop 7. Suite GREEN at 153/153. **12 of the 14 red-team findings are closed.** Local commits only, nothing pushed.
+**Last updated:** 2026-08-13, end of loop 9 (reward share card + onboarding cut to 4). Previously: loop 8. Suite GREEN at 153/153. **12 of the 14 red-team findings are closed.** Local commits only, nothing pushed.
 
 ---
 
@@ -256,6 +256,68 @@ re-prompt.
 > ```
 > `NOT YET TESTED` on a device. The web path is `VERIFIED` and is explicitly described in
 > the UI as lasting only while the tab is open.
+
+## ONBOARDING STATUS (P6, done)
+
+`VERIFIED` in a real browser on a fresh install.
+
+**Before:** 7 story slides, then a 9-step feature tour auto-started 700ms later, then on
+iPhone the blocking prompt. **16 screens on web, 17 on iPhone**, before anyone had focused
+for a single minute. Four of the seven slides explained break games, pearls, the shop and
+the leaderboard, which are things a person finds by tapping the nav and none of which are
+the reason to open the app.
+
+**Now:** **3 slides on web, 4 on iPhone**, and the feature tour no longer auto-starts (it
+is offered once and lives in Settings under Feature Tour).
+
+| # | Slide | Shown |
+|---|---|---|
+| 1 | Say Hello to Mr. Tapioca! (who he is, what the loop is) | everywhere |
+| 2 | He guards your phone (why Screen Time is worth granting) | **iPhone only** |
+| 3 | Real boba, not just points | everywhere |
+| 4 | Now that we're friends (name) | everywhere |
+
+Steps 3 and 4 of the brief (choose apps, start the first session) are deliberately NOT
+slides: both already exist as real UI. The block prompt appears on the first Start press
+and Start is the first thing on the home screen. A slide in front of either would be
+describing a button instead of handing it over.
+
+A `native: true` slide is dropped on web, where there is no blocker to explain and the
+screen would be a promise the build cannot keep. `onboardDeck()` is the single filtered
+list, and the dots, the Next/Let's go switch and the finish check all read it.
+
+**Bug found and fixed while building this:** the native check was written
+`window.FocusBlocker && …`, but `FocusBlocker` is a top-level `const` and never lands on
+`window`, so that guard was false on **every** build including a real iPhone and the
+Screen Time slide could never have appeared. `VERIFIED` after the fix: web deck 3, native
+deck 4.
+
+Screenshots: `01-onboarding-first-slide.png`, `03-onboarding-screentime.png`,
+`02-onboarding-real-boba.png`. An earlier capture of the Screen Time slide silently showed
+slide 1 (the render call had failed); it was deleted and re-shot rather than kept.
+
+## REWARD SHARE CARD (P8, done)
+
+`VERIFIED`: both variants render (~255KB PNGs) and the drink-complete share button routes
+correctly.
+
+`buildRewardCard()` reuses `buildShareCard`'s canvas approach. Two variants:
+- **earned** — no shop named, because a passport reward is not tied to a shop yet and
+  naming one would be inventing a deal.
+- **redeemed** — shop and offer named, which is safe here and only here: the user has just
+  stood in that shop.
+
+**Deliberately not on the card:** the redemption CODE (a code on a public post is a reward
+anybody can spend, which is the whole thing redemption is designed to stop), any location,
+and any study history beyond the single focus figure that bought the reward.
+
+One button, two cards: when a drink crosses a partner threshold the button becomes
+"Share my reward" and shares the reward card; otherwise it stays "Share my drink". Both
+carry `?src=reward_share` / `?src=focus_share`. `VERIFIED` routing:
+`[["reward",{minutes:240}],["drink",30]]`.
+
+After a successful server-mode redemption the app offers the card once, via the existing
+in-world confirm dialog.
 
 ## GROWTH / SHARING STATUS (P8, partial)
 

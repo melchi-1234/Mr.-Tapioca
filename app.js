@@ -2682,6 +2682,126 @@ function shareTimePhrase(mins) {
   return m ? `${h}h ${m}m` : `${h} hour${h !== 1 ? "s" : ""}`;
 }
 
+// ── Shareable "I earned real boba" card ──────────────────────────────────────
+// The moment worth posting. A finished drink is a nice picture; four hours of
+// focus that turned into an actual discount at an actual shop is a story, and it
+// is the only thing this app does that nothing else does.
+//
+// WHAT IS DELIBERATELY NOT ON IT:
+//   * The redemption CODE. Never. A code on a public post is a reward anybody can
+//     spend, and the whole redemption design exists to stop exactly that.
+//   * Any location. Not the user's, not a map, not an address. The shop NAME only
+//     appears when the card is made from a completed redemption, where the user
+//     has just stood in that shop themselves.
+//   * Any study history. One number, the focus time that bought this reward.
+//     Not a session log, not a streak, not a daily breakdown.
+async function buildRewardCard(opts) {
+  const W = 1080, H = 1350;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const c = cv.getContext("2d");
+  const bark = "#3d2117", cream = "#fffaf3", muted = "#9a7c68", caramel = "#d99e5c";
+  const mint = "#7fc2ae";
+
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#fdf1e2"); g.addColorStop(1, "#f2d6b8");
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+
+  c.fillStyle = "rgba(61,33,23,0.05)";
+  [[120,180,60],[980,260,90],[940,1120,70],[110,1180,50],[860,700,40]]
+    .forEach(([x, y, r]) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); });
+
+  const pad = 64, cardY = 132, cardW = W - pad * 2, cardH = H - 264;
+  c.save();
+  c.shadowColor = "rgba(61,33,23,0.18)"; c.shadowBlur = 40; c.shadowOffsetY = 18;
+  canvasRoundRect(c, pad, cardY, cardW, cardH, 60);
+  c.fillStyle = cream; c.fill();
+  c.restore();
+  canvasRoundRect(c, pad, cardY, cardW, cardH, 60);
+  c.lineWidth = 5; c.strokeStyle = "#ecdecb"; c.stroke();
+
+  c.textAlign = "center";
+  c.fillStyle = caramel;
+  c.font = "800 34px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText(opts.redeemed ? "REWARD REDEEMED" : "REAL BOBA EARNED", W / 2, cardY + 96);
+
+  try {
+    const charSrc = (state.skin && SKIN_IMAGES[state.skin]) ? SKIN_IMAGES[state.skin] : "assets/Mr. Tapioca.png";
+    const im = await loadImage(charSrc);
+    const cs = 420;
+    c.drawImage(im, W / 2 - cs / 2, cardY + 128, cs, cs);
+  } catch (e) { /* a missing skin must not cost the user their card */ }
+
+  // The headline number: the focus that bought it.
+  c.fillStyle = bark;
+  c.font = "900 88px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText(durationLabel(opts.minutes || 0), W / 2, cardY + 640);
+  c.fillStyle = muted;
+  c.font = "600 34px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("of focus", W / 2, cardY + 690);
+
+  // The perk, in a coupon-shaped chip so it reads as a thing you can hold.
+  const chipW = cardW - 140, chipH = 150, chipX = W / 2 - chipW / 2, chipY = cardY + 740;
+  canvasRoundRect(c, chipX, chipY, chipW, chipH, 34);
+  c.fillStyle = "rgba(127,194,174,0.16)"; c.fill();
+  c.setLineDash([14, 10]); c.lineWidth = 4; c.strokeStyle = mint; c.stroke();
+  c.setLineDash([]);
+
+  c.fillStyle = bark;
+  if (opts.shopName) {
+    c.font = "900 46px system-ui, -apple-system, Segoe UI, sans-serif";
+    c.fillText(opts.shopName, W / 2, chipY + 60);
+    c.fillStyle = muted;
+    c.font = "700 36px system-ui, -apple-system, Segoe UI, sans-serif";
+    c.fillText(opts.offerText || "", W / 2, chipY + 110);
+  } else {
+    // No shop is named when the reward is EARNED rather than spent: a passport
+    // reward is not tied to a shop yet, and naming one would be inventing a deal.
+    c.font = "900 42px system-ui, -apple-system, Segoe UI, sans-serif";
+    c.fillText("A real perk at a partner", W / 2, chipY + 62);
+    c.fillStyle = muted;
+    c.font = "700 34px system-ui, -apple-system, Segoe UI, sans-serif";
+    c.fillText("boba shop", W / 2, chipY + 108);
+  }
+
+  c.fillStyle = bark;
+  c.font = "900 46px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("Mr. Tapioca 🧋", W / 2, H - 96);
+  c.fillStyle = muted;
+  c.font = "600 30px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("mrtapioca.me", W / 2, H - 52);
+
+  return await new Promise((res) => cv.toBlob(res, "image/png"));
+}
+
+// Share it. Same plumbing as shareDrink: native share sheet where there is one,
+// a download plus the link on the clipboard where there is not.
+async function shareRewardEarned(opts) {
+  try {
+    const blob = await buildRewardCard(opts || {});
+    if (!blob) throw new Error("no blob");
+    const file = new File([blob], "mr-tapioca-reward.png", { type: "image/png" });
+    const text = opts && opts.shopName
+      ? `Studied ${durationLabel(opts.minutes || 0)} and got ${(opts.offerText || "a perk").toLowerCase()} at ${opts.shopName} 🧋`
+      : `${durationLabel((opts && opts.minutes) || 0)} of focus just earned me real boba 🧋`;
+    const url = installLink("reward_share");
+    trk("reward_card_shared", { redeemed: !!(opts && opts.redeemed) });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: "Mr. Tapioca", text, url });
+    } else {
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u; a.download = "mr-tapioca-reward.png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(u), 5000);
+      try { await navigator.clipboard.writeText(url); } catch (e) {}
+      showToast("Saved your card. The link is on your clipboard 🧋");
+    }
+  } catch (e) {
+    if (!(e && e.name === "AbortError")) showToast("Couldn't make the card — try again.");
+  }
+}
+
 async function shareDrink(reward) {
   const btn = document.getElementById("shareRewardBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Making your card…"; }
@@ -2759,6 +2879,13 @@ function showReward(reward) {
   const earned = reward.partner.startsWith("🌟");
   els.partnerReward.classList.toggle("has-perk", earned);
   els.partnerReward.classList.toggle("is-next", !earned);
+
+  // One button, two cards. When this drink just crossed a partner threshold the
+  // shareable moment is the REWARD, not the drink, so the button offers that
+  // instead. No second button: the dialog is the most celebratory screen in the
+  // app and it does not need a row of choices on it.
+  const shareBtn = document.getElementById("shareRewardBtn");
+  if (shareBtn) shareBtn.textContent = earned ? "Share my reward" : "Share my drink";
 
   if (typeof els.rewardDialog.showModal === "function") {
     els.rewardDialog.showModal();
@@ -4411,6 +4538,7 @@ const ICON = {
   games:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="11" rx="4.5"/><path d="M7 11v3M5.5 12.5h3M15.5 12h.01M18 14h.01"/></svg>',
   trophy: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H4.5A2.5 2.5 0 0 0 7 9M17 5.5h2.5A2.5 2.5 0 0 1 17 9M12 14v3M8.5 20h7l-.7-3h-5.6l-.7 3Z"/></svg>',
   map:    '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 4-6 2.5v13L9 17l6 2.5 6-2.5V4l-6 2.5L9 4Z"/><path d="M9 4v13M15 6.5v13"/></svg>',
+  shield: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l7.5 3.2v5.9c0 4.6-3.1 8.3-7.5 10.2-4.4-1.9-7.5-5.6-7.5-10.2V5.7L12 2.5Z"/><path d="M9 12.2l2.1 2.1L15.2 10"/></svg>',
   pin:    '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5a6.5 6.5 0 0 0-6.5 6.5c0 4.6 5.6 11.3 6.1 11.9a.6.6 0 0 0 .9 0c.4-.6 6-7.3 6-11.9A6.5 6.5 0 0 0 12 2.5Zm0 9a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/></svg>',
   boba:   '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6.5 7h11l-1 12.5a1.6 1.6 0 0 1-1.6 1.5H9.1a1.6 1.6 0 0 1-1.6-1.5L6.5 7Z"/><path d="M5.6 7h12.8M14 3.2 12.6 7" stroke-linecap="round"/><circle cx="10" cy="17" r="1.3" fill="currentColor" stroke="none"/><circle cx="13.6" cy="17.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="14.6" r="1.3" fill="currentColor" stroke="none"/></svg>',
   cup:    '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 7h12l-1 12.4a1.6 1.6 0 0 1-1.6 1.6H8.6A1.6 1.6 0 0 1 7 19.4L6 7Z"/><path d="M5 7h14" stroke-linecap="round"/></svg>',
@@ -5190,6 +5318,21 @@ function confirmRedeem() {
         showToast(`Used at ${res.partner_name || redeemPartner.name}. Enjoy 🧋`);
         try { els.redeemDialog.close(); } catch (e) {}
         renderAll();
+        // Offer the card for the moment that just happened. Naming the shop is
+        // safe here and only here: the user has just stood in it. The code is
+        // never on the card.
+        askConfirm(
+          "Post the reward you just picked up. The card carries no code and no location.",
+          { eyebrow: "Nice one", title: "Share it?",
+            confirmLabel: "Make my card", cancelLabel: "Not now" }
+        ).then((yes) => {
+          if (yes) shareRewardEarned({
+            minutes: rewardProgressNow().bar,
+            shopName: res.partner_name || redeemPartner.name,
+            offerText: res.offer_text || redeemPartner.perk,
+            redeemed: true,
+          });
+        }).catch(() => {});
       } else {
         trk("redemption_failed", { partner_id: redeemPartner.id || null,
                                    reason: (res && res.reason) || "unknown" });
@@ -5607,41 +5750,60 @@ function openFriends() {
 
 // ── First-run onboarding ──────────────────────────────────────────────────────
 
-const ONBOARD_STEPS = [
+// ── ONBOARDING: FOUR SLIDES ──────────────────────────────────────────────────
+// It was seven slides, then a nine-step feature tour auto-started 700ms later,
+// then on iPhone the blocking prompt. Sixteen screens on web and seventeen on
+// iPhone before anyone had focused for a single minute, and the slides spent
+// four of those seven explaining break games, pearls, the shop and the
+// leaderboard: things a person discovers by tapping the nav, and none of which
+// are the reason to open this app.
+//
+// Four now, and they are the four the product actually needs:
+//   1. who he is and what the loop is
+//   2. why Screen Time access is worth granting        (iPhone; skipped on web)
+//   3. what the focus time is really worth
+//   4. what should I call you
+//
+// Choosing the apps to block and starting the first session are steps 3 and 4 of
+// the brief, and both already exist as real UI: the block prompt appears on the
+// first Start press, and the Start button is the first thing on the home screen.
+// Putting slides in front of them would be describing a button instead of
+// handing it over. The feature tour is no longer auto-started; it is offered
+// once, and it lives in Settings under Feature Tour.
+// The slides this build actually shows. A `native: true` slide is dropped on web,
+// where there is no blocker to explain and the screen would be a promise the
+// build cannot keep. Everything that indexes the deck reads THIS, so the dots,
+// the "Next"/"Let's go" switch and the finish check all stay in step.
+function onboardDeck() {
+  // NOT window.FocusBlocker: it is a top-level `const` (see ~line 1929), so it
+  // never lands on window and that guard short-circuits to false on every build,
+  // including a real iPhone. The rest of the file calls FocusBlocker.available()
+  // directly and so does this.
+  const nativeBuild = typeof FocusBlocker !== "undefined" &&
+    typeof FocusBlocker.available === "function" && FocusBlocker.available();
+  return ONBOARD_STEPS_ALL.filter((st) => !st.native || nativeBuild);
+}
+
+const ONBOARD_STEPS_ALL = [
   {
     img: "assets/Mr. Tapioca.png",
     title: "Say Hello to Mr. Tapioca!",
-    body: "Your favorite study buddy. He brews boba while you focus."
+    body: "Your study buddy. Set a timer, and he brews a boba while you focus. Finish, and the drink is yours."
   },
   {
-    emoji: ICON.games,
-    title: "Work Hard, Play Hard!",
-    body: "Break games live here: Catch the Pearls, Boba Plinko, and Cup Pong. Finish a real focus session to unlock them on your break and win bonus pearls."
-  },
-  {
-    img: "assets/Cup.png",
-    title: "Focus Fills your Cup!",
-    body: "Set the timer, start focusing, and watch the cup fill. Earn yourself a boba drink with each study sesh."
-  },
-  {
-    img: "assets/Tapioca Currency.png",
-    title: "Earn Pearls as You Go!",
-    body: "Every 15 minutes = 1 pearl earned. Spend them on character skins and backgrounds in the shop."
-  },
-  {
-    emoji: ICON.trophy,
-    title: "Share with Friends!",
-    body: "Show off your focus stats with invited users on a group leaderboard."
+    emoji: ICON.shield,
+    native: true,          // iPhone only: the web app cannot block anything
+    title: "He guards your phone",
+    body: "On iPhone he can shield your distracting apps for the length of a session, so the thing you were going to reach for is not there. You pick which apps, and iOS keeps that list private. Nobody else sees it, including us."
   },
   {
     emoji: ICON.map,
     // This slide used to say "Stay tuned to unlock discounts", which was written
     // before any shop had signed. Two have now, so "stay tuned" told a new user
     // the one real thing about this app was still hypothetical. It says what the
-    // loop actually is instead: focus, fill the cup, and where a partner exists,
-    // that time is worth something over a counter. The number is deliberately not
-    // named here (it is per shop, and the Boba Map prints each shop's own words),
-    // and neither is a shop, because most people opening this are nowhere near one.
+    // loop actually is instead. The number is deliberately not named (it is per
+    // shop, and the Boba Map prints each shop's own words), and neither is a
+    // shop, because most people opening this are nowhere near one.
     title: "Real boba, not just points",
     body: "Focus time fills your drink. Where a shop has partnered with us, that same time earns a real perk you pick up in person. Open the Boba Map to see if there is one near you. Everything else works wherever you are."
   },
@@ -5662,7 +5824,7 @@ function showOnboarding() {
 }
 
 function renderOnboardStep() {
-  const step = ONBOARD_STEPS[onboardStep];
+  const step = onboardDeck()[onboardStep];
   if (step.emoji) {
     els.onboardEmoji.innerHTML = step.emoji;   // SVG markup, not a glyph
     els.onboardEmoji.classList.remove("hidden");
@@ -5691,19 +5853,19 @@ function renderOnboardStep() {
     }
   }
 
-  els.onboardDots.innerHTML = ONBOARD_STEPS
+  els.onboardDots.innerHTML = onboardDeck()
     .map((_, i) => `<span class="${i === onboardStep ? "on" : ""}"></span>`)
     .join("");
 
   els.onboardBack.classList.toggle("hidden", onboardStep === 0);
   els.onboardNext.textContent = isName ? "That's me! 🧋"
-    : (onboardStep === ONBOARD_STEPS.length - 1 ? "Let's go! 🧋" : "Next");
+    : (onboardStep === onboardDeck().length - 1 ? "Let's go! 🧋" : "Next");
 }
 
 function onboardAdvance() {
   // If we're leaving the name step, save the chosen name (free — this is the
   // initial set; later changes cost pearls, then real money — see editSquadName).
-  const step = ONBOARD_STEPS[onboardStep];
+  const step = onboardDeck()[onboardStep];
   if (step && step.name && els.onboardNameInput) {
     const n = (els.onboardNameInput.value || "").trim().slice(0, 24);
     if (n) {
@@ -5712,7 +5874,7 @@ function onboardAdvance() {
       if (window.SquadCloud && SquadCloud.ready) SquadCloud.pushProfile();
     }
   }
-  if (onboardStep >= ONBOARD_STEPS.length - 1) {
+  if (onboardStep >= onboardDeck().length - 1) {
     finishOnboarding();
   } else {
     onboardStep++;
@@ -5740,7 +5902,10 @@ function finishOnboarding(skipped) {
   // Someone who hit "Skip" opted OUT of hand-holding — forcing the 10-step tour
   // on them anyway is the opposite of what Skip promised. (Replayable in Settings.)
   if (skipped === true) { localStorage.setItem("bobaFocusTourDone", "skipped"); return; }
-  if (!localStorage.getItem("bobaFocusTourDone")) setTimeout(startFeatureTour, 700);
+  // The feature tour is NO LONGER auto-started here. It was nine more screens
+  // landing 700ms after a new user finally reached the app, before they had
+  // focused for a minute. It is offered once (see the boot block) and always
+  // available under Settings > Feature Tour.
 }
 
 // ── Feature tour: spotlight coach marks over the real UI ─────────────────────
@@ -6552,7 +6717,15 @@ function wireEvents() {
   const shareBtn = document.getElementById("shareRewardBtn");
   if (shareBtn) shareBtn.addEventListener("click", () => {
     playSfx("tap");
-    if (lastReward) shareDrink(lastReward);
+    if (!lastReward) return;
+    // A drink that just crossed a partner threshold shares the REWARD card. The
+    // star prefix is the same signal showReward() uses to style the line as a
+    // coupon, so the two cannot disagree about which moment this is.
+    if (typeof lastReward.partner === "string" && lastReward.partner.startsWith("🌟")) {
+      shareRewardEarned({ minutes: lastReward.minutes });
+    } else {
+      shareDrink(lastReward);
+    }
   });
 
   // ── Games ────────────────────────────────────────────────────────────────
