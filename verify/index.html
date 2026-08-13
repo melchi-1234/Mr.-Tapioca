@@ -1,0 +1,1288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- A shop tool, not a marketing page. Keeping it out of search means a stray
+     search result can never put a cashier on a stale cached copy of it. -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f3e7d6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1d120e" media="(prefers-color-scheme: dark)">
+<title>Reward check · Mr. Tapioca</title>
+<link rel="icon" href="../assets/icon-192.png">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   CASHIER VERIFICATION PAGE
+
+   The promise made to every shop is that there is NOTHING TO INSTALL and no
+   account. So this is one HTML file: no build step, no framework, no login, no
+   service worker of its own. A barista opens a link on the till browser or on
+   their own phone, types six characters, and gets one enormous word.
+
+   Design order, and it is an order, not a list:
+     1. A cashier decides in ten seconds. One status word, one colour, the shop
+        name, the exact offer. Everything else is below that.
+     2. Two steps, never one. CHECK is read only. MARK AS USED is the only thing
+        that spends a reward, and it is a separate deliberate press.
+     3. Fail closed. If we could not reach the server, the answer is "do not
+        honour this", never "probably fine".
+
+   Visual language matches the app: Inter, the --ui-* warm paper material from
+   styles.css, rounded cards, inline SVG icons only (24x24, fill none, stroke
+   currentColor, width 2, round caps). No emoji is used as an icon.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light dark;
+
+  --page:      #f3e7d6;
+  --ink:       #3c2018;   /* --bark   in styles.css */
+  --ink-soft:  #7a5546;   /* --bark-mid-ish, for secondary copy */
+
+  /* The one UI material, lifted verbatim from styles.css so this page and the
+     app look like the same product. One light direction, from above. */
+  --paper: linear-gradient(180deg, #fffbf3 0%, #fdf4e6 58%, #f8ecda 100%);
+  --edge:  rgba(96,58,36,0.20);
+  --sheen: inset 0 1.5px 0 rgba(255,255,255,0.95);
+  --lift:  0 1px 0 rgba(96,58,36,0.10),
+           0 6px 14px -6px rgba(60,32,24,0.26),
+           0 16px 32px -20px rgba(60,32,24,0.34);
+
+  --field:     #fffdf8;
+  --ok:        #0d7a4f;
+  --ok-soft:   rgba(13,122,79,0.10);
+  --no:        #b23125;
+  --no-soft:   rgba(178,49,37,0.09);
+  --demo:      #f0bb4f;   /* --gold */
+  --demo-ink:  #4a2f08;
+
+  /* The finished state is always INVERTED against the page, in both schemes.
+     That is what makes "this reward is spent" impossible to misread as "this
+     reward is fine": it is not another coloured word on the same paper, it is a
+     different card. */
+  --done-bg:   #2b1a13;
+  --done-ink:  #fdf5ec;
+
+  /* Set so nothing that reads --tone can ever be an undefined var, which in CSS
+     drops the WHOLE declaration (a `border: 2px solid var(--undefined)` leaves
+     border-style: none, not a default border). Every verdict overrides it. */
+  --tone: var(--ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page:     #1d120e;
+    --ink:      #f7ecdd;
+    --ink-soft: #c0a48f;
+    --paper: linear-gradient(180deg, #34211a 0%, #2c1b15 58%, #251611 100%);
+    --edge:  rgba(255,232,206,0.16);
+    --sheen: inset 0 1.5px 0 rgba(255,255,255,0.06);
+    --lift:  0 1px 0 rgba(0,0,0,0.35),
+             0 6px 14px -6px rgba(0,0,0,0.55),
+             0 16px 32px -20px rgba(0,0,0,0.7);
+    --field:    #241611;
+    --ok:       #57d39a;
+    --ok-soft:  rgba(87,211,154,0.12);
+    --no:       #ff8b78;
+    --no-soft:  rgba(255,139,120,0.12);
+    --done-bg:  #f4e9d8;
+    --done-ink: #241410;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100svh;
+  /* overflow-x hidden is the belt; every wide thing below also has its own
+     braces (max-width, break-word). A till browser at 320px must never scroll
+     sideways to read a verdict. */
+  overflow-x: hidden;
+  background: var(--page);
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+}
+h1, h2, p, dl, dd, dt { margin: 0; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--ok); outline-offset: 3px; border-radius: 10px; }
+[hidden] { display: none !important; }
+
+.wrap {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 18px 16px calc(28px + env(safe-area-inset-bottom));
+}
+
+/* ── Demo banner ─────────────────────────────────────────────────────────────
+   Loud on purpose. A demo screen and a live screen must never be confused by
+   someone who was handed a phone and told "this is the thing". */
+.demo-bar {
+  /* Sticky, not static. A verdict scrolls the card into view, and a demo banner
+     that has scrolled off the top is a demo screen that looks live. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--demo);
+  color: var(--demo-ink);
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  font-weight: 900;
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+  border-bottom: 2px solid rgba(74,47,8,0.28);
+}
+.demo-bar .sub { display: block; font-weight: 700; font-size: 0.78rem; opacity: 0.85; letter-spacing: 0; }
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.head svg { width: 26px; height: 26px; flex: 0 0 auto; }
+.head h1 { font-size: 1.02rem; font-weight: 900; letter-spacing: -0.01em; }
+.head .who { font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); }
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--paper);
+  border: 2px solid var(--edge);
+  border-radius: 22px;
+  box-shadow: var(--sheen), var(--lift);
+  padding: 20px 18px;
+}
+
+/* ── Entry ────────────────────────────────────────────────────────────────── */
+.field-label { display: block; font-size: 0.95rem; font-weight: 900; margin-bottom: 8px; }
+#code {
+  display: block;
+  width: 100%;
+  height: 74px;
+  padding: 0;
+  border: 2px solid var(--edge);
+  border-radius: 16px;
+  background: var(--field);
+  font-size: clamp(1.6rem, 9vw, 2.1rem);
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.34em;
+  /* letter-spacing pads the RIGHT of the last glyph, which drags centred text
+     visually left. The indent puts it back. */
+  text-indent: 0.34em;
+}
+#code::placeholder { color: var(--ink-soft); opacity: 0.45; letter-spacing: 0.34em; }
+.hint { font-size: 0.82rem; color: var(--ink-soft); margin-top: 9px; font-weight: 600; }
+.hint.warn { color: var(--no); font-weight: 800; }
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 56px;          /* well past the 44px minimum hit area */
+  margin-top: 14px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  font-weight: 900;
+  font-size: 1.02rem;
+  letter-spacing: 0.01em;
+}
+.btn svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.btn-primary { background: var(--ink); color: var(--page); }
+.btn-spend   { background: var(--ok);  color: #fff; }
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--edge);
+}
+.btn[disabled] { opacity: 0.45; cursor: default; }
+@media (prefers-color-scheme: dark) {
+  .btn-primary { background: var(--ink); color: #241410; }
+  .btn-spend   { background: var(--ok);  color: #08281a; }
+}
+
+/* ── Verdict ──────────────────────────────────────────────────────────────── */
+.verdict { position: relative; overflow: hidden; padding: 22px 18px 20px; }
+/* The colour rail is a second, non-text carrier of the same signal, for anyone
+   reading it across a counter at an angle or in bright sun. */
+.verdict::before {
+  content: "";
+  position: absolute; inset: 0 auto 0 0;
+  width: 10px;
+  background: var(--tone);
+}
+.verdict { padding-left: 26px; }
+/* The tint has to be a GRADIENT layer, not a colour. `background: rgba(...),
+   linear-gradient(...)` is invalid CSS (only the final layer may carry a
+   colour), and an invalid shorthand here would silently leave the verdict card
+   with no surface at all. A two-stop gradient of one colour is the legal way to
+   lay a tint over the paper. */
+.verdict.ok { --tone: var(--ok); background: linear-gradient(var(--ok-soft), var(--ok-soft)), var(--paper); }
+.verdict.no { --tone: var(--no); background: linear-gradient(var(--no-soft), var(--no-soft)), var(--paper); }
+
+.verdict-top { display: flex; align-items: center; gap: 8px; color: var(--tone); }
+.verdict-top svg { width: 26px; height: 26px; flex: 0 0 auto; }
+.verdict-top span { font-size: 0.82rem; font-weight: 900; letter-spacing: 0.13em; text-transform: uppercase; }
+
+.word {
+  color: var(--tone);
+  /* 12vw not 15vw: "OFFER CHANGED" and "NOT VALID NOW" have to fit a 320px
+     till browser without a sideways scroll. */
+  font-size: clamp(2.1rem, 12vw, 3.6rem);
+  font-weight: 950;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  margin: 6px 0 12px;
+  overflow-wrap: break-word;
+}
+.shop {
+  font-size: 1.18rem;
+  font-weight: 900;
+  overflow-wrap: break-word;
+}
+.offer {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 9px 14px;
+  border-radius: 14px;
+  border: 2px solid var(--tone);
+  background: var(--field);
+  font-size: 1.15rem;
+  font-weight: 900;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+.todo {
+  margin-top: 16px;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--field);
+  border: 2px solid var(--edge);
+  font-size: 0.9rem;
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+.detail { margin-top: 10px; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); overflow-wrap: break-word; }
+.countdown { margin-top: 12px; font-size: 0.88rem; font-weight: 800; color: var(--ink-soft); }
+.countdown.soon { color: var(--no); }
+
+/* A deliberate gap above the spend button. The Check button on the previous
+   screen sits high; a second stray tap from a fast thumb must not land on the
+   one control in this whole page that consumes a reward. The button is also
+   disabled for a moment after it appears (see ARM_MS in the script). */
+.spend-zone {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 2px dashed var(--edge);
+}
+.spend-zone .why { font-size: 0.84rem; font-weight: 700; color: var(--ink-soft); }
+
+/* ── Shop check ───────────────────────────────────────────────────────────────
+   The server checks a CODE, and a code is not tied to a till. Nothing the page
+   asks for tells the server which shop is holding it, so the only thing that
+   stops one shop's reward being honoured at another shop is a person reading
+   the name. That makes it a step with its own button, not a line of small
+   print. It sits inside the verdict card, above everything that spends. */
+.shopcheck {
+  margin-top: 18px;
+  padding: 14px 14px 16px;
+  border-radius: 16px;
+  background: var(--field);
+  border: 2px solid var(--tone);
+}
+.shopcheck .ask { font-size: 1.04rem; font-weight: 900; line-height: 1.3; overflow-wrap: break-word; }
+.shopcheck .ask b { font-weight: 950; }
+.shopcheck .cant { margin-top: 7px; font-size: 0.85rem; font-weight: 700; color: var(--ink-soft); }
+.shopcheck .btn { margin-top: 12px; }
+.btn span { overflow-wrap: break-word; min-width: 0; }
+.btn-no { background: transparent; color: var(--no); border-color: var(--no); }
+/* The matched variant: the shop was named in the link, so the page did the
+   reading. Same box, no buttons, so the cashier still sees the name asserted. */
+.shopcheck.matched { display: flex; align-items: flex-start; gap: 9px; padding: 13px 14px; }
+.shopcheck.matched svg { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 1px; color: var(--tone); }
+.shopcheck.matched .ask { font-size: 0.95rem; font-weight: 800; }
+
+/* The till's own shop, when the link carries one. Shown on every screen so a
+   page set up for the wrong shop is visible before anyone types a code. */
+.till {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: -6px 0 16px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--field);
+  border: 2px solid var(--edge);
+  font-size: 0.86rem;
+  font-weight: 800;
+  overflow-wrap: break-word;
+}
+.till svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--ink-soft); }
+
+/* ── Done (inverted) ──────────────────────────────────────────────────────── */
+.done {
+  background: var(--done-bg);
+  color: var(--done-ink);
+  border-color: var(--done-bg);
+  padding: 24px 20px;
+}
+.done .word { color: var(--done-ink); }
+.done .verdict-top { color: var(--done-ink); }
+.done .shop { color: var(--done-ink); }
+/* Full shorthand, not just border-color: .offer's own `border: 2px solid
+   var(--tone)` is invalid on this card (no --tone here), which zeroes the style
+   as well as the colour. */
+.done .offer { border: 2px solid var(--done-ink); background: transparent; color: var(--done-ink); }
+.done .todo { color: var(--done-ink); }
+.done .stamp {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 2px solid rgba(128,128,128,0.35);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+.done .stamp b { font-weight: 950; }
+.done .stamp-code { margin-top: 4px; font-size: 0.86rem; font-weight: 700; opacity: 0.7; letter-spacing: 0.04em; }
+
+/* ── Footer / honesty block ───────────────────────────────────────────────── */
+.foot { margin-top: 22px; font-size: 0.82rem; color: var(--ink-soft); font-weight: 600; }
+.foot details { margin-top: 10px; }
+.foot summary { font-weight: 800; cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.foot ul { margin: 8px 0 0; padding-left: 18px; }
+.foot li { margin-bottom: 6px; }
+.foot .conn { display: flex; align-items: center; gap: 7px; font-weight: 700; }
+.foot .conn svg { width: 15px; height: 15px; }
+
+.spin { animation: spin 900ms linear infinite; transform-origin: 50% 50%; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+</style>
+</head>
+<body>
+
+<!-- Demo banner. Rendered hidden and revealed by script only in demo mode, so a
+     live page can never flash it and a demo page can never miss it. -->
+<div class="demo-bar" id="demoBar" hidden>
+  DEMO PREVIEW. NOT A LIVE CHECK.
+  <span class="sub">Nothing here is real and nothing is recorded.</span>
+</div>
+
+<div class="wrap">
+
+  <div class="head">
+    <!-- boba cup -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 8h12l-1.2 11.2A2 2 0 0 1 14.8 21H9.2a2 2 0 0 1-2-1.8Z"/>
+      <line x1="4" y1="8" x2="20" y2="8"/>
+      <line x1="15" y1="3" x2="13.4" y2="8"/>
+      <circle cx="10" cy="17" r="1"/>
+      <circle cx="14" cy="17" r="1"/>
+    </svg>
+    <div>
+      <h1>Mr. Tapioca reward check</h1>
+      <div class="who">Staff only. Nothing to install.</div>
+    </div>
+  </div>
+
+  <!-- The shop this page was set up for, if the link named one. Filled by
+       script; stays hidden when the link carries no shop. -->
+  <div class="till" id="till" hidden></div>
+
+  <!-- ── Step 1: enter the code (read only, spends nothing) ───────────────── -->
+  <section class="card" id="entry">
+    <label class="field-label" for="code">Reward code from the student's phone</label>
+    <input id="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters"
+           autocorrect="off" spellcheck="false" maxlength="16" placeholder="ABC234"
+           aria-describedby="codeHint">
+    <p class="hint" id="codeHint">Six characters. Spaces and dashes are fine.</p>
+    <p class="hint" id="demoCodes" hidden></p>
+    <button class="btn btn-primary" id="checkBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16" y2="16"/>
+      </svg>
+      <span id="checkBtnLabel">Check code</span>
+    </button>
+  </section>
+
+  <!-- ── Step 2: the verdict, and only then the spend ─────────────────────── -->
+  <section id="result" hidden aria-live="polite"></section>
+
+  <div class="foot">
+    <div class="conn" id="conn"></div>
+    <details>
+      <summary>What this check can and cannot tell you</summary>
+      <ul>
+        <li><b>It can tell you</b> five things, and the server tests all five before it says VALID: the code came from the Mr. Tapioca server, it has not already been used, neither the code nor the reward behind it has run out of time, the shop's offer is still switched on, and the offer still reads the way it did when the reward was earned.</li>
+        <li><b>It cannot tell you that the reward belongs to this shop.</b> The check reads the code and nothing else. It has no way to know which shop is holding this page, so a reward earned for another shop still reads VALID here. That is why the page asks you to confirm the shop name before it will let you mark anything used.</li>
+        <li><b>It cannot tell you</b> anything about what the student actually did on their phone. Treat it as a valid coupon, not as proof of anything else.</li>
+        <li>Codes last about five minutes and stop working the moment one is marked used.</li>
+        <li>Staff tip: add <b>?shop=</b> and your shop's name to the end of this page's link (for example <b>?shop=U Tea</b>) and the page will check the name for you and refuse a reward from anywhere else. That is a setting on this device, not something the server enforces, so a typo in the link means good codes get refused.</li>
+      </ul>
+    </details>
+  </div>
+
+</div>
+
+<script src="../config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ── Config ────────────────────────────────────────────────────────────────
+  // Same shape as config.js: { url, anonKey }. That file is loaded above as a
+  // plain script, exactly as index.html loads it, so this page and the app can
+  // never point at two different projects. If it is missing (someone opened this
+  // file on its own) the script tag fails silently and we land in demo mode,
+  // which is the safe direction: a preview cannot be mistaken for a live check,
+  // because the banner says so.
+  var CLOUD = (typeof window.MRTAP_CLOUD === "object" && window.MRTAP_CLOUD) || null;
+  var params = new URLSearchParams(location.search);
+  var forcedDemo = params.has("demo") && params.get("demo") !== "0";
+  var LIVE = !!(CLOUD && CLOUD.url && CLOUD.anonKey) && !forcedDemo;
+  var DEMO = !LIVE;
+
+  // ── Which shop is holding this page ───────────────────────────────────────
+  // Optional, and deliberately client side only. check_code() takes a code and
+  // returns the shop that code belongs to (supabase-reward-v2.sql section 9);
+  // it is never told where the check came from, and there is no geofence, so
+  // the server cannot bind a code to a till. Nothing here pretends otherwise.
+  //
+  // What ?shop= buys is that the page does the name comparison instead of the
+  // cashier, and says so loudly when it fails. A shop bookmarks
+  //   .../verify/?shop=U Tea
+  // on the till and a Dream Tea reward stops at the door. Without it the page
+  // still asks, it just has to ask a person.
+  var TILL_SHOP = (params.get("shop") || "").trim();
+  // Fold case, accents and punctuation so "Dream Tea & Poké", "dream tea poke"
+  // and "dream-tea-poke" are the same shop. An old browser without normalize()
+  // still gets the case and punctuation fold, which is the part that matters.
+  function shopKey(s) {
+    var v = String(s == null ? "" : s);
+    try { v = v.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); } catch (e) {}
+    return v.toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+  var TILL_KEY = shopKey(TILL_SHOP);
+
+  // Codes are A-Z minus O and I, plus 2-9. No 0/O and no 1/I, so nothing in a
+  // code can be misread across a counter. Same alphabet as gen_handoff_code()
+  // in supabase-reward-v2.sql and as reward-mock.js.
+  var ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  var CODE_LEN = 6;
+  var RPC_TIMEOUT_MS = 12000;
+  // The spend button ignores presses for this long after it appears. A cashier
+  // double-tapping "Check code" must not spend a reward with the second tap.
+  var ARM_MS = 550;
+
+  // ── Copy ──────────────────────────────────────────────────────────────────
+  // Every reason redeem_by_code() and check_code() can return, plus the two the
+  // page itself can produce (transport failure, a code that died on screen).
+  // Each one says what to DO. A cashier never sees a reason string.
+  //
+  // House style: no em-dashes anywhere in this table.
+  var REASONS = {
+    ok: {
+      word: "VALID",
+      tone: "ok",
+      kicker: "Good to use",
+      todo: "Give the discount, then tap Mark as used below."
+    },
+    failed_already_redeemed: {
+      word: "ALREADY USED",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "This reward was already handed out. Do not give the discount again."
+    },
+    failed_code_expired: {
+      word: "CODE EXPIRED",
+      tone: "no",
+      kicker: "Do not give the discount yet",
+      todo: "Codes only last about five minutes. Ask them to tap the reward in their app again and read you the new code, then check that one."
+    },
+    failed_expired: {
+      word: "REWARD EXPIRED",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "This reward ran out of time. They can keep focusing and earn another one."
+    },
+    failed_not_found: {
+      word: "NOT FOUND",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "No code like this exists. Check the letters and try again, or ask them to reopen the reward in their app for a fresh code."
+    },
+    failed_wrong_partner: {
+      word: "WRONG SHOP",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "This reward belongs to a different shop. Do not give the discount here."
+    },
+    failed_partner_paused: {
+      word: "OFFER PAUSED",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "This shop's offer is switched off at the moment. Do not give the discount. If that looks wrong, contact Mr. Tapioca."
+    },
+    failed_offer_changed: {
+      word: "OFFER CHANGED",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "The offer changed after this reward was earned, so this code is for wording the shop no longer runs. Ask them to reopen the reward in their app."
+    },
+    failed_capped: {
+      word: "NOT VALID NOW",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "This reward cannot be used at this shop right now. A limit or a time window applies."
+    },
+    // Not a server reason either. The server answered VALID, and the shop it
+    // named is not the shop this page was set up for (?shop= in the link). The
+    // code really is good, just not here, so the words have to say "not here"
+    // rather than "not real": sending the student away thinking their reward is
+    // broken would be its own small lie.
+    shop_mismatch: {
+      word: "OTHER SHOP",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "This is a real, unused reward, but it belongs to a different shop. Do not give the discount here. The student can still use it at the shop it names."
+    },
+    // Not a server reason. This is the fail-closed answer, and it is the whole
+    // point of the page: if we could not ask, the answer is no.
+    unreachable: {
+      word: "OFFLINE",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "This page could not reach the server, so nothing was checked. Do not honour the reward until a check comes back valid."
+    },
+    // Server answered, but with something this page does not understand. Same
+    // direction as unreachable, different words so it is debuggable.
+    unknown: {
+      word: "CANNOT CHECK",
+      tone: "no",
+      kicker: "Do not give the discount",
+      todo: "The server answered with something this page did not expect. Do not honour the reward. Try once more, then contact Mr. Tapioca."
+    }
+  };
+
+  // ── Elements ──────────────────────────────────────────────────────────────
+  var els = {
+    demoBar: document.getElementById("demoBar"),
+    demoCodes: document.getElementById("demoCodes"),
+    till: document.getElementById("till"),
+    entry: document.getElementById("entry"),
+    code: document.getElementById("code"),
+    codeHint: document.getElementById("codeHint"),
+    checkBtn: document.getElementById("checkBtn"),
+    checkBtnLabel: document.getElementById("checkBtnLabel"),
+    result: document.getElementById("result"),
+    conn: document.getElementById("conn")
+  };
+
+  var state = { skewMs: 0, expiresAt: null, timer: null, busy: false, lastCode: "" };
+
+  // ── Icons ─────────────────────────────────────────────────────────────────
+  // One family: viewBox 0 0 24 24, fill none, stroke currentColor, width 2,
+  // round caps and joins. Built as strings because they are static; nothing
+  // user-supplied is ever interpolated into markup (see setText below).
+  var ICON = {
+    check: '<polyline points="20 6 9 17 4 12"/>',
+    alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9.5" x2="12" y2="13.5"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    back: '<path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>',
+    stamp: '<circle cx="12" cy="12" r="9"/><polyline points="16 9.5 10.8 15 8 12.4"/>',
+    shop: '<path d="M3 9.5 5 4h14l2 5.5"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><path d="M4.5 9.5V20a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V9.5"/><path d="M9.5 21v-5.5h5V21"/>',
+    plug: '<path d="M12 2v6"/><path d="M6.5 8h11l-1 5.5a5.6 5.6 0 0 1-4.5 4.4V22"/>',
+    off: '<line x1="3" y1="3" x2="21" y2="21"/><path d="M12 2v4"/><path d="M6.5 8h11l-1 5.5a5.6 5.6 0 0 1-2.3 3.4"/>',
+    spinner: '<path d="M12 3a9 9 0 1 0 9 9"/>'
+  };
+  function svg(paths, cls) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+           'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' +
+           (cls ? ' class="' + cls + '"' : '') + '>' + paths + '</svg>';
+  }
+
+  // ── Safe text ─────────────────────────────────────────────────────────────
+  // partner_name, offer_text and cashier_note come off the server. They are put
+  // on the page with textContent, never innerHTML, for the same reason app.js
+  // uses textContent for the counter card: the one place a shop's own words are
+  // rendered is not a place to trust markup.
+  function setText(el, value) { el.textContent = value == null ? "" : String(value); }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) setText(n, text);
+    return n;
+  }
+
+  // ── Time ──────────────────────────────────────────────────────────────────
+  // Postgres serialises now() with microseconds ("2026-08-12T14:00:00.123456+00:00").
+  // Some browsers (a till may well be an old iPad) refuse more than three
+  // fractional digits, so trim before parsing rather than trusting the engine.
+  // reward-mock.js hands back epoch milliseconds instead, so both are accepted.
+  function ts(v) {
+    if (v == null) return null;
+    if (typeof v === "number") return isFinite(v) ? v : null;
+    var s = String(v).replace(/(\.\d{3})\d+/, "$1");
+    var t = Date.parse(s);
+    return isFinite(t) ? t : null;
+  }
+  function clockText(t) {
+    if (t == null) return "";
+    try {
+      return new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    } catch (e) {
+      return new Date(t).toISOString().slice(11, 16) + " UTC";
+    }
+  }
+  function mmss(ms) {
+    var s = Math.max(0, Math.round(ms / 1000));
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }
+  // Every countdown is anchored to the SERVER's clock, offset once at check
+  // time. A till with the wrong date must not be able to make an expired code
+  // look live (or a live one look dead).
+  function serverNow() { return Date.now() + state.skewMs; }
+
+  // ── Input normalisation ───────────────────────────────────────────────────
+  function normalize(raw) {
+    var up = String(raw || "").toUpperCase();
+    var out = "";
+    for (var i = 0; i < up.length && out.length < CODE_LEN; i++) {
+      if (ALPHABET.indexOf(up[i]) >= 0) out += up[i];
+    }
+    return out;
+  }
+  // O, I, 0 and 1 are not in the alphabet at all, so a cashier typing one has
+  // misread the screen. Silently dropping the character would leave them with a
+  // five-character code and no idea why, so say it.
+  function hasBannedChar(raw) { return /[OI01]/.test(String(raw || "").toUpperCase()); }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // DEMO BACKEND
+  // A bundled stand-in with the same semantics as reward-mock.js (which is
+  // itself a second implementation of supabase-reward-v2.sql). It exists so this
+  // page can be screenshotted and handed to a shop as a preview without a
+  // database and without touching anything live. It never talks to the network.
+  //
+  // Offers here are the two real signed ones and nothing else. Inventing a
+  // number for a demo is how a wrong number ends up in front of a shop owner.
+  // ══════════════════════════════════════════════════════════════════════════
+  function makeDemo() {
+    var t0 = Date.now();
+    var U_TEA = { id: "u-tea-collegetown", name: "U Tea", offer_text: "10% off your drink",
+                  active: true, offer_version: 1,
+                  cashier_note: "Ring up 10% off. Nothing to scan." };
+    var DREAM = { id: "dream-tea-poke-ithaca", name: "Dream Tea & Poké", offer_text: "5% off your drink",
+                  active: true, offer_version: 1, cashier_note: "" };
+    // code -> the handoff row and the reward row behind it. Two expiries, not
+    // one: the 5-minute code, and the reward itself. A perfectly fresh code can
+    // sit in front of a reward that ran out last week.
+    var handoffs = {
+      MRTAP7: { partner: U_TEA, expires_at: t0 + 5 * 60000, consumed_at: null,
+                reward: "issued", reward_expires_at: t0 + 20 * 86400000, reward_offer_version: 1 },
+      DREAM5: { partner: DREAM, expires_at: t0 + 5 * 60000, consumed_at: null,
+                reward: "issued", reward_expires_at: t0 + 20 * 86400000, reward_offer_version: 1 },
+      USEDUP: { partner: U_TEA, expires_at: t0 + 3 * 60000, consumed_at: t0 - 11 * 60000,
+                reward: "redeemed", reward_expires_at: t0 + 20 * 86400000, reward_offer_version: 1 },
+      LAPSED: { partner: DREAM, expires_at: t0 - 2 * 60000, consumed_at: null,
+                reward: "issued", reward_expires_at: t0 + 20 * 86400000, reward_offer_version: 1 },
+      REWEND: { partner: U_TEA, expires_at: t0 + 5 * 60000, consumed_at: null,
+                reward: "issued", reward_expires_at: t0 - 86400000, reward_offer_version: 1 },
+      CHANGD: { partner: U_TEA, expires_at: t0 + 5 * 60000, consumed_at: null,
+                reward: "issued", reward_expires_at: t0 + 20 * 86400000, reward_offer_version: 0 }
+    };
+    // Same tests, in the same order, as check_code() in supabase-reward-v2.sql
+    // section 9 and checkCode() in reward-mock.js. The order is not decoration:
+    // it decides which single word the cashier is shown when two things are
+    // wrong at once, and all three implementations have to agree on it.
+    function reasonFor(h, now) {
+      if (h.consumed_at || h.reward === "redeemed") return "failed_already_redeemed";
+      if (h.expires_at <= now) return "failed_code_expired";
+      if (h.reward_expires_at != null && h.reward_expires_at <= now) return "failed_expired";
+      if (!h.partner.active) return "failed_partner_paused";
+      if (h.reward_offer_version != null && h.reward_offer_version !== h.partner.offer_version) {
+        return "failed_offer_changed";
+      }
+      return null;
+    }
+    return {
+      codes: ["MRTAP7 valid at U Tea", "DREAM5 valid at Dream Tea & Poké",
+              "USEDUP already used", "LAPSED code expired",
+              "REWEND reward expired", "CHANGD offer changed"],
+      check: function (code) {
+        var h = handoffs[code];
+        var now = Date.now();
+        if (!h) return { ok: false, reason: "failed_not_found" };
+        var reason = reasonFor(h, now);
+        return {
+          ok: !reason, reason: reason,
+          partner_name: h.partner.name, offer_text: h.partner.offer_text,
+          cashier_note: h.partner.cashier_note, server_time: now, expires_at: h.expires_at
+        };
+      },
+      redeem: function (code) {
+        var h = handoffs[code];
+        var now = Date.now();
+        if (!h) return { ok: false, reason: "failed_not_found" };
+        var reason = reasonFor(h, now);
+        if (reason) {
+          return { ok: false, reason: reason,
+                   partner_name: h.partner.name, offer_text: h.partner.offer_text };
+        }
+        // The single consuming step, mirroring redeem_by_code(): the reward and
+        // the code are both burned, so the same slip cannot be presented twice.
+        h.reward = "redeemed";
+        h.consumed_at = now;
+        return { ok: true, partner_name: h.partner.name, offer_text: h.partner.offer_text,
+                 cashier_note: h.partner.cashier_note, redeemed_at: now, server_time: now };
+      }
+    };
+  }
+  var demo = DEMO ? makeDemo() : null;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TRANSPORT
+  // Plain fetch to PostgREST. Both functions are granted to anon in
+  // supabase-reward-v2.sql precisely so the cashier's own device can call them
+  // with nothing installed and no account.
+  //
+  // Returns { ok: true, data } or { ok: false, why: "unreachable"|"unknown", detail }.
+  // Anything that is not a clean 2xx with a JSON object is a failure, never a
+  // pass. That includes a 404, which is what a database that has not had the
+  // migration run yet will answer with.
+  //
+  // `detail` is CASHIER-FACING and therefore plain English and short. The raw
+  // answer goes to the console instead. A PostgREST error body carries function
+  // names, hints and schema details, and none of that belongs on a screen a
+  // customer is standing in front of. It is also not something a barista can
+  // act on: the only useful thing they can do with a failed check is refuse and
+  // read a number down the phone, so the number is what they get.
+  // ══════════════════════════════════════════════════════════════════════════
+  function logRaw() {
+    // Wrapped: a locked-down till browser can have console methods missing.
+    try { if (window.console && console.error) console.error.apply(console, arguments); } catch (e) {}
+  }
+
+  function rpc(fn, body) {
+    if (DEMO) {
+      try {
+        var out = fn === "check_code" ? demo.check(body.p_code) : demo.redeem(body.p_code);
+        return Promise.resolve({ ok: true, data: out });
+      } catch (e) {
+        logRaw("[reward check] demo backend threw", fn, e);
+        return Promise.resolve({ ok: false, why: "unknown", detail: "The preview hit an error." });
+      }
+    }
+    var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, RPC_TIMEOUT_MS) : null;
+    var url = String(CLOUD.url).replace(/\/+$/, "") + "/rest/v1/rpc/" + fn;
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "apikey": CLOUD.anonKey,
+        "Authorization": "Bearer " + CLOUD.anonKey,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().catch(function () { return ""; }).then(function (txt) {
+          logRaw("[reward check] " + fn + " HTTP " + res.status, txt);
+          // The status number and nothing else. It is short enough to read out
+          // over the phone and says nothing about the database.
+          return { ok: false, why: "unknown", detail: "Server error " + res.status };
+        });
+      }
+      return res.json().then(function (data) {
+        if (!data || typeof data !== "object") {
+          logRaw("[reward check] " + fn + " returned a non-object", data);
+          return { ok: false, why: "unknown", detail: "The server's answer could not be read." };
+        }
+        return { ok: true, data: data };
+      }, function (err) {
+        logRaw("[reward check] " + fn + " answer was not JSON", err);
+        return { ok: false, why: "unknown", detail: "The server's answer could not be read." };
+      });
+    }, function (err) {
+      // Network down, DNS gone, CORS refused, aborted timeout. All the same
+      // answer to a cashier: we did not check anything.
+      var timedOut = !!(err && err.name === "AbortError");
+      logRaw("[reward check] " + fn + " could not reach the server", err);
+      return { ok: false, why: "unreachable",
+               detail: timedOut ? "The check timed out." : "Could not reach the server." };
+    }).then(function (out) {
+      if (timer) clearTimeout(timer);
+      return out;
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════════════════════
+  function stopCountdown() {
+    if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    state.expiresAt = null;
+  }
+
+  function clearResult() {
+    stopCountdown();
+    els.result.textContent = "";
+    els.result.hidden = true;
+  }
+
+  function showEntry(focus) {
+    clearResult();
+    els.entry.hidden = false;
+    if (focus) { try { els.code.focus(); els.code.select(); } catch (e) {} }
+  }
+
+  function addBackButton(host) {
+    var back = el("button", "btn btn-ghost");
+    back.type = "button";
+    back.innerHTML = svg(ICON.back) + "<span></span>";
+    setText(back.querySelector("span"), "Check another code");
+    back.addEventListener("click", function () {
+      els.code.value = "";
+      setText(els.codeHint, "Six characters. Spaces and dashes are fine.");
+      els.codeHint.classList.remove("warn");
+      showEntry(true);
+    });
+    host.appendChild(back);
+  }
+
+  /**
+   * The refusal / valid card. `payload` is whatever the RPC returned, so shop
+   * name and offer are only shown when the server actually sent them.
+   *
+   * A refusal deliberately does NOT print the offer text. GROUNDING.md D1 is the
+   * reason: the v1 counter card renders the perk at full strength even when it
+   * is not valid, and a cashier glancing at "10% off your drink" under a red
+   * word is exactly how the wrong discount gets given. On a refusal the shop
+   * name is context enough.
+   */
+  function showVerdict(key, payload) {
+    stopCountdown();
+    var spec = REASONS[key] || REASONS.unknown;
+    payload = payload || {};
+    els.entry.hidden = true;
+    els.result.textContent = "";
+    els.result.hidden = false;
+
+    var card = el("div", "card verdict " + spec.tone);
+
+    var top = el("div", "verdict-top");
+    top.innerHTML = svg(spec.tone === "ok" ? ICON.check : ICON.alert) + "<span></span>";
+    setText(top.querySelector("span"), spec.kicker);
+    card.appendChild(top);
+
+    card.appendChild(el("h2", "word", spec.word));
+
+    if (payload.partner_name) card.appendChild(el("p", "shop", payload.partner_name));
+    if (spec.tone === "ok" && payload.offer_text) {
+      card.appendChild(el("div", "offer", payload.offer_text));
+    }
+
+    var todo = spec.todo;
+    if (spec.tone === "ok" && payload.offer_text) {
+      // The shop name leads, because the shop name is the thing the server
+      // cannot check and the cashier can. "Give 10% off" on its own is an
+      // instruction a barista at the wrong shop would follow.
+      todo = payload.partner_name
+        ? "If this shop is " + payload.partner_name + ", give " + payload.offer_text +
+          ". Then tap Mark as used below."
+        : "Give " + payload.offer_text + ". Then tap Mark as used below.";
+    }
+    card.appendChild(el("p", "todo", todo));
+
+    if (spec.tone === "ok" && payload.cashier_note) {
+      card.appendChild(el("p", "note", payload.cashier_note));
+    }
+    // Anything the page needs to say about this particular answer: which two
+    // shops disagreed, or whether a failed spend left the reward standing.
+    if (payload.note_text) card.appendChild(el("p", "note", payload.note_text));
+
+    var detailBits = [];
+    if (state.lastCode) detailBits.push("Code " + state.lastCode);
+    if (payload.detail) detailBits.push(payload.detail);
+    if (detailBits.length) card.appendChild(el("p", "detail", detailBits.join(" · ")));
+
+    if (spec.tone === "ok") {
+      // ── The shop check ────────────────────────────────────────────────────
+      // Everything below this point can spend a reward, so the shop question is
+      // asked first and asked in the card itself. Two ways to answer it:
+      //
+      //   The link named a shop  -> the page compared the names and says so.
+      //   The link named nobody  -> a person has to press "Yes, this is X".
+      //
+      // Either way the name is asserted before the green button exists. This is
+      // the one refusal a code-only check can never make on its own, and
+      // app.js:4594 already calls handing a shop someone else's discount the
+      // worst failure this whole feature has.
+      var shopBox = el("div", "shopcheck");
+      var confirmed = false;
+      if (TILL_KEY && payload.partner_name) {
+        confirmed = true;   // a mismatch never reaches this renderer, see doCheck
+        shopBox.className = "shopcheck matched";
+        shopBox.innerHTML = svg(ICON.check) + "<div class=\"ask\"></div>";
+        setText(shopBox.querySelector(".ask"),
+          "This page is set up for " + TILL_SHOP + ", and this reward is for " +
+          payload.partner_name + ". The names match.");
+      } else {
+        var ask = el("p", "ask");
+        ask.appendChild(document.createTextNode("Is this shop "));
+        ask.appendChild(el("b", null, payload.partner_name || "the shop named above"));
+        ask.appendChild(document.createTextNode("?"));
+        shopBox.appendChild(ask);
+        shopBox.appendChild(el("p", "cant",
+          "The check reads the code, not the counter. It has no way to know which shop you are, so a reward for another shop would read valid on this screen too."));
+      }
+      card.appendChild(shopBox);
+
+      // Countdown lives on the CARD now, not in the spend zone: the zone can be
+      // hidden behind the shop question, and a code quietly running out while
+      // the cashier reads the question is exactly when the clock matters.
+      var cd = el("p", "countdown", "");
+      card.appendChild(cd);
+      els.result.appendChild(card);
+
+      // Anchor the countdown to the server's own clock, then build the one
+      // control in this page that spends anything.
+      var srv = ts(payload.server_time);
+      state.skewMs = srv == null ? 0 : srv - Date.now();
+      state.expiresAt = ts(payload.expires_at);
+
+      var zone = el("div", "spend-zone");
+      var why = el("p", "why", "Only tap this once the drink is rung up. It cannot be undone.");
+      var spend = el("button", "btn btn-spend");
+      spend.type = "button";
+      spend.disabled = true;
+      spend.innerHTML = svg(ICON.stamp) + "<span></span>";
+      setText(spend.querySelector("span"), "Mark as used");
+      spend.addEventListener("click", function () { doRedeem(spend, payload); });
+      why.hidden = spend.hidden = !confirmed;
+      zone.appendChild(why);
+      zone.appendChild(spend);
+      // The back button is outside the gate. Someone who answers "no" or who
+      // just wants out must never have to go through the spend controls.
+      addBackButton(zone);
+      els.result.appendChild(zone);
+
+      // Disarm for a moment. A stray second tap after "Check code" lands here.
+      function armSpend() {
+        why.hidden = spend.hidden = false;
+        setTimeout(function () { spend.disabled = false; }, ARM_MS);
+      }
+      if (confirmed) {
+        armSpend();
+      } else {
+        var yes = el("button", "btn btn-primary");
+        yes.type = "button";
+        yes.disabled = true;
+        yes.innerHTML = svg(ICON.check) + "<span></span>";
+        setText(yes.querySelector("span"),
+          payload.partner_name ? "Yes, this is " + payload.partner_name : "Yes, this is the shop named above");
+        yes.addEventListener("click", function () {
+          shopBox.className = "shopcheck matched";
+          shopBox.innerHTML = svg(ICON.check) + "<div class=\"ask\"></div>";
+          setText(shopBox.querySelector(".ask"),
+            payload.partner_name
+              ? "Confirmed as " + payload.partner_name + " by staff."
+              : "Shop confirmed by staff.");
+          armSpend();
+        });
+
+        var no = el("button", "btn btn-no");
+        no.type = "button";
+        no.innerHTML = svg(ICON.alert) + "<span></span>";
+        setText(no.querySelector("span"), "No, this is a different shop");
+        no.addEventListener("click", function () {
+          showVerdict("shop_mismatch", {
+            partner_name: payload.partner_name,
+            note_text: payload.partner_name
+              ? "This reward is for " + payload.partner_name + ", and this is not that shop."
+              : "This reward is for another shop."
+          });
+        });
+
+        shopBox.appendChild(yes);
+        shopBox.appendChild(no);
+        // Same 550ms guard the spend button gets. A double tap on Check must not
+        // land on the confirmation either, or the gate is decoration.
+        setTimeout(function () { yes.disabled = false; }, ARM_MS);
+      }
+
+      if (state.expiresAt != null) {
+        var tick = function () {
+          var left = state.expiresAt - serverNow();
+          if (left <= 0) {
+            // It died while the cashier was looking at it. Turn the card into
+            // the refusal rather than leaving a live-looking spend button up.
+            stopCountdown();
+            showVerdict("failed_code_expired", { partner_name: payload.partner_name });
+            return;
+          }
+          setText(cd, "This code stops working in " + mmss(left) + ".");
+          cd.classList.toggle("soon", left < 60000);
+        };
+        // Interval FIRST, then the first tick. The other order leaves a stale
+        // interval running when the very first tick decides the code is already
+        // dead and re-renders: stopCountdown() would clear a timer that this
+        // line then re-creates against a card that is no longer on the page.
+        state.timer = setInterval(tick, 1000);
+        tick();
+      }
+    } else {
+      // A refusal has no gate to build, so the card goes up as it stands.
+      els.result.appendChild(card);
+      var zone2 = el("div", "spend-zone");
+      addBackButton(zone2);
+      els.result.appendChild(zone2);
+    }
+
+    // Top of the PAGE, not the result card. Scrolling the card into view slid the
+    // header and the demo banner under the sticky bar, and "nothing else above
+    // the fold" is only true if the fold starts where the page starts.
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+  /** The finished state. Inverted card, and the server's own redeemed_at time. */
+  function showDone(payload) {
+    stopCountdown();
+    els.entry.hidden = true;
+    els.result.textContent = "";
+    els.result.hidden = false;
+
+    var card = el("div", "card done");
+    var top = el("div", "verdict-top");
+    top.innerHTML = svg(ICON.stamp) + "<span></span>";
+    setText(top.querySelector("span"), "Reward spent");
+    card.appendChild(top);
+
+    card.appendChild(el("h2", "word", "USED"));
+    if (payload.partner_name) card.appendChild(el("p", "shop", payload.partner_name));
+    if (payload.offer_text) card.appendChild(el("div", "offer", payload.offer_text));
+    card.appendChild(el("p", "todo",
+      payload.offer_text
+        ? "Give " + payload.offer_text + " if you have not already. This code is now dead and cannot be used again."
+        : "This code is now dead and cannot be used again."));
+
+    // The server's timestamp, not this device's. check_code does not return a
+    // redeemed_at, which is why the already-used refusal shows no time: making
+    // one up from the till's clock would be a number nobody could stand behind.
+    var when = ts(payload.redeemed_at);
+    var stamp = el("div", "stamp");
+    if (when != null) {
+      stamp.appendChild(document.createTextNode("Marked used at "));
+      stamp.appendChild(el("b", null, clockText(when)));
+      stamp.appendChild(document.createTextNode(" (server time)"));
+    } else {
+      setText(stamp, "Marked used.");
+    }
+    card.appendChild(stamp);
+    if (state.lastCode) card.appendChild(el("div", "stamp-code", "Code " + state.lastCode));
+    els.result.appendChild(card);
+
+    var zone = el("div", "spend-zone");
+    addBackButton(zone);
+    els.result.appendChild(zone);
+    // Top of the PAGE, not the result card. Scrolling the card into view slid the
+    // header and the demo banner under the sticky bar, and "nothing else above
+    // the fold" is only true if the fold starts where the page starts.
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ACTIONS
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Read the answer out of a check_code / redeem_by_code payload.
+   *
+   * TRAP, and it is a real one: check_code() computes `ok` and `reason`
+   * separately, and they can disagree. A paused shop with a fresh code and an
+   * issued reward returns ok:true AND reason:'failed_partner_paused'. Trusting
+   * `ok` alone would hand out a discount for a switched-off offer. So a reason
+   * always wins, in both directions.
+   */
+  function verdictOf(data) {
+    if (data && data.reason) return String(data.reason);
+    if (data && data.ok === true) return "ok";
+    return "unknown";
+  }
+
+  function busy(on, label) {
+    state.busy = on;
+    els.checkBtn.disabled = on;
+    setText(els.checkBtnLabel, on ? (label || "Checking...") : "Check code");
+  }
+
+  function doCheck() {
+    if (state.busy) return;
+    var code = normalize(els.code.value);
+    if (code.length < CODE_LEN) {
+      els.codeHint.classList.add("warn");
+      setText(els.codeHint, "That is " + code.length + " of 6 characters. Read the whole code off their screen.");
+      try { els.code.focus(); } catch (e) {}
+      return;
+    }
+    els.codeHint.classList.remove("warn");
+    setText(els.codeHint, "Six characters. Spaces and dashes are fine.");
+    state.lastCode = code;
+    busy(true, "Checking...");
+
+    rpc("check_code", { p_code: code }).then(function (res) {
+      busy(false);
+      if (!res.ok) { showVerdict(res.why, { detail: res.detail }); return; }
+      var key = verdictOf(res.data);
+      if (!REASONS[key]) {
+        logRaw("[reward check] check_code returned a reason this page does not know", key, res.data);
+        showVerdict("unknown", { detail: "Unrecognised answer" });
+        return;
+      }
+      // The shop gate, when the link named a shop. Only a VALID answer can be
+      // wrong in this direction, so only a VALID answer is tested: a refusal is
+      // already a refusal and does not need a second reason.
+      if (key === "ok" && TILL_KEY && res.data && res.data.partner_name &&
+          shopKey(res.data.partner_name) !== TILL_KEY) {
+        showVerdict("shop_mismatch", {
+          partner_name: res.data.partner_name,
+          note_text: "This reward is for " + res.data.partner_name +
+                     ". This page is set up for " + TILL_SHOP + "."
+        });
+        return;
+      }
+      showVerdict(key, res.data);
+    });
+  }
+
+  /** Step two. The only call in this page that consumes anything. */
+  function doRedeem(btn, checked) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    // Rebuild icon AND label together. Writing textContent on a button that
+    // carries an inline SVG wipes the icon out; that trap is documented in
+    // CLAUDE.md and has cost time in app.js before.
+    btn.innerHTML = svg(ICON.spinner, "spin") + "<span></span>";
+    setText(btn.querySelector("span"), "Marking...");
+
+    rpc("redeem_by_code", { p_code: state.lastCode }).then(function (res) {
+      if (!res.ok) {
+        // Worse than a failed check: the drink is already rung up, so the
+        // cashier needs to know where the ledger stands. And the honest answer
+        // here is NOT "nothing was marked used". A request that timed out or
+        // died in transit may well have been carried out by the server with
+        // only the answer lost. So say what is actually known, and give the one
+        // action that settles it.
+        showVerdict(res.why, {
+          partner_name: checked.partner_name,
+          note_text: "This page never got an answer, so it cannot tell you whether the reward was marked used. Check the same code again in a moment. If it comes back ALREADY USED, it went through and there is nothing left to do.",
+          detail: res.detail
+        });
+        return;
+      }
+      var data = res.data;
+      if (data && data.ok === true) { showDone(data); return; }
+      // Someone spent it between the check and this press, the shop was paused,
+      // the offer moved, or the code ran out while the drink was being made.
+      // Same refusal renderer, real reason, plus the one thing a check-time
+      // refusal never has to say: the server answered, so this press is known
+      // to have consumed nothing. A cashier standing over a finished drink
+      // should not have to guess that.
+      var key = verdictOf(data);
+      var known = !!REASONS[key];
+      if (!known) logRaw("[reward check] redeem_by_code returned a reason this page does not know", key, data);
+      var out = (data && typeof data === "object") ? data : {};
+      out.note_text = key === "failed_already_redeemed"
+        ? "This press marked nothing. The reward had already been spent before you tapped."
+        : "This press marked nothing, so the reward has not been spent here.";
+      if (!known) out.detail = "Unrecognised answer";
+      showVerdict(known ? key : "unknown", out);
+    });
+  }
+
+  // ── Wiring ────────────────────────────────────────────────────────────────
+  els.code.addEventListener("input", function () {
+    var raw = els.code.value;
+    var clean = normalize(raw);
+    if (clean !== raw) els.code.value = clean;
+    if (hasBannedChar(raw)) {
+      els.codeHint.classList.add("warn");
+      setText(els.codeHint, "Codes never use the letters O or I, or the digits 0 or 1. Look again: it is probably Q, D, J, L or 7.");
+    } else if (els.codeHint.classList.contains("warn")) {
+      els.codeHint.classList.remove("warn");
+      setText(els.codeHint, "Six characters. Spaces and dashes are fine.");
+    }
+  });
+  els.code.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); doCheck(); }
+  });
+  els.checkBtn.addEventListener("click", doCheck);
+
+  // ── The till's shop, if the link named one ────────────────────────────────
+  // Shown on the entry screen too, not only on a verdict. A page bookmarked
+  // with the wrong shop in the link would refuse every good code, and the
+  // cheapest place to notice that is before anyone has typed anything.
+  if (TILL_SHOP) {
+    els.till.hidden = false;
+    els.till.innerHTML = svg(ICON.shop) + "<span></span>";
+    setText(els.till.querySelector("span"),
+      "This page is set up for " + TILL_SHOP + ". A reward for any other shop will be refused here.");
+  }
+
+  // ── Mode banners ──────────────────────────────────────────────────────────
+  if (DEMO) {
+    els.demoBar.hidden = false;
+    els.demoCodes.hidden = false;
+    setText(els.demoCodes, "Demo codes to try: " + demo.codes.join(", ") + ". Any other code reads as not found.");
+    els.conn.innerHTML = svg(ICON.off) + "<span></span>";
+    setText(els.conn.querySelector("span"), "Demo mode. Not connected to anything.");
+  } else {
+    els.conn.innerHTML = svg(ICON.plug) + "<span></span>";
+    setText(els.conn.querySelector("span"), "Live. Every check goes to the Mr. Tapioca server.");
+
+    // config.js also carries a feature flag for the app half of Reward V2. While
+    // that is off no student can produce a code at all, so a live page would
+    // answer NOT FOUND to everything with no clue why. Saying so in the footer
+    // costs nothing and saves a confused phone call. It changes no verdict: a
+    // code that does not exist is still NOT FOUND, which is the right answer.
+    var flags = window.MRTAP_FLAGS;
+    if (flags && flags.rewardV2 === false) {
+      var n = document.createElement("p");
+      n.style.marginTop = "8px";
+      setText(n, "Reward codes are not switched on in the app yet, so nothing will check out until they are.");
+      els.conn.parentNode.insertBefore(n, els.conn.nextSibling);
+    }
+  }
+
+  // A till that has dropped its connection should say so before a cashier
+  // types six characters, not after. navigator.onLine lies in both directions,
+  // so it only ever adds a warning; the fetch itself is still the real gate.
+  function onlineWatch() {
+    if (navigator.onLine === false) {
+      els.codeHint.classList.add("warn");
+      setText(els.codeHint, "This device looks offline. A code cannot be checked without a connection.");
+    }
+  }
+  window.addEventListener("offline", onlineWatch);
+  window.addEventListener("online", function () {
+    els.codeHint.classList.remove("warn");
+    setText(els.codeHint, "Six characters. Spaces and dashes are fine.");
+  });
+  onlineWatch();
+})();
+</script>
+</body>
+</html>

@@ -894,10 +894,48 @@ function modeLabel() {
   return `Custom · ${fmtDuration(state.customDuration)}`;
 }
 
+// ── Product analytics call sites (analytics.js) ──────────────────────────────
+// Two one-line wrappers so every call site below is a single guarded statement
+// that cannot throw into the app. analytics.js is feature-flagged OFF in
+// config.js, so with the flag down these are function calls that return
+// immediately: no queue, no network, no storage write.
+//
+// The rule for what may be passed: never a name, never an email, never a
+// coordinate, and never the identity of a blocked app. A COUNT of selected apps
+// is fine; which apps they are is Apple's private data and stays that way.
+function trk(name, props) {
+  try { if (window.MrTAnalytics) MrTAnalytics.track(name, props); } catch (e) {}
+}
+function trkOnce(name, props) {
+  try { if (window.MrTAnalytics) MrTAnalytics.trackOnce(name, props); } catch (e) {}
+}
+
 function currentPearls() {
   // floor: blockPenalty can hold halves now (an unblocked 15-min cup withholds
   // 0.5), so the visible balance must round down rather than show a fraction.
   return Math.floor(Math.floor(totalMinutes() / 15) + state.bonusPearls - state.spent - state.blockPenalty);
+}
+
+// The ONE door every non-focus pearl comes through (games, quests, the min-1
+// session top-up). Focus pearls are derived from minutes in currentPearls()
+// above and never pass through here.
+//
+// Why it exists: dev mode removes every limit at once. It drops a session to 5
+// seconds, makes gameDoneToday() return false so all three games replay without
+// end, and skips the 30-minute gate. With the awards still live that combination
+// printed ~720 pearls an hour against an honest 4, so seven taps on the Settings
+// heading bought all 840 pearls of cosmetics in about seventy minutes, and each
+// 5-second "drink" also fired a row into the anonymous drink counter.
+// CLAUDE.md's economy rule is "never introduce a way to farm or double-credit
+// pearls", and this was one, shipped.
+//
+// Dev mode still does everything it is FOR: every flow, dialog, game and reward
+// screen is reachable in seconds. The wallet just does not move while you do it.
+function awardPearls(n) {
+  if (!isFinite(n) || n <= 0) return 0;
+  if (state.devMode) return 0;
+  state.bonusPearls += n;
+  return n;
 }
 
 function speechForState() {
@@ -2141,7 +2179,23 @@ function beginFocus() {
   FocusActivity.start();      // live countdown on the Lock Screen / Dynamic Island
   stopTicker();
   state.timerId = setInterval(tick, 250);
-  saveState();                // persist running state + push "🟢 Focusing" status to the Squad
+  saveState();                // persist running state + push the Squad profile update
+  // Open the SERVER-side reward session (reward-v2.js). No-op with the flag down,
+  // which is its state today, and it never throws into the timer: a focus session
+  // must start whether or not a network call does. Deliberately fired AFTER the
+  // timer is already running, because the merchant reward is the optional half
+  // and the drink is the part the user pressed the button for.
+  if (window.RewardV2 && RewardV2.enabled) {
+    Promise.resolve(RewardV2.startSession(Math.round(modeDuration() / 60)))
+      .catch(() => {});
+  }
+  const plannedMin = Math.round(modeDuration() / 60);
+  trkOnce("first_focus_started", { planned_minutes: plannedMin });
+  trk("session_started", {
+    planned_minutes: plannedMin,
+    mode: state.mode,
+    native_blocking_enabled: !!(FocusBlocker.available() && FocusBlocker.wasActive())
+  });
 }
 
 function pauseFocus() {
@@ -2339,6 +2393,21 @@ function completeSession() {
   FocusBlocker.stop();    // session done — apps free again
   FocusActivity.stop();   // clear the Lock Screen countdown
   state.running = false;
+  // Close the server-side reward session (reward-v2.js). No-op with the flag
+  // down. Fired here rather than after the reward dialog so the server's clock
+  // stops when the SESSION did, not when the user got round to tapping Save.
+  // Safe to lose: reward-v2.js queues a completion it could not deliver, and the
+  // server caps credit at least(planned, its own elapsed), so a late arrival can
+  // never bank more than the session asked for.
+  if (window.RewardV2 && RewardV2.enabled) {
+    Promise.resolve(RewardV2.completeSession()).catch(() => {});
+  }
+  trkOnce("first_focus_completed", { actual_minutes: Math.round(state.elapsed / 60) });
+  trk("session_completed", {
+    planned_minutes: Math.round(modeDuration() / 60),
+    actual_minutes: Math.round(state.elapsed / 60),
+    native_blocking_enabled: wasBlocked && FocusBlocker.available()
+  });
   // Reset elapsed to 0 NOW (before saveState) so the finished drink is fully
   // banked and a reload can't resurrect it at 100% and re-award it.
   state.elapsed = 0;
@@ -2362,7 +2431,14 @@ function completeSession() {
 
   // Anonymous counter ping (metrics.js). Fire-and-forget AFTER the drink is
   // banked locally; a lost or failed ping must never cost anyone their drink.
-  try { MrTMetrics.drinkFinished(size, minutes); } catch (e) {}
+  //
+  // Skipped in dev mode. A 5-second dev session rounds to 0 minutes, which
+  // metrics.js floors up to 1, so testing the completion flow was posting a
+  // fake drink roughly every five seconds. The counter is the honest answer to
+  // "how many drinks has this app brewed", and it is quoted to people.
+  if (!state.devMode) {
+    try { MrTMetrics.drinkFinished(size, minutes); } catch (e) {}
+  }
 
   // Pearls are floor(totalMinutes/15). Scale by whether apps were blocked: full when a
   // shield was up (or on web, where blocking isn't possible), half when a native user
@@ -2382,7 +2458,7 @@ function completeSession() {
   // (the min-1 guarantee) as bonus pearls, or withhold the unblocked shortfall as a
   // persistent penalty that currentPearls() subtracts.
   const pearlDelta = awardedExact - fullPearls;
-  if (pearlDelta > 0) state.bonusPearls += pearlDelta;
+  if (pearlDelta > 0) awardPearls(pearlDelta);
   else if (pearlDelta < 0) state.blockPenalty += -pearlDelta;
 
   // Did this drink push today across the daily goal?
@@ -2444,6 +2520,7 @@ function completeSession() {
   if (goalWasUnmet && todayMinutes() >= state.dailyGoal) {
     // queue the goal toast after any badge toasts (each badge toast holds ~1.5s)
     const delay = newBadges > 0 ? newBadges * 1500 + 200 : 900;
+    trk("daily_goal_completed", { minutes: todayMinutes(), goal: state.dailyGoal });
     setTimeout(() => { showToast("🎯 Daily goal reached — nice!"); playSfx("success"); }, delay);
   }
 }
@@ -3167,8 +3244,7 @@ function bankCatchScore() {
   const earned = Math.min(game.score, CATCH_CAP);
   const delta = earned - (game.banked || 0);
   if (delta > 0) {
-    state.bonusPearls += delta;
-    state.gamePearls += delta;
+    state.gamePearls += awardPearls(delta);
     game.banked = earned;
     saveState();
   }
@@ -3451,7 +3527,17 @@ const GAMES_MIN_SESSION_MIN = 30;
 
 function gamesUnlockedForBreak() {
   if (state.devMode) return true;
-  if (!FocusBlocker.available()) return true;   // web demo: unchanged
+  // The gate is NOT a native-only rule. It used to be (`if
+  // (!FocusBlocker.available()) return true;`), and that hole was the single
+  // biggest exploit in the economy: on web, one 15-minute cup paid 1 pearl and
+  // unlocked up to 33 more from the games the same day. 33x leverage on the
+  // shortest legal session, on the build anyone can open in a browser. Measured
+  // by tools/economy-sim.mjs, where the game-maximizer profile out-earned a
+  // student doing three hours a day.
+  //
+  // The rule that already existed on iPhone is simply applied everywhere now.
+  // Nothing about the games changed: same three games, same caps, same payouts.
+  // You just have to have actually studied for half an hour first.
   return (state.lastSessionMinutes || 0) >= GAMES_MIN_SESSION_MIN;
 }
 
@@ -3606,8 +3692,7 @@ function resolvePlinko(geo, x) {
   drawPlinkoBoard(slot);
   drawPlinkoPearl((slot + 0.5) * geo.slotW, geo.H - geo.slotH / 2);
   plinkoSlotPop(geo, slot, reward);   // kawaii burst over the winning slot
-  state.bonusPearls += reward;
-  state.gamePearls += reward;
+  state.gamePearls += awardPearls(reward);
   saveState();
   renderAll();
   checkBadges(true);   // "Break Champ"
@@ -4915,6 +5000,9 @@ let redeemClock = null;
 function openRedeem(partner) {
   redeemPartner = partner;
   playSfx("tap");
+  // partner_id only. The shop is not private (it is on a public map), but the
+  // student's location is, so no coordinate is ever attached.
+  trk("redemption_started", { partner_id: partner.id || null, offer_viewed: true });
   els.redeemShop.textContent   = partner.name;
   els.redeemAddress.textContent = partner.address || "";
   els.redeemPerk.textContent   = partner.perk;
@@ -4960,6 +5048,7 @@ function confirmRedeem() {
     perk: redeemPartner.perk
   });
   saveState();
+  trk("redemption_completed", { partner_id: redeemPartner.id || null });
   playSfx("success");
   showToast(`Used at ${redeemPartner.name}. Enjoy 🧋`);
   try { els.redeemDialog.close(); } catch (e) {}
@@ -5047,7 +5136,7 @@ function bumpQuest(track, amount = 1) {
 }
 
 function onQuestComplete(def) {
-  state.bonusPearls += def.reward;
+  awardPearls(def.reward);
   playSfx("success"); haptic([12, 40, 18]);
   pearlsWonFx(def.reward, false);        // pop the pearl chip (no toast)
   showToast(`🎯 Quest done: ${def.title}! +${def.reward} pearls`);
@@ -5373,8 +5462,15 @@ const ONBOARD_STEPS = [
   },
   {
     emoji: ICON.map,
-    title: "Real Rewards Await!",
-    body: "Mr. Tapioca wants to work at real shops. Stay tuned to unlock discounts at boba shops near you. Check out the in-app map to locate shops to visit."
+    // This slide used to say "Stay tuned to unlock discounts", which was written
+    // before any shop had signed. Two have now, so "stay tuned" told a new user
+    // the one real thing about this app was still hypothetical. It says what the
+    // loop actually is instead: focus, fill the cup, and where a partner exists,
+    // that time is worth something over a counter. The number is deliberately not
+    // named here (it is per shop, and the Boba Map prints each shop's own words),
+    // and neither is a shop, because most people opening this are nowhere near one.
+    title: "Real boba, not just points",
+    body: "Focus time fills your drink. Where a shop has partnered with us, that same time earns a real perk you pick up in person. Open the Boba Map to see if there is one near you. Everything else works wherever you are."
   },
   {
     name: true,
@@ -5463,6 +5559,7 @@ function onboardGoBack() {
 function finishOnboarding(skipped) {
   els.onboarding.classList.add("hidden");
   state.onboarded = true;
+  trkOnce("onboarding_completed", { skipped: !!skipped });
   localStorage.setItem("bobaFocusOnboarded", "true");
   playSfx("success");
   haptic(10);
@@ -5768,8 +5865,7 @@ function pongLoop(ts) {
       pong.splash = { x: pong.cupX, y: d.mouthY, r: 0 };   // ring effect at the cup
       p.x = pong.cupX; p.y = d.mouthY + 24; p.vx = 0; p.vy = 0;   // pearl sinks in
       pong.score++;
-      state.bonusPearls += PONG_REWARD;
-      state.gamePearls += PONG_REWARD;
+      state.gamePearls += awardPearls(PONG_REWARD);
       saveState();
       updatePongHUD();
       playSfx("swish");
@@ -6444,6 +6540,15 @@ if (window.SquadCloud && SquadCloud.enabled) {
   const delRow = document.querySelector("#deleteAccountRow");
   if (delRow) delRow.classList.remove("hidden");   // account deletion is reachable when cloud is on
   SquadCloud.init();
+}
+
+// Server-backed merchant rewards (reward-v2.js). Flagged OFF in config.js, so this
+// is currently a guard that never fires. Started AFTER SquadCloud.init() on purpose:
+// both share one anonymous account, and letting Squad establish it first means
+// RewardV2 restores that session rather than racing to create a second one.
+// A failure here must never reach the app, hence the swallow.
+if (window.RewardV2 && RewardV2.enabled) {
+  Promise.resolve(RewardV2.init()).catch(() => {});
 }
 
 // Reflect persisted prefs in the UI before first paint

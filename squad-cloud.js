@@ -58,6 +58,13 @@
 
   SquadCloud.myCode = () => myCode;
 
+  // The signed-in client, for other modules that must use the SAME anonymous
+  // account. RewardV2 needs this: two independent signInAnonymously() calls
+  // racing on a cold start would mint two users and split one student's focus
+  // minutes across both, which surfaces as "my reward disappeared". Returns a
+  // promise so a caller that runs before init() still gets a live client.
+  SquadCloud.client = () => ensureAuth();
+
   // Push our cosmetic + soft stats (incl. focus minutes — server clamps to a sane
   // increase). For real partner-discount redemption later, swap focus_minutes to
   // the validated focus_sessions model (see supabase-setup.sql notes).

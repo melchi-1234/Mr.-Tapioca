@@ -788,6 +788,15 @@
     <script src="config.js"></script>
     <script src="squad-cloud.js"></script>
     <script src="metrics.js"></script>
+    <!-- Product analytics, feature-flagged OFF in config.js. Inert with the flag
+         down: no queue, no network, no storage writes. -->
+    <script src="analytics.js"></script>
+    <!-- Reward V2, feature-flagged OFF in config.js. Both files return
+         immediately when the flag is down, so with it off this is two script
+         tags and no behaviour change. reward-config.js must load first:
+         reward-v2.js has no opinion about what a threshold means. -->
+    <script src="reward-config.js"></script>
+    <script src="reward-v2.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

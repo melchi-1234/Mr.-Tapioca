@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mr. Tapioca for boba shops</title>
+<meta name="description" content="What Mr. Tapioca is, what a partner shop actually provides, and what it will and will not be able to measure.">
+
+<!-- ── Why this page exists ──────────────────────────────────────────────────
+     marketing/doug-one-pager.html is the mentor-facing version of this pitch and
+     it currently makes two claims the code cannot back (GROUNDING.md §8 items 1,
+     2 and 3): a "first-visit trigger" that "the app knows", a report of
+     "first-time visitors", and "verified study time". None of those exist.
+     Redemptions never leave the device (app.js:763, no fetch in confirmRedeem),
+     there is no shop identity in any table, and focus minutes come from the
+     phone's own clock into plain localStorage.
+
+     This is the merchant-facing page written from the ground truth instead. The
+     trap being avoided is the obvious one: a shop owner who is promised a number
+     we cannot produce finds out at the exact moment we hand them a report. The
+     "what we will never be able to tell you" block below is therefore load
+     bearing. It is the credibility, not a disclaimer.
+
+     LOCAL CONCEPT ONLY. Not deployed, not linked from anywhere, and the form at
+     the bottom is deliberately wired to nothing. See the submit handler.
+     ───────────────────────────────────────────────────────────────────────── -->
+
+<style>
+/* ── Tokens ────────────────────────────────────────────────────────────────
+   Lifted from styles.css so this page reads as the same product: the same warm
+   paper gradient, the same 2px edge, the same three-part lift (hairline contact
+   edge, tight close shadow, wide ambient one). A single blurred shadow is what
+   makes UI look flat and cheap, which is why --lift stays three-part here too.
+
+   Every colour gets its light value on bare :root first. Defining a colour only
+   inside the dark media query is how a page ends up with no background at all
+   for a light-mode reader. */
+:root {
+  --page:      #f7e9d7;
+  --page-glow: radial-gradient(1100px 620px at 50% -8%, #fff6e8 0%, rgba(255,246,232,0) 62%);
+  --ink:       #3c2018;
+  --ink-soft:  #7a5340;
+  --ink-faint: #9c7a63;
+  --paper:     linear-gradient(180deg, #fffbf3 0%, #fdf4e6 58%, #f8ecda 100%);
+  --edge:      rgba(96,58,36,0.20);
+  --sheen:     inset 0 1.5px 0 rgba(255,255,255,0.95);
+  --lift:      0 1px 0 rgba(96,58,36,0.10),
+               0 6px 14px -6px rgba(60,32,24,0.26),
+               0 16px 32px -20px rgba(60,32,24,0.34);
+  --rose:      #ef6f8d;
+  --teal:      #158f92;
+  --gold:      #f0bb4f;
+  --mint:      rgba(217,243,234,0.72);
+  --field:     #fffdf8;
+  --rule:      rgba(60,32,24,0.12);
+  --no-tint:   rgba(220,76,100,0.07);
+  --no-edge:   rgba(220,76,100,0.28);
+  --no-ink:    #b93c52;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page:      #241611;
+    --page-glow: radial-gradient(1100px 620px at 50% -8%, #3a241c 0%, rgba(58,36,28,0) 62%);
+    --ink:       #f8ece0;
+    --ink-soft:  #d6bba6;
+    --ink-faint: #ab8b76;
+    --paper:     linear-gradient(180deg, #3b251d 0%, #34211a 58%, #2c1b15 100%);
+    --edge:      rgba(255,228,200,0.16);
+    --sheen:     inset 0 1.5px 0 rgba(255,236,214,0.07);
+    --lift:      0 1px 0 rgba(0,0,0,0.45),
+                 0 8px 18px -8px rgba(0,0,0,0.62),
+                 0 20px 40px -24px rgba(0,0,0,0.7);
+    --rose:      #ff96ac;
+    --teal:      #58c9cb;
+    --gold:      #f6cd72;
+    --mint:      rgba(88,201,203,0.14);
+    --field:     #2b1b15;
+    --rule:      rgba(255,228,200,0.14);
+    --no-tint:   rgba(255,140,160,0.09);
+    --no-edge:   rgba(255,140,160,0.30);
+    --no-ink:    #ff9aab;
+  }
+}
+
+* { box-sizing: border-box; }
+body, h1, h2, h3, p, figure { margin: 0; }
+
+body {
+  /* The page background is painted explicitly. A transparent body borrows
+     whatever surface it is dropped on, which is how a warm-paper design ends up
+     looking like a white browser default. */
+  background: var(--page-glow), var(--page);
+  background-repeat: no-repeat;
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  padding: 0 16px 64px;
+}
+
+.wrap { max-width: 880px; margin: 0 auto; }
+
+/* ── Icon family ───────────────────────────────────────────────────────────
+   One family, matching app.js's ICON map exactly: viewBox 0 0 24 24, no fill,
+   currentColor stroke, 2px, round caps and joins. No emoji is ever used as an
+   icon here, same rule as the app. */
+.ico {
+  width: 1em; height: 1em;
+  flex: 0 0 auto;
+  vertical-align: -0.12em;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+header { padding: 56px 0 8px; }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 0.74rem; font-weight: 900;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--rose);
+  margin-bottom: 14px;
+}
+.eyebrow .ico { width: 1.1em; height: 1.1em; }
+
+h1 {
+  font-size: clamp(1.75rem, 5.2vw, 2.6rem);
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  max-width: 17ch;
+}
+.lede {
+  margin-top: 16px;
+  font-size: clamp(1rem, 2.3vw, 1.1rem);
+  color: var(--ink-soft);
+  max-width: 58ch;
+}
+
+/* ── Sections ──────────────────────────────────────────────────────────── */
+section { margin-top: 44px; }
+
+h2 {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.82rem; font-weight: 900;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--ink);
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--rule);
+  margin-bottom: 18px;
+}
+h2 .ico { width: 1.35em; height: 1.35em; color: var(--rose); }
+
+h3 { font-size: 1rem; font-weight: 900; letter-spacing: -0.01em; }
+
+p + p { margin-top: 10px; }
+.muted { color: var(--ink-soft); }
+.small { font-size: 0.88rem; }
+
+/* ── The one UI material: paper, 2px edge, sheen, three-part lift ─────── */
+.card {
+  background: var(--paper);
+  border: 2px solid var(--edge);
+  border-radius: 18px;
+  box-shadow: var(--sheen), var(--lift);
+  padding: 18px 18px 17px;
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+/* The four-step row needs a smaller floor than the two-card rows, or auto-fit
+   lands on three columns at 880px and orphans step 4 on a line of its own. */
+.grid.steps { grid-template-columns: repeat(auto-fit, minmax(186px, 1fr)); }
+
+/* Numbered steps. The number sits in the same slot an icon would, so the
+   rhythm of the page does not break between the two kinds of card. */
+.step-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 999px;
+  background: var(--mint);
+  border: 1.5px solid var(--edge);
+  color: var(--teal);
+  font-size: 0.8rem; font-weight: 900;
+  margin-bottom: 10px;
+}
+.card h3 + p { margin-top: 7px; color: var(--ink-soft); font-size: 0.93rem; }
+
+/* Plain lists, no bullet glyph fights with the icon family */
+ul { list-style: none; padding: 0; margin: 0; }
+li { position: relative; padding-left: 26px; margin-bottom: 11px; }
+li:last-child { margin-bottom: 0; }
+li .ico {
+  position: absolute; left: 0; top: 0.18em;
+  width: 1.05em; height: 1.05em;
+  color: var(--teal);
+}
+li b { font-weight: 900; }
+
+/* ── Status chips: the honesty markers ───────────────────────────────────
+   Every block on this page is labelled live or not live. The whole point of the
+   page is that a shop owner can tell those apart at a glance, so the label is a
+   chip in the heading row rather than a sentence buried in a paragraph. */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.68rem; font-weight: 900;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--edge);
+  background: var(--mint);
+  color: var(--teal);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.chip .ico { width: 1em; height: 1em; color: inherit; }
+.chip.later { background: transparent; color: var(--ink-faint); }
+
+/* ── The partner roster ────────────────────────────────────────────────── */
+.shops { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.shop-name { font-size: 1.05rem; font-weight: 900; }
+.shop-addr { font-size: 0.86rem; color: var(--ink-faint); margin-top: 2px; }
+.offer {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--edge);
+  background: var(--mint);
+  font-weight: 900;
+  color: var(--ink);
+}
+.offer-label {
+  display: block;
+  font-size: 0.66rem; font-weight: 900;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 3px;
+}
+.shop-terms { margin-top: 10px; font-size: 0.84rem; color: var(--ink-soft); }
+
+/* ── The "we cannot tell you this" block ────────────────────────────────
+   Deliberately tinted and bordered rather than hidden in a footnote. A shop
+   owner reading fast should hit this section, not skim past it. */
+.cannot {
+  border-color: var(--no-edge);
+  background: var(--no-tint);
+  box-shadow: none;
+}
+.cannot li .ico { color: var(--no-ink); }
+.cannot h3 { color: var(--no-ink); }
+
+/* ── Form ──────────────────────────────────────────────────────────────── */
+.form-note {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px dashed var(--edge);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.field { margin-bottom: 14px; }
+label {
+  display: block;
+  font-size: 0.8rem; font-weight: 900;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+}
+label .opt { font-weight: 700; color: var(--ink-faint); letter-spacing: 0; }
+input, textarea {
+  width: 100%;
+  min-height: 44px;                 /* 44px minimum hit area, same as the app */
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: var(--field);
+  border: 2px solid var(--edge);
+  border-radius: 12px;
+  box-shadow: var(--sheen);
+}
+textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
+input::placeholder, textarea::placeholder { color: var(--ink-faint); opacity: 1; }
+input:focus-visible, textarea:focus-visible, button:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.two-up { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+button {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px;
+  padding: 11px 20px;
+  font: inherit;
+  font-size: 0.95rem; font-weight: 900;
+  color: #fff;
+  background: var(--rose);
+  border: 2px solid rgba(96,58,36,0.18);
+  border-radius: 999px;
+  box-shadow: var(--sheen), 0 1px 0 rgba(96,58,36,0.16), 0 6px 14px -7px rgba(60,32,24,0.42);
+  cursor: pointer;
+}
+@media (prefers-color-scheme: dark) { button { color: #2b1219; } }
+button:active { transform: translateY(1px); }
+
+/* The unwired-form message. Hidden by default; .hidden needs its own rule on a
+   component that sets its own display, or the later display wins. Same trap the
+   app's styles.css calls out. */
+.form-status {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 16px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 2px solid var(--edge);
+  background: var(--mint);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.form-status.hidden { display: none; }
+.form-status .ico { width: 1.25em; height: 1.25em; color: var(--teal); margin-top: 0.15em; }
+
+/* ── Fine print + footer ───────────────────────────────────────────────── */
+.fine { font-size: 0.87rem; color: var(--ink-soft); }
+.fine li { margin-bottom: 9px; }
+.fine li .ico { color: var(--ink-faint); }
+
+footer {
+  margin-top: 44px;
+  padding-top: 18px;
+  border-top: 2px solid var(--rule);
+  font-size: 0.84rem;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 520px) {
+  header { padding-top: 36px; }
+  section { margin-top: 34px; }
+  h2 { flex-wrap: wrap; }
+  .chip { margin-left: 0; }
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="eyebrow">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.6-5h14.8L21 9"/><path d="M4.5 9v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V9"/><path d="M3 9h18"/><path d="M9.5 20v-6h5v6"/></svg>
+      For boba shops
+    </span>
+
+    <!-- The headline deliberately stops at "your counter" rather than saying they
+         walk in and buy something. Whether a redemption became a sale, or would
+         have happened anyway, is in the list of things this can never know. The
+         headline must not quietly claim it back. -->
+    <h1>Students focus for four hours. The only place to collect is your counter.</h1>
+
+    <p class="lede">Mr. Tapioca is a study timer. A student blocks the apps that
+      distract them (on iPhone, using Apple's Screen Time), works, and a little cup
+      of boba fills up while they do. When the cup is full, a partner shop is the
+      reward. You pick what that reward is, in your own words, and you can pull it
+      any day you like.</p>
+
+    <p class="lede small" style="margin-top:12px">This page is the honest version.
+      It says what works today, what is coming in the next release, and what this
+      will never be able to measure.</p>
+  </header>
+
+  <!-- ── 1. What the student actually does ─────────────────────────────── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.2-2.9 7.8-7 9-4.1-1.2-7-4.8-7-9V6l7-3z"/><path d="M9.2 12.2l2 2 3.6-3.9"/></svg>
+      What the student actually does
+      <span class="chip"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Live today</span>
+    </h2>
+
+    <div class="grid steps">
+      <div class="card">
+        <span class="step-n">1</span>
+        <h3>Puts the phone down</h3>
+        <p>On iPhone the app shields their distracting apps for the length of the
+          session, using Apple's own Screen Time controls. They pick which apps. It
+          is a real block, not a tamper proof one: iOS lets a student clear their
+          own limits for the day, and reinstalling a blocked app drops it out until
+          they pick it again.</p>
+      </div>
+      <div class="card">
+        <span class="step-n">2</span>
+        <h3>Studies</h3>
+        <p>One session runs anywhere from 15 minutes to 4 hours. A tapioca pearl
+          character brews their drink on screen while the timer runs.</p>
+      </div>
+      <div class="card">
+        <span class="step-n">3</span>
+        <h3>Fills the cup</h3>
+        <p>Minutes add up across days, not in one sitting. Four hours of focus in
+          total is the bar today. It is one number shared by the whole partner list,
+          not a setting each shop holds. The fine print says what that means.</p>
+      </div>
+      <div class="card">
+        <span class="step-n">4</span>
+        <h3>Walks in</h3>
+        <p>The reward only exists in person, at your counter. There is no online
+          order, no code emailed anywhere, and nothing to ship.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. What the shop provides ─────────────────────────────────────── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-6.2-6.2A2 2 0 0 1 3.8 13V4.8A1.8 1.8 0 0 1 5.6 3h8.2a2 2 0 0 1 1.4.6l5.4 5.4a2 2 0 0 1 0 2.8z"/><path d="M8.2 8.2h.01"/></svg>
+      What the shop provides
+      <span class="chip"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Live today</span>
+    </h2>
+
+    <div class="card">
+      <ul>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>One offer, written by you.</b> A percentage, a free topping, a size
+          upgrade, a set amount off. Whatever you would actually be happy to hand
+          over. We copy your wording into the app exactly as you send it.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>Almost nothing else.</b> No hardware, no register integration, no app
+          for your staff to install, no account to create, no fee to join and no
+          minimum term. The one thing we do ask for is your offer in writing, in
+          your own words, so that neither of us is going on memory about what you
+          agreed to. An email saying it is enough. That is the whole paperwork.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>You honor it in person.</b> A student who has done the hours shows the
+          reward at the counter and your cashier applies it. That is the whole
+          transaction.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── 3. The offer belongs to the shop ──────────────────────────────── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h5"/><path d="M13 6h7"/><path d="M4 12h11"/><path d="M19 12h1"/><path d="M4 18h3"/><path d="M11 18h9"/><path d="M11 6a2 2 0 1 0 0 .01"/><path d="M17 12a2 2 0 1 0 0 .01"/><path d="M9 18a2 2 0 1 0 0 .01"/></svg>
+      The offer is yours, including the off switch
+      <span class="chip"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Live today on the web</span>
+    </h2>
+
+    <div class="card">
+      <ul>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7.5 18.5 3.5 19.5l1-4z"/></svg>
+          <b>You set the words and the number.</b> We never write an offer on your
+          behalf and we never round a number up to make it sound better. If you say
+          five percent, the app says five percent.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 4.5V10h-5.5"/></svg>
+          <b>You change it whenever you want.</b> Send new wording and it replaces
+          the old one. There is no approval step and no minimum term.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg>
+          <b>You leave the web app the same day you ask.</b> Pulling a shop is one
+          line removed from one file. It is not a build, not a release and not a
+          meeting. Phones are slower, and one case is slower than the rest: a phone
+          that has not been online in a while, or is on an older App Store build,
+          keeps showing the copy of the list it already has. The fine print at the
+          bottom says exactly how slow that gets and what we tell you about it.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── 4. Honest pilot status ────────────────────────────────────────── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-5.1-7-10.4A7 7 0 0 1 19 10.6C19 15.9 12 21 12 21z"/><path d="M12 13.5a2.9 2.9 0 1 0 0-5.8 2.9 2.9 0 0 0 0 5.8z"/></svg>
+      Where the pilot actually is
+      <span class="chip"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Live today</span>
+    </h2>
+
+    <div class="shops">
+      <div class="card">
+        <div class="shop-name">U Tea</div>
+        <div class="shop-addr">205 Dryden Rd, Collegetown. Partner since August 9, 2026.</div>
+        <div class="offer"><span class="offer-label">Their words</span>10% off your drink</div>
+        <div class="shop-terms">Unlocks at 4 hours of focus.</div>
+      </div>
+      <div class="card">
+        <div class="shop-name">Dream Tea &amp; Pok&eacute;</div>
+        <div class="shop-addr">130 E Seneca St, Ithaca. Partner since August 10, 2026.</div>
+        <div class="offer"><span class="offer-label">Their words</span>5% off your drink</div>
+        <div class="shop-terms">Unlocks at 4 hours of focus.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h3>Two shops. That is the whole network.</h3>
+      <p class="muted small" style="margin-top:8px">The app is live on the App Store
+        and on the web. Usage so far is early: friends, family and a small number
+        of test purchases. Nobody here is going to tell you there is a crowd of
+        students waiting on the other side of this, because there is not one yet.
+        You would be joining a pilot with two shops in it, and the reason to do it
+        is that it costs you nothing until somebody actually walks in and has done
+        the work.</p>
+    </div>
+  </section>
+
+  <!-- ── 5. The counter flow, split by what is real today ──────────────── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16"/><path d="M4 15h16"/><path d="M10.5 3.5L8.5 20.5"/><path d="M16 3.5l-2 17"/></svg>
+      At the counter
+    </h2>
+
+    <div class="grid">
+      <div class="card">
+        <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          How it works today
+          <span class="chip"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Live</span>
+        </h3>
+        <p>The student opens your card inside the app. It shows your shop name,
+          your offer in your words, and a clock that ticks forward while the card
+          is open.</p>
+        <p class="small" style="margin-top:10px"><b>The honest limit:</b> that card
+          is a card in an app, and it is not proof of anything. It opens at full
+          strength even for a student who has earned nothing, with only the confirm
+          button switched off. Closing it with "Not now" spends nothing, so a
+          student who earns one reward can show the same full card at your counter
+          again the next day, and the day after. Your cashier has no way to check
+          it against anything. That is not us being modest. It is the exact reason
+          the next release exists.</p>
+      </div>
+
+      <div class="card">
+        <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          What replaces it
+          <span class="chip later"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.5V12l3 1.8"/></svg>Next release</span>
+        </h3>
+        <p>The student shows a short code instead of a card. Your cashier types it
+          into a plain web page on their own phone, and the page answers in one
+          word: valid, or already used.</p>
+        <p class="small" style="margin-top:10px">Nothing to install. No account, no
+          login, no staff training. One code is good for one use, and it is marked
+          used at the moment your cashier accepts it, not before.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 6. What a shop will be able to see ────────────────────────────── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20.5h18"/><path d="M6 20.5v-6"/><path d="M12 20.5V6"/><path d="M18 20.5v-9"/></svg>
+      What you will be able to see
+      <span class="chip later"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.5V12l3 1.8"/></svg>Next release</span>
+    </h2>
+
+    <p class="muted" style="margin-bottom:16px">None of this is live today. Today a
+      redemption never leaves the student's phone, so there is no report to give
+      you and we do not give you one. The list below arrives with the counter code
+      above, because the code is what creates the record in the first place.</p>
+
+    <div class="card">
+      <ul>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>Redemptions.</b> How many times your offer was accepted at your counter.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>Separate accounts.</b> How many different accounts that was, which is
+          not the same as how many different people. An account is a random string
+          the app makes on the device. It carries no name, no email and no phone
+          number, so we have nothing like that to give you and would not hand it
+          over if we did. Accounts are also free, so one person could hold two. The
+          report says accounts rather than people for exactly that reason.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>Repeat redeemers.</b> How many of those accounts came back and did the
+          hours again for a second one.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>Which offer was live.</b> The exact wording that was running when each
+          redemption happened, so changing your offer does not blur the history.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>When they happened.</b> By day and by hour, which is the number that
+          tells you whether this lands in your slow window or your rush.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <b>Rejected attempts.</b> Codes your cashier typed in that came back
+          refused, and the reason: already used, expired, or not a real code.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── 7. The refusals. GROUNDING.md §8 exists so this list does too. ─── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M5.6 5.6l12.8 12.8"/></svg>
+      What we will never be able to tell you
+    </h2>
+
+    <div class="card cannot">
+      <h3>These are not on a roadmap. They are outside what this can know.</h3>
+      <p class="muted small" style="margin-top:8px;margin-bottom:16px">Mr. Tapioca
+        never touches your register. It does not see an order, a total, or a card.
+        So the following numbers are not hard for us, they are impossible, and any
+        version of them we handed you would be a guess wearing a chart.</p>
+      <ul>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.6 5.6l12.8 12.8"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg>
+          <b>Revenue.</b> We never see a transaction, so we cannot report one.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.6 5.6l12.8 12.8"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg>
+          <b>Incremental sales.</b> We cannot tell you whether a student would have
+          walked in anyway. Nobody who does not run your register can.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.6 5.6l12.8 12.8"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg>
+          <b>First-time visitors.</b> We do not know who has been in your shop
+          before. A student who has been coming for a year looks identical to one
+          who has never been in.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.6 5.6l12.8 12.8"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg>
+          <b>Average order value.</b> We never see the order, only that the offer
+          was accepted.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.6 5.6l12.8 12.8"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg>
+          <b>Return on investment.</b> It is built out of the four above, so it is
+          not available either.
+        </li>
+      </ul>
+      <p class="small" style="margin-top:16px"><b>If you ever hear us claim one of
+        these, push back and make us show the number.</b> An earlier draft of this
+        pitch did claim two of them. That is why they are listed here by name.</p>
+    </div>
+  </section>
+
+  <!-- ── 8. Expression of interest. Deliberately not wired to anything. ── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v12H4z"/><path d="M4 7.2l8 5.6 8-5.6"/></svg>
+      If you want to try it
+      <span class="chip later"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.5V12l3 1.8"/></svg>Not connected</span>
+    </h2>
+
+    <p class="form-note">Heads up before you type anything: this page is a working
+      draft and the form below is not connected to anything. It does not send an
+      email, it does not save a row, and it does not hand your details to a third
+      party. Pressing the button just says so.</p>
+
+    <form id="interestForm" class="card" novalidate>
+      <div class="two-up">
+        <div class="field">
+          <label for="shopName">Shop name</label>
+          <input id="shopName" name="shopName" type="text" autocomplete="organization" placeholder="Your shop">
+        </div>
+        <div class="field">
+          <label for="contactName">Your name</label>
+          <input id="contactName" name="contactName" type="text" autocomplete="name" placeholder="Who we would be talking to">
+        </div>
+      </div>
+
+      <div class="two-up">
+        <div class="field">
+          <label for="contactWay">Best way to reach you</label>
+          <input id="contactWay" name="contactWay" type="text" placeholder="Email, phone, or just say walk in">
+        </div>
+        <div class="field">
+          <label for="cap">A cap you would be comfortable with <span class="opt">(optional)</span></label>
+          <input id="cap" name="cap" type="text" placeholder="e.g. 30 redemptions in the first month">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="offer">The offer, in your own words</label>
+        <textarea id="offer" name="offer" placeholder="Write it exactly how you want it to read in the app. A percentage, a free topping, a size upgrade, an amount off. This is the text we would copy."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="notes">Anything you want to ask or rule out <span class="opt">(optional)</span></label>
+        <textarea id="notes" name="notes" placeholder="Hours you would want it limited to, things you would not want, questions."></textarea>
+      </div>
+
+      <button type="submit">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 3L10.5 13.5"/><path d="M21 3l-6.8 18-3.7-8.5L2 8.8z"/></svg>
+        Send
+      </button>
+
+      <!-- role="status" so a screen reader hears the "nothing was sent" message
+           without the focus being yanked out of the form. -->
+      <div id="formStatus" class="form-status hidden" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <!-- ── 9. Fine print. The caveats that would otherwise be a bad surprise ── -->
+  <section>
+    <h2>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 11.5v5"/><path d="M12 7.6h.01"/></svg>
+      The fine print, on purpose
+    </h2>
+
+    <div class="card fine">
+      <ul>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.5V12l3 1.8"/></svg>
+          <b>We do not call this verified study time.</b> The app counts minutes
+          from the phone's own clock and keeps them on the phone. It is a good
+          faith measure of somebody sitting down and working, and it is not proof.
+          Making it something a shop could actually lean on is the point of the
+          next release, and until that ships we will not use the word verified.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.5V12l3 1.8"/></svg>
+          <b>The four hour bar is one shared number</b>, not a setting each shop
+          holds. Both current partners are recorded at four hours, so today it
+          makes no practical difference. The part worth knowing: when the app works
+          out whether a student is eligible, it takes the lowest bar on the whole
+          partner list and applies it to every offer, including yours. If a third
+          shop ever signed on at two hours, two hours would become the bar for your
+          offer too. Whether shops should get their own bar is a decision that has
+          not been made yet, and we would tell you which way it went before you
+          signed on.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.5V12l3 1.8"/></svg>
+          <b>Adding or pulling a shop reaches the web app the same day.</b> It
+          reaches the iPhone app with the next App Store release, which is a real
+          gap of days, not minutes. Two slower cases are worth naming, because you
+          should hear them from us and not from a customer. The list a phone has
+          already downloaded does not expire on its own: it is replaced the next
+          time that phone opens the shop map inside the app with a working
+          connection, so a phone that stays offline keeps the old list for as long
+          as it stays offline.
+          And underneath that sits a shop list built into the app itself, which is
+          what a fresh install with no signal falls back to, and that one only
+          changes with an App Store release. If you ask to come off, we tell you
+          the day it is off the web app and the day it is off phones, separately,
+          and we say plainly that the long tail above is not something we can chase
+          down device by device.
+        </li>
+        <li>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.5V12l3 1.8"/></svg>
+          <b>Everything on this page marked next release is written and not
+          shipped.</b> It exists as code and tests. It has not run against real
+          students at a real counter. When it has, this page changes and the chips
+          move from next release to live.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Mr. Tapioca. Built by Melchi Goldfarb, a Cornell student, in Ithaca.
+    Live on the App Store and at mrtapioca.me.
+    <br>Internal draft, August 2026. Not published.
+  </footer>
+
+</div>
+
+<script>
+// ── The form goes nowhere, loudly ─────────────────────────────────────────
+// This is a concept page. It must never look like it accepted something, because
+// a shop owner who fills this in and hears nothing back has been quietly lost.
+// So: no action attribute, no endpoint, no mailto, no third-party form service.
+// The handler cancels the native submit and says plainly that nothing left the
+// page. The values stay in the fields on purpose, so whoever is demoing this can
+// read back exactly what the owner wrote.
+(function () {
+  var form = document.getElementById("interestForm");
+  var status = document.getElementById("formStatus");
+  if (!form || !status) return;
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    // Rebuilt every time rather than toggled: the icon and the text have to be
+    // written together. Writing textContent onto a node that carries an inline
+    // SVG wipes the icon out, which is the same trap app.js documents for
+    // buttons.
+    status.innerHTML =
+      '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.5v5.2"/>' +
+      '<path d="M12 16.6h.01"/></svg>' +
+      '<span><b>Nothing was sent.</b> This form is not connected to anything yet, ' +
+      'so no email went out and nothing was saved. Your answers are still sitting ' +
+      'in the fields above if you want to read them back.</span>';
+    status.classList.remove("hidden");
+
+    // Scroll it into view on a phone, where the button can sit above the fold and
+    // the message below it.
+    if (typeof status.scrollIntoView === "function") {
+      status.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  });
+})();
+</script>
+</body>
+</html>
