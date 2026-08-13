@@ -60,6 +60,22 @@ def check(path: Path) -> int:
     return fails
 
 
+def _ambiguity(files):
+    """Run the run-time-ambiguity linter as part of the same check, so a bare
+    variable/column collision (42702 at run time, invisible to the grammar) can
+    never pass a green check-sql again. It cost three live round-trips once."""
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "amb", Path(__file__).with_name("check-sql-ambiguity.py"))
+        amb = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(amb)
+        return sum(amb.check(f) for f in files)
+    except Exception as e:
+        print("  (ambiguity check skipped:", e, ")")
+        return 0
+
+
 def main() -> int:
     args = sys.argv[1:]
     files = [Path(a) for a in args] if args else sorted(ROOT.glob("*.sql"))
@@ -67,6 +83,7 @@ def main() -> int:
         print("no .sql files found")
         return 0
     bad = sum(check(f) for f in files)
+    bad += _ambiguity(files)
     print(f"\n{len(files)} file(s), {bad} problem(s)")
     return 1 if bad else 0
 

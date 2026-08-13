@@ -258,6 +258,17 @@ create or replace function public.issue_my_rewards()
 returns table (id uuid, policy_id text, partner_id text, seq integer,
                offer_version integer, issued_at timestamptz, expires_at timestamptz, status text)
 language plpgsql security definer set search_path = public as $$
+-- WHEN A NAME COULD MEAN EITHER, IT MEANS THE COLUMN.
+--
+-- `returns table (id, policy_id, partner_id, seq, ...)` puts variables of those
+-- names in scope for the whole body, and `on conflict (user_id, policy_id, seq)`
+-- names columns, so Postgres refused the call at RUN time with
+--   42702  column reference "policy_id" is ambiguous
+-- This is the same failure that hit start_reward_session, in a place a
+-- search for `col = ` does not look. Every OUT name here is only ever read back
+-- through an alias (`r.id`, `r.policy_id`), so preferring the column is right and
+-- covers the whole body rather than one statement at a time.
+#variable_conflict use_column
 declare
   v_me       uuid := auth.uid();
   v_minutes  int;
@@ -551,18 +562,24 @@ returns text language plpgsql set search_path = public, extensions as $$
 declare
   alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   -- 32 chars, no 0/O/1/I
   n        constant int  := 32;
-  code text; b int; tries int := 0;
+  -- v_code, NOT `code`. redemption_handoffs HAS a column called code, and a bare
+  -- `code` inside the collision query below is ambiguous between this variable
+  -- and that column. plpgsql's default is to RAISE on that ambiguity, so every
+  -- single mint attempt threw, the retry loop burned all 60 tries, and the caller
+  -- reported "could not mint a code" -- which is a real-looking answer to a
+  -- question that was never actually asked.
+  v_code text; b int; tries int := 0;
 begin
   loop
-    code := '';
-    while char_length(code) < 6 loop
+    v_code := '';
+    while char_length(v_code) < 6 loop
       b := get_byte(extensions.gen_random_bytes(1), 0);
-      code := code || substr(alphabet, (b % n) + 1, 1);
+      v_code := v_code || substr(alphabet, (b % n) + 1, 1);
     end loop;
-    -- Collision must be checked against EVERY row, not just live ones. `code` is
-    -- the PRIMARY KEY, so a code that merely happens to be consumed or expired is
+    -- Collision must be checked against EVERY row, not just live ones. The code is
+    -- the PRIMARY KEY, so one that merely happens to be consumed or expired is
     -- still taken, and re-minting it is an unhandled unique_violation at insert.
-    exit when not exists (select 1 from public.redemption_handoffs h where h.code = code);
+    exit when not exists (select 1 from public.redemption_handoffs h where h.code = v_code);
     -- BOUNDED: never reusing a code means an exhausted keyspace has to fail
     -- cleanly rather than loop forever inside a transaction. 60 consecutive
     -- misses over 32^6 codes does not happen with a working RNG.
@@ -571,7 +588,7 @@ begin
       raise exception 'could not mint a handoff code' using errcode='P0004';
     end if;
   end loop;
-  return code;
+  return v_code;
 end; $$;
 
 -- Step 1 at the counter: the student picks the shop and opens the card. This
@@ -638,9 +655,14 @@ begin
     -- returns, rather than an unhandled exception. Impossible with a working RNG
     -- over 32^6 codes; handled anyway because "impossible" is how the last two
     -- bugs in this file got in.
+    -- Catch ONLY the exhaustion case. `when others` was here, and it turned a
+    -- plain ambiguity error inside gen_handoff_code into a confident
+    -- "failed_code_unavailable", which is a real-looking answer to a question
+    -- that was never asked. A defensive handler that swallows the diagnosis is
+    -- worse than no handler: it cost a 30-minute test run to find that out.
     begin
       v_code := public.gen_handoff_code();
-    exception when others then
+    exception when sqlstate 'P0004' then
       insert into public.redemption_events (user_id, partner_id, reward_id, outcome)
         values (v_me, p_partner_id, p_reward_id, 'failed_code_unavailable');
       return jsonb_build_object('ok', false, 'reason', 'failed_code_unavailable');
