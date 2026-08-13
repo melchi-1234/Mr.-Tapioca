@@ -514,27 +514,39 @@ body {
   -webkit-mask: url('assets/win-mask-library.webp') top center / cover no-repeat;
           mask: url('assets/win-mask-library.webp') top center / cover no-repeat;
   --win-x: 50%; --win-y: 34%; --win-w: 150%;
-  background: linear-gradient(165deg, #f0b968 0%, #ffcf82 40%, #fff0c4 100%);
-  /* Round 3 overshot HARD ("faded from white to dark in rapid succession,
-     looks bad") — brightness(1.4) stacked with a near-opaque screen-blend
-     flare at the SAME peak instant blew the glass out to solid white and
-     ate the mullion. This is a much narrower swing (+-15%, not +40%/-28%),
-     the flare's peak opacity is halved, and the cycle is slower (4s not 3s)
-     so it reads as a breath, not a strobe. Verified against the actual
-     rendered peak frame this time, not a lucky screenshot. */
-  animation: lamp-breathe-bright 4s ease-in-out infinite alternate;
+  /* Layer 2 (base amber gradient) never moves — only layer 1 (a soft
+     transparent-bright-transparent band, oversized at 260%) slides across it
+     via the godray-sweep keyframe below, which is what makes it read as a
+     real light beam crossing the glass instead of a static streak baked into
+     the art. "Not worth $1.99" was a richness complaint, not a brightness
+     one — this is the added layer of motion, on top of the (now correctly
+     tuned, not blown-out) breathing pulse. */
+  background-image:
+    linear-gradient(100deg, transparent 0%, transparent 38%, rgba(255,248,224,0.65) 48%, rgba(255,248,224,0.65) 54%, transparent 64%, transparent 100%),
+    linear-gradient(165deg, #f0b968 0%, #ffcf82 40%, #fff0c4 100%);
+  background-size: 260% 260%, 100% 100%;
+  background-position: -40% 20%, 0% 0%;
+  background-repeat: no-repeat, no-repeat;
+  animation: lamp-breathe-bright 4s ease-in-out infinite alternate,
+             godray-sweep 8s ease-in-out infinite alternate;
 }
 @keyframes lamp-breathe-bright {
   from { filter: brightness(0.88) saturate(0.92); }
   to   { filter: brightness(1.15) saturate(1.05); }
 }
+@keyframes godray-sweep {
+  from { background-position: -60% 5%,  0% 0%; }
+  to   { background-position: 60% 55%,  0% 0%; }
+}
 .scene[data-theme="library"] .win-fx::before {
-  --fx-tile: 85px;
+  --fx-tile: 65px;
   background-image: url('assets/fx-dust.webp');
   background-size: var(--fx-tile) var(--fx-tile);
   background-repeat: repeat;
+  /* Denser again per Melchi's pick (richer motion, not just brighter) —
+     smaller tile = more motes on screen at once. */
   filter: saturate(2) brightness(1.8) drop-shadow(0 0 8px rgba(255,235,180,1));
-  animation: fx-tile-rise 11s linear infinite, fx-sway 4.5s ease-in-out infinite alternate;
+  animation: fx-tile-rise 10s linear infinite, fx-sway 4.5s ease-in-out infinite alternate;
   opacity: 1;
 }
 .scene[data-theme="library"] .win-fx::after {
