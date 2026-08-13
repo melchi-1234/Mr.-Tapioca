@@ -5804,9 +5804,18 @@ const ONBOARD_STEPS_ALL = [
   },
   {
     emoji: ICON.map,
-    // Body corrected, not rewritten. See the note above.
-    title: "Real boba, not just points",
-    body: "Focus time fills your drink. Where a shop has partnered with us, that same time earns a real perk you pick up in person. Open the Boba Map to see if there is one near you. Everything else works wherever you are."
+    // THEIR title, kept. It was written as a promise ("Real Rewards Await!") and
+    // two shops have since signed, so it is simply true now.
+    //
+    // Only the false sentence in the body changed. It used to read:
+    //   "Mr. Tapioca wants to work at real shops. Stay tuned to unlock discounts
+    //    at boba shops near you. Check out the in-app map to locate shops to visit."
+    // "Wants to" and "stay tuned" told a new user the one real thing about this
+    // app was still hypothetical, which stopped being true the day U Tea signed.
+    // Their cadence and their last sentence are untouched. Still open to being
+    // reworded in their own voice.
+    title: "Real Rewards Await!",
+    body: "Mr. Tapioca works at real shops now. Focus enough and you unlock a perk at a partner boba shop near you. Check out the in-app map to locate shops to visit."
   },
   {
     name: true,

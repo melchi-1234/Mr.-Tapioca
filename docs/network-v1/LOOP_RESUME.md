@@ -280,13 +280,21 @@ authors, not a refactor.
    Screen Time explainer. The deck had no slide for the single feature that most needs
    permission and the most explaining, and the brief requires one. iPhone only, because
    the web build cannot block anything and the slide would be a promise it cannot keep.
-3. **One BODY corrected**, not rewritten: the map slide said *"Real Rewards Await! / Mr.
-   Tapioca wants to work at real shops. Stay tuned to unlock discounts…"*. Two shops have
-   signed, so "stay tuned" told a new user the one real thing about this app was still
-   hypothetical. Correcting a claim that has gone false is not a style call. **It is still
-   open to being reworded in their voice** and should be.
+3. **One BODY corrected. Their title is kept.** The map slide is
+   *"Real Rewards Await!"*, which was written as a promise and simply became true when
+   U Tea signed. Only the false sentence changed: the body used to say *"Mr. Tapioca
+   **wants to** work at real shops. **Stay tuned** to unlock discounts at boba shops near
+   you. Check out the in-app map to locate shops to visit."* Their cadence and their last
+   sentence are untouched. **Still open to being reworded in their own voice.**
+
+   (An earlier pass in this session had replaced the title too. That went further than a
+   correction and has been undone.)
 
 **Current length:** 7 slides on web, 8 on iPhone (was 16 and 17 including the tour).
+
+**Authorship audit, run against `b0ad0db^` and reproducible:** 6 of 7 slides are title AND
+body verbatim; 1 is title verbatim with the false sentence corrected; 1 slide is added and
+marked `native: true`. Nothing of theirs is missing.
 
 > **FOUNDER DECISION, not mine to make.** The brief's target was roughly four steps. That
 > is reachable only by cutting authored slides, which is a creative call for Melchior and
