@@ -21,65 +21,55 @@
 // to the invariant it now defends, and strike the finding here — keeping the
 // finding number in the test's comment so the history stays traceable.
 //
-// CLOSED since the red-team pass: 1, 2 (mid-handoff half), 4, 7, 8, 9 (window half),
-// 12, and 15. Each has a test above renamed to the invariant it now defends, with
-// its finding number kept in the comment.
+// CLOSED since the red-team pass: 1, 2 (mid-handoff half), 4, 5, 6, 7, 8, 9, 10,
+// 11, 12, 13, 14 and 15. Each has a test above renamed to the invariant it now
+// defends, keeping its finding number in the comment so the history stays
+// traceable. Twelve of the fourteen original holes are shut.
 //
-// STILL OPEN, in severity order:
+// STILL OPEN. Both are BUSINESS CALLS, not code defects, which is why they are
+// still here: closing either one decides something about the product that is not
+// mine to decide. Each has a green test asserting the true current behaviour, so
+// closing one will turn its test red on purpose.
+//
 //   FINDING 2  (RESIDUE ONLY) the mid-handoff half is FIXED: the handoff pins the
-//              shop's offer_version at open and spend checks it. A passport reward
+//              shop's offer_version at open and spend checks it, so a shop that
+//              changes its offer while a card is live is caught. A passport reward
 //              still carries offer_version NULL of its own, so an offer changed
-//              BEFORE the card is opened is honoured at the new wording.
+//              BEFORE the card is opened is honoured at the NEW wording.
+//              THE QUESTION: a global passport promises "a perk at any partner",
+//              not "this exact perk". If that is the intent, this is correct
+//              behaviour and not a bug. If a passport should freeze the wording it
+//              was earned against, issue_my_rewards has to record a version, and
+//              then it needs a shop, which a passport does not have until the card
+//              is opened. That is a product decision.
+//
 //   FINDING 3  a shop joining a passport policy is instantly liable for every
-//              reward every existing user already banked.
-//   FINDING 5  deleting a shop (the documented kill switch) is not executable
-//              server-side and throws in the mock. Only active=false is safe.
-//   FINDING 6  deactivating a policy stops issuance but not redemption, and then
-//              hides the policy the held reward still needs.
-//   FINDING 9  (CONFIG HALF ONLY) a mistyped day list normalises to [] with no
-//              warning, and an empty list means "every day", so a day rule that
-//              was typed wrong fails OPEN. The window half of 9 is FIXED.
-//   FINDING 10 reward-config.js never validates a shop id, so configs that parse
-//              with zero errors cannot be seeded into partners.id.
-//   FINDING 11 reward-config.js accepts caps larger than the server's CHECK allows.
-//   FINDING 13 the mock accepts fractional planned_minutes for an integer column.
-//   FINDING 14 nextBarAcross() throws on a very large shop list (Math.min.apply).
+//              reward every existing user has already banked. There is no join
+//              date on either side, so a shop signing on a Tuesday can be handed a
+//              stack of rewards earned over months by students who have never
+//              walked in. pilot_cap is the brake, and it now genuinely holds
+//              (FINDING 1). THE QUESTION: should a new partner inherit the
+//              backlog, or only rewards earned after it joined? Inheriting is
+//              friendlier to students and riskier for the shop. It is the same
+//              decision as global_passport vs partner_specific, which is
+//              LEDGER.md's open decision 1, and it should be answered once.
 //
-// CLOSED, and now asserted here as invariants rather than as holes. Each one's
-// test keeps the finding number in its comment and describes the attack it still
-// performs:
-//   FINDING 1  caps were checked at OPEN only, so opening every card first
-//              defeated per_user_limit and pilot_cap. Both are now counted in the
-//              shared redemption_gate(), called by open AND spend.
-//   FINDING 2  (HALF) failed_offer_changed could never fire under a
-//              global_passport policy. The handoff now pins the shop's
-//              offer_version at open and spend checks it, so a change made while
-//              a card is live is caught. See the residue above for what is not.
-//   FINDING 4  lowering a policy's required_minutes re-minted rewards out of
-//              minutes already spent. Rewards now record bar_minutes and
-//              entitlement is (eligible - sum(bar_minutes)) / required.
-//   FINDING 7  the agreed window was enforced at open only. It is in the gate now,
-//              so it is re-checked at spend.
-//   FINDING 8  an overnight window (22:00 to 02:00) was unredeemable at every
-//              hour, and reported failed_capped. Wrap-around is handled, and every
-//              window refusal now returns failed_outside_window.
-//   FINDING 9  (window half) a half-set from/to meant NO restriction. It is now
-//              failed_outside_window.
-//   FINDING 12 a consumed handoff code could be re-minted. Codes are checked
-//              against every row and the mint loop is bounded at 60 attempts.
-//
-// ⚠️ ONE DIVERGENCE FOUND WHILE FLIPPING THESE, and left unpapered-over: the
-// FINDING 12 bound refuses in both implementations but not in the same SHAPE.
-// reward-mock.js returns { ok:false, reason:'failed_code_unavailable' } and logs
-// an event with that outcome; supabase-reward-v2.sql raises errcode P0004 with no
-// handler in open_redemption, and 'failed_code_unavailable' is not a value
-// redemption_events.outcome's CHECK constraint accepts. See that test's comment.
+// HOW TO READ A RED TEST HERE: a failing test in this file usually means somebody
+// CLOSED a hole, not that they broke something. Do not "fix the test" by weakening
+// the attack. Rewrite the assertion to the new, better behaviour, rename the test
+// to the invariant it now defends, keep the finding number in the comment, and
+// move it from STILL OPEN to CLOSED above.
+
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createBackend, uuid } = require("../reward-mock.js");
 const RC = require("../reward-config.js");
+// The REAL file, so any hardening here is checked against the two shops that
+// actually signed before it is checked against anything invented.
+const LIVE_PARTNERS = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "..", "partners.json"), "utf8"));
 
 const T0 = Date.UTC(2026, 7, 12, 14, 0, 0);   // 2026-08-12 14:00 UTC, a Wednesday
 const MIN = 60000;
@@ -498,21 +488,29 @@ test("a server clock that jumps backwards abandons the session instead of credit
   assert.equal(b.eligibleMinutes(), 0);
 });
 
-test("FINDING 13: fractional planned_minutes are accepted for an integer column", () => {
-  // reward_sessions.planned_minutes and credited_minutes are `integer`
-  // (supabase-reward-v2.sql section 3). The mock's range check is
-  // Number.isFinite, so 60.7 sails through and credits 60.7 minutes.
+test("a fractional planned_minutes is refused, because the column is an integer", () => {
+  // CLOSED — was FINDING 13. reward_sessions.planned_minutes and credited_minutes
+  // are `integer` (supabase-reward-v2.sql section 3), but the range check here was
+  // Number.isFinite, so 60.7 sailed through and credited 60.7 minutes against a
+  // column that cannot hold it.
   //
-  // NOT exploitable: credit is least(elapsed, planned) and elapsed is floored, so
-  // a fraction can only ever LOSE the student time. It is a contract divergence,
-  // not a hole, and it is here so the client is never written to send a float.
+  // It was never exploitable (credit is least(elapsed, planned) and elapsed is
+  // floored, so a fraction could only LOSE the student time). It is closed anyway,
+  // so the client can never be written to send a float.
   const b = backend();
-  const id = uuid();
-  assert.equal(b.rpc.start_reward_session({ session_id: id, planned_minutes: 60.7, platform: "ios" }).ok, true);
+  for (const bad of [60.7, 60.0001, 0.5, Math.PI * 20]) {
+    const r = b.rpc.start_reward_session({ session_id: uuid(), planned_minutes: bad, platform: "ios" });
+    assert.equal(r.ok, false, bad + " must be refused");
+    assert.equal(r.reason, "planned_out_of_range");
+  }
+  // A whole number at the same magnitude is still fine, so this refuses floats
+  // and not the value.
+  const ok = b.rpc.start_reward_session({ session_id: uuid(), planned_minutes: 61, platform: "ios" });
+  assert.equal(ok.ok, true);
   b.advance(90 * MIN);
-  const done = b.rpc.complete_reward_session({ session_id: id });
-  assert.equal(done.credited_minutes, 60.7);
-  assert.ok(!Number.isInteger(done.credited_minutes), "today the mock stores a float");
+  const done = b.rpc.complete_reward_session({ session_id: ok.id });
+  assert.equal(done.credited_minutes, 61);
+  assert.ok(Number.isInteger(done.credited_minutes), "credit is a whole number of minutes");
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -659,27 +657,34 @@ test("a partner-scoped reward survives its shop being moved to another policy", 
   assert.equal(b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA }).ok, true);
 });
 
-test("FINDING 6: deactivating a policy stops issuance but not redemption, then hides the terms", () => {
-  // REAL FINDING. issue_my_rewards filters `where active` (section 7, line 251).
-  // Nothing in open_redemption or redeem_by_code looks at reward_policies at all,
-  // so every reward already issued under a retired policy stays fully spendable.
+test("a retired policy is still honoured, and a held reward can still describe itself", () => {
+  // CLOSED — was FINDING 6. Retiring a policy stops issuance (correct) but not
+  // redemption, which is the kind thing to do for a reward someone already earned.
+  // The problem was the second half: my_reward_state filtered policies to
+  // `where active`, so the client was handed a live, spendable reward whose policy
+  // it could not look up, and so could not render its bar, its expiry rule or its
+  // name. There was no "retired but honoured" state.
   //
-  // That is arguably the kind thing to do. The problem is the second half:
-  // my_reward_state also filters policies to `where active`, so the client is
-  // handed a live reward whose policy it cannot look up, and cannot render its
-  // bar, its expiry rule or its name. There is no "retired but honoured" state.
+  // my_reward_state now returns active policies PLUS any policy a reward still in
+  // hand was issued under, and marks each with its own active flag.
   const b = backend();
   const r = earn(b, 1)[0];
   b.db.policies.get("ithaca-passport").active = false;
 
   const state = b.rpc.my_reward_state();
   assert.equal(state.rewards.length, 1, "the reward is still listed");
-  assert.equal(state.policies.length, 0, "but its policy is not, so the client cannot describe it");
+  assert.equal(state.policies.length, 1, "and its policy comes with it, so it can be described");
+  assert.equal(state.policies[0].id, "ithaca-passport");
+  assert.equal(state.policies[0].active, false, "flagged retired, so the UI can say so");
+  assert.equal(state.policies[0].required_minutes, 240, "the bar is still readable");
   assert.equal(b.rpc.issue_my_rewards().length, 1, "no NEW rewards are issued");
 
   const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
   assert.equal(open.ok, true, "and the held reward is still spendable at the counter");
   assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
+
+  // Once it is spent, the retired policy drops out again: nothing is held under it.
+  assert.equal(b.rpc.my_reward_state().policies.length, 0);
 });
 
 test("STILL OPEN — FINDING 2 residue: an offer changed BEFORE the card is opened is honoured", () => {
@@ -1054,27 +1059,30 @@ test("an overnight window wraps past midnight instead of refusing every hour", (
   assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
 });
 
-test("FINDING 5: pulling a shop by deleting it breaks the counter instead of refusing", () => {
-  // REAL FINDING, and it contradicts the operating instructions.
+test("pulling a shop refuses cleanly at every surface, and never crashes the counter", () => {
+  // CLOSED — was FINDING 5, which contradicted the operating instructions.
   //
   // CLAUDE.md documents removal as the kill switch: "Pulling a shop is the same
   // edit in reverse, which is what lets us keep the promise the pitch makes: they
-  // come off the app the day they ask." That works for the v1 map. It does not
-  // work for Reward V2:
+  // come off the app the day they ask." Under Reward V2 that used to break twice:
   //
-  //   Server side: redemption_handoffs.partner_id and
-  //   reward_instances.redeemed_partner_id are plain references to partners(id)
-  //   with no ON DELETE clause (supabase-reward-v2.sql sections 4 and 5), so once
-  //   anybody has opened a card at that shop the DELETE is refused by a foreign
-  //   key violation. The row cannot be removed.
+  //   Server side: redemption_handoffs.partner_id referenced partners(id) with no
+  //   ON DELETE, so once anybody had opened a card there the DELETE failed on a
+  //   foreign key violation and the shop could not be removed at all. It now
+  //   CASCADEs: a handoff lives five minutes and must never be the reason a shop
+  //   cannot be pulled.
   //
-  //   Mock side: removing the partner from the config leaves the handoff dangling,
-  //   and check_code and redeem_by_code both dereference an undefined partner and
-  //   THROW. A cashier page would show an error, not "this shop is no longer a
-  //   partner".
+  //   Mock side: a vanished partner left the handoff dangling, and check_code and
+  //   redeem_by_code dereferenced an undefined partner and THREW, so a cashier
+  //   page showed a crash rather than "this shop is no longer a partner". Both now
+  //   refuse with failed_not_found.
   //
-  // active = false is the only safe pull, it refuses cleanly, and reward-config.js
-  // already models it that way ("active:false is a PAUSE, not a removal").
+  // STILL TRUE BY DESIGN, and it is the right trade: a shop that has actually had
+  // a redemption cannot be DELETEd, because reward_instances.redeemed_partner_id
+  // is deliberately not cascaded. Deleting it would erase the merchant report that
+  // proves what was honoured. active = false is the correct pull for a shop that
+  // has traded, it refuses cleanly, it keeps the history, and it is reversible.
+  // reward-config.js already models it that way ("active:false is a PAUSE").
   const b = backend();
   const r = earn(b, 1)[0];
   const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
@@ -1085,11 +1093,14 @@ test("FINDING 5: pulling a shop by deleting it breaks the counter instead of ref
                  policy_id: "ithaca-passport" }],
   });
 
-  assert.throws(() => b.rpc.check_code({ code: open.code }), TypeError,
-    "today the cashier's read-only check crashes");
-  assert.throws(() => b.rpc.redeem_by_code({ code: open.code }), TypeError,
-    "and so does the spend");
-  // Only the student's own screen degrades gracefully.
+  // Every surface refuses, and nothing throws.
+  const gone = b.rpc.check_code({ code: open.code });
+  assert.equal(gone.ok, false, "the cashier's read-only check refuses instead of crashing");
+  assert.equal(gone.reason, "failed_not_found");
+  const spend = b.rpc.redeem_by_code({ code: open.code });
+  assert.equal(spend.ok, false, "and so does the spend");
+  assert.equal(spend.reason, "failed_not_found");
+  assert.equal(b.db.rewards[0].status, "issued", "and the reward is not burned by a pulled shop");
   assert.equal(b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA }).reason, "failed_not_found");
 
   // The safe pull, for contrast: everything refuses with a reason a human can read.
@@ -1241,62 +1252,74 @@ test("a deeply nested and a very large payload are handled without throwing", ()
   assert.equal(RC.nextBarAcross(cfg.shops), 240);
 });
 
-test("FINDING 14: nextBarAcross throws on a shop list above roughly 124k entries", () => {
-  // REAL but unreachable in practice: partners.json has two shops and the file is
-  // hand-edited. nextBarAcross uses Math.min.apply, which spreads the whole list
-  // onto the call stack, so a hostile or generated file large enough will raise a
-  // RangeError instead of returning a bar. Recorded because "the config parser
-  // never throws" is otherwise a clean property, and a reduce() would keep it.
+test("nextBarAcross survives a shop list far larger than any real one", () => {
+  // CLOSED — was FINDING 14. Math.min.apply spreads the whole list onto the call
+  // stack and threw RangeError somewhere above ~124k entries. Unreachable in
+  // practice (partners.json is hand-edited and has two shops), but "the config
+  // parser never throws" is worth keeping true, so it is a reduce() now.
   const many = [];
   for (let i = 0; i < 200000; i++) many.push({ minMinutes: 240, active: true });
-  assert.throws(() => RC.nextBarAcross(many), RangeError);
+  many.push({ minMinutes: 90, active: true });
+  assert.equal(RC.nextBarAcross(many), 90, "and it still finds the real minimum");
   // The size that actually matters still works.
   assert.equal(RC.nextBarAcross([{ minMinutes: 240, active: true }, { minMinutes: 300, active: true }]), 240);
 });
 
-test("FINDING 10: shop ids are never validated, so a clean parse can be unseedable", () => {
-  // REAL FINDING. reward-config.js applies its slug regex to POLICY ids only
-  // (ID_RE, used in validPolicy). validShop checks name, perk, lat, lng and
-  // minMinutes, and never looks at id at all. But the server declares
+test("a shop id the server could not store is an error, not a clean parse", () => {
+  // CLOSED — was FINDING 10. reward-config.js applied its slug regex to POLICY
+  // ids only; validShop never looked at id at all. The server declares
   //     id text primary key check (id ~ '^[a-z0-9][a-z0-9-]{1,62}$')
-  // (supabase-reward-v2.sql section 2), so all of these parse with zero errors and
-  // then fail at seed time, one shop at a time, with a CHECK violation.
-  //
-  // The trailing-space and case pairs are the dangerous ones: reward-config sees
-  // three distinct shops where a human sees one, so the duplicate-id error that
-  // exists specifically to stop colliding server rows never fires.
+  // so all of these parsed with zero errors and then failed at seed time, one
+  // CHECK violation at a time.
   const SERVER_ID_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
-  const unseedable = ["U Tea Collegetown!", "u-tea ", " u-tea", "U-TEA", "__proto__", "-leading",
-                      "with_underscore", "u", "x".repeat(64), "ütea"];
+  const unseedable = ["U Tea Collegetown!", "U-TEA", "__proto__", "-leading",
+                      "with_underscore", "u", "x".repeat(64), "\u00fctea"];
   for (const id of unseedable) {
     const cfg = RC.parse({ shops: [SHOP({ id })] });
-    assert.equal(cfg.shops.length, 1, JSON.stringify(id) + " is accepted today");
-    assert.deepEqual(cfg.errors, [], "with no error raised");
-    assert.equal(SERVER_ID_RE.test(id), false, JSON.stringify(id) + " would fail the server CHECK");
+    assert.equal(SERVER_ID_RE.test(id), false, JSON.stringify(id) + " fails the server CHECK");
+    assert.ok(cfg.errors.length > 0, JSON.stringify(id) + " must now raise an error");
+    assert.match(cfg.errors.join(" "), /not a valid slug/);
   }
 
-  // Three ids a human reads as one shop, kept as three, with no duplicate error.
-  const collide = RC.parse({ shops: [SHOP({ id: "u-tea" }), SHOP({ id: "u-tea " }), SHOP({ id: "U-TEA" })] });
-  assert.equal(collide.shops.length, 3);
-  assert.deepEqual(collide.errors, []);
+  // Whitespace is trimmed rather than rejected, because " u-tea" and "u-tea " are
+  // the same shop to a human AND to the server's primary key.
+  for (const id of ["u-tea ", " u-tea", "  u-tea  "]) {
+    const cfg = RC.parse({ shops: [SHOP({ id })] });
+    assert.deepEqual(cfg.errors, [], JSON.stringify(id) + " is just untidy, not invalid");
+    assert.equal(cfg.shops[0].id, "u-tea");
+  }
 
-  // And a shop with no id at all is accepted, which is v1 defect D14's shape.
-  const anonymous = RC.parse({ shops: [SHOP({ id: undefined }), SHOP({ id: undefined, name: "Other" })] });
-  assert.equal(anonymous.shops.length, 2);
-  assert.equal(anonymous.shops[0].id, null);
-  assert.deepEqual(anonymous.errors, []);
+  // THE POINT OF THE TRIM: three ids a human reads as one shop now collide, so the
+  // duplicate-id error that exists to stop colliding server rows finally fires.
+  const collide = RC.parse({ shops: [SHOP({ id: "u-tea" }), SHOP({ id: "u-tea " }), SHOP({ id: " u-tea" })] });
+  assert.equal(collide.shops.length, 1);
+  assert.equal(collide.errors.filter((e) => /duplicate shop id/.test(e)).length, 2);
+
+  // A shop with no id at all is refused: the server needs one as a primary key,
+  // and without it two shops are indistinguishable (v1 defect D14's shape).
+  const anonymous = RC.parse({ shops: [SHOP({ id: undefined })] });
+  assert.match(anonymous.errors.join(" "), /has no id/);
+
+  // The two REAL shops are unaffected. This is the line that matters most.
+  const live = RC.parse(LIVE_PARTNERS);
+  assert.deepEqual(live.errors, []);
+  assert.deepEqual(live.shops.map((x) => x.id).sort(),
+    ["dream-tea-poke-ithaca", "u-tea-collegetown"]);
 });
 
-test("FINDING 11: caps larger than the server's CHECK allows are accepted", () => {
-  // REAL FINDING, same class as FINDING 10 and the same consequence: the config
-  // says the file is fine and the migration then refuses it.
+test("a cap larger than the server's CHECK allows is an error", () => {
+  // CLOSED — was FINDING 11, same class as 10 and the same consequence: the config
+  // called the file fine and the migration then refused it.
   //   per_user_limit check (... between 1 and 1000)
   //   pilot_cap      check (... between 1 and 1000000)
-  // reward-config only requires >= 1.
+  // reward-config only required >= 1. Refused, not clamped: silently lowering a
+  // cap would change what the shop agreed to without anyone deciding it.
   const wide = RC.parse({ shops: [SHOP({ perUserLimit: 5000, pilotCap: 900000000 })] });
-  assert.equal(wide.shops[0].perUserLimit, 5000, "server CHECK allows at most 1000");
-  assert.equal(wide.shops[0].pilotCap, 900000000, "server CHECK allows at most 1000000");
-  assert.deepEqual(wide.errors, []);
+  assert.match(wide.errors.join(" "), /perUserLimit 5000; the server allows at most 1000/);
+  assert.match(wide.errors.join(" "), /pilotCap 900000000; the server allows at most 1000000/);
+  // The boundary values themselves are legal.
+  const edge = RC.parse({ shops: [SHOP({ perUserLimit: 1000, pilotCap: 1000000 })] });
+  assert.deepEqual(edge.errors, []);
   // The values it does normalise correctly, for contrast.
   const tidy = RC.parse({ shops: [SHOP({ perUserLimit: 2.9, pilotCap: 0, offerVersion: 0 })] });
   assert.equal(tidy.shops[0].perUserLimit, 2, "fractions floor");
@@ -1304,31 +1327,38 @@ test("FINDING 11: caps larger than the server's CHECK allows are accepted", () =
   assert.equal(tidy.shops[0].offerVersion, 1, "version never drops below 1");
 });
 
-test("STILL OPEN — FINDING 9 (config half): a mistyped day list silently means NO restriction", () => {
-  // STILL A REAL FINDING. The window half of FINDING 9 was fixed (see the next
-  // test); this half was NOT, so this test still asserts the broken behaviour as
-  // it stands today. It fails OPEN, which is the wrong direction for a rule a shop
-  // asked for.
+test("a day list that cannot be read is refused, not treated as no restriction", () => {
+  // CLOSED — was the config half of FINDING 9. normaliseShop turned validDays into
+  // [] when its entries were invalid, and an empty array means "no day
+  // restriction" in both reward-mock.js `gate` and supabase-reward-v2.sql section
+  // 9. So a shop that asked for weekdays and got the numbers wrong was open every
+  // day, with no warning and no error. It failed OPEN, which is the wrong
+  // direction for a rule a shop actually asked for.
   //
-  // normaliseShop in reward-config.js turns validDays into [] when every entry is
-  // invalid, and both reward-mock.js `gate` and supabase-reward-v2.sql section 9
-  // treat an empty array as "no day restriction". A shop that asked for weekdays
-  // and got the numbers wrong is open every day, with no warning and no error.
-  // Nothing distinguishes "the shop set no day rule" from "the shop set a day rule
-  // and every entry of it was thrown away".
-  const days = RC.parse({ shops: [SHOP({ validDays: [7, -1, "mon", NaN, null] })] });
-  assert.deepEqual(days.shops[0].validDays, [], "every entry was rejected");
-  assert.deepEqual(days.warnings, [], "and nothing warned about it");
-  assert.deepEqual(days.errors, []);
+  // Nothing could distinguish "the shop set no day rule" from "the shop set one
+  // and every entry was thrown away". The raw length is now carried through
+  // normalisation so the validator can tell those apart.
+  const junk = RC.parse({ shops: [SHOP({ validDays: [7, -1, "mon", NaN, null] })] });
+  assert.match(junk.errors.join(" "), /validDays entry that is not a whole number 0-6/);
 
-  const b = backend({
-    policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
-    partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink",
-                 policy_id: "ithaca-passport", valid_days: [] }],
-  });
-  const r = earn(b, 1)[0];
-  assert.equal(b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA }).ok, true,
-    "an empty day list still redeems on any day");
+  // A PARTLY valid list is refused too. Honouring half a day rule is guessing.
+  const partial = RC.parse({ shops: [SHOP({ validDays: [1, 2, 9] })] });
+  assert.match(partial.errors.join(" "), /validDays entry that is not a whole number 0-6/);
+
+  // A well-formed list is kept exactly.
+  const good = RC.parse({ shops: [SHOP({ validDays: [1, 2, 3, 4, 5] })] });
+  assert.deepEqual(good.errors, []);
+  assert.deepEqual(good.shops[0].validDays, [1, 2, 3, 4, 5]);
+
+  // No day rule at all stays null, and stays legal.
+  const none = RC.parse({ shops: [SHOP({})] });
+  assert.deepEqual(none.errors, []);
+  assert.equal(none.shops[0].validDays, null);
+
+  // An explicitly EMPTY list is not a restriction and is not an error either.
+  const empty = RC.parse({ shops: [SHOP({ validDays: [] })] });
+  assert.deepEqual(empty.errors, []);
+  assert.equal(empty.shops[0].validDays, null);
 });
 
 test("a half-set redemption window is refused rather than treated as no restriction", () => {

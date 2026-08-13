@@ -4,7 +4,7 @@
 RESUME HERE at the bottom. Do NOT re-run the 43-agent inspection; its findings are in
 GROUNDING.md and were adversarially verified.
 
-**Last updated:** 2026-08-13, end of loop 6. Suite GREEN at 153/153. Local checkpoint commit `b0ad0db` made (NOT pushed).
+**Last updated:** 2026-08-13, end of loop 7. Suite GREEN at 153/153. **12 of the 14 red-team findings are closed.** Local commits only, nothing pushed.
 
 ---
 
@@ -131,29 +131,55 @@ were **my own bugs**, in `supabase-reward-v2.sql`. Seven are fixed and mirrored 
    loop is **bounded at 60 attempts** returning `failed_code_unavailable`. The bound is
    load-bearing: never-reuse plus an unbounded retry hangs the process, which it did.
 
-**Still open, logged not fixed** (each has a green test asserting the TRUE current
-behaviour, so closing one will turn its test red on purpose):
+**Also fixed in loop 7 (F5, F6, F9-config, F10, F11, F13, F14):**
 
-- F2 residue: the handoff pin closed the mid-handoff case, but a passport reward still
+10. **F10.** `reward-config.js` never validated a shop id, only policy ids. So
+    `"U Tea Collegetown!"`, `"U-TEA"` and `"u-tea "` all parsed with zero errors and then
+    failed at seed time, one CHECK violation at a time. Worse, the trailing-space and case
+    variants meant the parser saw three shops where a human sees one, so the duplicate-id
+    error that exists to stop colliding server rows never fired. Ids are now trimmed and
+    matched against the server's own regex; a missing id is an error too.
+11. **F9 (config half).** A mistyped `validDays` normalised to `[]`, and an empty array
+    means "no day restriction", so a shop that asked for weekdays and typed the numbers
+    wrong was open every day with no warning. It failed OPEN, the wrong direction for a
+    rule a shop asked for. The raw length is now carried through normalisation so
+    "no day rule" and "a day rule that could not be read" are distinguishable, and the
+    second is an error.
+12. **F11.** Config accepted `perUserLimit` 5000 and `pilotCap` 9e8 where the server
+    CHECKs are 1000 and 1000000. Now an error. Refused rather than clamped: silently
+    lowering a cap changes what a shop agreed to without anyone deciding it.
+13. **F13.** Fractional `planned_minutes` accepted for an integer column. Never
+    exploitable (credit is `least(elapsed, planned)` and elapsed is floored, so a fraction
+    could only lose the student time), closed anyway so the client cannot learn to send one.
+14. **F14.** `nextBarAcross` used `Math.min.apply`, which threw RangeError above ~124k
+    shops. Now a reduce.
+15. **F5.** Deleting a shop, which CLAUDE.md documents as the kill switch, was blocked
+    server-side by the `redemption_handoffs.partner_id` FK once anyone had opened a card,
+    and the mock THREW on the cashier path, so a pulled shop showed a crash rather than a
+    refusal. The handoff FK now CASCADEs (a handoff lives five minutes and must never be
+    why a shop cannot be pulled), and both mock paths refuse with `failed_not_found`.
+    **Still true by design:** a shop that has actually had a redemption cannot be DELETEd,
+    because `reward_instances.redeemed_partner_id` is deliberately not cascaded. Deleting
+    it would erase the merchant report proving what was honoured. `active = false` is the
+    correct pull for a shop that has traded, and it is reversible.
+16. **F6.** Retiring a policy stopped issuance (correct) but not redemption (also
+    correct), and then `my_reward_state` filtered policies to active only, so the client
+    held a live, spendable reward whose policy it could not look up and therefore could
+    not describe. It now returns active policies PLUS any policy a held reward was issued
+    under, each flagged with its own `active` value.
+
+**Still open. BOTH ARE BUSINESS CALLS, not code defects** (each has a green test asserting
+the true current behaviour, so closing one turns its test red on purpose):
+
+- **F2 residue.** The handoff pin closed the mid-handoff case. A passport reward still
   carries `offer_version` NULL of its own, so an offer changed BEFORE the card is opened
-  is honoured at the new wording. Whether that is a bug is a business call: a passport
-  promises "a perk at any partner", not "this exact perk".
+  is honoured at the new wording. **The question:** a global passport promises "a perk at
+  any partner", not "this exact perk". If that is the intent this is correct. If a
+  passport should freeze the wording it was earned against, issuance needs a version, and
+  a version needs a shop, which a passport does not have until the card is opened.
 - F3 a shop joining a passport policy is instantly liable for every reward every existing
   user already banked (pilot_cap is the only brake).
-- F5 deleting a shop is not executable server-side once anyone has opened a card there
-  (FK from `redemption_handoffs.partner_id`, no ON DELETE). `active = false` is the safe
-  pull. CLAUDE.md documents deletion as the kill switch, so that doc is now wrong.
-- F6 deactivating a policy stops issuance but not redemption, then hides the policy the
-  held reward needs to describe itself.
-- F9 (config half) `reward-config.js` does not validate `validDays`, so a mistyped list
-  silently means no restriction.
-- F10 `reward-config.js` never validates a shop `id`, so `"U Tea Collegetown!"`, `"u-tea "`
-  and `"U-TEA"` all parse with zero errors, none can be seeded into `partners.id`, and the
-  trailing-space/case trio defeats the duplicate-id check.
-- F11 config accepts `perUserLimit` 5000 and `pilotCap` 9e8 where the server CHECKs are
-  1000 and 1000000.
-- F13 fractional `planned_minutes` accepted for an integer column.
-- F14 `nextBarAcross` throws RangeError above ~124k shops.
+  It is the same decision as `global_passport` vs `partner_specific`, i.e. open decision 1.
 
 **What HELD UP under attack, now pinned by tests:** the core invariant (no sequence
 credits more minutes than real elapsed wall clock, across three seeds of 600 interleaved

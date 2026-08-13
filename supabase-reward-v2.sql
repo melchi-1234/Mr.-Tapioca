@@ -188,7 +188,17 @@ create table if not exists public.redemption_handoffs (
   code        text        primary key check (code ~ '^[A-Z2-9]{6}$'),
   reward_id   uuid        not null references public.reward_instances (id) on delete cascade,
   user_id     uuid        not null references auth.users (id) on delete cascade,
-  partner_id  text        not null references public.partners (id),
+  -- CASCADE, because a handoff lives five minutes and must never be the reason a
+  -- shop cannot be pulled. Without it this FK silently made DELETE FROM partners
+  -- fail the moment anyone had opened a card there, and deletion is what CLAUDE.md
+  -- documents as the kill switch.
+  --
+  -- reward_instances.redeemed_partner_id is deliberately NOT cascaded: a shop with
+  -- redemption history cannot be deleted, and should not be, because deleting it
+  -- would erase the merchant report that proves what was honoured. Pausing
+  -- (active = false) is the correct pull for a shop that has traded, and it is
+  -- also the reversible one.
+  partner_id  text        not null references public.partners (id) on delete cascade,
   created_at  timestamptz not null default now(),
   expires_at  timestamptz not null,
   consumed_at timestamptz,
@@ -430,11 +440,19 @@ begin
         'redeemed_at', r.redeemed_at, 'redeemed_partner_id', r.redeemed_partner_id)
         order by r.issued_at desc)
       from public.reward_instances r where r.user_id = v_me), '[]'::jsonb),
+    -- Active policies, PLUS any policy a reward I already hold was issued under.
+    -- Filtering to active alone hid the policy out from under a held reward the
+    -- moment a policy was paused: issuance stops (correct) but redemption does
+    -- not, so the app was left holding a spendable reward it could not describe,
+    -- name a bar for, or show progress against.
     'policies', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', p.id, 'kind', p.kind, 'required_minutes', p.required_minutes,
-        'partner_id', p.partner_id, 'expires_days', p.expires_days))
-      from public.reward_policies p where p.active), '[]'::jsonb)
+        'partner_id', p.partner_id, 'expires_days', p.expires_days, 'active', p.active))
+      from public.reward_policies p
+      where p.active
+         or p.id in (select r.policy_id from public.reward_instances r
+                     where r.user_id = v_me and r.status = 'issued')), '[]'::jsonb)
   );
 end; $$;
 revoke all on function public.my_reward_state() from public, anon;

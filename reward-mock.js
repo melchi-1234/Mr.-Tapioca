@@ -108,7 +108,13 @@
       if (!p || !p.session_id) throw new Error("session_id required");
       if (["ios", "web"].indexOf(p.platform) < 0) return fail("bad_platform");
       const planned = p.planned_minutes;
-      if (!Number.isFinite(planned) || planned < MIN_SESSION_MIN || planned > MAX_SESSION_MIN) {
+      // Number.isINTEGER, not isFinite. reward_sessions.planned_minutes and
+      // credited_minutes are `integer` columns (supabase-reward-v2.sql section 3),
+      // so 60.7 sailed through here and credited 60.7 minutes against a column
+      // that cannot hold it. Never exploitable (credit is least(elapsed, planned)
+      // and elapsed is floored, so a fraction could only lose the student time),
+      // but a contract divergence, and the client must never learn to send one.
+      if (!Number.isInteger(planned) || planned < MIN_SESSION_MIN || planned > MAX_SESSION_MIN) {
         return fail("planned_out_of_range");
       }
 
@@ -227,7 +233,13 @@
         eligible_minutes: eligibleMinutes(user),
         rewards: db.rewards.filter((r) => r.user_id === user)
                            .slice().sort((a, b) => b.issued_at - a.issued_at),
-        policies: Array.from(db.policies.values()).filter((p) => p.active),
+        // Active policies, PLUS any policy a reward still in hand was issued under.
+        // Filtering to active alone hid the policy out from under a held reward:
+        // pausing a policy stops issuance (correct) but not redemption, leaving the
+        // app holding a spendable reward it could not describe or show a bar for.
+        policies: Array.from(db.policies.values()).filter((pol) =>
+          pol.active || db.rewards.some((r) => r.user_id === db.user &&
+            r.status === "issued" && r.policy_id === pol.id)),
         partners: Array.from(db.partners.values()),
         server_time: now(),
       };
@@ -357,6 +369,12 @@
       if (!h) return fail("failed_not_found");
       const partner = db.partners.get(h.partner_id);
       const reward = db.rewards.find((r) => r.id === h.reward_id);
+      // A shop that has vanished from the config leaves its handoffs dangling.
+      // Dereferencing the missing partner used to THROW, so a cashier page showed
+      // a crash instead of "this shop is no longer a partner". Refuse cleanly.
+      // (Server side the FK now cascades handoffs away with the shop, so this is
+      // the belt to that braces.)
+      if (!partner || !reward) return fail("failed_not_found");
       // Every refusal redeemByCode can raise must be reachable here too. If the
       // read-only check says VALID and the spend then refuses, the cashier finds
       // out in front of a queue. The reward's OWN expiry is the easy one to miss:
@@ -390,6 +408,12 @@
       if (!h) { logEvent("failed_not_found", {}); return fail("failed_not_found"); }
       const partner = db.partners.get(h.partner_id);
       const reward = db.rewards.find((r) => r.id === h.reward_id);
+      // Same guard as checkCode: a pulled shop must refuse, never throw.
+      if (!partner || !reward) {
+        logEvent("failed_not_found", { user_id: h.user_id, partner_id: h.partner_id,
+                                       reward_id: h.reward_id });
+        return fail("failed_not_found");
+      }
 
       let reason = null;
       if (h.consumed_at) reason = "failed_already_redeemed";

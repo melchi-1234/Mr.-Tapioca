@@ -32,7 +32,20 @@
 
   const MIN_BAR = 15;      // matches validPartner() in app.js; a 0 would make every user instantly redeemable
   const MAX_BAR = 1440;
+
+  // The SERVER's own rule, copied from supabase-reward-v2.sql sections 1 and 2:
+  //     id text primary key check (id ~ '^[a-z0-9][a-z0-9-]{1,62}$')
+  // Shop ids used to go unchecked here, so "U Tea Collegetown!", "U-TEA" and
+  // "u-tea " all parsed with zero errors and then failed at seed time one CHECK
+  // violation at a time. The trailing-space and case variants were the dangerous
+  // ones: this file saw three distinct shops where a human sees one, so the
+  // duplicate-id error that exists to stop colliding server rows never fired.
   const ID_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
+
+  // Caps must fit the server's CHECKs too, or the migration refuses a file this
+  // parser called clean.
+  const MAX_PER_USER = 1000;      // per_user_limit check (... between 1 and 1000)
+  const MAX_PILOT = 1000000;      // pilot_cap      check (... between 1 and 1000000)
 
   function isStr(v, max) {
     return typeof v === "string" && v.trim().length > 0 && v.length <= (max || 200);
@@ -68,7 +81,10 @@
   // entry with none of them behaves exactly as it does in v1.
   function normaliseShop(p) {
     return {
-      id: isStr(p.id) ? p.id : null,
+      // Trimmed, because " u-tea" and "u-tea " are the same shop to a human and
+      // to the server's primary key, and treating them as different is how two
+      // colliding rows get seeded.
+      id: isStr(p.id) ? p.id.trim() : null,
       name: p.name.trim(),
       address: isStr(p.address) ? p.address.trim() : "",
       market: isStr(p.market) ? p.market.trim() : "",
@@ -84,7 +100,12 @@
       perUserLimit: isNum(p.perUserLimit) && p.perUserLimit >= 1 ? Math.floor(p.perUserLimit) : null,
       pilotCap: isNum(p.pilotCap) && p.pilotCap >= 1 ? Math.floor(p.pilotCap) : null,
       validDays: Array.isArray(p.validDays) && p.validDays.length
-        ? p.validDays.filter((d) => isNum(d) && d >= 0 && d <= 6) : null,
+        ? p.validDays.filter((d) => isNum(d) && Number.isInteger(d) && d >= 0 && d <= 6) : null,
+      // Kept so the validator can tell "no day rule" from "a day rule whose
+      // entries were all thrown away". Without it those two are indistinguishable
+      // and a mistyped rule fails OPEN, which is the wrong direction for a
+      // restriction a shop actually asked for.
+      _rawValidDays: Array.isArray(p.validDays) ? p.validDays.length : 0,
       validFromMinute: isNum(p.validFromMinute) && p.validFromMinute >= 0 && p.validFromMinute <= 1439
         ? Math.floor(p.validFromMinute) : null,
       validToMinute: isNum(p.validToMinute) && p.validToMinute >= 0 && p.validToMinute <= 1439
@@ -126,6 +147,35 @@
         return;
       }
       kept.push(normaliseShop(s));
+    });
+
+    // Every shop must carry an id the server can actually store, a day list that
+    // survived parsing, and caps inside the server's CHECKs. These are ERRORS, not
+    // warnings: each one means the migration would refuse the file, and a config
+    // that cannot be seeded must not be allowed to look healthy.
+    kept.forEach((sh) => {
+      const label = sh.id || sh.name;
+      if (!sh.id) {
+        errors.push("shop " + label + " has no id. The server needs one as a primary key, " +
+          "and without it two shops are indistinguishable.");
+      } else if (!ID_RE.test(sh.id)) {
+        errors.push("shop id " + JSON.stringify(sh.id) + " is not a valid slug " +
+          "(lowercase a-z, 0-9 and hyphens, 2 to 63 characters). The server would reject it.");
+      }
+      if (sh._rawValidDays > 0 && (!sh.validDays || sh.validDays.length !== sh._rawValidDays)) {
+        errors.push("shop " + label + " has a validDays entry that is not a whole number 0-6. " +
+          "A day rule that cannot be read is not the same as no day rule, so it is refused " +
+          "rather than silently ignored.");
+      }
+      if (sh.perUserLimit != null && sh.perUserLimit > MAX_PER_USER) {
+        errors.push("shop " + label + " sets perUserLimit " + sh.perUserLimit +
+          "; the server allows at most " + MAX_PER_USER + ".");
+      }
+      if (sh.pilotCap != null && sh.pilotCap > MAX_PILOT) {
+        errors.push("shop " + label + " sets pilotCap " + sh.pilotCap +
+          "; the server allows at most " + MAX_PILOT + ".");
+      }
+      delete sh._rawValidDays;
     });
 
     // Duplicate ids would make server rows collide and a report meaningless.
@@ -238,7 +288,11 @@
   function nextBarAcross(shops, fallback) {
     const live = (shops || []).filter((s) => s && s.active !== false && isNum(s.minMinutes));
     if (!live.length) return isNum(fallback) ? fallback : 180;
-    return Math.min.apply(null, live.map((s) => s.minMinutes));
+    // reduce, not Math.min.apply: apply spreads the array across the argument
+    // stack and throws RangeError somewhere above ~124k entries. A partner list
+    // that long is absurd, but a crash in the map's progress line is a worse
+    // outcome than an unnecessary loop.
+    return live.reduce((lo, s) => (s.minMinutes < lo ? s.minMinutes : lo), Infinity);
   }
 
   /** Is a reward earned under `policy` spendable at `shop` right now? */
