@@ -4050,7 +4050,7 @@ function setSfxVolume(v) {
 function setMusicVolume(v) {
   state.musicVolume = clampVol01(v);
   state.musicOn = state.musicVolume > 0;
-  if (musicGain && musicTimer) {   // adjust a currently-playing tune live
+  if (musicGain && musicPlaying()) {   // adjust a currently-playing tune live
     try { musicGain.gain.setTargetAtTime(MUSIC_PEAK * state.musicVolume, audio().currentTime, 0.05); } catch (e) {}
   }
 }
@@ -4213,177 +4213,363 @@ function setAmbience(type) {
   }
 }
 
-// ── Generative lo-fi music (Web Audio note scheduler, no audio files) ─────────
-function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+// ── Focus tunes: real recorded tracks, shuffled and crossfaded ───────────────
+// This replaced a Web Audio note scheduler that synthesised its own lo-fi. A
+// generated bed has no arc: it wanders forever, never resolves, and over a
+// 50-minute session it stops being background and starts being an irritant.
+// These are real recordings by real musicians.
+//
+// EVERY TRACK HERE IS CLEARED FOR COMMERCIAL USE, and that is not negotiable
+// for a paid app on the App Store:
+//   - Loyalty Freak Music (Rrrrrose Azerty) releases into the PUBLIC DOMAIN
+//     under CC0 1.0. No credit owed, no strings.
+//   - Broke For Free releases under CC BY. Commercial use is explicitly
+//     granted; the only condition is that we name the artist, which the Music
+//     Credits list in Settings does.
+// Do not add a track here from Pixabay, Uppbeat, a "free to use" YouTube
+// channel, or anything whose licence is a blog post rather than a licence.
+// Those permit *videos*, not shipping the file inside an app, and we would be
+// redistributing someone's master for money on a technicality.
+const MUSIC_TRACKS = [
+  // Focus: dark, low onset density, nothing that grabs at you.
+  { id: "sugar-and-coffee",  title: "Sugar and Coffee",       mood: "focus", seconds: 106.9,
+    artist: "Loyalty Freak Music", license: "CC0" },
+  { id: "aeroplane",         title: "Aeroplane",              mood: "focus", seconds: 134.4,
+    artist: "Loyalty Freak Music", license: "CC0" },
+  { id: "drowning",          title: "Drowning in Your Smile", mood: "focus", seconds: 182.0,
+    artist: "Loyalty Freak Music", license: "CC0" },
+  { id: "hope-youre-happy",  title: "I Hope You're Happy",    mood: "focus", seconds: 174.6,
+    artist: "Loyalty Freak Music", license: "CC0" },
+  { id: "if",                title: "If",                     mood: "focus", seconds: 182.0,
+    artist: "Broke For Free", license: "CC BY" },
+  { id: "night-owl",         title: "Night Owl",              mood: "focus", seconds: 182.0,
+    artist: "Broke For Free", license: "CC BY" },
+  { id: "day-bird",          title: "Day Bird",               mood: "focus", seconds: 182.0,
+    artist: "Broke For Free", license: "CC BY" },
+  { id: "mells-parade",      title: "Mell's Parade",          mood: "focus", seconds: 182.0,
+    artist: "Broke For Free", license: "CC BY" },
+  // Break: same family, a little brighter and a little more awake.
+  { id: "knock-knock",       title: "Knock Knock",            mood: "break", seconds: 156.3,
+    artist: "Broke For Free", license: "CC BY" },
+  { id: "only-knows",        title: "Only Knows",             mood: "break", seconds: 179.4,
+    artist: "Broke For Free", license: "CC BY" },
+  { id: "only-instrumental", title: "Only Instrumental",      mood: "break", seconds: 158.7,
+    artist: "Broke For Free", license: "CC BY" },
+  { id: "dancing",           title: "Dancing in the Street",  mood: "break", seconds: 158.6,
+    artist: "Loyalty Freak Music", license: "CC0" },
+];
 
-// Each mood has several SECTIONS (chord progression + pentatonic melody notes)
-// that rotate every `barsPerSection` bars, so the music keeps evolving.
-const FOCUS_MUSIC = {
-  bpm: 68, barsPerSection: 8, beat: "soft", melodyProb: 0.32,
-  sections: [
-    { chords: [[50,53,57,60],[55,58,62,65],[48,52,55,59],[53,57,60,64]], pent: [50,53,55,57,60,62] }, // Dm7 Gm7 Cmaj7 Fmaj7
-    { chords: [[45,48,52,55],[53,57,60,64],[50,53,57,60],[55,58,62,65]], pent: [45,48,50,52,55,57] }, // Am-ish
-    { chords: [[48,52,55,59],[53,57,60,64],[50,53,57,60],[57,60,64,67]], pent: [48,52,55,57,60,64] }  // Cmaj7 Fmaj7 Dm7 Am7
-  ]
+const MUSIC_LICENSES = {
+  "CC0":   { name: "CC0 1.0 (public domain)", url: "https://creativecommons.org/publicdomain/zero/1.0/" },
+  "CC BY": { name: "CC BY 4.0",               url: "https://creativecommons.org/licenses/by/4.0/" },
 };
-const BREAK_MUSIC = {
-  bpm: 86, barsPerSection: 8, beat: "full", melodyProb: 0.44,
-  sections: [
-    { chords: [[48,52,55,59],[57,60,64,67],[53,57,60,64],[55,59,62,65]], pent: [48,52,55,57,60,64] }, // Cmaj7 Am7 Fmaj7 G7
-    { chords: [[50,53,57,60],[55,58,62,65],[48,52,55,59],[55,59,62,65]], pent: [50,53,55,57,60,62] }  // Dm7 Gm7 Cmaj7 G7
-  ]
+const MUSIC_ARTIST_URLS = {
+  "Loyalty Freak Music": "https://loyaltyfreakmusic.com/",
+  "Broke For Free":      "https://brokeforfree.bandcamp.com/",
 };
 
-let musicTimer = null, musicNext = 0, musicStep = 0, musicTune = null;
-let musicGain = null, musicNoiseBuf = null, musicPreviewTimer = null;
-const MUSIC_PEAK = 0.9;   // full-volume target for the music bus (scaled by state.musicVolume)
+const MUSIC_DIR     = "assets/music/";
+const MUSIC_XFADE   = 7;     // seconds the outgoing and incoming track overlap
+const MUSIC_PREROLL = 12;    // extra seconds of head start for buffering the next one
+const MUSIC_FADE_IN = 1.5;   // the bus easing up when music first starts
+const MUSIC_PEAK    = 0.9;   // full-volume target for the music bus (scaled by state.musicVolume)
+
+// Playback is two <audio> "decks". Each feeds a MediaElementSource -> its own
+// gain -> the shared music bus, so one track fades down while the next fades
+// up and there is never a gap or a hard cut between songs.
+//
+// Two things here are load-bearing and look optional:
+//
+// 1. The crossfade curves are EQUAL POWER (sin/cos), not linear. Two linear
+//    ramps sum to a ~3 dB dip in the middle of the blend, and you hear that as
+//    the music ducking every few minutes for no reason.
+// 2. The gain lives in Web Audio, NOT on the element. iOS ignores writes to
+//    HTMLAudioElement.volume (it is hardware-controlled there), so a
+//    .volume-based crossfade is a hard cut on every iPhone and the Settings
+//    volume slider does nothing.
+let musicGain    = null;   // the bus the volume slider drives
+let musicDecks   = null;   // [{ el, gain, id }, { el, gain, id }], built once
+let musicFront   = 0;      // which deck is playing in front
+let musicQueue   = [];     // shuffled ids still to play in this mood
+let musicTune    = null;   // "focus" | "break" | null
+let musicWatch   = null;   // interval that arms the next crossfade
+let musicFading  = false;  // a blend is already under way
+let musicNextUp  = null;   // track chosen + preloaded for the upcoming blend
+let musicNow     = null;   // track in front right now (drives the credits line)
+let musicGen     = 0;      // bumped on every start/stop so stale timers bail out
+let musicPreviewTimer = null;
+
+function musicPlaying() { return !!musicWatch; }
 
 function musicBus(ctx) {
   if (!musicGain) { musicGain = ctx.createGain(); musicGain.gain.value = 0.0001; musicGain.connect(masterOut(ctx)); }
   return musicGain;
 }
 
-function musicVoice(ctx, { freq, t, dur, type = "sine", peak = 0.05, attack = 0.01, release = 0.25, cutoff = 2600 }) {
-  const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
-  lp.type = "lowpass"; lp.frequency.value = cutoff;
-  o.type = type;
-  o.frequency.setValueAtTime(freq, t);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(peak, t + attack);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur + release);
-  o.connect(g).connect(lp).connect(musicBus(ctx));
-  o.start(t); o.stop(t + dur + release + 0.05);
+// Built once, and ideally inside a user gesture (see primeAudioOnce): wiring a
+// MediaElementSource up to a still-suspended AudioContext is what makes iOS
+// play a track to nowhere. Returns null if Web Audio can't take the elements,
+// in which case we simply have no music rather than a broken graph.
+function musicDeckPair(ctx) {
+  if (musicDecks) return musicDecks;
+  try {
+    musicDecks = [0, 1].map(() => {
+      const el = new Audio();
+      el.preload = "auto";
+      el.loop = false;
+      // No crossOrigin: the files are same-origin (and under Capacitor the
+      // scheme is capacitor://localhost), and asking for CORS on a same-origin
+      // media load is a good way to get an opaque failure on device.
+      const gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      ctx.createMediaElementSource(el).connect(gain);
+      gain.connect(musicBus(ctx));
+      const deck = { el, gain, id: null };
+      // A missing or unplayable file must not strand us in silence for the
+      // rest of the session: drop that track and blend on to the next one.
+      el.addEventListener("error", () => { if (musicTune && deck === musicDecks[musicFront]) musicSkip(); });
+      return deck;
+    });
+  } catch (e) { musicDecks = null; }
+  return musicDecks;
 }
 
-// Warm pad: two slightly-detuned oscillators through a soft lowpass (chorus-y)
-function musicPad(ctx, midi, t, dur) {
-  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1100;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(0.03, t + 0.4);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 1.4);
-  g.connect(lp).connect(musicBus(ctx));
-  [-7, 7].forEach(det => {
-    const o = ctx.createOscillator();
-    o.type = "sine"; o.frequency.value = mtof(midi); o.detune.value = det;
-    o.connect(g); o.start(t); o.stop(t + dur + 1.5);
+function musicTrack(id) {
+  for (let i = 0; i < MUSIC_TRACKS.length; i++) if (MUSIC_TRACKS[i].id === id) return MUSIC_TRACKS[i];
+  return null;
+}
+
+// Fisher-Yates. `avoid` stops a reshuffle from replaying the track that was
+// just on, which is the one repeat a listener actually notices.
+function musicShuffle(mood, avoid) {
+  const q = MUSIC_TRACKS.filter(t => t.mood === mood).map(t => t.id);
+  for (let i = q.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = q[i]; q[i] = q[j]; q[j] = tmp;
+  }
+  if (q.length > 1 && q[0] === avoid) { const tmp = q[0]; q[0] = q[1]; q[1] = tmp; }
+  return q;
+}
+
+function musicNextId() {
+  if (!musicQueue.length) musicQueue = musicShuffle(musicTune, musicNow && musicNow.id);
+  return musicQueue.shift() || null;
+}
+
+// preload="auto" is not enough on its own. Setting .src does not reliably start
+// a fetch (the same trap as the animated window videos, see CLAUDE.md), and a
+// deck that hasn't buffered turns the crossfade into a hole. load() is a
+// script-requested load and every engine honors it immediately.
+function musicLoadDeck(deck, track) {
+  deck.id = track.id;
+  deck.el.src = MUSIC_DIR + track.id + ".m4a";
+  try { deck.el.load(); } catch (e) { /* ignore */ }
+}
+
+function musicPlayDeck(deck) {
+  const p = deck.el.play();
+  if (p && p.catch) p.catch(() => {
+    // Autoplay policy refused because no gesture has landed yet. Try again on
+    // the very next tap rather than leaving the session silent.
+    const retry = () => {
+      document.removeEventListener("pointerdown", retry, true);
+      if (musicTune && musicDecks && musicDecks.indexOf(deck) >= 0) {
+        const q = deck.el.play(); if (q && q.catch) q.catch(() => {});
+      }
+    };
+    document.addEventListener("pointerdown", retry, true);
   });
 }
 
-function musicKick(ctx, t, peak = 0.16) {
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = "sine";
-  o.frequency.setValueAtTime(140, t);
-  o.frequency.exponentialRampToValueAtTime(50, t + 0.12);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(peak, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
-  o.connect(g).connect(musicBus(ctx));
-  o.start(t); o.stop(t + 0.24);
+// out = cos(x), in = sin(x) over a quarter turn, so out^2 + in^2 stays 1 for
+// the whole blend and the perceived level never sags in the middle.
+function musicCurve(rising) {
+  const N = 64, c = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const x = (i / (N - 1)) * Math.PI / 2;
+    c[i] = Math.max(0.0001, rising ? Math.sin(x) : Math.cos(x));
+  }
+  return c;
 }
 
-function musicHat(ctx, t, peak = 0.05) {
-  if (!musicNoiseBuf) musicNoiseBuf = makeNoiseBuffer(ctx, false);
-  const src = ctx.createBufferSource(); src.buffer = musicNoiseBuf;
-  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7500;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(peak, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
-  src.connect(hp).connect(g).connect(musicBus(ctx));
-  src.start(t); src.stop(t + 0.06);
+function musicPrefetchNext() {
+  if (musicNextUp || !musicDecks) return;
+  const t = musicTrack(musicNextId());
+  if (!t) return;
+  musicNextUp = t;
+  musicLoadDeck(musicDecks[1 - musicFront], t);
 }
 
-// Subtle vinyl crackle — a tiny filtered noise click
-function musicCrackle(ctx, t) {
-  if (!musicNoiseBuf) musicNoiseBuf = makeNoiseBuffer(ctx, false);
-  const src = ctx.createBufferSource(); src.buffer = musicNoiseBuf;
-  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = 0.8;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0.018, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
-  src.connect(bp).connect(g).connect(musicBus(ctx));
-  src.start(t); src.stop(t + 0.03);
-}
-
-function musicScheduleStep(ctx, cfg, step, t) {
-  const stepsPerBar = 8;
-  const stepDur = 60 / cfg.bpm / 2;       // eighth notes
-  const bar = Math.floor(step / stepsPerBar);
-  const section = cfg.sections[Math.floor(bar / cfg.barsPerSection) % cfg.sections.length];
-  const chord = section.chords[bar % section.chords.length];
-  const inBar = step % stepsPerBar;
-
-  if (inBar === 0) {  // new bar: warm pad chord + bass root
-    const barDur = stepDur * stepsPerBar;
-    chord.forEach(m => musicPad(ctx, m + 12, t, barDur * 0.9));
-    musicVoice(ctx, { freq: mtof(chord[0] - 12), t, dur: barDur * 0.5, type: "triangle", peak: 0.07, attack: 0.02, release: 0.3, cutoff: 900 });
-  }
-  if (inBar === 4) {  // mid-bar bass note (fifth) for a little groove
-    musicVoice(ctx, { freq: mtof(chord[0] - 12 + 7), t, dur: stepDur * 2, type: "triangle", peak: 0.05, attack: 0.02, release: 0.3, cutoff: 900 });
-  }
-  if (inBar % 2 === 0 && Math.random() < cfg.melodyProb) {  // sparse pentatonic melody on the beat
-    const oct = Math.random() < 0.3 ? 24 : 12;
-    const n = section.pent[Math.floor(Math.random() * section.pent.length)] + oct;
-    musicVoice(ctx, { freq: mtof(n), t, dur: stepDur * 0.85, type: "triangle", peak: 0.05, attack: 0.01, release: 0.25, cutoff: 2200 });
-  }
-  // beat (with a touch of swing on the off-beat hats)
-  const swing = stepDur * 0.18;
-  if (cfg.beat === "full") {
-    if (step % 4 === 0) musicKick(ctx, t);
-    if (step % 2 === 1) musicHat(ctx, t + swing);
-  } else if (cfg.beat === "soft") {
-    if (inBar === 0 || inBar === 4) musicKick(ctx, t, 0.10);
-    if (inBar === 2 || inBar === 6) musicHat(ctx, t + swing, 0.035);
-  }
-  if (Math.random() < 0.25) musicCrackle(ctx, t);   // vinyl texture
-}
-
-function musicScheduler() {
+function musicCrossfade() {
+  if (musicFading || !musicDecks) return;
+  musicPrefetchNext();
+  if (!musicNextUp) return;
   try {
     const ctx = audio();
-    const cfg = musicTune === "break" ? BREAK_MUSIC : FOCUS_MUSIC;
-    const stepDur = 60 / cfg.bpm / 2;
-    // If the tab was backgrounded the timer gets throttled and musicNext falls
-    // far behind — snap forward instead of replaying a burst of stacked notes.
-    if (musicNext < ctx.currentTime - 0.5) musicNext = ctx.currentTime + 0.05;
-    while (musicNext < ctx.currentTime + 0.15) {
-      musicScheduleStep(ctx, cfg, musicStep, musicNext);
-      musicNext += stepDur;
-      musicStep++;
-    }
+    const gen = musicGen;
+    const out = musicDecks[musicFront];
+    const inc = musicDecks[1 - musicFront];
+    musicFading = true;
+    try { inc.el.currentTime = 0; } catch (e) { /* metadata not in yet — it starts at 0 anyway */ }
+    musicPlayDeck(inc);
+    const t0 = ctx.currentTime;
+    out.gain.gain.cancelScheduledValues(t0);
+    inc.gain.gain.cancelScheduledValues(t0);
+    out.gain.gain.setValueCurveAtTime(musicCurve(false), t0, MUSIC_XFADE);
+    inc.gain.gain.setValueCurveAtTime(musicCurve(true),  t0, MUSIC_XFADE);
+    musicFront = 1 - musicFront;
+    musicNow = musicNextUp;
+    musicNextUp = null;
+    renderMusicNowPlaying();
+    setTimeout(() => {
+      if (gen !== musicGen) return;   // stopped or restarted mid-blend
+      try { out.el.pause(); out.el.currentTime = 0; } catch (e) {}
+      musicFading = false;
+    }, MUSIC_XFADE * 1000 + 250);
+  } catch (e) { musicFading = false; }
+}
+
+// A dead file (or a deck that errored) — hand straight over to the next track
+// instead of waiting out a duration that will never arrive.
+function musicSkip() {
+  if (musicFading) return;
+  musicCrossfade();
+}
+
+function musicTick() {
+  try {
+    if (!musicDecks || !musicTune) return;
+    const deck = musicDecks[musicFront];
+    const el = deck.el;
+    const known = musicTrack(deck.id);
+    const dur = (isFinite(el.duration) && el.duration > 0) ? el.duration : (known ? known.seconds : 0);
+    if (!dur) return;
+    // iOS pauses media when the app goes away and does not always resume it.
+    if (el.paused && !musicFading && el.readyState > 0) musicPlayDeck(deck);
+    const left = dur - el.currentTime;
+    if (!musicFading && left <= MUSIC_XFADE + MUSIC_PREROLL) musicPrefetchNext();
+    if (!musicFading && left <= MUSIC_XFADE) musicCrossfade();
   } catch (e) { /* ignore */ }
 }
 
 function startMusic(which) {
   if (!state.musicOn) return;
-  if (musicTimer && musicTune === which) return;
+  // Same mood already loaded: this is a resume (a locked screen or a
+  // backgrounded tab left the decks paused), not a reason to restart the set.
+  if (musicTune === which && musicDecks) { musicResume(); return; }
   stopMusic(true);
   try {
     const ctx = audio();
+    const decks = musicDeckPair(ctx);
+    if (!decks) return;
+    musicGen++;
     musicTune = which;
-    musicStep = 0;
-    musicNext = ctx.currentTime + 0.1;
+    musicQueue = musicShuffle(which, null);
+    musicFront = 0;
+    musicFading = false;
+    musicNextUp = null;
+    const first = musicTrack(musicNextId());
+    if (!first) { musicTune = null; return; }
+    const now = ctx.currentTime;
+    decks[0].gain.gain.cancelScheduledValues(now);
+    decks[0].gain.gain.setValueAtTime(1, now);
+    decks[1].gain.gain.cancelScheduledValues(now);
+    decks[1].gain.gain.setValueAtTime(0.0001, now);
+    musicLoadDeck(decks[0], first);
+    musicNow = first;
+    musicPlayDeck(decks[0]);
+    const bus = musicBus(ctx);
+    bus.gain.cancelScheduledValues(now);
+    bus.gain.setValueAtTime(Math.max(0.0001, bus.gain.value), now);
+    bus.gain.linearRampToValueAtTime(MUSIC_PEAK * state.musicVolume, now + MUSIC_FADE_IN);
+    clearInterval(musicWatch);
+    musicWatch = setInterval(musicTick, 250);
+    renderMusicNowPlaying();
+  } catch (e) { /* ignore */ }
+}
+
+function musicResume() {
+  if (!musicDecks || !musicTune) return;
+  try {
+    const ctx = audio();
     const bus = musicBus(ctx);
     bus.gain.cancelScheduledValues(ctx.currentTime);
     bus.gain.setValueAtTime(Math.max(0.0001, bus.gain.value), ctx.currentTime);
-    bus.gain.linearRampToValueAtTime(MUSIC_PEAK * state.musicVolume, ctx.currentTime + 1.0);
-    musicTimer = setInterval(musicScheduler, 25);
-    musicScheduler();
+    bus.gain.linearRampToValueAtTime(MUSIC_PEAK * state.musicVolume, ctx.currentTime + 0.5);
+    const deck = musicDecks[musicFront];
+    if (deck.el.paused) musicPlayDeck(deck);
+    if (!musicWatch) musicWatch = setInterval(musicTick, 250);
   } catch (e) { /* ignore */ }
 }
 
 function stopMusic(immediate) {
-  if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+  const gen = ++musicGen;
+  clearInterval(musicWatch); musicWatch = null;
   musicTune = null;
+  musicFading = false;
+  musicNextUp = null;
+  musicQueue = [];
+  musicNow = null;
+  const fade = immediate ? 0.05 : 0.6;
   if (musicGain) {
     try {
-      const ctx = audio();
-      const now = ctx.currentTime;
+      const ctx = audio(), now = ctx.currentTime;
       musicGain.gain.cancelScheduledValues(now);
       musicGain.gain.setValueAtTime(Math.max(0.0001, musicGain.gain.value), now);
-      musicGain.gain.exponentialRampToValueAtTime(0.0001, now + (immediate ? 0.05 : 0.6));
+      musicGain.gain.exponentialRampToValueAtTime(0.0001, now + fade);
     } catch (e) { /* ignore */ }
   }
+  if (musicDecks) {
+    const decks = musicDecks;
+    // Pause AFTER the fade, and only if nothing has started up again in the
+    // meantime — startMusic calls stopMusic first, so an unguarded timer here
+    // would pause the deck it had just started.
+    setTimeout(() => {
+      if (gen !== musicGen) return;
+      decks.forEach(d => { try { d.el.pause(); } catch (e) {} });
+    }, fade * 1000 + 80);
+  }
+  renderMusicNowPlaying();
+}
+
+// ── Music credits (Settings) ─────────────────────────────────────────────────
+// CC BY is only satisfied if the artist is actually named somewhere the user
+// can reach, so this list is a licence obligation, not a nicety. It also just
+// answers the question every focus app gets asked ("what is this song").
+function renderMusicNowPlaying() {
+  const el = document.getElementById("musicNowPlaying");
+  if (!el) return;
+  if (musicNow && musicPlaying()) {
+    el.textContent = "Now playing: " + musicNow.title + " by " + musicNow.artist;
+    el.classList.remove("hidden");
+  } else {
+    el.textContent = "";
+    el.classList.add("hidden");
+  }
+}
+
+function renderMusicCredits() {
+  const list = document.getElementById("musicCredits");
+  if (!list || list.childElementCount) return;   // build once
+  MUSIC_TRACKS.forEach(t => {
+    const lic = MUSIC_LICENSES[t.license] || { name: t.license, url: "#" };
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "credit-track";
+    name.textContent = t.title + " — ";
+    const who = document.createElement("a");
+    who.href = MUSIC_ARTIST_URLS[t.artist] || "#";
+    who.target = "_blank"; who.rel = "noopener";
+    who.textContent = t.artist;
+    const how = document.createElement("a");
+    how.className = "credit-lic";
+    how.href = lic.url;
+    how.target = "_blank"; how.rel = "noopener";
+    how.textContent = lic.name;
+    li.appendChild(name); li.appendChild(who);
+    li.appendChild(document.createTextNode(" · ")); li.appendChild(how);
+    list.appendChild(li);
+  });
 }
 
 // Reflect current volumes onto the Settings sliders + their value labels.
@@ -6412,6 +6598,21 @@ function wireEvents() {
   els.goalMinus.addEventListener("click", () => { playSfx("select"); haptic(4); adjustDailyGoal(-GOAL_STEP); });
   els.goalPlus.addEventListener("click",  () => { playSfx("select"); haptic(4); adjustDailyGoal(GOAL_STEP); });
 
+  // ── Music credits (Settings) ─────────────────────────────────────────────
+  // Plain-text button on purpose: writing textContent on a button that carries
+  // an inline SVG icon wipes the icon out, so this one never gets one.
+  const musicCreditsBtn = document.getElementById("musicCreditsBtn");
+  if (musicCreditsBtn) {
+    musicCreditsBtn.addEventListener("click", () => {
+      playSfx("tap");
+      renderMusicCredits();
+      const list = document.getElementById("musicCredits");
+      const open = list.classList.toggle("hidden") === false;
+      musicCreditsBtn.setAttribute("aria-expanded", String(open));
+      musicCreditsBtn.textContent = open ? "Hide Credits" : "Music Credits";
+    });
+  }
+
   // ── Focus ambience picker (Settings) ──────────────────────────────────────
   document.querySelectorAll(".amb-chip").forEach(chip => {
     chip.addEventListener("click", () => { playSfx("tap"); setAmbience(chip.dataset.amb); });
@@ -6433,7 +6634,7 @@ function wireEvents() {
     els.musicVolLabel.textContent = Math.round(state.musicVolume * 100);
     clearTimeout(musicPreviewTimer);
     // Start a tune (once) so the user hears the level while dragging.
-    if (state.musicVolume > 0 && !musicTimer) {
+    if (state.musicVolume > 0 && !musicPlaying()) {
       if (state.running && state.phase === "focus") startMusic("focus");
       else if (state.phase === "break" || state.phase === "break-offer") startMusic("break");
       else startMusic("focus");
@@ -6844,6 +7045,10 @@ function wireEvents() {
   const primeEvents = ["pointerdown", "touchstart", "keydown", "click"];
   function primeAudioOnce() {
     try { audio(); } catch (e) { /* ignore */ }
+    // Build the two music decks here too. createMediaElementSource against a
+    // still-suspended context is what makes iOS play the first track to
+    // nowhere, so the pair gets wired while we are demonstrably in a gesture.
+    try { musicDeckPair(audio()); } catch (e) { /* ignore */ }
     primeEvents.forEach(ev => document.removeEventListener(ev, primeAudioOnce, true));
   }
   primeEvents.forEach(ev => document.addEventListener(ev, primeAudioOnce, true));
@@ -7003,6 +7208,7 @@ if (els.timerCard) els.timerCard.classList.toggle("custom-adjust", state.mode ==
 renderVolumeControls();
 renderDevToggle();
 renderAmbiencePicker();
+renderMusicCredits();
 
 reconcileStreakFreezes();   // spend freezes to bridge any missed days before first paint
 renderAll();

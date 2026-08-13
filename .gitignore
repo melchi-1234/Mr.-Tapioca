@@ -26,6 +26,11 @@ __pycache__/
 # scratch output from tools/gen-poses.py (cells are reviewed, then copied into assets/poses/)
 build/
 
+# The focus-tunes audition reel is a listening aid for picking the playlist, not
+# a shipped asset. The tracks themselves ARE committed (assets/music/); this is
+# just 5 MB of the same audio with title cards on it.
+marketing/focus-tunes-audition.mp4
+
 # ── Internal build notes. NEVER commit these: the repo is PUBLIC. ─────────────
 # docs/network-v1/GROUNDING.md is a step-by-step guide to forging rewards in the
 # LIVE app (the exact localStorage keys, and the payload that produced 416 free

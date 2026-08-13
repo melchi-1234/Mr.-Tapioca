@@ -54,7 +54,25 @@ These are all things that fail *silently*. Do not rediscover them.
    on foreground, and Settings has a "Blocking Not Working? Re-pick Apps" recovery button that
    re-picks from scratch. QA details in SETUP_NATIVE.md. Test blocking against apps that have
    personal Screen Time limits.
-6. **`<video preload="none">` never fetches just because `.src` changed.** Setting `.src` alone
+6. **The focus music is REAL FILES now, and the licence is the constraint.** `assets/music/`
+   holds 12 tracks (23 MB, AAC 96k, all loudness-matched to −16 LUFS so no track jumps out).
+   The generative Web Audio scheduler that used to make its own lo-fi is gone: it wandered
+   forever and got grating over a long session. **Every track is either CC0 (Loyalty Freak
+   Music) or CC BY (Broke For Free), both cleared for commercial use.** CC BY only holds if
+   the artist is named where a user can reach it, which is the Music Credits list in Settings
+   — do not remove it, and do not add a track without adding its credit row. **Do not add
+   music from Pixabay, Uppbeat, or a "free to use" YouTube channel.** Those licences permit
+   *videos*; shipping the file inside a paid app is redistributing someone's master.
+   Playback is two `<audio>` decks through `MediaElementSource` → per-deck gain → the music
+   bus, crossfading on equal-power (sin/cos) curves. Two things there look optional and are
+   not: linear ramps would dip ~3 dB mid-blend (audible as ducking every few minutes), and
+   the gain **must** live in Web Audio because **iOS ignores writes to
+   `HTMLAudioElement.volume`** — a `.volume` crossfade is a hard cut on every iPhone and the
+   volume slider does nothing. The tracks are deliberately NOT in the `sw.js` SHELL; they
+   live in their own unversioned `MUSIC_CACHE` so a release does not evict 23 MB, and the
+   worker hand-cuts byte ranges out of a cached full copy (the Cache API cannot store a 206,
+   and Safari will not seek against a 200). `tests/sw-music-range.test.js` guards that.
+7. **`<video preload="none">` never fetches just because `.src` changed.** Setting `.src` alone
    produces zero network activity — confirmed live, no request for the mp4 even after several
    seconds. `preload="none"` defers loading until something explicitly requests it, so any code
    that sets `.src` then waits for `canplay`/`readyState` before calling `play()` (see

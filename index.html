@@ -422,12 +422,20 @@
             </div>
           </div>
 
+          <!-- Focus Tunes. The music is a set of real recordings that shuffle and
+               crossfade into each other, not one loop. Every track is either
+               public domain (CC0) or CC BY, and CC BY only holds if the artist is
+               named somewhere the listener can reach, which is what the credits
+               list below is for. It is a licence term, not decoration. -->
           <div class="settings-row stack">
             <span class="settings-row-label">Focus Tunes</span>
             <div class="volume-control">
               <input id="musicVol" class="volume-slider" type="range" min="0" max="100" step="1" value="80" aria-label="Music volume">
               <span id="musicVolLabel" class="volume-val">80</span>
             </div>
+            <p class="settings-note music-now hidden" id="musicNowPlaying"></p>
+            <button id="musicCreditsBtn" class="settings-action-btn music-credits-btn" aria-expanded="false" aria-controls="musicCredits">Music Credits</button>
+            <ul class="music-credits hidden" id="musicCredits"></ul>
           </div>
 
           <div class="settings-row stack">

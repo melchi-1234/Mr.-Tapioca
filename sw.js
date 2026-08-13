@@ -7,7 +7,18 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v191";
+const CACHE = "mr-tapioca-v192";
+
+// Focus-tune audio lives in its OWN cache, on purpose, and is deliberately NOT
+// in SHELL below. Two reasons, both learned the hard way:
+//   1. SHELL is precached on install with no catch. 23 MB of music in there
+//      means every fresh install blocks on a 23 MB download, and one bad file
+//      makes cache.addAll reject and stops updates shipping app-wide.
+//   2. This cache is never version-stamped, so a release that bumps CACHE does
+//      not throw the music away and make every user redownload it. Tracks land
+//      here the first time they are played and stay offline-ready after that.
+// Bump MUSIC_CACHE only if a track's CONTENTS change under the same filename.
+const MUSIC_CACHE = "mr-tapioca-music-v1";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -89,6 +100,52 @@ const SHELL = [
   "assets/vendor/leaflet/leaflet.css",
 ];
 
+// Media elements ask for BYTE RANGES, and that breaks the ordinary cache-first
+// shape in two separate ways:
+//   - the Cache API refuses to store a 206 (cache.put throws a TypeError), so
+//     caching the response we were handed is not an option; and
+//   - cache.match ignores the Range header, so a cached full copy would answer
+//     a range request with the whole file and a 200, which Safari rejects while
+//     seeking.
+// So: always fetch and cache the WHOLE file once, then cut ranges out of that
+// copy by hand and answer with a real 206.
+async function musicResponse(req) {
+  const whole = new Request(req.url);   // strip Range so we cache a full copy
+  let cache, full;
+  try {
+    cache = await caches.open(MUSIC_CACHE);
+    full = await cache.match(whole);
+  } catch (e) { /* storage unavailable — fall through to the network */ }
+  if (!full) {
+    let res;
+    try { res = await fetch(whole); } catch (e) { return fetch(req); }
+    if (!res || res.status !== 200) return fetch(req);
+    if (cache) { try { await cache.put(whole, res.clone()); } catch (e) {} }
+    full = res;
+  }
+  const range = req.headers.get("range");
+  if (!range) return full;
+  const m = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  const buf = await full.arrayBuffer();
+  if (!m) return new Response(buf, { status: 200, headers: full.headers });
+  const size  = buf.byteLength;
+  const start = m[1] ? parseInt(m[1], 10) : (m[2] ? size - parseInt(m[2], 10) : 0);
+  const end   = (m[1] && m[2]) ? parseInt(m[2], 10) : size - 1;
+  if (!(start >= 0 && start < size)) {
+    return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + size } });
+  }
+  const stop = Math.min(end, size - 1);
+  return new Response(buf.slice(start, stop + 1), {
+    status: 206,
+    headers: {
+      "Content-Type":   full.headers.get("Content-Type") || "audio/mp4",
+      "Content-Length": String(stop - start + 1),
+      "Content-Range":  "bytes " + start + "-" + stop + "/" + size,
+      "Accept-Ranges":  "bytes",
+    },
+  });
+}
+
 self.addEventListener("install", (event) => {
   // NO trailing catch here — that's load-bearing. If any SHELL fetch fails,
   // the install must FAIL so the browser keeps the old worker + old complete
@@ -106,7 +163,8 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(
+        keys.filter((k) => k !== CACHE && k !== MUSIC_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -124,6 +182,14 @@ self.addEventListener("fetch", (event) => {
   // useless, so a shop signed today would never reach anyone already installed.
   // Leave it to the network (GitHub Pages serves it with max-age=600).
   if (url.pathname.endsWith("/partners.json")) return;
+
+  // Focus tunes: cache-first out of the long-lived music cache, stored on first
+  // play, so the second session onward has music with no network. Kept out of
+  // the versioned shell cache so a release does not evict 23 MB of audio.
+  if (url.pathname.includes("/assets/music/")) {
+    event.respondWith(musicResponse(req));
+    return;
+  }
 
   const cacheCopy = (res) => {
     if (res && res.status === 200 && res.type === "basic") {

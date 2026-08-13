@@ -3138,6 +3138,36 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   line-height: 1.45;
   opacity: .78;
 }
+
+/* Focus Tunes: the now-playing line and the CC credits list.
+   Both set their own display, so both need their own .hidden rule — the global
+   `.hidden { display:none }` sits ABOVE these and would otherwise lose. */
+.music-now {
+  display: block;
+  margin: 6px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: .7;
+}
+.music-now.hidden { display: none; }
+.music-credits-btn { align-self: flex-start; margin-top: 6px; }
+.music-credits {
+  display: block;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: var(--ui-edge, 2px solid rgba(60,32,24,.18));
+  background: rgba(255,255,255,.5);
+  font-size: 12px;
+  line-height: 1.6;
+  opacity: .85;
+}
+.music-credits.hidden { display: none; }
+.music-credits li + li { margin-top: 4px; }
+.music-credits a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.music-credits .credit-track { font-weight: 700; }
+.music-credits .credit-lic { opacity: .7; }
 .notify-time {
   font: inherit;
   font-weight: 800;
