@@ -2525,6 +2525,19 @@ function completeSession() {
   }
 }
 
+// The one first-party install link the app hands out. /get already reads ?src=
+// and passes it through as Apple's campaign token (get/index.html), so this is
+// real attribution rather than a decorative query string, and it is the only way
+// to tell a share that produced an install from one that did not.
+//
+// It also fixes a plainer problem: every share the app made was UNCLICKABLE.
+// navigator.share was called with a title and text and no `url` at all, so the
+// prettiest card in the world landed in a chat with no way to get the app.
+const INSTALL_LINK = "https://mrtapioca.me/get";
+function installLink(src) {
+  return INSTALL_LINK + "?src=" + encodeURIComponent(src);
+}
+
 // ── Shareable "I finished a drink" card ──────────────────────────────────────
 // The single most important growth lever: turn a finished focus session into a
 // cute image the user WANTS to post. Rendered on a canvas (no deps), shared via
@@ -2656,15 +2669,19 @@ async function shareDrink(reward) {
     if (!blob) throw new Error("no blob");
     const file = new File([blob], "mr-tapioca-focus.png", { type: "image/png" });
     const text = `${shareTimePhrase(reward.minutes)} of focus with Mr. Tapioca 🧋`;
+    const url = installLink("focus_share");
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: "Mr. Tapioca", text });
+      await navigator.share({ files: [file], title: "Mr. Tapioca", text, url });
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = "mr-tapioca-focus.png";
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-      showToast("Saved your card — post it anywhere 🧋");
+      // Desktop has no share sheet, so the link has to travel with the file or it
+      // is lost. The card is saved; the toast carries the URL to paste with it.
+      try { await navigator.clipboard.writeText(installLink("focus_share")); } catch (e) {}
+      showToast("Saved your card. The link is on your clipboard 🧋");
     }
   } catch (e) {
     if (!(e && e.name === "AbortError")) showToast("Couldn't make the card — try again.");
@@ -5335,9 +5352,13 @@ function renderSquad() {
 function shareSquadCode() {
   const code = encodeMyCode();
   playSfx("open");
-  const text = `Add me on Mr. Tapioca! Paste my Study Squad code in the app (Squad, then Add):\n\n${code}`;
+  // The code AND a way to get the app. A friend code is useless to someone who
+  // does not have the app yet, which is most people you would send one to.
+  const text = `Add me on Mr. Tapioca! My Study Squad code is ${code}. ` +
+    `Get the app, then open Squad and tap Add.`;
+  const url = installLink("squad_invite");
   if (navigator.share) {
-    navigator.share({ title: "Mr. Tapioca Study Squad", text }).catch(() => {});
+    navigator.share({ title: "Mr. Tapioca Study Squad", text, url }).catch(() => {});
   } else if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(code).then(() => showToast("Code copied, send it to a friend!"), () => showToast("Couldn't copy. Long-press to select."));
   } else {
@@ -5422,9 +5443,13 @@ function openFriends() {
   renderSquad();
   renderMyCode();
   if (window.SquadCloud && SquadCloud.enabled) {
-    SquadCloud.fetchFriends();   // refresh live stats now…
-    // …then keep refreshing while the sheet is open so friends' current statuses
-    // (🟢 Focusing / 🌸 break / Online) update live without reopening. Cleared in closeSheets.
+    SquadCloud.fetchFriends();   // refresh the leaderboard now…
+    // …then keep refreshing while the sheet is open, so a friend who finishes a
+    // drink while you are looking moves up without you reopening the sheet.
+    //
+    // This is TOTALS, not presence. There is no live status: mySquadStats() sends
+    // no status field and squad-cloud.js therefore always pushes "idle", so
+    // nothing anywhere knows who is focusing right now. Cleared in closeSheets.
     clearInterval(squadPollId);
     squadPollId = setInterval(() => {
       if (window.SquadCloud && SquadCloud.ready) SquadCloud.fetchFriends();

@@ -191,6 +191,37 @@ cap headroom; one reward buying exactly one drink even with two live codes at tw
 prototype-pollution payloads never polluting; the merchant report carrying no account id,
 no reward id, no handoff code and no revenue vocabulary.
 
+## GROWTH / SHARING STATUS (P8, partial)
+
+`VERIFIED` in a real browser by stubbing `navigator.share` and reading the payload:
+
+- **Every share the app made was UNCLICKABLE.** `navigator.share` was called with a title
+  and text and **no `url` at all**, so the card landed in a chat with no way to get the
+  app. Both shares now carry a first-party link:
+  - focus card → `https://mrtapioca.me/get?src=focus_share`
+  - Squad invite → `https://mrtapioca.me/get?src=squad_invite`
+- `/get` already read `?src=` and passed it through as Apple's campaign token
+  (`get/index.html`), so this is real attribution, not a decorative query string. That
+  path existed and was linked from nowhere.
+- Desktop has no share sheet, so the card download now also copies the link to the
+  clipboard and the toast says so.
+- The Squad invite text now explains what the code is FOR. A friend code is useless to
+  someone who does not have the app, which is most people you would send one to.
+
+**False presence claims removed** (GROUNDING §8 items 14, 17, 18). No status is ever
+sent: `mySquadStats()` has no status field so `squad-cloud.js` always pushes `idle`.
+- `catch-up.html` said "see each other's live focus stats & status (🟢 focusing / 🌸 on a
+  break)". Now describes the shared totals board it actually is, and says plainly it does
+  not show who is focusing right now.
+- `support.html` said "focus stats sync so friends can see you focusing". Same fix.
+- The stale `app.js` comment claiming statuses "update live" is corrected.
+
+**Not done in P8:** reward-earned and redemption-completed share cards, and Squad presence
+itself (correctly removed rather than faked, per the brief).
+
+**Noted, not fixed:** `catch-up.html` (26) and `support.html` (2) carry pre-existing
+em-dashes against house style. Untouched by these edits; copy polish is deprioritised.
+
 ## MERCHANT/REDEMPTION STATUS
 
 - Cashier flow: student opens a handoff → 6-char code, 5-minute life → cashier CHECKS
