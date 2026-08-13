@@ -2211,7 +2211,12 @@ function onBlockPromptClose() {
 // ── Animated window loops ────────────────────────────────────────────────────
 // Themes whose window has a real generated video behind the glass. Anything not
 // listed here keeps the CSS layers, which is why .win-fx has a fallback at all.
-const WINDOW_LOOPS = { galaxy: "assets/win-galaxy.mp4" };
+// Winter and library are deliberately NOT here: both went through repeated Kling
+// generations that kept drifting into photographic bokeh instead of the flat
+// kawaii style, so their window motion is CSS-only (reusing the same fx-snow /
+// fx-dust assets .theme-fx already ships for them) — see styles.css. Sunset's
+// video passed verification clean and gets the real loop, same as galaxy.
+const WINDOW_LOOPS = { galaxy: "assets/win-galaxy.mp4", sunset: "assets/win-sunset.mp4" };
 let winLoopTheme = null;
 
 function renderWindowLoop(theme) {

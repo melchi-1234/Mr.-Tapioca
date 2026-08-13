@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v183";
+const CACHE = "mr-tapioca-v184";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
@@ -51,6 +51,18 @@ const SHELL = [
   "assets/win-galaxy.webp",
   "assets/win-galaxy.mp4",
   "assets/win-mask-galaxy.webp",
+  /* Animated window layers (Winter/Library/Sunset, Aug 2026). Winter and
+     library are CSS-only (no video, no poster webp — .win-fx reuses the
+     fx-snow/fx-dust sheets already listed above), so only their front plate +
+     mask are new files. Sunset has a real video like galaxy. */
+  "assets/bg-winter-front.webp",
+  "assets/win-mask-winter.webp",
+  "assets/bg-library-front.webp",
+  "assets/win-mask-library.webp",
+  "assets/bg-sunset-front.webp",
+  "assets/win-mask-sunset.webp",
+  "assets/win-sunset.webp",
+  "assets/win-sunset.mp4",
   "assets/counter-wood.png",
   "assets/floor-boards.png",
   "assets/break-desk.png",

@@ -448,6 +448,114 @@ body {
 }
 .scene[data-theme="galaxy"] .speech-bubble { background: #f3eeff; }
 
+/* WINTER, LIBRARY and SUNSET animated windows (Aug 2026). Same .win-fx/.scene-front
+   split as galaxy above, but each window is a DIFFERENT shape/size/position on its
+   own 768x1344 art (mullioned panes, a pill-shaped frame, not an arch), so each
+   theme sets its own --win-x/--win-y/--win-w (and, for sunset's video, --win-video-w/
+   --win-video-ar) rather than relying on galaxy's hardcoded defaults on the generic
+   .win-fx::before/::after and .win-video rules further up this file. Content for
+   winter and library is CSS-only, deliberately: both went through several AI-video
+   attempts that kept drifting into photographic bokeh/lens-flare instead of the
+   flat kawaii style (see project notes), so their motion reuses the exact assets
+   and keyframes .theme-fx already ships for these themes (fx-snow.webp + fx-dust.webp,
+   fx-tile-fall/fx-tile-rise/fx-sway, lamp-breathe) — guaranteed on-style because
+   there is no model in the loop to drift. Sunset's video passed verification clean,
+   so it gets the real generated loop like galaxy. */
+
+.scene[data-theme="winter"] .win-fx,
+.scene[data-theme="winter"] .scene-front { display: block; }
+/* Same reasoning as galaxy: a real window scene supersedes cafe-glow's fake-depth
+   trick. Doubled class for the same specificity-tie reason documented on galaxy's
+   own version of this rule above — do not de-duplicate it. */
+.scene[data-theme="winter"] .cafe-glow.cafe-glow,
+.scene[data-theme="library"] .cafe-glow.cafe-glow,
+.scene[data-theme="sunset"] .cafe-glow.cafe-glow { display: none; }
+.scene[data-theme="winter"] .scene-front {
+  background: var(--floor-grad) no-repeat,
+              url('assets/bg-winter-front.webp') top center / cover no-repeat;
+}
+.scene[data-theme="winter"] .win-fx {
+  -webkit-mask: url('assets/win-mask-winter.webp') top center / cover no-repeat;
+          mask: url('assets/win-mask-winter.webp') top center / cover no-repeat;
+  --win-x: 49%; --win-y: 25%; --win-w: 150%;
+  /* Sky base sits on .win-fx itself (masked the same as its ::before/::after),
+     so it fills the glass everywhere the falling snow doesn't cover. */
+  background: linear-gradient(180deg, #a9c3d5 0%, #c4d8e3 45%, #dfeaee 100%);
+}
+.scene[data-theme="winter"] .win-fx::before {
+  --fx-tile: 130px;
+  background-image: url('assets/fx-snow.webp');
+  background-size: var(--fx-tile) var(--fx-tile);
+  background-repeat: repeat;
+  animation: fx-tile-fall 8s linear infinite, fx-sway 5s ease-in-out infinite alternate;
+  opacity: 0.9;
+}
+.scene[data-theme="winter"] .win-fx::after {
+  --fx-tile: 190px;
+  background-image: url('assets/fx-snow.webp');
+  background-size: var(--fx-tile) var(--fx-tile);
+  background-repeat: repeat;
+  animation: fx-tile-fall 13s linear infinite, fx-sway 8s ease-in-out infinite alternate;
+  opacity: 0.5;
+}
+.scene[data-theme="winter"] .work-counter {
+  --counter-tint: rgba(150,185,210,0.22);
+  border-color: rgba(60,70,90,0.13);
+  border-top-color: rgba(255,255,255,0.85);
+}
+
+.scene[data-theme="library"] .win-fx,
+.scene[data-theme="library"] .scene-front { display: block; }
+.scene[data-theme="library"] .scene-front {
+  background: var(--floor-grad) no-repeat,
+              url('assets/bg-library-front.webp') top center / cover no-repeat;
+}
+.scene[data-theme="library"] .win-fx {
+  -webkit-mask: url('assets/win-mask-library.webp') top center / cover no-repeat;
+          mask: url('assets/win-mask-library.webp') top center / cover no-repeat;
+  --win-x: 50%; --win-y: 34%; --win-w: 150%;
+  background: linear-gradient(165deg, #f6c987 0%, #ffdda0 45%, #fff2ce 100%);
+  animation: lamp-breathe 6s ease-in-out infinite alternate;
+}
+.scene[data-theme="library"] .win-fx::before {
+  --fx-tile: 150px;
+  background-image: url('assets/fx-dust.webp');
+  background-size: var(--fx-tile) var(--fx-tile);
+  background-repeat: repeat;
+  filter: saturate(1.35) drop-shadow(0 0 5px rgba(214,148,54,0.7));
+  animation: fx-tile-rise 22s linear infinite, fx-sway 8s ease-in-out infinite alternate;
+  opacity: 0.75;
+}
+
+.scene[data-theme="sunset"] .win-fx,
+.scene[data-theme="sunset"] .scene-front { display: block; }
+.scene[data-theme="sunset"] .scene-front {
+  background: var(--floor-grad) no-repeat,
+              url('assets/bg-sunset-front.webp') top center / cover no-repeat;
+}
+.scene[data-theme="sunset"] .win-fx {
+  -webkit-mask: url('assets/win-mask-sunset.webp') top center / cover no-repeat;
+          mask: url('assets/win-mask-sunset.webp') top center / cover no-repeat;
+  --win-x: 50%; --win-y: 35%; --win-w: 150%;
+  --win-video-w: 105%; --win-video-ar: 720 / 1280;
+}
+/* Static fallback poster (same still the video was generated from) for when
+   autoplay is refused — a gentle Ken-Burns drift, not a rotation, since a
+   spinning horizon would look wrong. */
+.scene[data-theme="sunset"] .win-fx::before {
+  background-image: url('assets/win-sunset.webp');
+  animation: win-pan-sunset 42s ease-in-out infinite alternate;
+}
+@keyframes win-pan-sunset {
+  from { transform: translate(-50%, -50%) scale(1.06) translate(-1.5%, -1%); }
+  to   { transform: translate(-50%, -50%) scale(1.06) translate(1.5%, 1%); }
+}
+.scene[data-theme="sunset"] .work-counter {
+  --counter-tint: rgba(220,150,120,0.22);
+  border-color: rgba(120,70,50,0.13);
+  border-top-color: rgba(255,255,255,0.85);
+}
+
 /* ── Premium-theme effects (justify the $1.99): stars + snow ──────────────── */
 /* Confined to the upper "sky/window" zone so effects don't clutter the counter,
    character, or controls in the lower half. */
@@ -466,15 +574,21 @@ body {
 }
 .win-fx { overflow: hidden; }
 /* Sized and centred on the WINDOW, not the scene. Measured: under cover-scaling
-   the window's centre lands at 47% / 32.5% of the scene at both 375x812 and
-   1280x900, because the crop is horizontal-only and the window is near-centred.
-   150% square gives a 795px diagonal against the window's 418px, so no corner
-   can ever swing into view no matter the rotation. */
+   the GALAXY window's centre lands at 47% / 32.5% of the scene at both 375x812
+   and 1280x900, because the crop is horizontal-only and the window is
+   near-centred. 150% square gives a 795px diagonal against the window's 418px,
+   so no corner can ever swing into view no matter the rotation.
+   ⚠️ Every OTHER theme's window is a different shape/size/position on its own
+   768x1344 art (mullioned panes, pill-shaped, not arched, etc — see the
+   per-theme `--win-*` overrides below), so these are CSS custom properties
+   defaulted to galaxy's own measured numbers, not bare values. A theme that
+   enables .win-fx/.win-video without setting its own --win-* keeps galaxy's
+   position, which is wrong for it — always set all three together. */
 .win-fx::before, .win-fx::after {
   content: "";
   position: absolute;
-  left: 47%; top: 32.5%;
-  width: 150%; aspect-ratio: 1;
+  left: var(--win-x, 47%); top: var(--win-y, 32.5%);
+  width: var(--win-w, 150%); aspect-ratio: 1;
   background-position: center;
   background-size: contain;
   background-repeat: no-repeat;
@@ -485,11 +599,12 @@ body {
    rather than the whole scene: the mask clips it to the glass either way, and a
    full-bleed video would mean decoding and compositing several times the pixels
    that can actually be seen. Centred on the same measured window point as the
-   CSS layers. */
+   CSS layers (--win-x/--win-y, shared with .win-fx above) but its OWN width,
+   since it only needs to cover the glass, not survive a rotation. */
 .win-video {
   position: absolute;
-  left: 47%; top: 32.5%;
-  width: 95%; aspect-ratio: 720 / 972;
+  left: var(--win-x, 47%); top: var(--win-y, 32.5%);
+  width: var(--win-video-w, 95%); aspect-ratio: var(--win-video-ar, 720 / 972);
   transform: translate(-50%, -50%);
   object-fit: cover;
   display: block;
