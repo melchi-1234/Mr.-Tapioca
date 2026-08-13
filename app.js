@@ -5750,26 +5750,72 @@ function openFriends() {
 
 // ── First-run onboarding ──────────────────────────────────────────────────────
 
-// ── ONBOARDING: FOUR SLIDES ──────────────────────────────────────────────────
-// It was seven slides, then a nine-step feature tour auto-started 700ms later,
-// then on iPhone the blocking prompt. Sixteen screens on web and seventeen on
-// iPhone before anyone had focused for a single minute, and the slides spent
-// four of those seven explaining break games, pearls, the shop and the
-// leaderboard: things a person discovers by tapping the nav, and none of which
-// are the reason to open this app.
+// ── ONBOARDING ───────────────────────────────────────────────────────────────
+// EVERY SLIDE BELOW IS THE AUTHORS' OWN COPY, WORD FOR WORD. Two people write
+// this app, and the voice in these slides is a person's, not a spec's. Do not
+// paraphrase, tighten or "improve" a line here. If a slide needs to change, that
+// is a conversation, not a refactor.
 //
-// Four now, and they are the four the product actually needs:
-//   1. who he is and what the loop is
-//   2. why Screen Time access is worth granting        (iPhone; skipped on web)
-//   3. what the focus time is really worth
-//   4. what should I call you
+// One slide was ADDED (`native: true`, the Screen Time explainer) because the
+// deck had no slide for the single feature that most needs permission and the
+// most explaining. It is marked so it is obvious which one is not theirs.
 //
-// Choosing the apps to block and starting the first session are steps 3 and 4 of
-// the brief, and both already exist as real UI: the block prompt appears on the
-// first Start press, and the Start button is the first thing on the home screen.
-// Putting slides in front of them would be describing a button instead of
-// handing it over. The feature tour is no longer auto-started; it is offered
-// once, and it lives in Settings under Feature Tour.
+// One BODY was corrected rather than rewritten: the map slide used to say "Stay
+// tuned to unlock discounts", written before any shop had signed. Two have now,
+// so it told a new user the one real thing about this app was still
+// hypothetical. Correcting a claim that has gone false is not a style edit. It
+// is still open to being reworded in their voice.
+//
+// LENGTH. The old first run was SIXTEEN screens on web and seventeen on iPhone:
+// these slides, then a nine-step feature tour auto-started 700ms later, then the
+// blocking prompt. The tour is what was removed, not the writing. It is offered
+// once and lives in Settings under Feature Tour.
+const ONBOARD_STEPS_ALL = [
+  {
+    img: "assets/Mr. Tapioca.png",
+    title: "Say Hello to Mr. Tapioca!",
+    body: "Your favorite study buddy. He brews boba while you focus."
+  },
+  {
+    emoji: ICON.shield,
+    native: true,          // ADDED, not theirs. iPhone only: web cannot block anything.
+    title: "He guards your phone",
+    body: "On iPhone he can shield your distracting apps for the length of a session, so the thing you were going to reach for is not there. You pick which apps, and iOS keeps that list private. Nobody else sees it, including us."
+  },
+  {
+    emoji: ICON.games,
+    title: "Work Hard, Play Hard!",
+    body: "Break games live here: Catch the Pearls, Boba Plinko, and Cup Pong. Finish a real focus session to unlock them on your break and win bonus pearls."
+  },
+  {
+    img: "assets/Cup.png",
+    title: "Focus Fills your Cup!",
+    body: "Set the timer, start focusing, and watch the cup fill. Earn yourself a boba drink with each study sesh."
+  },
+  {
+    img: "assets/Tapioca Currency.png",
+    title: "Earn Pearls as You Go!",
+    body: "Every 15 minutes = 1 pearl earned. Spend them on character skins and backgrounds in the shop."
+  },
+  {
+    emoji: ICON.trophy,
+    title: "Share with Friends!",
+    body: "Show off your focus stats with invited users on a group leaderboard."
+  },
+  {
+    emoji: ICON.map,
+    // Body corrected, not rewritten. See the note above.
+    title: "Real boba, not just points",
+    body: "Focus time fills your drink. Where a shop has partnered with us, that same time earns a real perk you pick up in person. Open the Boba Map to see if there is one near you. Everything else works wherever you are."
+  },
+  {
+    name: true,
+    img: "assets/Mr. Tapioca.png",
+    title: "Now that we're friends ...",
+    body: "What should I call you?"
+  }
+];
+
 // The slides this build actually shows. A `native: true` slide is dropped on web,
 // where there is no blocker to explain and the screen would be a promise the
 // build cannot keep. Everything that indexes the deck reads THIS, so the dots,
@@ -5783,37 +5829,6 @@ function onboardDeck() {
     typeof FocusBlocker.available === "function" && FocusBlocker.available();
   return ONBOARD_STEPS_ALL.filter((st) => !st.native || nativeBuild);
 }
-
-const ONBOARD_STEPS_ALL = [
-  {
-    img: "assets/Mr. Tapioca.png",
-    title: "Say Hello to Mr. Tapioca!",
-    body: "Your study buddy. Set a timer, and he brews a boba while you focus. Finish, and the drink is yours."
-  },
-  {
-    emoji: ICON.shield,
-    native: true,          // iPhone only: the web app cannot block anything
-    title: "He guards your phone",
-    body: "On iPhone he can shield your distracting apps for the length of a session, so the thing you were going to reach for is not there. You pick which apps, and iOS keeps that list private. Nobody else sees it, including us."
-  },
-  {
-    emoji: ICON.map,
-    // This slide used to say "Stay tuned to unlock discounts", which was written
-    // before any shop had signed. Two have now, so "stay tuned" told a new user
-    // the one real thing about this app was still hypothetical. It says what the
-    // loop actually is instead. The number is deliberately not named (it is per
-    // shop, and the Boba Map prints each shop's own words), and neither is a
-    // shop, because most people opening this are nowhere near one.
-    title: "Real boba, not just points",
-    body: "Focus time fills your drink. Where a shop has partnered with us, that same time earns a real perk you pick up in person. Open the Boba Map to see if there is one near you. Everything else works wherever you are."
-  },
-  {
-    name: true,
-    img: "assets/Mr. Tapioca.png",
-    title: "Now that we're friends ...",
-    body: "What should I call you?"
-  }
-];
 
 let onboardStep = 0;
 

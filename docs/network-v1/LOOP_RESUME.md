@@ -257,44 +257,49 @@ re-prompt.
 > `NOT YET TESTED` on a device. The web path is `VERIFIED` and is explicitly described in
 > the UI as lasting only while the tab is open.
 
-## ONBOARDING STATUS (P6, done)
+## ONBOARDING STATUS (P6, partially reverted at the founder's instruction)
 
-`VERIFIED` in a real browser on a fresh install.
+**The authors' slide copy is RESTORED, word for word.** An earlier pass in this session
+cut four of the seven slides ("Work Hard, Play Hard!", "Focus Fills your Cup!", "Earn
+Pearls as You Go!", "Share with Friends!") and reworded the first one. Melchior flagged
+that Dasha personally wrote onboarding copy. **Git cannot settle authorship here** (every
+commit in this repo is under the single `melchi-1234` account), so there was no way to
+tell which lines were hers, and guessing was the wrong move. All original titles and
+bodies are back verbatim, verified by string match against `b0ad0db^`.
 
-**Before:** 7 story slides, then a 9-step feature tour auto-started 700ms later, then on
-iPhone the blocking prompt. **16 screens on web, 17 on iPhone**, before anyone had focused
-for a single minute. Four of the seven slides explained break games, pearls, the shop and
-the leaderboard, which are things a person finds by tapping the nav and none of which are
-the reason to open the app.
+**Do not paraphrase, tighten or "improve" a slide body.** A comment at the top of
+`ONBOARD_STEPS_ALL` says so. If a slide should change, that is a conversation with the
+authors, not a refactor.
 
-**Now:** **3 slides on web, 4 on iPhone**, and the feature tour no longer auto-starts (it
-is offered once and lives in Settings under Feature Tour).
+**What is still changed, and why each one is not a style edit:**
 
-| # | Slide | Shown |
-|---|---|---|
-| 1 | Say Hello to Mr. Tapioca! (who he is, what the loop is) | everywhere |
-| 2 | He guards your phone (why Screen Time is worth granting) | **iPhone only** |
-| 3 | Real boba, not just points | everywhere |
-| 4 | Now that we're friends (name) | everywhere |
+1. **The 9-step feature tour no longer auto-starts.** It used to fire 700ms after
+   onboarding finished. That was the bulk of the old first run and it is mechanical, not
+   authored copy. It is offered once and lives under Settings > Feature Tour.
+2. **One slide ADDED**, marked `native: true` and flagged in the comment as not theirs: a
+   Screen Time explainer. The deck had no slide for the single feature that most needs
+   permission and the most explaining, and the brief requires one. iPhone only, because
+   the web build cannot block anything and the slide would be a promise it cannot keep.
+3. **One BODY corrected**, not rewritten: the map slide said *"Real Rewards Await! / Mr.
+   Tapioca wants to work at real shops. Stay tuned to unlock discounts…"*. Two shops have
+   signed, so "stay tuned" told a new user the one real thing about this app was still
+   hypothetical. Correcting a claim that has gone false is not a style call. **It is still
+   open to being reworded in their voice** and should be.
 
-Steps 3 and 4 of the brief (choose apps, start the first session) are deliberately NOT
-slides: both already exist as real UI. The block prompt appears on the first Start press
-and Start is the first thing on the home screen. A slide in front of either would be
-describing a button instead of handing it over.
+**Current length:** 7 slides on web, 8 on iPhone (was 16 and 17 including the tour).
 
-A `native: true` slide is dropped on web, where there is no blocker to explain and the
-screen would be a promise the build cannot keep. `onboardDeck()` is the single filtered
-list, and the dots, the Next/Let's go switch and the finish check all read it.
+> **FOUNDER DECISION, not mine to make.** The brief's target was roughly four steps. That
+> is reachable only by cutting authored slides, which is a creative call for Melchior and
+> Dasha. The mechanical savings are already taken.
 
-**Bug found and fixed while building this:** the native check was written
-`window.FocusBlocker && …`, but `FocusBlocker` is a top-level `const` and never lands on
-`window`, so that guard was false on **every** build including a real iPhone and the
-Screen Time slide could never have appeared. `VERIFIED` after the fix: web deck 3, native
-deck 4.
+Screenshots re-shot against the restored deck: `01-onboarding-first-slide.png`,
+`03-onboarding-screentime.png`, `02-onboarding-real-boba.png`.
 
-Screenshots: `01-onboarding-first-slide.png`, `03-onboarding-screentime.png`,
-`02-onboarding-real-boba.png`. An earlier capture of the Screen Time slide silently showed
-slide 1 (the render call had failed); it was deleted and re-shot rather than kept.
+**Bug found and fixed while building this, unrelated to the copy:** the native check was
+written `window.FocusBlocker && …`, but `FocusBlocker` is a top-level `const` and never
+lands on `window`, so that guard was false on **every** build including a real iPhone and
+the Screen Time slide could never have appeared. `VERIFIED` after the fix: web deck 7,
+native deck 8.
 
 ## REWARD SHARE CARD (P8, done)
 
