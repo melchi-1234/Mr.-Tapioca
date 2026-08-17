@@ -197,7 +197,7 @@ test("MUSIC_CACHE survives an activate that clears old shell caches", async () =
             clients: { claim: () => {} } },
     caches: {
       open: async () => makeCache(),
-      keys: async () => ["mr-tapioca-v9", "mr-tapioca-v192", "mr-tapioca-music-v1"],
+      keys: async () => ["mr-tapioca-v9", "mr-tapioca-v193", "mr-tapioca-music-v1"],
       delete: async (k) => { deleted.push(k); return true; },
     },
     fetch: async () => okBody(),

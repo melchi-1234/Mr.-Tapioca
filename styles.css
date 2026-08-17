@@ -220,6 +220,12 @@ body {
      1400), 1.16) is invalid — it silently poisoned every size that used it and
      collapsed the counter to 0 height. */
   --fig: 1;
+  /* One shared horizontal correction for the two focal objects. Their rendered
+     artwork has transparent margins inside each box, and those alpha bounds
+     put the visible character/cup midpoint about 8px right of the viewport
+     centre at 375px. Shift both boxes left together without changing their
+     spacing or introducing different per-object nudges. */
+  --stage-shift: -8px;
   /* Was clamp(400px, 52vh, 450px), which put the control band at 45% of the
      screen and only ~11% of that band was empty, so the shop was being hidden by
      controls rather than by dead space. The stack itself is now ~35px shorter
@@ -236,7 +242,11 @@ body {
      471, timer card top 537. The floor comes down by the same 54px so the
      counter lands ~12px under the card again, exactly the clearance it had
      before, and the scene keeps its composition. */
-  --floor-rest: clamp(256px, 35vh, 296px);
+  /* The tableau's counter top used to land at y444 on a 375x812 phone, making
+     the focal scene feel bottom-heavy against the large empty shop window.
+     A 16px lift puts it at y428 while preserving clear space above the timer
+     and keeping the character, cup and counter on one baseline. */
+  --floor-rest: clamp(272px, 37vh, 312px);
   --floor-y: var(--floor-rest);
   /* WAS 53px, the height of the size picker, on the assumption that the stack
      is exactly that much shorter once a session starts and the picker leaves.
@@ -1296,7 +1306,7 @@ body {
    walk to the cup while still bobbing/wiggling — the two transforms compose. */
 .maker-wrap {
   position: absolute;
-  left: 18px;
+  left: calc(18px + var(--stage-shift));
   /* z-index ABOVE the counter (8) so he stands AT it, ~85% visible; his feet
      fade behind the counter lip via the mask on .maker-img */
   bottom: calc(var(--floor-y) + 16px);
@@ -1513,7 +1523,8 @@ body {
 /* ── Boba cup (image + liquid fill) ─────────────────────────────────────── */
 .cup-stage {
   position: absolute;
-  right: calc(22px * var(--fig)); top: calc(-120px * var(--fig));
+  right: calc(22px * var(--fig) - var(--stage-shift));
+  top: calc(-120px * var(--fig));
   width: calc(130px * var(--fig)); height: calc(174px * var(--fig));
   z-index: 5;
   pointer-events: none;
@@ -4236,7 +4247,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
      breakpoint (it was already 41px in before this change). Zero, matching the
      tall breakpoint, and --floor-rest measured so the counter clears the card by
      ~9px running and ~31px idle. */
-  .scene { --floor-rest: 263px; --floor-lift: 0px; }
+  .scene { --floor-rest: 279px; --floor-lift: 0px; }
   /* Keep the break nook lifted clear of the compact panel, but lower than on tall
      phones so the bed doesn't crowd the top HUD on short screens. */
   .scene.is-on-break.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }

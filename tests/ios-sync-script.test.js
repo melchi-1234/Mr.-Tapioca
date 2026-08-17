@@ -13,3 +13,7 @@ test("iOS sync stops before plugin registration when Capacitor sync fails", () =
 test("release setup reapplies the generated iOS version and portrait settings", () => {
   assert.match(pkg.scripts["ios:release-setup"], /npm run ios:sync && node tools\/set-ios-version\.mjs 1\.1\.1 8/);
 });
+
+test("the release uses an exact local-notifications version", () => {
+  assert.equal(pkg.dependencies["@capacitor/local-notifications"], "6.1.3");
+});
