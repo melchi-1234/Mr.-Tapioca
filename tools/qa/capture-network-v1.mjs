@@ -285,7 +285,7 @@ function buildStates(fx) {
     {
       id: "02",
       slug: "onboarding-real-boba",
-      what: 'The reward-aware onboarding slide, "Real boba, not just points" (slide 6 of 7).',
+      what: 'The reward-aware onboarding slide, "Real Rewards Await!" (slide 6 of 7).',
       how: "Storage cleared, then #onboardNext clicked 5 times with real mouse events.",
       seed: {},
       async run(page) {
@@ -297,7 +297,7 @@ function buildStates(fx) {
         const title = await page.eval(`document.querySelector("#onboardTitle").textContent`);
         const body = await page.eval(`document.querySelector("#onboardBody").textContent`);
         return {
-          ok: title === "Real boba, not just points",
+          ok: title === "Real Rewards Await!",
           why: `title was ${JSON.stringify(title)}`,
           evidence: `#onboardTitle = ${JSON.stringify(title)}; body starts ${JSON.stringify(body.slice(0, 44))}`,
         };

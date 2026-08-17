@@ -437,11 +437,11 @@ function checkSecrets(manifest) {
 
 // ── 5. The rewardV2 feature flag ─────────────────────────────────────────────
 //
-// Turning this on before supabase-reward-v2.sql has been run against the live
-// database is the worst outcome available: the client would start asking a
-// server for rewards that the server has no tables to issue, in a build that is
-// already on students' phones and in front of two real shops. config.js:18-26
-// carries the three preconditions. This check is the mechanical half of them.
+// The Reward V2 database and RPCs are live and runtime-tested. A true production
+// flag is now safe only when reward-v2.js also enforces the native-platform
+// boundary: browser sessions cannot block apps and must stay on the local V1
+// path. This check proves that boundary from behavior, rather than trusting a
+// source comment that can drift.
 // Read the flag out of the REAL assignment, not out of prose. The first version
 // of this grepped the whole file for /rewardV2\s*:\s*(\w+)/ and matched
 // config.js:15, the comment line "// rewardV2: the server-backed merchant
@@ -460,6 +460,36 @@ function flagState(src) {
   return { blockPresent: true, present: !!m, raw: m ? m[1] : null };
 }
 
+function rewardGateBehavior(cfgPath, rewardPath, native) {
+  const cfgSrc = readText(cfgPath);
+  const rewardSrc = readText(rewardPath);
+  if (cfgSrc == null || rewardSrc == null) return { ok: false, reason: "bundle files are unreadable" };
+
+  const script = `
+    const vm = require("node:vm");
+    const fs = require("node:fs");
+    const cfg = fs.readFileSync(process.argv[1], "utf8");
+    const reward = fs.readFileSync(process.argv[2], "utf8");
+    const native = process.argv[3] === "true";
+    const window = {
+      Capacitor: { isNativePlatform: () => native },
+      addEventListener() {},
+    };
+    const context = {
+      window,
+      localStorage: { getItem() { return null; }, setItem() {} },
+      document: { visibilityState: "visible", addEventListener() {} },
+      console,
+    };
+    vm.runInNewContext(cfg, context);
+    vm.runInNewContext(reward, context);
+    process.stdout.write(String(!!context.window.RewardV2?.enabled));
+  `;
+  const run = spawnSync(process.execPath, ["-e", script, cfgPath, rewardPath, String(native)], { encoding: "utf8" });
+  if (run.status !== 0) return { ok: false, reason: (run.stderr || "gate evaluation failed").trim() };
+  return { ok: true, enabled: run.stdout.trim() === "true" };
+}
+
 function checkFlag() {
   head(5, "window.MRTAP_FLAGS.rewardV2");
 
@@ -476,9 +506,17 @@ function checkFlag() {
     say(`  ${label.padEnd(18)} rewardV2 = ${shown}   reward-v2.js in bundle: ${hasReward ? "yes" : "no"}`);
 
     if (st.present && st.raw === "true") {
-      fail(5, `${label} ships rewardV2 = true. The migration in supabase-reward-v2.sql has never been executed, ` +
-        `so this would put a live client in front of tables that do not exist.`);
-      bad = true;
+      const native = rewardGateBehavior(cfgPath, rewardPath, true);
+      const web = rewardGateBehavior(cfgPath, rewardPath, false);
+      if (!native.ok || !web.ok) {
+        fail(5, `${label} could not evaluate the Reward V2 platform gate: ${native.reason || web.reason}`);
+        bad = true;
+      } else if (!native.enabled || web.enabled) {
+        fail(5, `${label} must enable Reward V2 on native iOS and disable it on web (native=${native.enabled}, web=${web.enabled}).`);
+        bad = true;
+      } else {
+        pass(`${label} enables Reward V2 native-only (native on, web off)`);
+      }
     } else if (st.present && st.raw !== "false") {
       fail(5, `${label} sets rewardV2 to "${st.raw}", which this check cannot prove is off. It must be the literal false.`);
       bad = true;
@@ -496,7 +534,9 @@ function checkFlag() {
         `Consistent, and it resolves the moment copyweb is re-run.`);
     }
   }
-  if (!bad) pass("rewardV2 is not enabled in any bundle");
+  if (!bad && pairs.every(([, cfgPath]) => flagState(readText(cfgPath)).raw === "false")) {
+    pass("rewardV2 is explicitly disabled in every bundle");
+  }
 }
 
 // ── 6. Version numbers, printed and not judged ───────────────────────────────
