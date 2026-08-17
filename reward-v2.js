@@ -47,8 +47,18 @@
   };
   window.RewardV2 = RewardV2;
 
+  function isNative() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform &&
+              window.Capacitor.isNativePlatform());
+  }
+
   const HAS_KEYS = !!(CLOUD.url && CLOUD.anonKey);
-  RewardV2.enabled = HAS_KEYS && flagOn();
+  // The shared bundle also powers mrtapioca.me. Browser sessions cannot block
+  // apps and are deliberately ineligible on the server, so exposing the V2 bar
+  // there would be a progress meter that can never move. The production flag
+  // therefore enables V2 only inside the native shell. The QA override obeys
+  // the same boundary so localStorage cannot accidentally regress the web app.
+  RewardV2.enabled = HAS_KEYS && flagOn() && isNative();
   if (!RewardV2.enabled) return;   // flag down: this file is inert, v1 stands
 
   // ── storage ────────────────────────────────────────────────────────────────
@@ -76,10 +86,6 @@
     });
   }
 
-  function isNative() {
-    return !!(window.Capacitor && window.Capacitor.isNativePlatform &&
-              window.Capacitor.isNativePlatform());
-  }
   function platform() { return isNative() ? "ios" : "web"; }
 
   // ── transport ──────────────────────────────────────────────────────────────

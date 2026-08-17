@@ -13,11 +13,10 @@ window.MRTAP_CLOUD = {
 };
 
 // ── Feature flags ────────────────────────────────────────────────────────────
-// rewardV2: the server-backed merchant reward (reward-v2.js). OFF.
+// rewardV2: the server-backed merchant reward (reward-v2.js). Native-only.
 //
-// Do NOT turn this on until all three are true:
-//   1. supabase-reward-v2.sql has been run in the Supabase SQL editor. It has
-//      never been executed anywhere; it is syntax-checked, not run.
+// Keep this on only while all three remain true:
+//   1. supabase-reward-v2.sql and its patches are live and runtime-tested.
 //   2. partners.json declares a rewardPolicy. Without one, reward-config.js
 //      reports "undeclared" and refuses to issue, because choosing between a
 //      shared passport and per-shop bars is a business decision, not a default.
@@ -25,8 +24,9 @@ window.MRTAP_CLOUD = {
 //      table (tools/partners-to-sql.mjs), because the server, not the client,
 //      is what a redemption is checked against.
 //
-// With the flag down, reward-v2.js returns immediately and the live v1 perk
-// system is completely untouched. Checklist: docs/network-v1/REWARD-V2.md
+// reward-v2.js additionally requires Capacitor's native-platform check. This
+// keeps mrtapioca.me on the v1 local reward path, because browser focus cannot
+// honestly earn native blocking credit. Checklist: docs/network-v1/REWARD-V2.md
 // analytics: the product-event stream (analytics.js). OFF.
 //
 // Separate from the drink counter in metrics.js, which stays on and is disclosed
@@ -37,6 +37,6 @@ window.MRTAP_CLOUD = {
 // Starting collection before 2 and 3 is how the current privacy copy became
 // wrong in the first place. Spec: docs/network-v1/METRICS-SPEC.md
 window.MRTAP_FLAGS = {
-  rewardV2: false,
+  rewardV2: true,
   analytics: false,
 };
