@@ -5281,7 +5281,12 @@ function placeShopMarkers(shops, lat, lng) {
 
   const items = all.slice(0, 60).map(({ shop, dist }) => {
     const p = shop.partner;
-    const marker = L.marker([shop.lat, shop.lng], { icon: bobaPin(p ? ICON.star : ICON.boba, p ? "partner" : "") })
+    // Leaflet otherwise stacks nearby pins by latitude alone. A normal shop can
+    // cover the partner star, hiding the only marker that promises a reward.
+    const marker = L.marker([shop.lat, shop.lng], {
+      icon: bobaPin(p ? ICON.star : ICON.boba, p ? "partner" : ""),
+      zIndexOffset: p ? 500 : 0,
+    })
       .addTo(mapObj)
       .bindPopup(
         `<div class="map-pop-name">${escapeHtml(shop.name)}</div>` +
