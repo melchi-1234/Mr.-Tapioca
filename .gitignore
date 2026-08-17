@@ -41,3 +41,6 @@ marketing/focus-tunes-audition.mp4
 # the repo if you want them somewhere safe.
 docs/network-v1/
 docs/qa-screenshots-network-v1/
+
+# Isolated agent worktrees are local scratch and must never enter the public repo.
+.worktrees/
