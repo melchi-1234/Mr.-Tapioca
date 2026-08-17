@@ -9,6 +9,7 @@
     "ios:register": "node tools/register-ios-plugins.mjs",
     "ios:sync": "npm run copyweb && npx cap sync ios && node tools/register-ios-plugins.mjs",
     "ios:release-setup": "npm run ios:sync && node tools/set-ios-version.mjs 1.1.1 8",
+    "ios:verify-archive": "node tools/verify-ios-archive.mjs",
     "ios:open": "npm run ios:sync && npx cap open ios"
   },
   "dependencies": {
