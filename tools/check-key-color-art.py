@@ -2,7 +2,7 @@
 """Reject visible connected islands of generation backdrop colour in PNG art.
 
 Usage:
-    python3 tools/check-key-color-art.py [--max-component 100] <png-or-directory> [...]
+    python3 tools/check-key-color-art.py [--max-component 100] [--max-edge-total 0] <png-or-directory> [...]
 
 The pose generator uses one of four screen-key colours. A few isolated pixels
 can legitimately occur in an accessory, but a connected island is a keyed
@@ -25,8 +25,9 @@ KEY_HUES = {
     "blue": (0, 0, 255),
 }
 KEY_DISTANCE = 70
-VISIBLE_ALPHA = 16
+VISIBLE_ALPHA = 0
 DEFAULT_MAX_COMPONENT = 100
+DEFAULT_MAX_EDGE_TOTAL = 0
 
 
 def png_paths(arguments):
@@ -80,6 +81,7 @@ def inspect(path):
         image = source.convert("RGBA")
     red, green, blue, alpha = image.split()
     largest = (0, "none")
+    edge_total = (0, "none")
 
     for name, (key_red, key_green, key_blue) in KEY_HUES.items():
         mask = ImageMath.lambda_eval(
@@ -99,12 +101,31 @@ def inspect(path):
         if size > largest[0]:
             largest = (size, name)
 
-    return largest
+        edge_mask = ImageMath.lambda_eval(
+            lambda channels: (
+                (channels["red"] - key_red) * (channels["red"] - key_red)
+                + (channels["green"] - key_green) * (channels["green"] - key_green)
+                + (channels["blue"] - key_blue) * (channels["blue"] - key_blue)
+                < KEY_DISTANCE * KEY_DISTANCE
+            )
+            & (channels["alpha"] > VISIBLE_ALPHA)
+            & (channels["alpha"] < 240),
+            red=red,
+            green=green,
+            blue=blue,
+            alpha=alpha,
+        )
+        total = sum(value != 0 for value in edge_mask.convert("L").tobytes())
+        if total > edge_total[0]:
+            edge_total = (total, name)
+
+    return largest, edge_total
 
 
 def main(argv=None):
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--max-component", type=int, default=DEFAULT_MAX_COMPONENT)
+    parser.add_argument("--max-edge-total", type=int, default=DEFAULT_MAX_EDGE_TOTAL)
     parser.add_argument("paths", nargs="+")
     args = parser.parse_args(argv)
 
@@ -116,20 +137,30 @@ def main(argv=None):
         parser.error("no PNG files found")
     if args.max_component < 0:
         parser.error("--max-component must be non-negative")
+    if args.max_edge_total < 0:
+        parser.error("--max-edge-total must be non-negative")
 
     failures = []
     for path in paths:
         try:
-            size, key_name = inspect(path)
+            (size, key_name), (edge_size, edge_key_name) = inspect(path)
         except ValueError as error:
             failures.append(f"{path}: {error}")
             print(f"{path}: invalid ({error})")
             continue
-        print(f"{path}: largest={size} px key={key_name}")
+        print(
+            f"{path}: largest={size} px key={key_name}; "
+            f"semi-transparent-total={edge_size} px key={edge_key_name}"
+        )
         if size > args.max_component:
             failures.append(
                 f"{path}: {size} px {key_name} key-color component exceeds "
                 f"{args.max_component} px"
+            )
+        if edge_size > args.max_edge_total:
+            failures.append(
+                f"{path}: {edge_size} px {edge_key_name} semi-transparent key-color "
+                f"total exceeds {args.max_edge_total} px"
             )
 
     if failures:
@@ -138,7 +169,10 @@ def main(argv=None):
             print(f"  - {failure}")
         return 1
 
-    print(f"\nPASS: {len(paths)} PNG(s), no key-color component over {args.max_component} px")
+    print(
+        f"\nPASS: {len(paths)} PNG(s), no key-color component over "
+        f"{args.max_component} px or semi-transparent total over {args.max_edge_total} px"
+    )
     return 0
 
 

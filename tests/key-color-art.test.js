@@ -76,3 +76,61 @@ test("key-color art gate rejects animated PNGs instead of checking frame zero on
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("key-color art gate rejects dispersed semi-transparent screen-key fringe", () => {
+  const dir = mkdtempSync(join(tmpdir(), "mr-tapioca-key-art-dispersed-"));
+  try {
+    const bad = join(dir, "dispersed.png");
+    const made = spawnSync("python3", [
+      "-c",
+      [
+        "from PIL import Image",
+        "import sys",
+        "im = Image.new('RGBA', (64, 64), (92, 61, 46, 255))",
+        "for i in range(60):",
+        " x = 1 + (i % 10) * 6",
+        " y = 1 + (i // 10) * 6",
+        " im.putpixel((x, y), (255, 0, 255, 64))",
+        "im.save(sys.argv[1])",
+      ].join("\n"),
+      bad,
+    ], { encoding: "utf8" });
+    assert.equal(made.status, 0, made.stderr);
+
+    const rejected = spawnSync("python3", [CHECKER, bad], { encoding: "utf8" });
+    assert.notEqual(rejected.status, 0,
+      "60 disconnected matte pixels are still a visible fringe even though every component is one pixel");
+    assert.match(rejected.stdout + rejected.stderr, /60.*magenta|magenta.*60/i);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("key-color art gate rejects faint low-alpha screen-key residue", () => {
+  const dir = mkdtempSync(join(tmpdir(), "mr-tapioca-key-art-faint-"));
+  try {
+    const bad = join(dir, "faint.png");
+    const made = spawnSync("python3", [
+      "-c",
+      [
+        "from PIL import Image",
+        "import sys",
+        "im = Image.new('RGBA', (64, 64), (92, 61, 46, 255))",
+        "for i in range(25):",
+        " x = 1 + (i % 5) * 10",
+        " y = 1 + (i // 5) * 10",
+        " im.putpixel((x, y), (255, 0, 255, 8))",
+        "im.save(sys.argv[1])",
+      ].join("\n"),
+      bad,
+    ], { encoding: "utf8" });
+    assert.equal(made.status, 0, made.stderr);
+
+    const rejected = spawnSync("python3", [CHECKER, bad], { encoding: "utf8" });
+    assert.notEqual(rejected.status, 0,
+      "low-alpha matte still composites visibly on dark backgrounds");
+    assert.match(rejected.stdout + rejected.stderr, /25.*magenta|magenta.*25/i);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

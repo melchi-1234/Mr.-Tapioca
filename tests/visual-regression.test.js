@@ -30,11 +30,10 @@ test("Angel pose art has a transparent halo opening without erasing its ring or 
   const paths = ["idle", "mixing", "sleeping", "shocked"].map((s) => `assets/poses/angel-${s}.png`);
   const probe = pngProbe(...paths);
 
-  for (const [index, p] of paths.entries()) {
+  for (const p of paths) {
     const art = probe[resolve(ROOT, p)];
-    const usesHighHalo = index < 2;
-    const ringAlpha = art.anchor_alpha[usesHighHalo ? 0 : 1];
-    const holeAlpha = art.anchor_alpha[usesHighHalo ? 2 : 3];
+    const ringAlpha = art.anchor_alpha[0];
+    const holeAlpha = art.anchor_alpha[2];
 
     assert.ok(art.opaque >= 130_000, `${p} lost too much opaque character art`);
     assert.equal(art.opaque_green, 0, `${p} still contains the trapped green backdrop`);

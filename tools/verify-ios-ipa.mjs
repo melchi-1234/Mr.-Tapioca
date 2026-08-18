@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES } from "./public-bundle-manifest.mjs";
 
 const expectedVersion = "1.1.1";
-const expectedBuild = "9";
+const expectedBuild = "10";
 const expectedTeam = "T6235QVFYG";
 const expectedAppGroup = "group.com.melchior.mrtapioca";
 const toolPath = fileURLToPath(import.meta.url);
@@ -564,8 +564,8 @@ export function verifyIpaFile(ipaPath, {
       verifyManifest(bundle);
     }
     verifyPluginRegistry(appBundle);
-    verifyCanonicalPublicParity(appBundle);
     verifyPoseArt(appBundle);
+    verifyCanonicalPublicParity(appBundle);
     verifyCodeSignatures(bundles, verifyDistributionSignature);
   } finally {
     rmSync(extractionDirectory, { recursive: true, force: true });

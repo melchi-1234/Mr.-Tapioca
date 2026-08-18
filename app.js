@@ -74,7 +74,7 @@ const SHOP_ITEMS = [
   // Premium skins (future IAP)
   { id: "skin-ninja",      name: "Black Tea",            desc: "Ninja",           category: "Character Skin", type: "skin", value: "ninja",      premium: true, img: "assets/Ninja.png"            },
   { id: "skin-wizard",     name: "Magical Taste",        desc: "Wizard",          category: "Character Skin", type: "skin", value: "wizard",     premium: true, img: "assets/Wizard.png"           },
-  { id: "skin-angel",      name: "Holy Moly",            desc: "Angel",           category: "Character Skin", type: "skin", value: "angel",      premium: true, img: "assets/Angel.png"            },
+  { id: "skin-angel",      name: "Holy Moly",            desc: "Angel",           category: "Character Skin", type: "skin", value: "angel",      premium: true, img: "assets/poses/angel-idle.png" },
   { id: "skin-devil",      name: "Evil Brew",            desc: "Devil",           category: "Character Skin", type: "skin", value: "devil",      premium: true, img: "assets/Devil.png"            },
 
   { id: "theme-cozy",      name: "Classic Brew",         desc: "The Classic, Warm Shop",                    category: "Backgrounds", type: "shopTheme", value: "cozy",       price: 0,   color: "#f3d8b7" },
@@ -413,7 +413,7 @@ const SKIN_IMAGES = {
   "flower":     "assets/Flower Crown.png",
   "scarf":      "assets/Scarf.png",
   "shades":     "assets/Sunglasses.png",
-  "angel":      "assets/Angel.png",
+  "angel":      "assets/poses/angel-idle.png",
   "devil":      "assets/Devil.png",
   "dragon":     "assets/Dragon.png",
   "astro-blue": "assets/Astronaut, blue.png",
@@ -490,6 +490,7 @@ function setMakerState(stateName) {
 
   const img = els.focusMakerCharacter;
   img.dataset.state = stateName;
+  els.shopScene.dataset.skin = state.skin || "base";
   els.shopScene.classList.toggle("is-napping", stateName === "sleeping");
 
   // The CSS keyframes (keyed off data-state) animate whatever image is shown,
@@ -2137,7 +2138,11 @@ const IAP = {
           if (cur && cur.premium && !state.owned.includes(cur.id)) state[key] = "";
         }
       }
-      if (granted || revoked) { saveState(); renderAll(); }
+      if (granted || revoked) {
+        saveState();
+        if (revoked) refreshMaker();
+        renderAll();
+      }
       if (interactive) {
         showToast(granted ? `✦ Restored ${granted} purchase${granted !== 1 ? "s" : ""}!`
                           : "No purchases to restore on this Apple ID.");
@@ -7696,6 +7701,7 @@ function wireEvents() {
     stateSyncTimer = setTimeout(() => {
       if (state.running || state.phase !== "focus") return;
       loadState({ liveSync: true });
+      refreshMaker();
       renderAll();
       updateCup();
     }, 350);

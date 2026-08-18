@@ -77,7 +77,7 @@ function xmlEscape(value) {
 
 function writeInfo(bundlePath, fixture, {
   version = "1.1.1",
-  build = "9",
+  build = "10",
   supportsLiveActivities = true,
 } = {}) {
   const extension = fixture.extensionPoint
@@ -191,12 +191,13 @@ function makeIpaFixture(t, {
   getTaskAllow = false,
   extraExtension = false,
   version = "1.1.1",
-  build = "9",
+  build = "10",
   tamperPublic = false,
   extraPublic = false,
   duplicatePlugin = false,
   serverConfig = false,
   supportsLiveActivities = true,
+  wrongSkinPose = false,
 } = {}) {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mrtap-ipa-verifier-"));
   t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
@@ -247,6 +248,10 @@ function makeIpaFixture(t, {
   fs.writeFileSync(path.join(publicBundle, "cordova.js"), "");
   fs.writeFileSync(path.join(publicBundle, "cordova_plugins.js"), "");
   fs.cpSync(path.join(root, "assets"), path.join(publicBundle, "assets"), { recursive: true });
+  if (wrongSkinPose) {
+    const poses = path.join(publicBundle, "assets", "poses");
+    fs.copyFileSync(path.join(poses, "base-idle.png"), path.join(poses, "royal-idle.png"));
+  }
   if (tamperPublic) fs.appendFileSync(path.join(publicBundle, "app.js"), "\n// stale export fixture\n");
   if (extraPublic) fs.writeFileSync(path.join(publicBundle, "stale-build-output.js"), "stale");
 
@@ -283,8 +288,8 @@ test("controlled export verifies the exact archive, exports without uploading, v
   const { exportIosRelease } = await import(exporterUrl);
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "mrtap-export-workflow-"));
   t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
-  const archivePath = path.join(fixture, "Mr-Tapioca-1.1.1-9.xcarchive");
-  const outputPath = path.join(fixture, "Mr-Tapioca-1.1.1-9.ipa");
+  const archivePath = path.join(fixture, "Mr-Tapioca-1.1.1-10.xcarchive");
+  const outputPath = path.join(fixture, "Mr-Tapioca-1.1.1-10.ipa");
   fs.mkdirSync(archivePath);
 
   const commands = [];
@@ -330,7 +335,7 @@ test("controlled export verifies the exact archive, exports without uploading, v
   assert.match(result.sha256, /^[a-f0-9]{64}$/);
 });
 
-test("IPA verifier accepts a signed 1.1.1 build 9 package with the canonical app payload", async (t) => {
+test("IPA verifier accepts a signed 1.1.1 build 10 package with the canonical app payload", async (t) => {
   const { verifyIpaFile } = await import(ipaVerifierUrl);
   const ipaPath = makeIpaFixture(t);
   assert.doesNotThrow(() => verifyWithTestProfiles(verifyIpaFile, ipaPath));
@@ -426,12 +431,12 @@ test("IPA verifier rejects any extension beyond the four release extensions", as
   );
 });
 
-test("IPA verifier rejects any app or extension outside version 1.1.1 build 9", async (t) => {
+test("IPA verifier rejects any app or extension outside version 1.1.1 build 10", async (t) => {
   const { verifyIpaFile } = await import(ipaVerifierUrl);
   const ipaPath = makeIpaFixture(t, { build: "8" });
   assert.throws(
     () => verifyWithTestProfiles(verifyIpaFile, ipaPath),
-    /version 1\.1\.1 build 9/,
+    /version 1\.1\.1 build 10/,
   );
 });
 
@@ -441,6 +446,15 @@ test("IPA verifier rejects a stale public bundle even when it is signed", async 
   assert.throws(
     () => verifyWithTestProfiles(verifyIpaFile, ipaPath),
     /app\.js does not match canonical source/,
+  );
+});
+
+test("IPA verifier rejects a valid PNG containing the wrong named skin", async (t) => {
+  const { verifyIpaFile } = await import(ipaVerifierUrl);
+  const ipaPath = makeIpaFixture(t, { wrongSkinPose: true });
+  assert.throws(
+    () => verifyWithTestProfiles(verifyIpaFile, ipaPath),
+    /royal-idle.*(?:identity|accessory|off-model)/i,
   );
 });
 

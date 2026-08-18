@@ -23,7 +23,7 @@ const toolRoot = path.dirname(toolPath);
 const repositoryRoot = path.resolve(toolRoot, "..");
 const canonicalPoseDirectory = path.join(repositoryRoot, "assets", "poses");
 const expectedVersion = "1.1.1";
-const expectedBuild = "9";
+const expectedBuild = "10";
 const expectedTeamIdentifier = "T6235QVFYG";
 const fixtureEntitlementKey = "com.melchior.mrtapioca.archive-verifier-fixture";
 const bundles = appBundle ? [
@@ -136,7 +136,7 @@ function verifyBundleIdentity() {
   if (archivedApp.CFBundleIdentifier !== bundles[0].bundleId
       || String(archivedApp.CFBundleShortVersionString) !== expectedVersion
       || String(archivedApp.CFBundleVersion) !== expectedBuild) {
-    throw new Error("archive metadata does not identify Mr. Tapioca 1.1.1 build 9");
+    throw new Error(`archive metadata does not identify Mr. Tapioca ${expectedVersion} build ${expectedBuild}`);
   }
 
   const plugInsDirectory = path.join(appBundle, "PlugIns");

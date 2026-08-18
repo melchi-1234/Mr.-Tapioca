@@ -213,8 +213,10 @@ test("MUSIC_CACHE survives an activate that clears old shell caches", async () =
   // `const` at a script's top level does NOT land on the context object, so
   // read the value back through the context or this assertion is vacuous.
   const musicCache = vm.runInContext("MUSIC_CACHE", sandbox);
+  const shellCache = vm.runInContext("CACHE", sandbox);
   assert.equal(musicCache, "mr-tapioca-music-v1");
-  assert.deepEqual(deleted, ["mr-tapioca-v9", "mr-tapioca-v193", "mr-tapioca-v195"],
+  assert.equal(shellCache, "mr-tapioca-v195", "this changed shell requires exactly one new cache generation");
+  assert.deepEqual(deleted, ["mr-tapioca-v9", "mr-tapioca-v193", "mr-tapioca-v194"],
     "only stale shell caches should be dropped");
   assert.ok(!deleted.includes(musicCache), "the music cache must survive a release");
 });
@@ -229,4 +231,20 @@ test("no music file is listed in SHELL", async () => {
   assert.ok(Array.isArray(shell) && shell.length > 10, "SHELL should be the real precache list");
   const music = shell.filter((p) => p.includes("assets/music/"));
   assert.deepEqual(music, [], "focus tunes belong in MUSIC_CACHE, never in SHELL");
+});
+
+test("every selectable skin pose is precached for offline state changes", () => {
+  const cache = makeCache();
+  const { sandbox } = loadSW({ cache, fetchImpl: async () => okBody() });
+  const shell = new Set(vm.runInContext("SHELL", sandbox));
+  const poseDir = path.join(__dirname, "..", "assets", "poses");
+  const required = fs.readdirSync(poseDir)
+    .filter((name) => /^(?:base|grad-cap|flower|scarf|shades|strawberry|astro-blue|dragon|cat-hoodie|royal|ninja|angel|devil|wizard)-(?:idle|mixing|sleeping|shocked)\.png$/.test(name))
+    .map((name) => `assets/poses/${name}`)
+    .sort();
+
+  assert.equal(required.length, 56, "the offline contract must cover all 14 skins in all four primary poses");
+  const missing = required.filter((pose) => !shell.has(pose));
+  assert.deepEqual(missing, [],
+    `offline state changes would show broken skin art; missing from SHELL: ${missing.join(", ")}`);
 });
