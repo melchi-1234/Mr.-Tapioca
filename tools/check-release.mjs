@@ -31,13 +31,15 @@
 // future edit cannot drop half of the wiring and leave a bundle that boots
 // against a missing script.
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES } from "./public-bundle-manifest.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const WEB = join(REPO, "www");
 const STAGED = join(REPO, "ios", "App", "App", "public");
 const PBXPROJ = join(REPO, "ios", "App", "App.xcodeproj", "project.pbxproj");
 const QUIET = process.argv.includes("--quiet");
@@ -62,14 +64,6 @@ function readText(p) {
 function sha(p) {
   try { return createHash("sha256").update(readFileSync(p)).digest("hex"); } catch { return null; }
 }
-function human(bytes) {
-  if (bytes == null) return "missing";
-  return bytes >= 1024 ? `${(bytes / 1024).toFixed(1)}K` : `${bytes}B`;
-}
-function sizeOf(p) {
-  try { return statSync(p).size; } catch { return null; }
-}
-
 // ── 1. Staged bundle vs repo root ────────────────────────────────────────────
 //
 // The file list is READ OUT OF package.json rather than duplicated here. If the
@@ -77,24 +71,7 @@ function sizeOf(p) {
 // the failure this script is supposed to catch. Parsing the real script is the
 // only version that cannot go stale.
 function copywebManifest() {
-  const pkgSrc = readText(join(REPO, "package.json"));
-  if (!pkgSrc) return { files: [], assets: false, error: "package.json unreadable" };
-  let pkg;
-  try { pkg = JSON.parse(pkgSrc); } catch (e) { return { files: [], assets: false, error: "package.json is not valid JSON: " + e.message }; }
-  const script = pkg.scripts && pkg.scripts.copyweb;
-  if (!script) return { files: [], assets: false, error: 'package.json has no "copyweb" script' };
-
-  // `cp a.js b.css ... www/`  ->  the flat file list.
-  const flat = /\bcp\s+((?:[^\s&|;][^&|;]*?))\s+www\/(?:\s|$)/.exec(script);
-  const files = flat
-    ? flat[1].split(/\s+/).filter((t) => t && !t.startsWith("-"))
-    : [];
-  // `cp -R assets www/assets` -> the asset tree also ships.
-  const assets = /\bcp\s+-R\s+assets\s+www\/assets\b/.test(script);
-  // An empty list must never read as "everything matches". If the script is
-  // reshaped so this parser stops matching, that is itself a hard failure.
-  const error = files.length ? null : "could not parse the file list out of the copyweb script";
-  return { files, assets, error, script };
+  return { files: [...PUBLIC_ROOT_FILES], assets: PUBLIC_ASSET_DIRECTORY === "assets", error: null };
 }
 
 function walk(dir) {
@@ -107,65 +84,76 @@ function walk(dir) {
     .sort();
 }
 
-function checkBundleSync(manifest) {
-  head(1, "Staged iOS bundle vs repo root");
-  say(`root:   ${REPO}`);
-  say(`staged: ${relative(REPO, STAGED)}`);
-
-  if (manifest.error) { fail(1, manifest.error); return; }
-  if (!existsSync(STAGED)) { fail(1, `staged bundle does not exist at ${relative(REPO, STAGED)}`); return; }
-
+function compareBundle(directory, label, manifest, allowedExtra = new Set()) {
   const missing = [];
   const differs = [];
   const same = [];
-  for (const f of manifest.files) {
-    const a = join(REPO, f), b = join(STAGED, f);
-    const ha = sha(a), hb = sha(b);
-    if (ha == null) { fail(1, `copyweb lists ${f} but it is not in the repo root`); continue; }
-    if (hb == null) { missing.push(f); continue; }
-    (ha === hb ? same : differs).push(f);
-  }
+  if (!existsSync(directory)) return { label, missing: ["(bundle directory)"], differs, extra: [], assetMissing: [], assetDiffer: [], assetExtra: [] };
 
-  say("");
   for (const f of manifest.files) {
-    const a = join(REPO, f), b = join(STAGED, f);
-    const ha = sha(a), hb = sha(b);
-    const mark = ha == null ? "??" : hb == null ? "--" : ha === hb ? "ok" : "!!";
-    say(`  ${mark}  ${f.padEnd(20)} root ${human(sizeOf(a)).padStart(7)}   staged ${human(sizeOf(b)).padStart(7)}`);
-  }
-
-  // assets/ ships as a whole tree, so compare it as one.
-  let assetMissing = [], assetDiffer = [];
-  if (manifest.assets) {
-    const rootAssets = walk(join(REPO, "assets"));
-    const stagedAssets = new Set(walk(join(STAGED, "assets")));
-    for (const rel of rootAssets) {
-      if (!stagedAssets.has(rel)) { assetMissing.push(rel); continue; }
-      if (sha(join(REPO, "assets", rel)) !== sha(join(STAGED, "assets", rel))) assetDiffer.push(rel);
+    const rootPath = join(REPO, f);
+    const bundlePath = join(directory, f);
+    const rootHash = sha(rootPath);
+    const bundleHash = sha(bundlePath);
+    if (rootHash == null) {
+      fail(1, `public manifest lists ${f} but it is not in the repo root`);
+      continue;
     }
-    say("");
-    say(`  assets/  ${rootAssets.length} in root, ${stagedAssets.size} staged`);
-    for (const rel of assetMissing) say(`    --  assets/${rel}`);
-    for (const rel of assetDiffer) say(`    !!  assets/${rel}`);
+    if (bundleHash == null) missing.push(f);
+    else (rootHash === bundleHash ? same : differs).push(f);
   }
 
-  // cap copy writes these two itself; they are not ours and never match copyweb.
-  const GENERATED = new Set(["cordova.js", "cordova_plugins.js"]);
+  const rootAssets = manifest.assets ? walk(join(REPO, PUBLIC_ASSET_DIRECTORY)) : [];
+  const bundleAssets = manifest.assets ? walk(join(directory, PUBLIC_ASSET_DIRECTORY)) : [];
+  const rootAssetSet = new Set(rootAssets);
+  const bundleAssetSet = new Set(bundleAssets);
+  const assetMissing = rootAssets.filter((name) => !bundleAssetSet.has(name));
+  const assetExtra = bundleAssets.filter((name) => !rootAssetSet.has(name));
+  const assetDiffer = rootAssets.filter((name) => bundleAssetSet.has(name)
+    && sha(join(REPO, PUBLIC_ASSET_DIRECTORY, name)) !== sha(join(directory, PUBLIC_ASSET_DIRECTORY, name)));
+
   const shipped = new Set(manifest.files);
-  const extra = walk(STAGED).filter((p) => !p.startsWith("assets/") && !shipped.has(p) && !GENERATED.has(p));
+  const extra = walk(directory).filter((name) => !name.startsWith(`${PUBLIC_ASSET_DIRECTORY}/`)
+    && !shipped.has(name) && !allowedExtra.has(name));
+  return { label, missing, differs, same, extra, assetMissing, assetDiffer, assetExtra };
+}
+
+function checkBundleSync(manifest) {
+  head(1, "Repo → www → staged iOS bundle parity");
+  say(`root:   ${REPO}`);
+  say(`www:    ${relative(REPO, WEB)}`);
+  say(`staged: ${relative(REPO, STAGED)}`);
+  if (manifest.error) { fail(1, manifest.error); return; }
+
+  const generatedByCapacitor = new Set(["cordova.js", "cordova_plugins.js"]);
+  const comparisons = [
+    compareBundle(WEB, "www", manifest),
+    compareBundle(STAGED, "staged iOS", manifest, generatedByCapacitor),
+  ];
+  let bad = 0;
+  for (const result of comparisons) {
+    const count = result.missing.length + result.differs.length + result.extra.length
+      + result.assetMissing.length + result.assetDiffer.length + result.assetExtra.length;
+    bad += count;
+    say("");
+    say(`  ${result.label}: ${result.same.length}/${manifest.files.length} shell files match; ` +
+      `${walk(join(result.label === "www" ? WEB : STAGED, PUBLIC_ASSET_DIRECTORY)).length} assets`);
+    for (const name of result.missing) say(`    --  ${name}`);
+    for (const name of result.differs) say(`    !!  ${name}`);
+    for (const name of result.assetMissing) say(`    --  ${PUBLIC_ASSET_DIRECTORY}/${name}`);
+    for (const name of result.assetDiffer) say(`    !!  ${PUBLIC_ASSET_DIRECTORY}/${name}`);
+    for (const name of result.assetExtra) say(`    ++  ${PUBLIC_ASSET_DIRECTORY}/${name}`);
+    for (const name of result.extra) say(`    ++  ${name}`);
+  }
 
   say("");
-  const bad = missing.length + differs.length + assetMissing.length + assetDiffer.length;
   if (bad === 0) {
-    pass(`staged bundle is byte-identical to the repo root (${same.length} files + assets/)`);
+    pass(`root, www and staged iOS public bundle are byte-identical (${manifest.files.length} files + ${PUBLIC_ASSET_DIRECTORY}/)`);
   } else {
-    fail(1, `staged bundle is out of sync: ${differs.length} changed, ${missing.length} missing, ` +
-      `${assetDiffer.length} assets changed, ${assetMissing.length} assets missing`);
-    always("      fix:  npm run copyweb && npx cap copy ios && node tools/register-ios-plugins.mjs");
-    always("      why:  an archive taken now ships the OLDER bundle, silently and with no build error.");
+    fail(1, `public bundle parity failed with ${bad} missing, changed or unexpected path(s)`);
+    always("      fix:  npm run ios:sync");
+    always("      why:  an archive taken now would not match the reviewed source tree.");
   }
-  if (extra.length) note(`staged-only files not shipped by copyweb: ${extra.join(", ")}`);
-  return { missing, differs };
 }
 
 // ── 2. Service worker: SHELL completeness + cache generation ─────────────────
@@ -560,6 +548,9 @@ function checkVersions() {
   always(`CURRENT_PROJECT_VERSION  = ${uniqB.join(", ") || "(none found)"}   (${build.length} build configurations)`);
 
   if (!marketing.length || !build.length) { fail(6, "no version settings found in project.pbxproj"); return; }
+  if (marketing.length !== 10 || build.length !== 10) {
+    fail(6, `expected 10 marketing/build settings for App plus four extensions; found ${marketing.length}/${build.length}`);
+  }
   if (uniqM.length > 1) fail(6, `MARKETING_VERSION disagrees across build configurations (${uniqM.join(" vs ")}). The app and its four extensions must match.`);
   if (uniqB.length > 1) fail(6, `CURRENT_PROJECT_VERSION disagrees across build configurations (${uniqB.join(" vs ")}). The app and its four extensions must match.`);
   if (uniqM.length === 1 && uniqB.length === 1) pass(`all ${marketing.length} configurations agree on ${uniqM[0]} (build ${uniqB[0]})`);

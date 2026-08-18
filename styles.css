@@ -1674,11 +1674,10 @@ body {
 }
 .top-hud > * { pointer-events: auto; }
 .hud-chips { display: flex; align-items: center; gap: 8px; }
-/* HUD chips match the pearl chip's box (20px icon + 6px padding + 2px borders).
-   The streak chip leads with its flame the way the pearl chip leads with its
-   pearl; the icon-less name chip centers with symmetric padding. Compound
-   selectors outrank the base .pearl-chip regardless of file order. */
-.pearl-chip.streak-chip, .pearl-chip.hud-name { min-height: 42px; }   /* = the pearl chip's measured box */
+/* Give every HUD control a real 44px touch floor. The streak chip leads with
+   its flame the way the pearl chip leads with its pearl; the icon-less name
+   chip centers with symmetric padding. */
+.top-hud .pearl-chip { min-height: 44px; }
 .pearl-chip.streak-chip .flame { font-size: 1.05rem; line-height: 1; }
 .pearl-chip.hud-name { justify-content: center; padding: 6px 12px; }
 /* Inline Customize chip in the timer card (replaces the old percent label) */
@@ -1694,7 +1693,28 @@ body {
   white-space: nowrap;
 }
 .customize-inline-btn:active { transform: scale(0.95); }
-.hud-name { font-weight: 950; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-name {
+  /* The side groups are different widths, so flex space-between cannot put the
+     name at the viewport midpoint. Give the identity chip its own centre line. */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 950;
+  max-width: 104px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The centred identity must leave room for the two stats chips on narrow
+   phones. Tighten only the side chrome and cap long names; common short names
+   remain whole while the allowed 24-character maximum ellipsizes cleanly. */
+@media (max-width: 430px) {
+  .top-hud { padding-left: 12px; padding-right: 12px; }
+  .hud-chips { gap: 4px; }
+  .hud-chips .pearl-chip { padding-right: 9px; }
+  .pearl-chip.hud-name { max-width: 84px; padding: 6px 9px; font-size: 0.9rem; }
+}
 
 /* Declutter (2026-07): the drink-name pill moved INTO the timer card
    (#sessionLabel). The top HUD now holds only the pearl chip, so the cozy
@@ -1936,6 +1956,24 @@ body {
   padding: 0 20px;
 }
 
+/* The Screen Time pill exists only in the native app and makes the running
+   stack one row taller than the web layout. Keep it 24px above the nav and move
+   the illustrated tableau with safe-area growth so the timer never cuts across
+   the counter. Short phones keep their separately measured compact layout. */
+@media (min-height: 721px) {
+  .scene-wrap.has-native-blocking .focus-controls {
+    /* Match the nav's safe-area growth one-for-one: its 62px pill, bottom
+       padding and a 24px breathing gap resolve to 114px without an inset and
+       inset + 98px on modern iPhones. */
+    bottom: max(114px, calc(98px + env(safe-area-inset-bottom)));
+  }
+  .scene-wrap.has-native-blocking .scene {
+    /* Lift the artwork enough for the taller native stack, then absorb up to
+       18px of home-indicator growth so the counter and timer move together. */
+    --floor-rest: calc(clamp(308px, 41.5vh, 348px) + min(18px, env(safe-area-inset-bottom)));
+  }
+}
+
 .size-picker {
   display: flex;
   gap: 0;
@@ -1990,15 +2028,15 @@ body {
    meant for anything drawn above it. */
 .time-adj, .adj-btn, .sheet-close, .install-x,
 .shop-buy-btn, .shop-equip-btn, .shop-unequip-btn, .shop-preview-btn,
-.game-quit-btn, .settings-action-btn, .squad-remove, #resetBtn, #customizeDrinkBtn,
-.size-btn, .shelf-chip {
+.game-quit-btn, .settings-action-btn, .squad-remove, #resetBtn, #customizeDrinkBtn, .block-pill,
+.size-btn, .shelf-chip, .toggle {
   position: relative;
 }
 .time-adj::after, .adj-btn::after, .sheet-close::after, .install-x::after,
 .shop-buy-btn::after, .shop-equip-btn::after, .shop-unequip-btn::after,
 .shop-preview-btn::after, .game-quit-btn::after, .settings-action-btn::after,
-.squad-remove::after, #resetBtn::after, #customizeDrinkBtn::after,
-.size-btn::after, .shelf-chip::after {
+.squad-remove::after, #resetBtn::after, #customizeDrinkBtn::after, .block-pill::after,
+.size-btn::after, .shelf-chip::after, .toggle::after {
   content: "";
   position: absolute;
   top: 50%; left: 50%;
@@ -2809,7 +2847,7 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 .onboard-skip {
   position: absolute;
   top: 8px; right: 8px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 14px;
   border: none;
   background: none;
@@ -4256,6 +4294,12 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .work-counter { height: 72px; }
   .daily-goal { top: max(104px, calc(env(safe-area-inset-top) + 64px)); }
   .focus-controls { bottom: calc(90px + env(safe-area-inset-bottom)); gap: 7px; }
+  .scene-wrap.has-native-blocking .focus-controls {
+    bottom: max(114px, calc(98px + env(safe-area-inset-bottom)));
+  }
+  .scene-wrap.has-native-blocking .scene {
+    --floor-rest: calc(331px + min(18px, env(safe-area-inset-bottom)));
+  }
   .timer-card { padding: 10px 18px 8px; }
   .timer-time { font-size: 2.4rem; }
   .start-btn { padding: 13px 28px; }
@@ -4611,9 +4655,10 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   display: none;
 }
 .block-pill {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: 18px auto 18px;
   align-items: center;
-  gap: 7px;
+  column-gap: 7px;
   margin: 10px auto 0;
   padding: 7px 14px;
   border-radius: 999px;
@@ -4626,6 +4671,13 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   transition: transform 100ms ease, border-color 150ms ease, background 150ms ease;
   -webkit-backdrop-filter: blur(8px);
           backdrop-filter: blur(8px);
+}
+.block-pill .block-pill-ico,
+.block-pill .block-pill-chev {
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .block-pill:active { transform: scale(0.96); }
 .block-pill .block-pill-chev { color: rgba(60, 32, 24, 0.4); font-weight: 900; }
@@ -4672,6 +4724,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   background: none; border: none;
   color: rgba(60, 32, 24, 0.5);
   font-weight: 700; font-size: 0.85rem;
+  min-height: 44px;
   padding: 4px; cursor: pointer;
 }
 .block-actions .block-never:hover { color: rgba(60, 32, 24, 0.75); }

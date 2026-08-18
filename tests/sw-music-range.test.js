@@ -197,7 +197,7 @@ test("MUSIC_CACHE survives an activate that clears old shell caches", async () =
             clients: { claim: () => {} } },
     caches: {
       open: async () => makeCache(),
-      keys: async () => ["mr-tapioca-v9", "mr-tapioca-v193", "mr-tapioca-music-v1"],
+      keys: async () => ["mr-tapioca-v9", "mr-tapioca-v193", "mr-tapioca-v194", "mr-tapioca-v195", "mr-tapioca-music-v1"],
       delete: async (k) => { deleted.push(k); return true; },
     },
     fetch: async () => okBody(),
@@ -214,7 +214,8 @@ test("MUSIC_CACHE survives an activate that clears old shell caches", async () =
   // read the value back through the context or this assertion is vacuous.
   const musicCache = vm.runInContext("MUSIC_CACHE", sandbox);
   assert.equal(musicCache, "mr-tapioca-music-v1");
-  assert.deepEqual(deleted, ["mr-tapioca-v9"], "only stale shell caches should be dropped");
+  assert.deepEqual(deleted, ["mr-tapioca-v9", "mr-tapioca-v193", "mr-tapioca-v195"],
+    "only stale shell caches should be dropped");
   assert.ok(!deleted.includes(musicCache), "the music cache must survive a release");
 });
 

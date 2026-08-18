@@ -93,8 +93,20 @@ grey out and show your boba "Restricted" screen. 🎉
 
 ## 🔵 Step 7 — TestFlight → App Store
 
-Once the entitlement (Step 2) is approved, archive in Xcode and upload to
-App Store Connect → TestFlight (try it on your own phone first) → submit for review.
+Once the entitlement (Step 2) is approved, use the repository's release gates—do
+not archive or upload manually from Xcode Organizer:
+
+1. Run `npm run ios:release-setup`, review the synchronized native files, and
+   commit the exact release state.
+2. Run `npm run ios:archive-release -- /absolute/path/Mr-Tapioca-1.1.1-9.xcarchive`.
+3. Run `npm run ios:export-release -- /absolute/path/Mr-Tapioca-1.1.1-9.xcarchive /absolute/path/Mr-Tapioca-1.1.1-9.ipa`.
+4. Run `npm run ios:upload-release -- /absolute/path/Mr-Tapioca-1.1.1-9.ipa`.
+5. Install the processed build from TestFlight on a real iPhone. Recheck the
+   Angel, full focus layout, Screen Time blocking, notification completion, and
+   a real 15-minute Reward V2 session before submitting for App Review.
+
+Build 8 is a rejected TestFlight candidate and must never be submitted. The next
+candidate is version 1.1.1 build 9.
 
 ---
 

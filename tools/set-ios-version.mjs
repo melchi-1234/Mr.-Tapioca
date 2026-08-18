@@ -14,6 +14,15 @@ if (!/^\d+\.\d+\.\d+$/.test(marketingVersion || "") || !/^[1-9]\d*$/.test(buildV
 }
 
 let project = readFileSync(projectPath, "utf8");
+const currentVersionSettings = project.match(/CURRENT_PROJECT_VERSION = [^;]+;/g) || [];
+const marketingVersionSettings = project.match(/MARKETING_VERSION = [^;]+;/g) || [];
+if (currentVersionSettings.length !== 10 || marketingVersionSettings.length !== 10) {
+  console.error(
+    `Refusing partial version update: found ${currentVersionSettings.length} build and ` +
+    `${marketingVersionSettings.length} marketing-version settings; expected 10 of each`,
+  );
+  process.exit(1);
+}
 project = project
   .replace(/^\s*objectVersion = \d+;/m, "\tobjectVersion = 60;")
   .replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${buildVersion};`)
@@ -21,6 +30,10 @@ project = project
 writeFileSync(projectPath, project);
 
 let info = readFileSync(infoPath, "utf8");
+if (!/<key>UISupportedInterfaceOrientations<\/key>\s*<array>[\s\S]*?<\/array>/.test(info)) {
+  console.error("Refusing version setup: App Info.plist has no phone orientation block");
+  process.exit(1);
+}
 info = info.replace(
   /(<key>UISupportedInterfaceOrientations<\/key>\s*<array>)[\s\S]*?(<\/array>)/,
   "$1\n\t\t<string>UIInterfaceOrientationPortrait</string>\n\t$2",

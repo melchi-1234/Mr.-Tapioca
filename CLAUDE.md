@@ -100,7 +100,18 @@ These are all things that fail *silently*. Do not rediscover them.
   **Every push to `feature-work` auto-deploys** within a few minutes. Bump the
   `sw.js` CACHE version so clients pick it up.
 - **Landing page** (separate, Higgsfield-hosted): https://icy-plaza-859.higgsfield.app
-- **iOS:** bump build number in Xcode → Archive → Upload to App Store Connect. Run `npm run copyweb && npx cap copy ios && node tools/register-ios-plugins.mjs` first to sync the web bundle + plugins into the native project.
+- **iOS:** release only through the checked-in wrappers; do not use Product →
+  Archive or Organizer Upload as the release path. From a clean, committed tree,
+  first run `npm run ios:release-setup`, review and commit the synchronized build,
+  then run `npm run ios:archive-release -- /absolute/path/Mr-Tapioca-1.1.1-9.xcarchive`
+  then `npm run ios:export-release -- /absolute/path/Mr-Tapioca-1.1.1-9.xcarchive /absolute/path/Mr-Tapioca-1.1.1-9.ipa`,
+  then `npm run ios:upload-release -- /absolute/path/Mr-Tapioca-1.1.1-9.ipa`.
+  The wrappers run the complete tests and parity checks, archive the App scheme
+  with fresh build data, verify the archive, export without letting Xcode change
+  the build number, verify the exact IPA, and re-verify that same file immediately
+  before its controlled App Store Connect upload.
+  Install it from TestFlight on a real iPhone and approve the visual, focus-blocking,
+  notification, and Reward V2 checks before submitting it for App Review.
 
 ## Adding or removing a partner shop
 
@@ -108,11 +119,11 @@ These are all things that fail *silently*. Do not rediscover them.
 this.** GitHub Pages redeploys mrtapioca.me about a minute later and every client
 picks the new list up on the next Boba Map open.
 
-⚠️ **"Every client" means every client that HAS the partner system. As of Aug 2026
-that is the web app only.** The live App Store build (1.0.1 / build 6) and the build
-in review (1.1.0 / build 7) were both archived before the partner code existed, so
-they ignore `partners.json` entirely. The code is staged in `ios/App/App/public` and
-reaches phones with **1.1.1 / build 8**. Until that ships, a shop added here is live
+⚠️ **"Every client" means every client that HAS the partner system.** The live App
+Store release was archived before the partner code existed, so it ignores
+`partners.json` entirely. Build 8 reached TestFlight but is a rejected
+release candidate and must never be submitted. The corrected code reaches App Store
+phones with **1.1.1 / build 9**. Until that ships, a shop added here is live
 on mrtapioca.me and invisible on iPhone. Do not tell anyone a new shop is on their
 phone before checking `CURRENT_PROJECT_VERSION` against the build that has partners.
 Pulling a shop is the same edit in reverse, which is what lets us keep the promise
@@ -164,16 +175,18 @@ the pitch makes: they come off the app the day they ask.
 - Two people work on this repo (both push to `feature-work`). **Pull/rebase before you start** to avoid conflicts. If you see uncommitted changes that aren't yours (e.g. outreach tracking files), stash around them rather than committing them.
 - Prefer separate branches for big parallel work, then merge.
 
-## Current status (as of 2026-08-04)
+## Current status (as of 2026-08-17)
 
 - **Shipped and live.** v1.0 went up around Jul 30 2026; **v1.0.1 (build 6) went live Aug 4 2026**.
   The web app is live at https://mrtapioca.me and auto-deploys from `feature-work`.
-- **Nothing is in review right now.** The Xcode project sits at `MARKETING_VERSION = 1.1.0` /
-  `CURRENT_PROJECT_VERSION = 7`. Build 7 has never been archived, so **no version bump is needed**
-  before the next archive — bumping now would just skip a build number. Shipping it is the owner's
-  own Apple-ID work (Xcode > Archive > Upload); Claude does not do those steps.
-- ⚠️ `ios/App/App/public` is currently STALE (the floor-texture change landed after the last sync).
-  Run `npm run copyweb && npx cap copy ios && node tools/register-ios-plugins.mjs` before archiving.
+- **Nothing is in App Review right now.** Build 8 is available in TestFlight but is
+  explicitly rejected as a release candidate because it contains the green Angel
+  halo and broken focus-screen spacing reported on a real phone. Never submit it.
+  The next candidate is **1.1.1 / build 9** and must pass the wrapper-only archive,
+  export, IPA verification, and real-iPhone TestFlight checklist above.
+- The generated web and iOS bundles are release inputs, not hand-edited source.
+  `npm run ios:release-setup` regenerates them; the archive wrapper refuses stale
+  source → www → iOS parity or a dirty worktree.
 - Aug 4 2026 was a large visual overhaul: sprite sheets deleted in favor of poses, break mode
   rebuilt as a real bedroom, drawn art for the counter and all three game boards, the `--ui-*`
   material system, and one inline-SVG icon family replacing every last emoji in UI chrome.

@@ -125,6 +125,30 @@ create table if not exists public.reward_sessions (
                                check (state in ('active','completed','abandoned')),
   created_at       timestamptz not null default now()
 );
+
+-- Every abandonment path writes an explicit zero, never NULL. Repair rows made
+-- by older versions before installing the invariant. The catalog guard keeps
+-- this bootstrap safe to rerun, while IS NOT DISTINCT FROM makes NULL fail the
+-- abandoned branch of the CHECK (plain `credited_minutes = 0` would allow it).
+update public.reward_sessions s
+  set credited_minutes = 0
+  where s.state = 'abandoned' and s.credited_minutes is null;
+
+do $reward_sessions_abandoned_zero$
+begin
+  if not exists (
+    select 1
+      from pg_constraint
+      where conrelid = 'public.reward_sessions'::regclass
+        and conname = 'reward_sessions_abandoned_zero'
+  ) then
+    alter table public.reward_sessions
+      add constraint reward_sessions_abandoned_zero
+      check (state <> 'abandoned' or credited_minutes is not distinct from 0);
+  end if;
+end
+$reward_sessions_abandoned_zero$;
+
 alter table public.reward_sessions enable row level security;
 create index if not exists reward_sessions_user_idx on public.reward_sessions (user_id, state);
 -- ONE active session per user. This is the overlap rule, enforced by the database
@@ -249,6 +273,9 @@ returns integer language sql stable security definer set search_path = public as
   from public.reward_sessions
   where user_id = p_user and state = 'completed' and platform = 'ios';
 $$;
+-- Internal helper: owner-facing definer RPCs derive their user from auth.uid().
+-- Exposing this UUID parameter would let any client query another user's total.
+revoke all on function public.reward_eligible_minutes(uuid) from public, anon, authenticated;
 
 -- Issue every reward the user has now earned and does not yet hold, for every
 -- active policy. Safe to call as often as you like: it is a no-op once caught up,
@@ -361,7 +388,7 @@ begin
   -- `state = 'active'` is ambiguous and Postgres refuses the whole function at
   -- RUN time with 42702. A syntax check cannot see this; only executing it can.
   update public.reward_sessions s
-    set state = 'abandoned', ended_at = now()
+    set state = 'abandoned', ended_at = now(), credited_minutes = 0
     where s.user_id = v_me and s.state = 'active'
       and s.started_at < now() - interval '12 hours';
 
@@ -380,6 +407,44 @@ end; $$;
 revoke all on function public.start_reward_session(uuid,integer,text,boolean) from public, anon;
 grant execute on function public.start_reward_session(uuid,integer,text,boolean) to authenticated;
 
+-- Explicit zero-credit close for pause, reset and recovery paths. Completion is
+-- intentionally the wrong operation for those paths: it converts elapsed server
+-- wall time into eligible minutes. This transition never does, however long the
+-- active row has existed.
+--
+-- The row lock serializes abandon against completion. Whichever terminal
+-- transition gets the lock first wins; a retry returns that persisted terminal
+-- row without erasing legitimate credit or moving ended_at a second time.
+create or replace function public.abandon_reward_session(p_session_id uuid)
+returns table (id uuid, state text, credited_minutes integer, eligible_minutes integer)
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_me  uuid := auth.uid();
+  v_row public.reward_sessions;
+begin
+  if v_me is null then raise exception 'not authenticated' using errcode='28000'; end if;
+
+  -- Filter by owner in the lookup itself. A guessed UUID never exposes whether
+  -- another account owns it, and can never lock or update that account's row.
+  select * into v_row
+    from public.reward_sessions s
+    where s.id = p_session_id and s.user_id = v_me
+    for update;
+  if not found then raise exception 'no such session' using errcode='P0002'; end if;
+
+  if v_row.state = 'active' then
+    update public.reward_sessions s
+      set state = 'abandoned', ended_at = now(), credited_minutes = 0
+      where s.id = p_session_id and s.user_id = v_me and s.state = 'active'
+      returning s.* into v_row;
+  end if;
+
+  return query select v_row.id, v_row.state, v_row.credited_minutes,
+                      public.reward_eligible_minutes(v_me);
+end; $$;
+revoke all on function public.abandon_reward_session(uuid) from public, anon;
+grant execute on function public.abandon_reward_session(uuid) to authenticated;
+
 -- Idempotent completion. Credits the SERVER's elapsed wall clock, capped at what
 -- the session asked for, and capped again by a daily ceiling so a scripted client
 -- cannot bank an impossible day.
@@ -396,7 +461,12 @@ declare
   DAILY_CAP  constant int := 720;   -- 12 h/day. Above this it is not a student studying.
 begin
   if v_me is null then raise exception 'not authenticated' using errcode='28000'; end if;
-  select * into v_row from public.reward_sessions s where s.id = p_session_id;
+  -- Abandon uses this same row lock. The terminal-state check must happen only
+  -- after the lock is held, or completion can read active, wait behind abandon,
+  -- then overwrite the abandoned row with credit based on stale state.
+  select * into v_row from public.reward_sessions s
+    where s.id = p_session_id
+    for update;
   if not found then raise exception 'no such session' using errcode='P0002'; end if;
   if v_row.user_id <> v_me then raise exception 'not your session' using errcode='42501'; end if;
 
@@ -415,7 +485,7 @@ begin
   if v_elapsed < 5 or v_elapsed > 720 then
       update public.reward_sessions s
       set state = 'abandoned', ended_at = now(), credited_minutes = 0
-      where s.id = p_session_id;
+      where s.id = p_session_id and s.user_id = v_me and s.state = 'active';
     return query select p_session_id, 'abandoned'::text, 0, public.reward_eligible_minutes(v_me);
     return;
   end if;
@@ -431,22 +501,68 @@ begin
   update public.reward_sessions s
     set state = 'completed', ended_at = now(), credited_minutes = v_credit,
         shield_claimed = coalesce(p_shield_held, s.shield_claimed)
-    where s.id = p_session_id;
+    where s.id = p_session_id and s.user_id = v_me and s.state = 'active';
 
   return query select p_session_id, 'completed'::text, v_credit, public.reward_eligible_minutes(v_me);
 end; $$;
 revoke all on function public.complete_reward_session(uuid,boolean) from public, anon;
 grant execute on function public.complete_reward_session(uuid,boolean) to authenticated;
 
--- What the app shows on the progress screen. One call, no client arithmetic.
+-- What the app shows on the progress screen. The client calls issue_my_rewards
+-- immediately before this RPC, then consumes these per-policy values directly;
+-- it must never apply today's bar to the lifetime eligible-minute total.
+--
+-- Eligibility, rewards and policy accounting are read by one SELECT, so a call
+-- observes one stable MVCC snapshot. Minutes become spent when a reward is
+-- issued, not when it is redeemed: every instance status therefore counts, and
+-- its issuance-time bar_minutes preserves policy changes exactly.
 create or replace function public.my_reward_state()
 returns jsonb language plpgsql security definer stable set search_path = public as $$
-declare v_me uuid := auth.uid(); v_min int;
+declare
+  v_me    uuid := auth.uid();
+  v_state jsonb;
 begin
   if v_me is null then raise exception 'not authenticated' using errcode='28000'; end if;
-  v_min := public.reward_eligible_minutes(v_me);
-  return jsonb_build_object(
-    'eligible_minutes', v_min,
+
+  with eligible as (
+    select public.reward_eligible_minutes(v_me)::int as eligible_minutes
+  ),
+  included_policies as (
+    -- Active policies, PLUS any policy a reward I already hold was issued under.
+    -- Pausing stops issuance but not redemption, so a held reward must keep the
+    -- policy metadata and its authoritative progress/accounting fields.
+    select p.id, p.kind, p.required_minutes, p.partner_id,
+           p.expires_days, p.active
+      from public.reward_policies p
+      where p.active
+         or exists (
+              select 1
+                from public.reward_instances held
+                where held.user_id = v_me
+                  and held.policy_id = p.id
+                  and held.status = 'issued'
+            )
+  ),
+  policy_accounting as (
+    select p.id, p.kind, p.required_minutes, p.partner_id,
+           p.expires_days, p.active, e.eligible_minutes,
+           coalesce((
+             select sum(r.bar_minutes)::int
+               from public.reward_instances r
+               where r.user_id = v_me and r.policy_id = p.id
+           ), 0)::int as spent_minutes
+      from included_policies p
+      cross join eligible e
+  ),
+  policy_progress as (
+    select a.*,
+           greatest(a.eligible_minutes - a.spent_minutes, 0)::int as unspent_minutes,
+           (greatest(a.eligible_minutes - a.spent_minutes, 0)
+             % a.required_minutes)::int as progress_minutes
+      from policy_accounting a
+  )
+  select jsonb_build_object(
+    'eligible_minutes', e.eligible_minutes,
     'rewards', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', r.id, 'policy_id', r.policy_id, 'partner_id', r.partner_id,
@@ -455,20 +571,19 @@ begin
         'redeemed_at', r.redeemed_at, 'redeemed_partner_id', r.redeemed_partner_id)
         order by r.issued_at desc)
       from public.reward_instances r where r.user_id = v_me), '[]'::jsonb),
-    -- Active policies, PLUS any policy a reward I already hold was issued under.
-    -- Filtering to active alone hid the policy out from under a held reward the
-    -- moment a policy was paused: issuance stops (correct) but redemption does
-    -- not, so the app was left holding a spendable reward it could not describe,
-    -- name a bar for, or show progress against.
     'policies', coalesce((
       select jsonb_agg(jsonb_build_object(
-        'id', p.id, 'kind', p.kind, 'required_minutes', p.required_minutes,
-        'partner_id', p.partner_id, 'expires_days', p.expires_days, 'active', p.active))
-      from public.reward_policies p
-      where p.active
-         or p.id in (select r.policy_id from public.reward_instances r
-                     where r.user_id = v_me and r.status = 'issued')), '[]'::jsonb)
-  );
+        'id', a.id, 'kind', a.kind, 'required_minutes', a.required_minutes,
+        'partner_id', a.partner_id, 'expires_days', a.expires_days, 'active', a.active,
+        'spent_minutes', a.spent_minutes,
+        'unspent_minutes', a.unspent_minutes,
+        'progress_minutes', a.progress_minutes)
+        order by a.id)
+      from policy_progress a), '[]'::jsonb)
+  ) into v_state
+  from eligible e;
+
+  return v_state;
 end; $$;
 revoke all on function public.my_reward_state() from public, anon;
 grant execute on function public.my_reward_state() to authenticated;
@@ -590,6 +705,9 @@ begin
   end loop;
   return v_code;
 end; $$;
+-- Internal helper for open_redemption. Direct callers must use the authenticated
+-- opener so ownership, partner terms and handoff logging stay in one transaction.
+revoke all on function public.gen_handoff_code() from public, anon, authenticated;
 
 -- Step 1 at the counter: the student picks the shop and opens the card. This
 -- validates everything it can BEFORE the cashier is involved, so a refusal happens
@@ -680,6 +798,7 @@ begin
     'ok', true, 'code', v_code,
     'expires_at', (select h.expires_at from public.redemption_handoffs h where h.code = v_code),
     'server_time', now(),
+    'bar_minutes', v_r.bar_minutes,
     'partner_name', v_p.name, 'offer_text', v_p.offer_text,
     'offer_version', v_p.offer_version, 'cashier_note', v_p.cashier_note);
 end; $$;
@@ -689,11 +808,14 @@ grant execute on function public.open_redemption(uuid,text) to authenticated;
 -- Step 2: SPEND IT. This is the only function in the system that consumes a
 -- reward, and it consumes exactly one.
 --
--- The whole guarantee lives in the WHERE clause of the UPDATE. Postgres takes a
--- row lock on the matching reward, and `status = 'issued'` is re-checked under
--- that lock, so of two simultaneous requests exactly one updates a row and the
--- other matches nothing and is told it was already redeemed. There is no
--- read-then-write window to race.
+-- The same-reward guarantee lives in the WHERE clause of the UPDATE. Postgres
+-- takes a row lock on the matching reward, and `status = 'issued'` is re-checked
+-- under that lock, so of two simultaneous requests exactly one updates a row.
+--
+-- Different rewards need a shared lock too: per-user and pilot caps count rows
+-- already redeemed at one partner. Locking that partner before the shared gate
+-- serializes the count-and-spend transaction, so two distinct codes cannot both
+-- observe the last cap slot as free.
 --
 -- It is deliberately callable with just the code, so the cashier's own device can
 -- spend it from a plain webpage with nothing installed and no account.
@@ -714,7 +836,7 @@ begin
   end if;
 
   select * into v_r from public.reward_instances r where r.id = v_h.reward_id;
-  select * into v_p from public.partners p where p.id = v_h.partner_id;
+  select * into v_p from public.partners p where p.id = v_h.partner_id for update;
 
   if v_h.consumed_at is not null       then v_fail := 'failed_already_redeemed';
   elsif v_h.expires_at <= now()        then v_fail := 'failed_code_expired';

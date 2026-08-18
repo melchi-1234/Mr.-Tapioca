@@ -189,6 +189,30 @@
                eligible_minutes: eligibleMinutes(user) };
     }
 
+    // Zero-credit terminal transition for pause, reset and crash recovery.
+    // Unlike completion, elapsed wall time is deliberately irrelevant. A replay
+    // returns the terminal row that already won, matching the SQL row-lock rule:
+    // abandon cannot erase completed credit and completion cannot revive an
+    // abandoned session.
+    function abandonSession(p) {
+      const user = db.user;
+      const s = db.sessions.get(p && p.session_id);
+      // Missing and someone else's UUID are intentionally indistinguishable.
+      if (!s || s.user_id !== user) return fail("no_such_session");
+
+      if (s.state !== "active") {
+        return { ok: true, id: s.id, state: s.state,
+                 credited_minutes: s.credited_minutes || 0,
+                 eligible_minutes: eligibleMinutes(user), replayed: true };
+      }
+
+      s.state = "abandoned";
+      s.ended_at = now();
+      s.credited_minutes = 0;
+      return { ok: true, id: s.id, state: "abandoned", credited_minutes: 0,
+               eligible_minutes: eligibleMinutes(user) };
+    }
+
     // ── issuance ─────────────────────────────────────────────────────────────
     function issueRewards() {
       const user = db.user;
@@ -229,19 +253,35 @@
 
     function myRewardState() {
       const user = db.user;
+      const minutes = eligibleMinutes(user);
+      const policies = Array.from(db.policies.values()).filter((pol) =>
+        pol.active || db.rewards.some((r) => r.user_id === db.user &&
+          r.status === "issued" && r.policy_id === pol.id)).map((pol) => {
+        const spent = db.rewards
+          .filter((r) => r.user_id === user && r.policy_id === pol.id)
+          .reduce((sum, reward) => sum + (reward.bar_minutes || 0), 0);
+        const unspent = Math.max(minutes - spent, 0);
+        return {
+          id: pol.id,
+          kind: pol.kind,
+          required_minutes: pol.required_minutes,
+          partner_id: pol.partner_id == null ? null : pol.partner_id,
+          expires_days: pol.expires_days == null ? null : pol.expires_days,
+          active: pol.active === true,
+          spent_minutes: spent,
+          unspent_minutes: unspent,
+          progress_minutes: unspent % pol.required_minutes,
+        };
+      }).sort((left, right) => left.id < right.id ? -1 : (left.id > right.id ? 1 : 0));
       return {
-        eligible_minutes: eligibleMinutes(user),
+        eligible_minutes: minutes,
         rewards: db.rewards.filter((r) => r.user_id === user)
                            .slice().sort((a, b) => b.issued_at - a.issued_at),
         // Active policies, PLUS any policy a reward still in hand was issued under.
         // Filtering to active alone hid the policy out from under a held reward:
         // pausing a policy stops issuance (correct) but not redemption, leaving the
         // app holding a spendable reward it could not describe or show a bar for.
-        policies: Array.from(db.policies.values()).filter((pol) =>
-          pol.active || db.rewards.some((r) => r.user_id === db.user &&
-            r.status === "issued" && r.policy_id === pol.id)),
-        partners: Array.from(db.partners.values()),
-        server_time: now(),
+        policies: policies,
       };
     }
 
@@ -360,7 +400,8 @@
                            offer_version: partner.offer_version });
       return { ok: true, code: hit.code, expires_at: hit.expires_at, server_time: now(),
                partner_name: partner.name, offer_text: partner.offer_text,
-               offer_version: partner.offer_version, cashier_note: partner.cashier_note };
+               offer_version: partner.offer_version, cashier_note: partner.cashier_note,
+               bar_minutes: reward.bar_minutes };
     }
 
     // Read-only. What the cashier's verification page shows before spending.
@@ -516,6 +557,7 @@
       rpc: {
         start_reward_session: (p) => startSession(p),
         complete_reward_session: (p) => completeSession(p),
+        abandon_reward_session: (p) => abandonSession(p),
         issue_my_rewards: () => issueRewards(),
         my_reward_state: () => myRewardState(),
         open_redemption: (p) => openRedemption(p.reward_id, p.partner_id),
@@ -526,5 +568,117 @@
     };
   }
 
-  return { createBackend: createBackend, uuid: uuid };
+  function supabaseValue(value, key) {
+    if (Array.isArray(value)) return value.map((entry) => supabaseValue(entry, ""));
+    if (value && typeof value === "object") {
+      const out = {};
+      Object.keys(value).forEach((name) => {
+        out[name] = supabaseValue(value[name], name);
+      });
+      return out;
+    }
+    if (value != null && (/_at$/.test(key) || key === "server_time") &&
+        typeof value === "number") return new Date(value).toISOString();
+    return value;
+  }
+
+  function rpcError(reason) {
+    const codes = {
+      no_such_session: "P0002",
+      session_already_open: "P0003",
+      not_your_session: "42501",
+      bad_platform: "P0001",
+      planned_out_of_range: "P0001",
+    };
+    return {
+      data: null,
+      error: { code: codes[reason] || "P0001", details: null, hint: null, message: reason },
+      status: codes[reason] === "42501" ? 403 : 400,
+    };
+  }
+
+  function project(row, fields) {
+    const out = {};
+    fields.forEach((field) => { out[field] = row[field]; });
+    return out;
+  }
+
+  const ISSUE_FIELDS = [
+    "id", "policy_id", "partner_id", "seq", "offer_version", "issued_at", "expires_at", "status",
+  ];
+  const STATE_REWARD_FIELDS = ISSUE_FIELDS.concat(["redeemed_at", "redeemed_partner_id"]);
+  const POLICY_FIELDS = [
+    "id", "kind", "required_minutes", "partner_id", "expires_days", "active",
+    "spent_minutes", "unspent_minutes", "progress_minutes",
+  ];
+
+  // A real-shaped boundary for exercising reward-v2.js against this independent
+  // implementation. It accepts the SQL RPC's canonical p_ arguments and returns
+  // Supabase's {data,error,status} envelope, including table arrays for session
+  // calls and JSON objects for state/redemption calls.
+  function createSupabaseClient(backend) {
+    if (!backend || !backend.rpc) throw new Error("RewardMock backend required");
+    return {
+      async rpc(name, args) {
+        args = args || {};
+        let input;
+        if (name === "start_reward_session") {
+          input = {
+            session_id: args.p_session_id,
+            planned_minutes: args.p_planned_minutes,
+            platform: args.p_platform,
+            shield_claimed: args.p_shield,
+          };
+        } else if (name === "complete_reward_session") {
+          input = { session_id: args.p_session_id, shield_held: args.p_shield_held };
+        } else if (name === "abandon_reward_session") {
+          input = { session_id: args.p_session_id };
+        } else if (name === "open_redemption") {
+          input = { reward_id: args.p_reward_id, partner_id: args.p_partner_id };
+        } else if (name === "check_code" || name === "redeem_by_code") {
+          input = { code: args.p_code };
+        } else {
+          input = {};
+        }
+
+        try {
+          if (typeof backend.rpc[name] !== "function") return rpcError("unknown_rpc");
+          const result = await backend.rpc[name](input);
+          if (["start_reward_session", "complete_reward_session", "abandon_reward_session"].includes(name)) {
+            if (!result || result.ok !== true) return rpcError(result && result.reason || "rpc_failed");
+            const row = Object.assign({}, result);
+            delete row.ok;
+            delete row.replayed;
+            return { data: [supabaseValue(row, "")], error: null, status: 200 };
+          }
+          if (name === "issue_my_rewards") {
+            const rows = Array.isArray(result) ? result.map((row) => project(row, ISSUE_FIELDS)) : result;
+            return { data: supabaseValue(rows, ""), error: null, status: 200 };
+          }
+          if (name === "my_reward_state" && result && typeof result === "object") {
+            const state = {
+              eligible_minutes: result.eligible_minutes,
+              rewards: Array.isArray(result.rewards)
+                ? result.rewards.map((row) => project(row, STATE_REWARD_FIELDS))
+                : result.rewards,
+              policies: Array.isArray(result.policies)
+                ? result.policies.map((row) => project(row, POLICY_FIELDS))
+                : result.policies,
+            };
+            return { data: supabaseValue(state, ""), error: null, status: 200 };
+          }
+          return { data: supabaseValue(result, ""), error: null, status: 200 };
+        } catch (error) {
+          return {
+            data: null,
+            error: { code: "XX000", details: null, hint: null,
+              message: error && error.message ? error.message : String(error) },
+            status: 500,
+          };
+        }
+      },
+    };
+  }
+
+  return { createBackend: createBackend, createSupabaseClient: createSupabaseClient, uuid: uuid };
 });

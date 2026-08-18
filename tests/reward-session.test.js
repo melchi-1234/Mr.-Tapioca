@@ -105,6 +105,72 @@ test("a session that follows a completed one is allowed", () => {
   assert.equal(second.ok, true);
 });
 
+test("explicit abandonment credits zero even after the entire planned time elapsed", () => {
+  const b = backend();
+  const id = uuid();
+  b.rpc.start_reward_session({ session_id: id, planned_minutes: 60, platform: "ios" });
+  b.advance(60 * MIN);
+
+  const abandoned = b.rpc.abandon_reward_session({ session_id: id });
+
+  assert.equal(abandoned.ok, true);
+  assert.equal(abandoned.state, "abandoned");
+  assert.equal(abandoned.credited_minutes, 0);
+  assert.equal(abandoned.eligible_minutes, 0);
+  assert.equal(b.eligibleMinutes(), 0,
+    "pause/reset must never convert elapsed server wall time into merchant credit");
+});
+
+test("abandonment is idempotent and releases the one-active-session lock", () => {
+  const b = backend();
+  const id = uuid();
+  b.rpc.start_reward_session({ session_id: id, planned_minutes: 60, platform: "ios" });
+
+  const first = b.rpc.abandon_reward_session({ session_id: id });
+  const replay = b.rpc.abandon_reward_session({ session_id: id });
+  const next = b.rpc.start_reward_session({ session_id: uuid(), planned_minutes: 60, platform: "ios" });
+
+  assert.deepEqual(replay, { ...first, replayed: true });
+  assert.equal(next.ok, true);
+  assert.equal(b.eligibleMinutes(), 0);
+});
+
+test("abandon and complete preserve whichever terminal transition won first", () => {
+  const abandonedFirst = backend();
+  const abandonedId = uuid();
+  abandonedFirst.rpc.start_reward_session({ session_id: abandonedId, planned_minutes: 60, platform: "ios" });
+  abandonedFirst.advance(60 * MIN);
+  abandonedFirst.rpc.abandon_reward_session({ session_id: abandonedId });
+  const completionReplay = abandonedFirst.rpc.complete_reward_session({ session_id: abandonedId });
+  assert.equal(completionReplay.state, "abandoned");
+  assert.equal(completionReplay.credited_minutes, 0);
+  assert.equal(abandonedFirst.eligibleMinutes(), 0);
+
+  const completedFirst = backend();
+  const completedId = uuid();
+  completedFirst.rpc.start_reward_session({ session_id: completedId, planned_minutes: 60, platform: "ios" });
+  completedFirst.advance(60 * MIN);
+  completedFirst.rpc.complete_reward_session({ session_id: completedId });
+  const abandonReplay = completedFirst.rpc.abandon_reward_session({ session_id: completedId });
+  assert.equal(abandonReplay.state, "completed");
+  assert.equal(abandonReplay.credited_minutes, 60,
+    "a late abandon retry must not erase credit already committed by completion");
+  assert.equal(completedFirst.eligibleMinutes(), 60);
+});
+
+test("abandonment does not reveal whether a guessed session belongs to someone else", () => {
+  const b = backend();
+  const mine = uuid();
+  b.rpc.start_reward_session({ session_id: mine, planned_minutes: 60, platform: "ios" });
+  b.setUser("attacker");
+
+  const stolen = b.rpc.abandon_reward_session({ session_id: mine });
+  const missing = b.rpc.abandon_reward_session({ session_id: uuid() });
+
+  assert.deepEqual(stolen, missing);
+  assert.equal(stolen.reason, "no_such_session");
+});
+
 test("a stale active session is swept so it cannot block forever", () => {
   const b = backend();
   b.rpc.start_reward_session({ session_id: uuid(), planned_minutes: 60, platform: "ios" });

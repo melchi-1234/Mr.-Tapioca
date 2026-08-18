@@ -2221,6 +2221,13 @@ function pauseFocus() {
   stopTicker();
   stopAmbience();
   stopMusic();
+  // A pause ends the server-observed earning segment. It MUST be abandoned,
+  // never completed later: the completion RPC measures server wall time, so a
+  // delayed/offline completion would otherwise count the whole pause. The V2
+  // client serializes this with a possible resume and durably retries it.
+  if (window.RewardV2 && RewardV2.enabled && typeof RewardV2.abandonSession === "function") {
+    Promise.resolve(RewardV2.abandonSession()).catch(() => {});
+  }
   FocusBlocker.stop();        // lift the shield when paused
   FocusActivity.stop();       // clear the Lock Screen countdown
   // The session is no longer going to end when it said it would, so the pending
@@ -2348,18 +2355,23 @@ function renderBlockPill() {
   // .has-pill drives whether .session-row occupies any height at all. Without
   // it the row still cost its 7px stack gap on every non-iOS device, for a
   // control those devices never show. Toggled here rather than with :has() so
-  // the layout does not depend on selector support.
+  // the layout does not depend on selector support. The parent marker lets the
+  // illustrated scene move with this taller native-only stack; otherwise the
+  // counter and timer are positioned by two unrelated anchors and overlap.
   const controls = document.querySelector(".focus-controls");
+  const sceneWrap = controls && controls.closest(".scene-wrap");
   // The re-pick recovery button only means anything where the native plugin
   // exists, so its visibility rides the same check as the pill.
   if (els.repickAppsBtn) els.repickAppsBtn.classList.toggle("hidden", !FocusBlocker.available());
   if (!FocusBlocker.available()) {
     pill.classList.add("hidden");
     if (controls) controls.classList.remove("has-pill");
+    if (sceneWrap) sceneWrap.classList.remove("has-native-blocking");
     return;
   }
   pill.classList.remove("hidden");
   if (controls) controls.classList.add("has-pill");
+  if (sceneWrap) sceneWrap.classList.add("has-native-blocking");
   const on = FocusBlocker._configured === true;
   pill.classList.toggle("is-on", on);
   if (els.blockPillLabel) els.blockPillLabel.textContent = on ? "App blocking: On" : "App blocking: Off";
@@ -2371,6 +2383,11 @@ function resetSession() {
   stopGame();
   stopAmbience();
   stopMusic();
+  // Reset discards the drink, so it also discards the merchant-reward segment.
+  // Ask the server for zero-credit abandonment before releasing the shield.
+  if (window.RewardV2 && RewardV2.enabled && typeof RewardV2.abandonSession === "function") {
+    Promise.resolve(RewardV2.abandonSession()).catch(() => {});
+  }
   FocusBlocker.stop();
   FocusActivity.stop();
   clearTimeout(state.breakMakerCycleId);
@@ -2393,7 +2410,8 @@ function resetSession() {
   updateCup();
 }
 
-function completeSession() {
+function completeSession(options) {
+  const wasRunning = state.running === true;
   // Idempotency guard: once banked, elapsed is 0 and we're not running, so a
   // second call (e.g. reload mid-reward-dialog then re-press) can't double-bank.
   if (state.elapsed <= 0 && !state.running) return;
@@ -2408,6 +2426,17 @@ function completeSession() {
   stopTicker();
   stopAmbience();
   stopMusic();
+  const abandonReward = !wasRunning || !!(options && options.abandonReward);
+  let serverRewardClose = null;
+  // Capture the shield evidence at the actual finish boundary. The async client
+  // may run after FocusBlocker.stop(), so pass the already captured value rather
+  // than asking it to read a flag that has just been cleared.
+  if (window.RewardV2 && RewardV2.enabled) {
+    serverRewardClose = Promise.resolve(abandonReward
+      ? RewardV2.abandonSession()
+      : RewardV2.completeSession({ shieldHeld: wasBlocked }))
+      .catch(() => false);
+  }
   FocusBlocker.stop();    // session done — apps free again
   FocusActivity.stop();   // clear the Lock Screen countdown
   state.running = false;
@@ -2417,9 +2446,6 @@ function completeSession() {
   // Safe to lose: reward-v2.js queues a completion it could not deliver, and the
   // server caps credit at least(planned, its own elapsed), so a late arrival can
   // never bank more than the session asked for.
-  if (window.RewardV2 && RewardV2.enabled) {
-    Promise.resolve(RewardV2.completeSession()).catch(() => {});
-  }
   // Finished with the app open, so the user is already looking at the reward
   // dialog. Firing the notification too would be talking to someone in the room.
   if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});
@@ -2499,18 +2525,30 @@ function completeSession() {
   // total across another whole bar. Note the drink is not in state.collection yet
   // (it gets unshifted below), so its minutes have to be added by hand or the card
   // is always one drink behind what the map is about to show.
-  const perkBar = perkMinMinutes();
-  const totalBefore = totalMinutes();
-  const totalAfter  = totalBefore + minutes;
   let partner, partnerNext = false;
-  if (perkBar > 0 && Math.floor(totalAfter / perkBar) > Math.floor(totalBefore / perkBar)) {
-    partner = "🌟 Partner perk unlocked. Check the Boba Map";
-  } else {
-    // Show what is LEFT, not the size of the bar. "40 min to go" is a reason to
-    // start another cup; "next perk at 4 hrs" reads like a wall.
-    const left = perkBar > 0 ? perkBar - (totalAfter % perkBar) : 0;
-    partner = `${durationLabel(left)} of focus until your next partner perk`;
+  if (rewardServerMode()) {
+    // The server close above is still in flight. Never fill this celebratory card
+    // with editable local reward arithmetic while V2 is authoritative.
+    const accountOff = cloudAccountRewardsOffCopy();
+    partner = accountOff
+      ? `${accountOff} Your drink and pearls are still saved.`
+      : abandonReward
+        ? "Your drink is saved. Partner reward time wasn’t credited because this session was no longer running."
+        : "Syncing your partner reward progress…";
     partnerNext = true;
+  } else {
+    const perkBar = perkMinMinutes();
+    const totalBefore = totalMinutes();
+    const totalAfter  = totalBefore + minutes;
+    if (perkBar > 0 && Math.floor(totalAfter / perkBar) > Math.floor(totalBefore / perkBar)) {
+      partner = "🌟 Partner perk unlocked. Check the Boba Map";
+    } else {
+      // Show what is LEFT, not the size of the bar. "40 min to go" is a reason to
+      // start another cup; "next perk at 4 hrs" reads like a wall.
+      const left = perkBar > 0 ? perkBar - (totalAfter % perkBar) : 0;
+      partner = `${durationLabel(left)} of focus until your next partner perk`;
+      partnerNext = true;
+    }
   }
 
   const reward = {
@@ -2537,6 +2575,15 @@ function completeSession() {
   sessionChime();
   haptic([14, 40, 24]);   // celebratory buzz pattern
   showReward(reward);
+  if (serverRewardClose && !abandonReward) {
+    serverRewardClose.then((delivered) => {
+      const summary = serverRewardCompletionSummary(delivered);
+      reward.partner = summary.partner;
+      reward.partnerNext = summary.partnerNext;
+      saveState();
+      if (lastReward === reward && els.rewardDialog.open) renderRewardPartner(reward);
+    });
+  }
   const newBadges = checkBadges(true);   // toast any milestone reached by finishing this drink
   if (goalWasUnmet && todayMinutes() >= state.dailyGoal) {
     // queue the goal toast after any badge toasts (each badge toast holds ~1.5s)
@@ -2776,29 +2823,56 @@ async function buildRewardCard(opts) {
 
 // Share it. Same plumbing as shareDrink: native share sheet where there is one,
 // a download plus the link on the clipboard where there is not.
-async function shareRewardEarned(opts) {
+async function shareRewardEarned(opts, isCurrent) {
+  const stillCurrent = typeof isCurrent === "function"
+    ? () => {
+        try { return isCurrent() === true; }
+        catch (e) { return false; }
+      }
+    : () => true;
   try {
     const blob = await buildRewardCard(opts || {});
+    if (!stillCurrent()) return false;
     if (!blob) throw new Error("no blob");
     const file = new File([blob], "mr-tapioca-reward.png", { type: "image/png" });
     const text = opts && opts.shopName
       ? `Studied ${durationLabel(opts.minutes || 0)} and got ${(opts.offerText || "a perk").toLowerCase()} at ${opts.shopName} 🧋`
       : `${durationLabel((opts && opts.minutes) || 0)} of focus just earned me real boba 🧋`;
     const url = installLink("reward_share");
-    trk("reward_card_shared", { redeemed: !!(opts && opts.redeemed) });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (!stillCurrent()) return false;
       await navigator.share({ files: [file], title: "Mr. Tapioca", text, url });
+      if (!stillCurrent()) return false;
+      trk("reward_card_shared", { redeemed: !!(opts && opts.redeemed) });
     } else {
+      if (!stillCurrent()) return false;
       const u = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = u; a.download = "mr-tapioca-reward.png";
+      if (!stillCurrent()) return false;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(u), 5000);
-      try { await navigator.clipboard.writeText(url); } catch (e) {}
-      showToast("Saved your card. The link is on your clipboard 🧋");
+      if (!stillCurrent()) return false;
+      trk("reward_card_shared", { redeemed: !!(opts && opts.redeemed) });
+      if (!stillCurrent()) return false;
+      let linkCopied = false;
+      try {
+        await navigator.clipboard.writeText(url);
+        linkCopied = true;
+      } catch (e) {}
+      if (!stillCurrent()) return false;
+      showToast(linkCopied
+        ? "Saved your card. The link is on your clipboard 🧋"
+        : "Saved your card, but the link could not be copied.");
     }
+    return true;
   } catch (e) {
-    if (!(e && e.name === "AbortError")) showToast("Couldn't make the card — try again.");
+    if (!stillCurrent()) return false;
+    if (!(e && e.name === "AbortError")) {
+      if (!stillCurrent()) return false;
+      showToast("Couldn't make the card — try again.");
+    }
+    return false;
   }
 }
 
@@ -2863,16 +2937,7 @@ function maybeRequestReview() {
   p.requestReview().catch(() => {});
 }
 
-function showReward(reward) {
-  // A session finishing MID-TOUR would open this dialog in the top layer above
-  // the coach overlay, leaving the tour spotlighting hidden controls behind it.
-  // The reward moment wins; the tour can be replayed from Settings.
-  if (tourOn) endFeatureTour(false);
-  lastReward = reward;
-  els.rewardTitle.textContent  = `${reward.size} complete!`;
-  els.rewardCopy.textContent   = reward.copy;
-  els.rewardPearls.textContent = `+${reward.pearls} pearl${reward.pearls !== 1 ? "s" : ""}`;
-  els.rewardDrink.style.setProperty("--drink-color", BASES[state.base].color);
+function renderRewardPartner(reward) {
   els.partnerReward.textContent = reward.partner;
   // Three states, not two: an earned perk reads as a coupon, a not-yet perk
   // reads as a quiet next-goal line, and neither reads as an empty slot.
@@ -2886,6 +2951,19 @@ function showReward(reward) {
   // app and it does not need a row of choices on it.
   const shareBtn = document.getElementById("shareRewardBtn");
   if (shareBtn) shareBtn.textContent = earned ? "Share my reward" : "Share my drink";
+}
+
+function showReward(reward) {
+  // A session finishing MID-TOUR would open this dialog in the top layer above
+  // the coach overlay, leaving the tour spotlighting hidden controls behind it.
+  // The reward moment wins; the tour can be replayed from Settings.
+  if (tourOn) endFeatureTour(false);
+  lastReward = reward;
+  els.rewardTitle.textContent  = `${reward.size} complete!`;
+  els.rewardCopy.textContent   = reward.copy;
+  els.rewardPearls.textContent = `+${reward.pearls} pearl${reward.pearls !== 1 ? "s" : ""}`;
+  els.rewardDrink.style.setProperty("--drink-color", BASES[state.base].color);
+  renderRewardPartner(reward);
 
   if (typeof els.rewardDialog.showModal === "function") {
     els.rewardDialog.showModal();
@@ -4781,16 +4859,284 @@ function earnedPerkCount() {
 // Flag UP:   the server, and the local numbers are not consulted at all. That is
 //            the whole point. v1's count is derived from localStorage the user
 //            can edit, so mixing the two would just reintroduce the hole.
+function cloudAccountState() {
+  if (!(window.SquadCloud && SquadCloud.enabled)) return "active";
+  if (typeof SquadCloud.accountState === "function") {
+    try {
+      const value = SquadCloud.accountState();
+      if (["active", "pending_delete", "opted_out"].includes(value)) return value;
+    } catch (e) {}
+  }
+  return typeof SquadCloud.isOptedOut === "function" && SquadCloud.isOptedOut()
+    ? "opted_out" : "active";
+}
+
+function cloudAccountRewardsOffCopy() {
+  const lifecycle = cloudAccountState();
+  if (lifecycle === "pending_delete") {
+    return "Account deletion is still pending. Cloud and partner rewards are off. Retry when connected in Settings.";
+  }
+  if (lifecycle === "opted_out") {
+    return "Cloud and partner rewards are off on this device until you turn them on in Settings.";
+  }
+  return null;
+}
+
+function renderCloudAccountSettings() {
+  const row = document.querySelector("#deleteAccountRow");
+  const button = document.querySelector("#deleteAccountBtn");
+  if (!row || !button) return;
+  const available = !!(window.SquadCloud && SquadCloud.enabled);
+  row.classList.toggle("hidden", !available);
+  if (!available) return;
+  const label = row.querySelector(".settings-row-label");
+  const lifecycle = cloudAccountState();
+  const view = lifecycle === "pending_delete"
+    ? { label: "Account Deletion Pending", action: "Retry", danger: false }
+    : lifecycle === "opted_out"
+      ? { label: "Cloud & Partner Rewards Off", action: "Turn On", danger: false }
+      : { label: "Delete My Account", action: "Delete", danger: true };
+  if (label) label.textContent = view.label;
+  button.textContent = view.action;
+  button.classList.toggle("danger", view.danger);
+}
+
+let cloudAccountOperationGeneration = 0;
+
+function cloudAccountActionCurrent(generation, expectedLifecycle, lease) {
+  if (generation !== cloudAccountOperationGeneration ||
+      cloudAccountState() !== expectedLifecycle) return false;
+  if (lease === undefined) return true;
+  if (!lease || !(window.SquadCloud &&
+      typeof SquadCloud.isAccountLeaseCurrent === "function")) return false;
+  try { return SquadCloud.isAccountLeaseCurrent(lease) === true; }
+  catch (e) { return false; }
+}
+
+// Active account actions bind themselves to the exact anonymous identity, not
+// merely the word "active". This prevents an old confirmation or Reward sync
+// from acting on an account that was deleted and recreated while it waited.
+async function captureCloudAccountActionLease(generation) {
+  let supported = false;
+  try {
+    supported = !!(window.SquadCloud &&
+      typeof SquadCloud.client === "function" &&
+      typeof SquadCloud.captureAccountLease === "function" &&
+      typeof SquadCloud.isAccountLeaseCurrent === "function");
+  } catch (e) {}
+  if (!supported) return null;
+
+  let client;
+  try { client = await Promise.resolve(SquadCloud.client()); }
+  catch (e) { return null; }
+  if (!cloudAccountActionCurrent(generation, "active")) return null;
+
+  let lease;
+  try { lease = SquadCloud.captureAccountLease(client); }
+  catch (e) { lease = null; }
+  return cloudAccountActionCurrent(generation, "active", lease) ? lease : null;
+}
+
+function captureCloudDeletionIntent() {
+  try {
+    if (!(window.SquadCloud &&
+        typeof SquadCloud.captureDeletionIntent === "function" &&
+        typeof SquadCloud.isDeletionIntentCurrent === "function")) return null;
+    return SquadCloud.captureDeletionIntent() || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function cloudDeletionIntentCurrent(intent) {
+  if (!intent) return false;
+  try {
+    return !!(window.SquadCloud &&
+      typeof SquadCloud.isDeletionIntentCurrent === "function" &&
+      SquadCloud.isDeletionIntentCurrent(intent) === true);
+  } catch (e) {
+    return false;
+  }
+}
+
+function explainUnverifiedCloudDeletion(generation) {
+  if (generation !== cloudAccountOperationGeneration) return;
+  const lifecycleCopy = cloudAccountRewardsOffCopy();
+  if (lifecycleCopy) {
+    showToast(lifecycleCopy);
+    return;
+  }
+  showToast("Couldn’t verify that this is still the same cloud account, so nothing was deleted. Try again.");
+}
+
+async function resetRewardAfterAccountDeletion() {
+  if (!(window.RewardV2 && typeof RewardV2.resetAfterAccountDeletion === "function")) return false;
+  try {
+    return (await Promise.resolve(RewardV2.resetAfterAccountDeletion())) === true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function initializeCloudAccount() {
+  renderCloudAccountSettings();
+  if (!(window.SquadCloud && SquadCloud.enabled) || cloudAccountState() !== "active") return false;
+  try { return await Promise.resolve(SquadCloud.init()); } catch (e) { return false; }
+}
+
+async function handleCloudAccountAction() {
+  const generation = ++cloudAccountOperationGeneration;
+  const button = document.querySelector("#deleteAccountBtn");
+  if (button) button.disabled = true;
+
+  try {
+    if (!(window.SquadCloud && SquadCloud.enabled)) return false;
+    const lifecycle = cloudAccountState();
+
+    if (lifecycle === "opted_out") {
+      const consented = await askConfirm(
+        "This creates a new anonymous cloud account. Study Squad and partner rewards will turn back on.",
+        { title: "Turn cloud features back on?", eyebrow: "Study Squad", confirmLabel: "Turn On" }
+      );
+      if (!cloudAccountActionCurrent(generation, "opted_out")) return false;
+      if (!consented) return false;
+
+      if (!cloudAccountActionCurrent(generation, "opted_out")) return false;
+      const cleaned = await resetRewardAfterAccountDeletion();
+      if (!cloudAccountActionCurrent(generation, "opted_out")) return false;
+      if (!cleaned) {
+        if (!cloudAccountActionCurrent(generation, "opted_out")) return false;
+        showToast("Cloud and partner rewards stay off because local reward cleanup didn’t finish. Tap Turn On to try again.");
+        if (!cloudAccountActionCurrent(generation, "opted_out")) return false;
+        return false;
+      }
+
+      if (!cloudAccountActionCurrent(generation, "opted_out")) return false;
+      let enabled = false;
+      try { enabled = (await Promise.resolve(SquadCloud.enableAccountCreation())) === true; }
+      catch (e) {}
+      if (generation !== cloudAccountOperationGeneration) return false;
+      if (!cloudAccountActionCurrent(generation, "active")) {
+        const unchanged = cloudAccountActionCurrent(generation, "opted_out");
+        if (unchanged) showToast("Cloud and partner rewards are still off. Try Turn On again.");
+        if (unchanged && !cloudAccountActionCurrent(generation, "opted_out")) return false;
+        return false;
+      }
+
+      const lease = await captureCloudAccountActionLease(generation);
+      if (!cloudAccountActionCurrent(generation, "active")) return false;
+      if (lease === null || !cloudAccountActionCurrent(generation, "active", lease)) return false;
+
+      let rewardInitialized = true;
+      if (window.RewardV2 && RewardV2.enabled && typeof RewardV2.init === "function") {
+        if (!cloudAccountActionCurrent(generation, "active", lease)) return false;
+        try { rewardInitialized = (await Promise.resolve(RewardV2.init())) === true; }
+        catch (e) { rewardInitialized = false; }
+        if (!cloudAccountActionCurrent(generation, "active", lease)) return false;
+      }
+
+      if (!cloudAccountActionCurrent(generation, "active", lease)) return false;
+      showToast(enabled && rewardInitialized
+        ? "Study Squad and partner rewards are back on."
+        : "Cloud features are on, but couldn’t sync yet. Check your connection.");
+      if (!cloudAccountActionCurrent(generation, "active", lease)) return false;
+      renderSquad();
+      if (!cloudAccountActionCurrent(generation, "active", lease)) return false;
+      return true;
+    }
+
+    let deletionRequest;
+    if (lifecycle === "active") {
+      const deletionIntent = captureCloudDeletionIntent();
+      if (!deletionIntent) {
+        explainUnverifiedCloudDeletion(generation);
+        return false;
+      }
+      const confirmed = await askConfirm(
+        "The server erases your cloud profile, friends, verified focus history and minutes, held partner rewards, and active redemption codes. Your on-device drinks, pearls, and collection remain.",
+        { title: "Delete your cloud account?", eyebrow: "Study Squad", confirmLabel: "Delete account", danger: true }
+      );
+      if (!cloudAccountActionCurrent(generation, "active") ||
+          !cloudDeletionIntentCurrent(deletionIntent)) {
+        explainUnverifiedCloudDeletion(generation);
+        return false;
+      }
+      if (!confirmed) return false;
+      // deleteAccount synchronously persists pending_delete before returning its
+      // network promise. Keep it directly after the identity-intent check so an
+      // unavailable client lookup can never strand a confirmed deletion.
+      try { deletionRequest = SquadCloud.deleteAccount(); }
+      catch (e) { deletionRequest = Promise.resolve({ ok: false, deleted: false, reason: "delete_ambiguous" }); }
+    } else if (lifecycle !== "pending_delete") {
+      return false;
+    } else {
+      try { deletionRequest = SquadCloud.deleteAccount(); }
+      catch (e) { deletionRequest = Promise.resolve({ ok: false, deleted: false, reason: "delete_ambiguous" }); }
+    }
+
+    let result;
+    try { result = await Promise.resolve(deletionRequest); }
+    catch (e) { result = { ok: false, deleted: false, reason: "delete_ambiguous" }; }
+    if (generation !== cloudAccountOperationGeneration) return false;
+
+    const deleted = !!(result && result.deleted);
+    const nextLifecycle = cloudAccountState();
+    const compatible = deleted
+      ? nextLifecycle === "pending_delete" || nextLifecycle === "opted_out"
+      : lifecycle === "active"
+        ? nextLifecycle === "active" || nextLifecycle === "pending_delete"
+        : nextLifecycle === "pending_delete";
+    if (!compatible || !cloudAccountActionCurrent(generation, nextLifecycle)) return false;
+
+    let cleaned = true;
+    if (deleted) {
+      if (!cloudAccountActionCurrent(generation, nextLifecycle)) return false;
+      cleaned = await resetRewardAfterAccountDeletion();
+      if (!cloudAccountActionCurrent(generation, nextLifecycle)) return false;
+    }
+
+    if (!cloudAccountActionCurrent(generation, nextLifecycle)) return false;
+    if (nextLifecycle === "pending_delete") {
+      showToast("Account deletion is still pending. Cloud and partner rewards are off. Retry when connected.");
+    } else if (nextLifecycle === "opted_out" && deleted && !cleaned) {
+      showToast("Cloud data was deleted, but local reward cleanup didn’t finish. Cloud and partner rewards stay off; tap Turn On to retry cleanup.");
+    } else if (nextLifecycle === "opted_out") {
+      showToast(result && result.ok
+        ? "Cloud account deleted. Cloud and partner rewards are off on this device until you turn them on."
+        : "Cloud data was deleted. Cloud and partner rewards are off on this device until you turn them on.");
+    } else {
+      showToast("Couldn’t delete your cloud account. Try again when you’re online.");
+    }
+    if (!cloudAccountActionCurrent(generation, nextLifecycle)) return false;
+    renderSquad();
+    if (!cloudAccountActionCurrent(generation, nextLifecycle)) return false;
+    return !!(result && result.ok && cleaned);
+  } finally {
+    // Only the newest operation owns this shared button and recovery row.
+    if (generation === cloudAccountOperationGeneration) {
+      if (button) button.disabled = false;
+      renderCloudAccountSettings();
+    }
+  }
+}
+
 function rewardsInHand() {
-  if (window.RewardV2 && RewardV2.enabled && RewardV2.ready) return RewardV2.available().length;
+  if (rewardServerMode()) {
+    // Enabled-but-unsynced is UNKNOWN, not permission to consult the editable
+    // v1 ledger. Failing closed here keeps every downstream reward surface safe.
+    return rewardServerReady() ? RewardV2.available().length : 0;
+  }
   return earnedPerkCount();
 }
 
 // { bar, done, left } in minutes, whoever is answering.
 function rewardProgressNow() {
-  if (window.RewardV2 && RewardV2.enabled && RewardV2.ready) {
+  if (rewardServerMode()) {
+    if (!rewardServerReady()) return null;
     const p = RewardV2.progress();
+    if (p && p.policy && p.policy.active === false) return null;
     if (p) return { bar: p.bar, done: p.done, left: p.left };
+    return null;
   }
   return perkProgress();
 }
@@ -4800,7 +5146,46 @@ function rewardProgressNow() {
 // that proves nothing, v2 shows a short server-issued code that the shop can
 // actually verify.
 function rewardServerMode() {
-  return !!(window.RewardV2 && RewardV2.enabled && RewardV2.ready);
+  // Authority is selected by the native V2 flag, not by current connectivity.
+  // If sync is down, V2 remains authoritative and exposes nothing spendable.
+  return !!(window.RewardV2 && RewardV2.enabled);
+}
+
+function rewardServerReady() {
+  return !!(rewardServerMode() && RewardV2.ready);
+}
+
+function serverRewardCompletionSummary(delivered) {
+  const accountOff = cloudAccountRewardsOffCopy();
+  if (accountOff) {
+    return {
+      partner: `${accountOff} Your drink and pearls are still saved.`,
+      partnerNext: true,
+    };
+  }
+  if (!delivered || !rewardServerReady()) {
+    return {
+      partner: "Partner rewards couldn’t sync. Your drink and pearls are still saved.",
+      partnerNext: true,
+    };
+  }
+  const have = rewardsInHand();
+  if (have > 0) {
+    return {
+      partner: `🌟 ${have} partner reward${have !== 1 ? "s" : ""} ready. Check the Boba Map`,
+      partnerNext: false,
+    };
+  }
+  const progress = rewardProgressNow();
+  return progress
+    ? {
+        partner: `${durationLabel(progress.left)} of verified focus until your next partner reward`,
+        partnerNext: true,
+      }
+    : {
+        partner: "Partner reward progress isn’t available right now.",
+        partnerNext: true,
+      };
 }
 
 // Focus minutes banked toward the NEXT perk, and what is still owed. Drives the
@@ -5308,7 +5693,12 @@ function renderPerkBanner(nearbyPartners) {
   const earned = rewardsInHand();
   const near = (nearbyPartners || []).length;
   let msg = "";
-  if (earned > 0 && near > 0) {
+  const accountOff = cloudAccountRewardsOffCopy();
+  if (accountOff) {
+    msg = accountOff;
+  } else if (rewardServerMode() && !rewardServerReady()) {
+    msg = "Rewards couldn’t sync. Check your connection before using a partner offer.";
+  } else if (earned > 0 && near > 0) {
     msg = near === 1
       ? `🌟 ${earned} reward${earned !== 1 ? "s" : ""} ready. ${nearbyPartners[0].name} gives ${nearbyPartners[0].perk.toLowerCase()}.`
       : `🌟 ${earned} reward${earned !== 1 ? "s" : ""} ready at ${near} partner shops near you.`;
@@ -5319,7 +5709,10 @@ function renderPerkBanner(nearbyPartners) {
   } else if (near > 0) {
     // Cumulative, so speak to how far off they actually are rather than quoting
     // the full bar at someone who is most of the way there.
-    msg = `${nearbyPartners[0].name} is a partner shop. ${durationLabel(rewardProgressNow().left)} more focus to earn ${nearbyPartners[0].perk.toLowerCase()}.`;
+    const progress = rewardProgressNow();
+    msg = progress
+      ? `${nearbyPartners[0].name} is a partner shop. ${durationLabel(progress.left)} more focus to earn ${nearbyPartners[0].perk.toLowerCase()}.`
+      : "Reward progress isn’t available right now. Try again in a moment.";
   }
   el.textContent = msg;
   el.classList.toggle("hidden", !msg);
@@ -5385,6 +5778,93 @@ function renderShopList(items) {
 let redeemPartner = null;
 let redeemClock = null;
 let redeemCode = null;      // server-issued handoff code, server mode only
+let redeemVerifiedBar = null;
+let redeemGeneration = 0;
+let redeemShareGeneration = 0;
+let redeemContext = null;
+
+function redeemPartnerSnapshot(partner) {
+  return Object.freeze({
+    id: partner && partner.id || null,
+    name: partner && partner.name || "",
+    address: partner && partner.address || "",
+    perk: partner && partner.perk || "",
+  });
+}
+
+function redeemGenerationCurrent(generation, partnerId) {
+  return generation === redeemGeneration && !!redeemContext &&
+    redeemContext.generation === generation &&
+    redeemContext.partner.id === partnerId &&
+    !!(els.redeemDialog && els.redeemDialog.open);
+}
+
+function redeemAccountLeaseCurrent(lease) {
+  if (!rewardServerMode()) return true;
+  if (!lease || cloudAccountState() !== "active") return false;
+  try {
+    return !!(window.SquadCloud &&
+      typeof SquadCloud.isAccountLeaseCurrent === "function" &&
+      SquadCloud.isAccountLeaseCurrent(lease) === true);
+  } catch (e) {
+    return false;
+  }
+}
+
+function redeemUnavailableCopy() {
+  return cloudAccountRewardsOffCopy() ||
+    "Your cloud account changed or couldn’t be verified. Close this and open it again.";
+}
+
+function retireRedeemView(generation, partnerId, copy) {
+  if (!redeemGenerationCurrent(generation, partnerId)) return false;
+  redeemCode = null;
+  redeemVerifiedBar = null;
+  redeemContext = Object.freeze({
+    ...redeemContext,
+    bar: null,
+    code: null,
+    accountLease: null,
+  });
+  if (els.redeemCode) {
+    els.redeemCode.textContent = "";
+    els.redeemCode.classList.add("hidden");
+  }
+  if (els.redeemConfirmBtn) els.redeemConfirmBtn.disabled = true;
+  els.redeemNote.textContent = copy || redeemUnavailableCopy();
+  els.redeemDialog.classList.add("not-ready");
+  return true;
+}
+
+function redeemViewCurrent(generation, partnerId, lease) {
+  if (!redeemGenerationCurrent(generation, partnerId)) return false;
+  const expectedLease = lease === undefined ? redeemContext.accountLease : lease;
+  if (redeemAccountLeaseCurrent(expectedLease)) return true;
+  retireRedeemView(generation, partnerId);
+  return false;
+}
+
+function captureRedeemAccountLease() {
+  let supported = false;
+  try {
+    supported = !!(window.SquadCloud &&
+      typeof SquadCloud.client === "function" &&
+      typeof SquadCloud.captureAccountLease === "function" &&
+      typeof SquadCloud.isAccountLeaseCurrent === "function");
+  } catch (e) {}
+  if (!supported) return Promise.resolve(null);
+
+  let clientRequest;
+  try { clientRequest = SquadCloud.client(); }
+  catch (e) { return Promise.resolve(null); }
+  return Promise.resolve(clientRequest).then((client) => {
+    if (!client || cloudAccountState() !== "active") return null;
+    let lease;
+    try { lease = SquadCloud.captureAccountLease(client); }
+    catch (e) { lease = null; }
+    return redeemAccountLeaseCurrent(lease) ? lease : null;
+  }).catch(() => null);
+}
 
 // Plain English for every refusal the server can return. A student reading
 // "failed_offer_changed" at a counter learns nothing and cannot act; each of
@@ -5399,30 +5879,52 @@ function redeemFailCopy(reason) {
     case "failed_offer_changed":    return "This shop has changed its offer. Open this again for the new one.";
     case "failed_outside_window":   return "This shop's reward is not available at this time of day.";
     case "failed_capped":           return "This shop has reached its limit for now.";
-    case "offline":                 return "Could not reach the server. Try again with a signal.";
+    case "offline":                 return "Could not reach the server. Close this and open it again when you have a signal.";
     default:                        return "Could not get a code. Try again in a moment.";
   }
 }
 
 function openRedeem(partner) {
-  redeemPartner = partner;
+  const generation = ++redeemGeneration;
+  const shareGeneration = ++redeemShareGeneration;
+  const cachedPartner = redeemPartnerSnapshot(partner);
+  redeemPartner = cachedPartner;
+  redeemVerifiedBar = null;
+  redeemContext = Object.freeze({
+    generation,
+    shareGeneration,
+    partner: cachedPartner,
+    heldId: null,
+    policyId: null,
+    bar: null,
+    code: null,
+    accountLease: null,
+  });
   playSfx("tap");
   // partner_id only. The shop is not private (it is on a public map), but the
   // student's location is, so no coordinate is ever attached.
-  trk("redemption_started", { partner_id: partner.id || null, offer_viewed: true });
-  els.redeemShop.textContent   = partner.name;
-  els.redeemAddress.textContent = partner.address || "";
-  els.redeemPerk.textContent   = partner.perk;
+  trk("redemption_started", { partner_id: cachedPartner.id, offer_viewed: true });
+  els.redeemShop.textContent   = cachedPartner.name;
+  els.redeemAddress.textContent = cachedPartner.address;
+  els.redeemPerk.textContent   = cachedPartner.perk;
 
   const have = rewardsInHand();
-  const ready = have > 0;
+  const accountOff = cloudAccountRewardsOffCopy();
+  const serverUnavailable = rewardServerMode() && !rewardServerReady();
+  const ready = !accountOff && !serverUnavailable && have > 0;
   const prog = rewardProgressNow();
   els.redeemConfirmBtn.disabled = !ready;
   // Not-ready shows how much focus is LEFT, not the whole bar. Someone three and
   // a half hours in should see thirty minutes to go, not "focus for 4 hrs".
-  els.redeemNote.textContent = ready
-    ? `You have ${have} reward${have !== 1 ? "s" : ""} saved.`
-    : `${durationLabel(prog.left)} of focus to go.`;
+  els.redeemNote.textContent = accountOff
+    ? accountOff
+    : serverUnavailable
+      ? "Couldn’t verify your rewards. Check your connection and try again."
+    : ready
+      ? `You have ${have} reward${have !== 1 ? "s" : ""} saved.`
+      : prog
+        ? `${durationLabel(prog.left)} of focus to go.`
+        : "Reward progress isn’t available right now. Try again in a moment.";
   els.redeemDialog.classList.toggle("not-ready", !ready);
 
   // Server mode: ask for a short code the shop can actually verify. Everything
@@ -5434,42 +5936,101 @@ function openRedeem(partner) {
     els.redeemCode.classList.add("hidden");
   }
   if (rewardServerMode() && ready) {
-    const held = RewardV2.rewardFor(partner.id);
+    const held = RewardV2.rewardFor(cachedPartner.id);
     if (!held) {
       els.redeemNote.textContent = "No reward for this shop yet.";
       els.redeemConfirmBtn.disabled = true;
     } else {
+      const requestContext = Object.freeze({
+        generation,
+        shareGeneration,
+        partner: cachedPartner,
+        heldId: held.id,
+        policyId: held.policy_id,
+        bar: null,
+        code: null,
+        accountLease: null,
+      });
+      redeemContext = requestContext;
       els.redeemNote.textContent = "Getting your code…";
       els.redeemConfirmBtn.disabled = true;
-      Promise.resolve(RewardV2.openRedemption(held.id, partner.id)).then((res) => {
-        // The sheet may have been closed, or reopened on a different shop, while
-        // the request was in flight. Dropping a stale response matters here:
-        // showing shop A's code under shop B's name is how a cashier hands over
-        // something their shop never agreed to.
-        if (!els.redeemDialog.open || redeemPartner !== partner) return;
-        if (res && res.ok) {
-          redeemCode = res.code;
-          if (els.redeemCode) {
-            els.redeemCode.textContent = res.code;
-            els.redeemCode.classList.remove("hidden");
-          }
-          els.redeemNote.textContent = "Show this code to the cashier.";
-          els.redeemConfirmBtn.disabled = false;
-        } else {
-          els.redeemNote.textContent = redeemFailCopy(res && res.reason);
-          els.redeemDialog.classList.add("not-ready");
+      captureRedeemAccountLease().then((accountLease) => {
+        if (!redeemGenerationCurrent(generation, cachedPartner.id)) return;
+        if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
+        const leasedContext = Object.freeze({
+          ...requestContext,
+          accountLease,
+        });
+        redeemContext = leasedContext;
+        if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
+
+        let opening;
+        try { opening = RewardV2.openRedemption(held.id, cachedPartner.id); }
+        catch (e) {
+          if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
+          retireRedeemView(generation, cachedPartner.id, redeemFailCopy("offline"));
+          return;
         }
+        return Promise.resolve(opening).then((res) => {
+          // Both the dialog and the exact anonymous account must still be the
+          // ones that dispatched this request before any response can publish.
+          if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
+          if (res && res.ok) {
+            const responseBar = Number.isInteger(res.bar_minutes) &&
+              res.bar_minutes >= 15 && res.bar_minutes <= 1440
+              ? res.bar_minutes : null;
+            const authoritativePartner = redeemPartnerSnapshot({
+              ...cachedPartner,
+              name: res.partner_name,
+              perk: res.offer_text,
+            });
+            const openedContext = Object.freeze({
+              ...leasedContext,
+              partner: authoritativePartner,
+              code: res.code,
+              bar: responseBar,
+            });
+            if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
+            redeemContext = openedContext;
+            redeemPartner = authoritativePartner;
+            redeemCode = res.code;
+            redeemVerifiedBar = responseBar;
+            if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
+            els.redeemShop.textContent = res.partner_name;
+            els.redeemPerk.textContent = res.offer_text;
+            if (els.redeemCode) {
+              els.redeemCode.textContent = res.code;
+              els.redeemCode.classList.remove("hidden");
+            }
+            els.redeemNote.textContent = "Show this code to the cashier.";
+            els.redeemConfirmBtn.disabled = false;
+          } else {
+            retireRedeemView(generation, cachedPartner.id, redeemFailCopy(res && res.reason));
+          }
+        }).catch(() => {
+          if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
+          retireRedeemView(generation, cachedPartner.id, redeemFailCopy("offline"));
+        });
       }).catch(() => {
-        if (!els.redeemDialog.open || redeemPartner !== partner) return;
-        els.redeemNote.textContent = redeemFailCopy("offline");
-        els.redeemDialog.classList.add("not-ready");
+        retireRedeemView(generation, cachedPartner.id);
       });
     }
   }
 
+  if (typeof els.redeemDialog.showModal === "function") els.redeemDialog.showModal();
+  else showToast(`${cachedPartner.name}: ${cachedPartner.perk}`);
+
   // Tick every second while the card is open. Cleared on close so a backgrounded
-  // sheet is not holding a timer forever.
+  // sheet is not holding a timer forever. The generation guard also makes an
+  // already-queued old tick harmless after close/reopen.
   const tick = () => {
+    if (!redeemGenerationCurrent(generation, cachedPartner.id)) return;
+    // Lease acquisition itself is asynchronous, so loading has no lease yet.
+    // Once a code has been published, its context always carries one and every
+    // tick actively retires the code if that exact account stops being current.
+    const accountLease = redeemContext && redeemContext.accountLease;
+    if (accountLease &&
+        !redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
     els.redeemStamp.textContent = new Date().toLocaleString(undefined, {
       weekday: "short", month: "short", day: "numeric",
       hour: "numeric", minute: "2-digit", second: "2-digit"
@@ -5478,15 +6039,16 @@ function openRedeem(partner) {
   tick();
   clearInterval(redeemClock);
   redeemClock = setInterval(tick, 1000);
-
-  if (typeof els.redeemDialog.showModal === "function") els.redeemDialog.showModal();
-  else showToast(`${partner.name}: ${partner.perk}`);
 }
 
 function closeRedeem() {
+  redeemGeneration++;
   clearInterval(redeemClock);
   redeemClock = null;
   redeemCode = null;
+  redeemVerifiedBar = null;
+  redeemPartner = null;
+  redeemContext = null;
 }
 
 function confirmRedeem() {
@@ -5497,18 +6059,57 @@ function confirmRedeem() {
   // action rather than a student self-declaration. This is the fallback for a
   // shop that would rather the student tap it, and it hits the identical RPC.
   if (rewardServerMode()) {
-    if (!redeemCode) return;
+    const current = redeemContext;
+    if (!current) return;
+    if (!redeemViewCurrent(current.generation, current.partner.id)) return;
+    if (!redeemCode || current.code !== redeemCode) return;
+    const spend = Object.freeze({
+      generation: current.generation,
+      shareGeneration: current.shareGeneration,
+      partnerId: current.partner.id,
+      partnerName: current.partner.name,
+      offerText: current.partner.perk,
+      heldId: current.heldId,
+      policyId: current.policyId,
+      bar: current.bar,
+      code: current.code,
+      accountLease: current.accountLease,
+    });
     const btn = els.redeemConfirmBtn;
     if (btn) btn.disabled = true;
-    const code = redeemCode;
     redeemCode = null;                 // a double tap cannot fire a second spend
-    Promise.resolve(RewardV2.redeemByCode(code)).then((res) => {
+    let spending;
+    try { spending = RewardV2.redeemByCode(spend.code); }
+    catch (e) {
+      retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy("offline"));
+      return;
+    }
+    Promise.resolve(spending).then((res) => {
+      if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
       if (res && res.ok) {
-        trk("redemption_completed", { partner_id: redeemPartner.id || null });
+        const completed = Object.freeze({
+          shareGeneration: spend.shareGeneration,
+          partnerId: spend.partnerId,
+          minutes: spend.bar,
+          shopName: res.partner_name || spend.partnerName,
+          offerText: res.offer_text || spend.offerText,
+          accountLease: spend.accountLease,
+        });
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
+        trk("redemption_completed", { partner_id: spend.partnerId });
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
         playSfx("success");
-        showToast(`Used at ${res.partner_name || redeemPartner.name}. Enjoy 🧋`);
-        try { els.redeemDialog.close(); } catch (e) {}
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
+        showToast(`Used at ${completed.shopName}. Enjoy 🧋`);
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
         renderAll();
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
+        try { els.redeemDialog.close(); } catch (e) { return; }
+        if (!(Number.isFinite(completed.minutes) && completed.minutes > 0) ||
+            completed.shareGeneration !== redeemShareGeneration ||
+            !redeemAccountLeaseCurrent(completed.accountLease)) return;
+        const shareCurrent = () => completed.shareGeneration === redeemShareGeneration &&
+          redeemAccountLeaseCurrent(completed.accountLease);
         // Offer the card for the moment that just happened. Naming the shop is
         // safe here and only here: the user has just stood in it. The code is
         // never on the card.
@@ -5517,23 +6118,25 @@ function confirmRedeem() {
           { eyebrow: "Nice one", title: "Share it?",
             confirmLabel: "Make my card", cancelLabel: "Not now" }
         ).then((yes) => {
-          if (yes) shareRewardEarned({
-            minutes: rewardProgressNow().bar,
-            shopName: res.partner_name || redeemPartner.name,
-            offerText: res.offer_text || redeemPartner.perk,
-            redeemed: true,
-          });
+          if (yes && shareCurrent()) {
+            shareRewardEarned({
+              minutes: completed.minutes,
+              shopName: completed.shopName,
+              offerText: completed.offerText,
+              redeemed: true,
+            }, shareCurrent);
+          }
         }).catch(() => {});
       } else {
-        trk("redemption_failed", { partner_id: redeemPartner.id || null,
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
+        trk("redemption_failed", { partner_id: spend.partnerId,
                                    reason: (res && res.reason) || "unknown" });
-        els.redeemNote.textContent = redeemFailCopy(res && res.reason);
-        els.redeemDialog.classList.add("not-ready");
-        if (els.redeemCode) els.redeemCode.classList.add("hidden");
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
+        retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy(res && res.reason));
       }
     }).catch(() => {
-      els.redeemNote.textContent = redeemFailCopy("offline");
-      if (btn) btn.disabled = false;
+      if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
+      retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy("offline"));
     });
     return;
   }
@@ -6715,7 +7318,7 @@ function wireEvents() {
 
   // ── Bottom bar sheets ────────────────────────────────────────────────────
   els.shopBtn.addEventListener("click",       () => { playSfx("open"); openSheet("shopSheet"); });
-  els.settingsBtn.addEventListener("click",   () => { playSfx("open"); renderNameRow(); openSheet("settingsSheet"); });
+  els.settingsBtn.addEventListener("click",   () => { playSfx("open"); renderNameRow(); renderCloudAccountSettings(); openSheet("settingsSheet"); });
   els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
   if (els.friendsBtn) els.friendsBtn.addEventListener("click", () => { playSfx("open"); openFriends(); });
   if (els.questsBtn) els.questsBtn.addEventListener("click", () => { playSfx("open"); openQuests(); });
@@ -6745,12 +7348,7 @@ function wireEvents() {
     squadInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doAdd(); });
   }
   const deleteAccountBtn = document.querySelector("#deleteAccountBtn");
-  if (deleteAccountBtn) deleteAccountBtn.addEventListener("click", async () => {
-    if (!squadCloudLive() && !(window.SquadCloud && SquadCloud.enabled)) return;
-    if (!(await askConfirm("This removes your profile, friends and stats from the server. Your on-device progress stays on this phone.",
-          { title: "Delete your cloud account?", eyebrow: "Study Squad", confirmLabel: "Delete account", danger: true }))) return;
-    SquadCloud.deleteAccount().then(() => { showToast("Cloud account deleted."); renderSquad(); });
-  });
+  if (deleteAccountBtn) deleteAccountBtn.addEventListener("click", handleCloudAccountAction);
 
   // Shortcuts: tap the drink name (now in the timer card) to Customize,
   // tap the pearl chip for the Shop.
@@ -7116,19 +7714,19 @@ saveState();   // self-heal: rewrite any value readJSON had to repair from corru
 wireEvents();
 
 // Live Study Squad backend (only if config.js has Supabase keys; otherwise no-op).
-if (window.SquadCloud && SquadCloud.enabled) {
-  const delRow = document.querySelector("#deleteAccountRow");
-  if (delRow) delRow.classList.remove("hidden");   // account deletion is reachable when cloud is on
-  SquadCloud.init();
-}
+// Keep the promise so Reward V2 cannot race a second anonymous sign-up on cold
+// boot. SquadCloud also memoizes auth internally; this ordering makes the shared
+// identity boundary explicit at the app entry point.
+let cloudInit = Promise.resolve(false);
+if (window.SquadCloud && SquadCloud.enabled) cloudInit = initializeCloudAccount();
 
-// Server-backed merchant rewards (reward-v2.js). Flagged OFF in config.js, so this
-// is currently a guard that never fires. Started AFTER SquadCloud.init() on purpose:
+// Server-backed merchant rewards (reward-v2.js). Enabled only in the native shell.
+// Started AFTER SquadCloud.init() on purpose:
 // both share one anonymous account, and letting Squad establish it first means
 // RewardV2 restores that session rather than racing to create a second one.
 // A failure here must never reach the app, hence the swallow.
 if (window.RewardV2 && RewardV2.enabled) {
-  Promise.resolve(RewardV2.init()).catch(() => {});
+  cloudInit.then(() => cloudAccountState() === "active" ? RewardV2.init() : false).catch(() => {});
 }
 
 // ── Notification settings ────────────────────────────────────────────────────
@@ -7225,7 +7823,9 @@ checkBadges(false);   // baseline already-earned badges silently (no toast spam 
 // with its time credited (see loadState). If it actually finished while away, bank
 // it now so the drink + reward aren't lost.
 if (pendingResume && state.phase === "focus" && progress() >= 1) {
-  completeSession();
+  // The local drink is real, but process downtime cannot prove merchant-reward
+  // focus. Bank the drink and explicitly close the server session at zero.
+  completeSession({ abandonReward: true });
 }
 
 // First-time visitors get the welcome tour

@@ -5,10 +5,18 @@ dist/
 build/
 *.log
 
-# Capacitor / iOS build artifacts (generated locally by `npx cap add ios`)
+# Generated web and iOS build artifacts. Hand-authored Xcode sources,
+# entitlements, extension plists, project/workspace metadata and lockfiles stay
+# tracked so a release commit fully identifies the native archive.
 www/
-ios/
-package-lock.json
+ios/App/Pods/
+ios/App/App/public/
+ios/App/App/config.xml
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+ios/App/.DS_Store
+ios/capacitor-cordova-ios-plugins/
 
 # Xcode IPA exports land in native-ios/<scheme> <date>/ and are ~50MB each
 native-ios/*/*.ipa
