@@ -877,13 +877,15 @@ function themeFlavorName() {
 // The colour at the very top of each scene (the "sky"), so the phone status-bar
 // area can be tinted to match — no white gap above the app.
 const THEME_SKY = {
-  cozy:   "#f3e4cf",
-  night:  "#2e3b57",
-  sakura: "#f6e0e6",
-  autumn: "#f0dcb8",
-  rainy:  "#d6dee6",
-  winter: "#ece3d4",
-  galaxy: "#efe4d2"
+  cozy:    "#f3e4cf",
+  night:   "#2e3b57",
+  sakura:  "#f6e0e6",
+  autumn:  "#f0dcb8",
+  rainy:   "#d6dee6",
+  winter:  "#ece3d4",
+  galaxy:  "#efe4d2",
+  library: "#efe0c4",
+  sunset:  "#f7d7bd"
 };
 function updateThemeColor() {
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -2145,7 +2147,10 @@ const IAP = {
       if (revoked) {
         for (const key of ["skin", "shopTheme"]) {
           const cur = SHOP_ITEMS.find((i) => i.type === key && i.value === state[key]);
-          if (cur && cur.premium && !state.owned.includes(cur.id)) state[key] = "";
+          // Fall back to the DEFAULT, not "". "" is fine for skin (base) but a
+          // blank shopTheme matches no .scene[data-theme="…"] rule and renders
+          // the room with NO background until the user re-equips one.
+          if (cur && cur.premium && !state.owned.includes(cur.id)) state[key] = DEFAULTS[key];
         }
       }
       if (granted || revoked) {
@@ -3369,6 +3374,7 @@ function showPremiumPreview(title, price) {
 function stopGame() {
   if (game.active) {
     bankCatchScore();   // early exit (quit / break ended) keeps pearls earned so far
+    creditCatchQuests();   // ...and the quest credit for what was caught
     cancelAnimationFrame(game.animId);
     game.active = false;
     for (const p of game.pearls) p.el.remove();
@@ -3515,6 +3521,7 @@ function startPearlGame() {
   game.caught = 0;
   game.combo = 0;
   game.bestCombo = 0;
+  game.questCredited = false;   // credited once per run, on finish or early quit
   game.timeLeft = CATCH_DURATION;
   game.elapsed = 0;
   game.lastTime = null;
@@ -3549,6 +3556,16 @@ function bankCatchScore() {
   return earned;
 }
 
+// Credit the catch quests exactly once per run — on a natural finish OR an early
+// quit (stopGame). Guarded so it can never double-credit, which would farm quest
+// pearls (the economy must never allow that).
+function creditCatchQuests() {
+  if (game.questCredited) return;
+  game.questCredited = true;
+  bumpQuest("catchPearls", game.caught || 0);
+  bumpQuest("catchCombo", game.bestCombo || 0);
+}
+
 function endPearlGame() {
   cancelAnimationFrame(game.animId);
   game.active = false;
@@ -3560,9 +3577,7 @@ function endPearlGame() {
   const earned = bankCatchScore();
   renderAll();
   if (earned > 0) { checkBadges(true); pearlsWonFx(earned); }   // "Break Champ"
-  // Daily Quests: credit pearls caught + best combo this run
-  bumpQuest("catchPearls", game.caught);
-  bumpQuest("catchCombo", game.bestCombo);
+  creditCatchQuests();   // pearls caught + best combo (once per run)
   const capNote = game.score > CATCH_CAP ? ` (daily max +${CATCH_CAP})` : "";
   const grade = game.bestCombo >= 8 ? "Boba master! 🏆"
               : game.bestCombo >= 5 ? "Smooth catching! ✨"
@@ -5354,11 +5369,18 @@ function curatedNear(lat, lng, radius) {
 // has (same-ish name, or anything within ~120 m — the shop just got mapped).
 function mergeCurated(shops, lat, lng, radius) {
   const out = shops.slice();
+  const osmCount = shops.length;   // curated shops are appended after these
   for (const c of curatedNear(lat, lng, radius)) {
     // Dense blocks (Collegetown!) have distinct shops <120m apart, so bare
     // proximity must be TIGHT; same-name matching gets a looser radius.
-    const dup = out.some(s => {
+    const dup = out.some((s, idx) => {
       const d = haversine(s.lat, s.lng, c.lat, c.lng);
+      // Two DIFFERENT curated shops can share a building (Drincup + Cloud Nine at
+      // the same 1221 Kapiolani coords). Never drop one curated shop against
+      // another on proximity alone; only a same-name match dedupes them. The
+      // tight proximity rule is only for catching a curated shop that duplicates
+      // an OSM result.
+      const bothCurated = idx >= osmCount;
       // Anchor the name test at the START of both names. An unanchored
       // includes() let a SHORT name vanish inside a longer neighbour:
       // "kung fu tea".includes("u tea") is true, so U Tea (92 m away) was
@@ -5367,6 +5389,7 @@ function mergeCurated(shops, lat, lng, radius) {
       // carries a parenthetical ("Cha Chic (Ninja Chicken)").
       const a = s.name.toLowerCase(), b = c.name.toLowerCase();
       const sameName = a.startsWith(b.slice(0, 9)) || b.startsWith(a.slice(0, 9));
+      if (bothCurated) return sameName && d < 250;
       return d < 40 || (sameName && d < 250);
     });
     if (!dup) out.push(c);
@@ -6941,6 +6964,7 @@ function openPong() {
   // Fresh day = full batch; a same-day reopen resumes the banked remainder.
   pong.throwsLeft = state.devMode ? PONG_MAX_PLAYS : bankedPlays("pong");
   pong.score = 0;
+  pong.questCredited = false;   // credited once per run, on finish or early quit
   // Daily play is marked on the FIRST throw (see pongNextThrow), not on open.
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   pong.opening = true;
@@ -6962,6 +6986,7 @@ function openPong() {
 }
 
 function closePong() {
+  creditPongQuest();   // quitting early still counts the cups you sank
   pong.opening = false;
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   pong.active = false;
@@ -7195,12 +7220,20 @@ function drawPong(d) {
   }
 }
 
+// Credit the Cup Pong quest exactly once per run — natural finish OR early quit
+// (closePong). Guarded so it can never double-credit (that would farm pearls).
+function creditPongQuest() {
+  if (pong.questCredited) return;
+  pong.questCredited = true;
+  if (pong.score > 0) bumpQuest("pongMakes", pong.score);
+}
+
 function endPong() {
   if (els.pongGame.style.display === "none") return;   // user quit before the final throw resolved
   pong.active = false;
   if (pong.animId) { cancelAnimationFrame(pong.animId); pong.animId = null; }
   const s = pong.score;
-  if (s > 0) bumpQuest("pongMakes", s);   // Daily Quest: sink cups in Cup Pong
+  creditPongQuest();   // sink cups (once per run)
   els.pongResultEyebrow.textContent = s >= 4 ? "Sharp shooter!" : s >= 1 ? "Nice tossing!" : "Tough luck!";
   els.pongResultText.textContent = `You sank ${s} · +${s * PONG_REWARD} pearls`;
   els.pongResult.style.display = "flex";
