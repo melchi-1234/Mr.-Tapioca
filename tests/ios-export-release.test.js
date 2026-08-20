@@ -77,7 +77,7 @@ function xmlEscape(value) {
 
 function writeInfo(bundlePath, fixture, {
   version = "1.1.1",
-  build = "10",
+  build = "11",
   supportsLiveActivities = true,
 } = {}) {
   const extension = fixture.extensionPoint
@@ -191,7 +191,7 @@ function makeIpaFixture(t, {
   getTaskAllow = false,
   extraExtension = false,
   version = "1.1.1",
-  build = "10",
+  build = "11",
   tamperPublic = false,
   extraPublic = false,
   duplicatePlugin = false,
@@ -288,8 +288,8 @@ test("controlled export verifies the exact archive, exports without uploading, v
   const { exportIosRelease } = await import(exporterUrl);
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "mrtap-export-workflow-"));
   t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
-  const archivePath = path.join(fixture, "Mr-Tapioca-1.1.1-10.xcarchive");
-  const outputPath = path.join(fixture, "Mr-Tapioca-1.1.1-10.ipa");
+  const archivePath = path.join(fixture, "Mr-Tapioca-1.1.1-11.xcarchive");
+  const outputPath = path.join(fixture, "Mr-Tapioca-1.1.1-11.ipa");
   fs.mkdirSync(archivePath);
 
   const commands = [];
@@ -335,7 +335,7 @@ test("controlled export verifies the exact archive, exports without uploading, v
   assert.match(result.sha256, /^[a-f0-9]{64}$/);
 });
 
-test("IPA verifier accepts a signed 1.1.1 build 10 package with the canonical app payload", async (t) => {
+test("IPA verifier accepts a signed 1.1.1 build 11 package with the canonical app payload", async (t) => {
   const { verifyIpaFile } = await import(ipaVerifierUrl);
   const ipaPath = makeIpaFixture(t);
   assert.doesNotThrow(() => verifyWithTestProfiles(verifyIpaFile, ipaPath));
@@ -431,12 +431,12 @@ test("IPA verifier rejects any extension beyond the four release extensions", as
   );
 });
 
-test("IPA verifier rejects any app or extension outside version 1.1.1 build 10", async (t) => {
+test("IPA verifier rejects any app or extension outside version 1.1.1 build 11", async (t) => {
   const { verifyIpaFile } = await import(ipaVerifierUrl);
   const ipaPath = makeIpaFixture(t, { build: "8" });
   assert.throws(
     () => verifyWithTestProfiles(verifyIpaFile, ipaPath),
-    /version 1\.1\.1 build 10/,
+    /version 1\.1\.1 build 11/,
   );
 });
 
