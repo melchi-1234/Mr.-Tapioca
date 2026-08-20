@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES, PUBLIC_ENTRY } from "./public-bundle-manifest.mjs";
 
 const expectedVersion = "1.1.1";
-const expectedBuild = "10";
+const expectedBuild = "11";
 const expectedTeam = "T6235QVFYG";
 const expectedAppGroup = "group.com.melchior.mrtapioca";
 const toolPath = fileURLToPath(import.meta.url);

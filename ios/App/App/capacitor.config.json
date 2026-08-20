@@ -7,9 +7,9 @@
 		"scrollEnabled": false
 	},
 	"packageClassList": [
-		"LocalNotificationsPlugin",
 		"FocusShieldPlugin",
 		"FocusActivityPlugin",
-		"IAPPlugin"
+		"IAPPlugin",
+		"LocalNotificationsPlugin"
 	]
 }

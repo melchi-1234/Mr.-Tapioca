@@ -218,7 +218,14 @@ function checkServiceWorker() {
     if (!stagedPaths) {
       fail(2, "could not find the SHELL list in the staged sw.js");
     } else {
-      const gone = stagedPaths.filter((p) => p !== "./" && !existsSync(join(STAGED, p)));
+      const gone = stagedPaths.filter((p) => {
+        if (p === "./") return false;
+        // In the native bundle the app lives at index.html (built from app.html;
+        // see copy-web.mjs), so a SHELL entry for app.html is satisfied by the
+        // bundled index.html. The service worker is disabled on native anyway.
+        if (p === PUBLIC_ENTRY.source && existsSync(join(STAGED, PUBLIC_ENTRY.dest))) return false;
+        return !existsSync(join(STAGED, p));
+      });
       if (gone.length) {
         fail(2, `staged sw.js SHELL lists ${gone.length} path(s) missing from the staged bundle: ${gone.join(", ")}`);
       } else {
