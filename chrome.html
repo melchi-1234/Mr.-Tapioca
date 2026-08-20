@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mr. Tapioca Focus for Chrome — block distracting sites on your computer</title>
+<meta name="description" content="A free Chrome extension that blocks distracting sites while you focus, with the Mr. Tapioca mascot brewing your drink.">
+<link rel="icon" href="assets/icon-192.png" sizes="192x192" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bark:#3c2018;--bark-mid:#8b5e4a;--cream:#fdf5ec;--card:#fffaf2;
+    --line:rgba(60,32,24,.14);--teal:#158f92;--gold:#f0bb4f;
+    --lift:0 1px 0 rgba(96,58,36,.10),0 10px 22px -10px rgba(60,32,24,.28),0 26px 50px -30px rgba(60,32,24,.38);}
+  *{box-sizing:border-box;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  body{color:var(--bark);line-height:1.6;-webkit-font-smoothing:antialiased;
+    background:radial-gradient(1000px 560px at 80% -8%,#fff6e6 0,rgba(255,246,230,0) 55%),
+    radial-gradient(800px 480px at -10% 6%,#ffeef2 0,rgba(255,238,242,0) 55%),var(--cream);}
+  .wrap{max-width:760px;margin:0 auto;padding:42px 22px 70px;}
+  .top{display:flex;align-items:center;gap:12px;margin-bottom:30px;}
+  .top img{width:44px;height:44px;border-radius:11px;box-shadow:0 4px 10px -4px rgba(60,32,24,.4);}
+  .top b{font-weight:900;font-size:1.15rem;}
+  .top a{margin-left:auto;color:var(--teal);font-weight:700;text-decoration:none;font-size:.92rem;}
+  .hero{text-align:center;margin-bottom:34px;}
+  .hero img{width:150px;height:150px;filter:drop-shadow(0 16px 22px rgba(60,32,24,.28));}
+  h1{font-size:clamp(1.8rem,4.6vw,2.7rem);font-weight:900;letter-spacing:-.02em;margin:6px 0 10px;line-height:1.05;}
+  .lede{font-size:1.1rem;color:#5a3d2f;max-width:46ch;margin:0 auto 22px;}
+  .dl{display:inline-flex;align-items:center;gap:10px;background:var(--bark);color:#fff7ee;font-weight:800;
+    font-size:1.05rem;padding:15px 28px;border-radius:999px;box-shadow:var(--lift);text-decoration:none;transition:transform .16s;}
+  .dl:hover{transform:translateY(-2px);}
+  .dl svg{width:20px;height:20px;stroke:#fff7ee;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .free{font-size:.85rem;color:var(--bark-mid);font-weight:600;margin-top:10px;}
+  .steps{background:var(--card);border:1.5px solid var(--line);border-radius:22px;padding:26px 26px 8px;box-shadow:var(--lift);margin:32px 0;}
+  .steps h2{font-size:1.2rem;font-weight:900;margin-bottom:6px;}
+  .steps ol{margin:14px 0 0;padding:0;list-style:none;counter-reset:s;}
+  .steps li{counter-increment:s;position:relative;padding:0 0 18px 44px;color:#4a3327;font-size:1rem;}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:30px;height:30px;border-radius:50%;
+    background:var(--gold);color:var(--bark);font-weight:900;display:grid;place-items:center;font-size:.95rem;}
+  .steps code{background:#f1e7da;padding:2px 7px;border-radius:6px;font-size:.9em;}
+  .note{font-size:.92rem;color:var(--bark-mid);text-align:center;max-width:52ch;margin:0 auto;}
+  footer{text-align:center;color:var(--bark-mid);font-size:.85rem;margin-top:30px;}
+  footer a{color:var(--teal);text-decoration:none;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <img src="assets/icon-192.png" alt="">
+      <b>Mr. Tapioca</b>
+      <a href="/">Home</a>
+    </div>
+
+    <div class="hero">
+      <img src="assets/landing/hero-base.png" alt="Mr. Tapioca mascot">
+      <h1>Block distractions on your computer</h1>
+      <p class="lede">A free Chrome extension. Start a focus session and your most distracting sites lock behind a cozy "stay focused" page until your time is up.</p>
+      <a class="dl" href="mr-tapioca-focus.zip" download>
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        Download for Chrome
+      </a>
+      <div class="free">Free. Works in Chrome, Edge, Brave and other Chromium browsers.</div>
+    </div>
+
+    <div class="steps">
+      <h2>Set it up in a minute</h2>
+      <ol>
+        <li>Download the file above and <b>unzip it</b> (double-click it). You get a folder called <code>mr-tapioca-focus</code>.</li>
+        <li>In Chrome, go to <code>chrome://extensions</code> and turn on <b>Developer mode</b> (top-right switch).</li>
+        <li>Click <b>Load unpacked</b> and choose the <code>mr-tapioca-focus</code> folder.</li>
+        <li>Click the Mr. Tapioca icon in your toolbar, pick a length, and hit <b>Start focusing</b>.</li>
+      </ol>
+    </div>
+
+    <p class="note">Blocks distracting sites in your browser (YouTube, Instagram, TikTok, Reddit and more, and you can edit the list). It does not block other desktop apps.</p>
+
+    <footer>
+      Made with care by Melchi &amp; Dasha. &middot; <a href="/">mrtapioca.me</a> &middot; <a href="https://apps.apple.com/app/id6786023560">iPhone app</a>
+    </footer>
+  </div>
+</body>
+</html>
