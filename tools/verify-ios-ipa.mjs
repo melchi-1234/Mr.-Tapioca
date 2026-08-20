@@ -453,7 +453,10 @@ function verifyCanonicalPublicParity(appBundle) {
   }
 
   for (const relative of canonicalFiles) {
-    const canonicalPath = path.join(repositoryRoot, relative);
+    // The packaged index.html is built from app.html (the app); index.html in the
+    // repo is the web landing page, so compare it against app.html.
+    const canonicalRelative = relative === PUBLIC_ENTRY.dest ? PUBLIC_ENTRY.source : relative;
+    const canonicalPath = path.join(repositoryRoot, canonicalRelative);
     const packagedPath = path.join(packagedPublic, relative);
     if (sha256(packagedPath) !== sha256(canonicalPath)) {
       throw new Error(`IPA public file ${relative} does not match canonical source`);

@@ -442,7 +442,9 @@ test("archive verifier requires valid manifests in the app and monitor extension
     const publicBundle = path.join(appBundle, "public");
     fs.mkdirSync(publicBundle, { recursive: true });
     for (const name of publicRootFiles) {
-      fs.copyFileSync(path.join(root, name), path.join(publicBundle, name));
+      // Bundle index.html is built from app.html (see copy-web.mjs).
+      const source = name === "index.html" ? "app.html" : name;
+      fs.copyFileSync(path.join(root, source), path.join(publicBundle, name));
     }
     fs.cpSync(path.join(root, "assets"), path.join(publicBundle, "assets"), { recursive: true });
     signBundle(appBundle, appFixtureEntitlements);

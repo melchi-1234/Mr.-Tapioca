@@ -243,7 +243,10 @@ function makeIpaFixture(t, {
   const publicBundle = path.join(appBundle, "public");
   fs.mkdirSync(publicBundle);
   for (const name of publicRootFiles) {
-    fs.copyFileSync(path.join(root, name), path.join(publicBundle, name));
+    // The native bundle's index.html is built from app.html (index.html in the
+    // repo is the web landing page), mirroring copy-web.mjs.
+    const source = name === "index.html" ? "app.html" : name;
+    fs.copyFileSync(path.join(root, source), path.join(publicBundle, name));
   }
   fs.writeFileSync(path.join(publicBundle, "cordova.js"), "");
   fs.writeFileSync(path.join(publicBundle, "cordova_plugins.js"), "");

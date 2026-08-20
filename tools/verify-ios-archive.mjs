@@ -510,7 +510,10 @@ function verifyCanonicalPublicParity() {
   }
 
   for (const relative of expected) {
-    const canonicalPath = path.join(repositoryRoot, relative);
+    // The bundled index.html is built from app.html (the app; index.html in the
+    // repo is the web landing page), so compare it against app.html.
+    const canonicalRelative = relative === PUBLIC_ENTRY.dest ? PUBLIC_ENTRY.source : relative;
+    const canonicalPath = path.join(repositoryRoot, canonicalRelative);
     const archivedPath = path.join(archivedPublic, relative);
     if (!existsSync(archivedPath)) {
       throw new Error(`archive public bundle is missing canonical file ${relative}`);
