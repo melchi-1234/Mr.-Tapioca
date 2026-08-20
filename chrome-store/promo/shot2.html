@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+  *{margin:0;box-sizing:border-box;font-family:Inter,system-ui,sans-serif;}
+  html,body{width:1280px;height:800px;overflow:hidden;}
+  body{display:flex;align-items:center;gap:60px;padding:0 90px;color:#3c2018;
+    background:radial-gradient(800px 520px at 12% 10%,#ffeef2,rgba(255,238,242,0) 60%),
+    radial-gradient(800px 520px at 92% 90%,#fff6e6,#fdf5ec 62%);}
+  .left{flex:1;}
+  .eyebrow{color:#158f92;font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:1rem;}
+  h1{font-size:3.5rem;font-weight:900;letter-spacing:-.02em;line-height:1.05;margin:14px 0 16px;}
+  p{font-size:1.4rem;color:#5a3d2f;line-height:1.5;max-width:20ch;}
+  .card{width:360px;background:linear-gradient(180deg,#fffbf3,#fdf4e6);border:1.5px solid rgba(60,32,24,.14);
+    border-radius:22px;padding:26px;box-shadow:0 30px 60px -24px rgba(60,32,24,.5);}
+  .head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .head img{width:52px;height:52px;}
+  .head b{font-weight:900;font-size:1.3rem;}
+  .head span{display:block;font-size:.85rem;color:#8b5e4a;font-weight:600;}
+  .durs{display:flex;gap:10px;margin-bottom:14px;}
+  .durs div{flex:1;text-align:center;background:#fff;border:1.5px solid rgba(60,32,24,.14);border-radius:12px;padding:12px 0;font-weight:800;font-size:1.05rem;}
+  .durs div.sel{background:#3c2018;color:#fff7ee;border-color:#3c2018;}
+  .cta{background:#3c2018;color:#fff7ee;border-radius:14px;padding:15px;text-align:center;font-weight:800;font-size:1.15rem;}
+  .edit{margin-top:14px;color:#158f92;font-weight:700;font-size:.95rem;}
+</style></head>
+<body>
+  <div class="left">
+    <div class="eyebrow">Mr. Tapioca Focus</div>
+    <h1>Block distractions while you focus.</h1>
+    <p>Pick a length. Your distracting sites lock until your drink is done.</p>
+  </div>
+  <div class="card">
+    <div class="head"><img src="mascot.png" alt=""><div><b>Mr. Tapioca Focus</b><span>Block distractions on your computer</span></div></div>
+    <div class="durs"><div class="sel">25 min</div><div>50 min</div><div>90 min</div></div>
+    <div class="cta">Start focusing</div>
+    <div class="edit">Edit blocked sites &middot; 10 sites</div>
+  </div>
+</body></html>
