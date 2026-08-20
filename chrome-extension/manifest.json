@@ -3,7 +3,7 @@
   "name": "Mr. Tapioca Focus",
   "version": "1.0.0",
   "description": "Block distracting sites while you focus. A little boba mascot brews your drink while you work.",
-  "permissions": ["declarativeNetRequest", "storage", "alarms", "notifications"],
+  "permissions": ["declarativeNetRequest", "storage", "alarms", "notifications", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",

@@ -3,6 +3,17 @@ let uiTimer = null;
 
 function send(msg) { return new Promise(res => chrome.runtime.sendMessage(msg, res)); }
 
+// Mirror background.js cleaning so the saved list is real hostnames only and the
+// box shows exactly what will be blocked (a junk line can't silently break it).
+function cleanSite(raw) {
+  let s = String(raw || "").trim().toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
+  if (!s) return "";
+  let host;
+  try { host = new URL("https://" + s).hostname; } catch (_) { return ""; }
+  host = host.replace(/^www\./, "").replace(/\.$/, "");
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host) ? host : "";
+}
+
 function fmt(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(s / 60), r = s % 60;
@@ -58,11 +69,12 @@ document.getElementById("editLink").addEventListener("click", () => {
 });
 
 document.getElementById("saveSites").addEventListener("click", async () => {
-  const sites = document.getElementById("sitesArea").value
-    .split("\n").map(s => s.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "")).filter(Boolean);
-  await send({ type: "setSites", sites });
+  const cleaned = [...new Set(
+    document.getElementById("sitesArea").value.split("\n").map(cleanSite).filter(Boolean)
+  )];
+  await send({ type: "setSites", sites: cleaned });
   document.getElementById("sitesBox").style.display = "none";
-  render();
+  render();   // re-reads the stored list, so the box shows exactly what was kept
 });
 
 render();
