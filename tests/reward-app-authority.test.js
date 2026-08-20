@@ -1483,7 +1483,7 @@ test("the drink-complete summary publishes only a delivered server snapshot", ()
 test("reset abandons then releases the shield; pause abandons but KEEPS the shield up", () => {
   // Pause no longer lifts the Screen Time shield (only End/reset does), so a
   // paused session must NOT emit shield-stop — that is the whole anti-scroll fix.
-  const expected = { pause: ["reward-abandon"], reset: ["reward-abandon", "shield-stop"] };
+  const expected = { pause: ["reward-abandon", "cancel-auto"], reset: ["reward-abandon", "shield-stop"] };
   for (const kind of ["pause", "reset"]) {
     const events = [];
     const context = {
@@ -1498,7 +1498,11 @@ test("reset abandons then releases the shield; pause abandons but KEEPS the shie
         abandonSession: () => { events.push("reward-abandon"); return true; },
         completeSession: () => { events.push("reward-complete"); return true; },
       },
-      FocusBlocker: { stop: () => events.push("shield-stop") },
+      FocusBlocker: {
+        stop: () => events.push("shield-stop"),
+        available: () => true,
+        cancelAutoUnblock: () => events.push("cancel-auto"),
+      },
       FocusActivity: { stop() {} },
       updateCup() {}, refreshSessionChrome() {}, stopTicker() {}, stopAmbience() {}, stopMusic() {},
       MrTNotify: null, walkToStation() {}, saveState() {},

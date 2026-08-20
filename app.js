@@ -1957,11 +1957,15 @@ const FocusBlocker = {
   _active: false,   // did the native shield actually engage (real apps picked) this session?
   // _want tracks the DESIRED shield state so a slow native start() that resolves
   // AFTER a stop() can't leave apps blocked once the session is over.
-  async start() {
+  async start(endsAtMs) {
     this._want = true;
     const p = this.plugin(); if (!p) { this._active = false; return; }
     try {
-      const r = await p.startBlocking();      // native returns { active } — true only if apps were picked
+      // Passing endsAt schedules the NATIVE auto-unblock at the session end, so
+      // the apps free themselves even if the app is closed. Omitted on the 5-min
+      // re-assert so it never disturbs the live schedule.
+      const args = (typeof endsAtMs === "number" && endsAtMs > Date.now()) ? { endsAt: endsAtMs } : {};
+      const r = await p.startBlocking(args);  // native returns { active } — true only if apps were picked
       this._active = !!(r && r.active) && this._want;
       if (!this._want) await p.stopBlocking();
       // Persist the engaged flag: if iOS kills the app mid-session and the
@@ -1974,6 +1978,12 @@ const FocusBlocker = {
     this._want = false; this._active = false; this._defeatedWarned = false;
     if (state.shieldWasUp) { state.shieldWasUp = false; saveState(); }
     const p = this.plugin(); if (!p) return; try { await p.stopBlocking(); } catch (e) {}
+  },
+  // Cancel ONLY the native timed auto-unblock, keeping the shield up. Used on
+  // pause (the session's end time is now indefinite). No-op on web / older builds.
+  async cancelAutoUnblock() {
+    const p = this.plugin(); if (!p) return;
+    try { if (typeof p.cancelAutoUnblock === "function") await p.cancelAutoUnblock(); } catch (e) {}
   },
   wasActive() { return this._active; },   // was a real shield up during this focus session?
 
@@ -2187,7 +2197,10 @@ function beginFocus() {
   walkToCupAndMix();          // glide over to the cup, then mix
   startAmbience();            // soundscape on while focusing
   startMusic("focus");        // lo-fi while focusing
-  FocusBlocker.start();       // shield distracting apps for the session (native only)
+  // End instant for this leg (fresh start: elapsed 0; resume: remaining time).
+  // Drives BOTH the native shield auto-unblock and the "drink ready" notification.
+  const sessionEndsAt = Date.now() + (modeDuration() - state.elapsed) * 1000;
+  FocusBlocker.start(sessionEndsAt);   // shield + schedule the native auto-unblock at end
   FocusActivity.start();      // live countdown on the Lock Screen / Dynamic Island
   stopTicker();
   state.timerId = setInterval(tick, 250);
@@ -2207,8 +2220,7 @@ function beginFocus() {
   // and cancelled on pause, reset, or an in-app finish. No-op unless the user
   // turned it on and granted permission.
   if (window.MrTNotify) {
-    const endsAt = Date.now() + (modeDuration() - state.elapsed) * 1000;
-    Promise.resolve(MrTNotify.scheduleSessionDone(endsAt, currentDrinkName())).catch(() => {});
+    Promise.resolve(MrTNotify.scheduleSessionDone(sessionEndsAt, currentDrinkName())).catch(() => {});
   }
   trkOnce("first_focus_started", { planned_minutes: plannedMin });
   trk("session_started", {
@@ -2238,6 +2250,9 @@ function pauseFocus() {
   // locked while paused (everything you didn't block still works: calls, texts,
   // your study apps). The only way to actually free them is to End the session.
   FocusActivity.stop();       // clear the Lock Screen countdown (it's frozen now)
+  // The shield stays up on pause, but the native timed auto-unblock must be
+  // cancelled (the session no longer ends when it said). Resume reschedules it.
+  if (FocusBlocker.available()) Promise.resolve(FocusBlocker.cancelAutoUnblock()).catch(() => {});
   // The session is no longer going to end when it said it would, so the pending
   // "your drink is ready" would be a lie. beginFocus reschedules on resume.
   if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});

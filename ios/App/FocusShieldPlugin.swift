@@ -15,6 +15,7 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "pickApps", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startBlocking", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopBlocking", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cancelAutoUnblock", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
     ]
 
@@ -124,17 +125,71 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
         if active {
             applyShield(selection)
             startWatchdog(selection)
+            // Schedule the native auto-unblock at the session's end, so the apps
+            // free themselves even if the app is closed. Only when a positive
+            // future end time is passed: the 5-minute re-assert calls startBlocking
+            // with NO endsAt and must leave any live schedule alone.
+            if let endMs = call.getDouble("endsAt"), endMs > Date().timeIntervalSince1970 * 1000 {
+                scheduleAutoEnd(endMs: endMs)
+            }
         }
         call.resolve(["active": active])
     }
 
     @objc func stopBlocking(_ call: CAPPluginCall) {
         blockingActive = false
-        DeviceActivityCenter().stopMonitoring([DeviceActivityName(SharedSelection.watchdogName)])
+        DeviceActivityCenter().stopMonitoring([
+            DeviceActivityName(SharedSelection.watchdogName),
+            DeviceActivityName(SharedSelection.focusSessionName),
+        ])
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         store.shield.webDomains = nil
         call.resolve()
+    }
+
+    // Pause keeps the shield UP but must cancel the timed auto-unblock: a paused
+    // session is no longer going to end when it said, so the apps must not free
+    // themselves at the original end time. beginFocus reschedules on resume.
+    @objc func cancelAutoUnblock(_ call: CAPPluginCall) {
+        DeviceActivityCenter().stopMonitoring([DeviceActivityName(SharedSelection.focusSessionName)])
+        call.resolve()
+    }
+
+    // One-shot DeviceActivity whose interval ENDS at the session end. When it ends,
+    // the monitor extension's intervalDidEnd fires natively — even with the app
+    // closed — and clears the shield. Best-effort: a throw here degrades to today's
+    // behaviour (shield lifts on next foreground via completeSession), never worse,
+    // so it must never break startBlocking.
+    private func scheduleAutoEnd(endMs: Double) {
+        let center = DeviceActivityCenter()
+        center.stopMonitoring([DeviceActivityName(SharedSelection.focusSessionName)])
+
+        let now = Date()
+        let end = Date(timeIntervalSince1970: endMs / 1000)
+        // Below the DeviceActivity ~15-minute minimum -> skip (intervalTooShort
+        // would throw). Real Custom/Goal cups are always >= 15 min; only dev/Taste
+        // sessions land here, and those lift fine on next foreground.
+        guard end.timeIntervalSince(now) >= 15 * 60 else { return }
+
+        let cal = Calendar.current
+        // 2-min back-pad: makes the interval "ongoing" now (extension arms
+        // immediately) AND clears the 15-min minimum with margin on a 15-min cup.
+        let start = now.addingTimeInterval(-120)
+        let startComps = cal.dateComponents([.hour, .minute, .second], from: start)
+        let endComps   = cal.dateComponents([.hour, .minute, .second], from: end)
+        // hour/minute/second only: when endComps' time-of-day is earlier than
+        // startComps' (a session ending after midnight), DeviceActivitySchedule
+        // treats the interval as spanning midnight, like an overnight schedule.
+        let schedule = DeviceActivitySchedule(intervalStart: startComps,
+                                              intervalEnd: endComps,
+                                              repeats: false)
+        do {
+            try center.startMonitoring(DeviceActivityName(SharedSelection.focusSessionName),
+                                       during: schedule)
+        } catch {
+            NSLog("🧋 focusSession auto-end schedule failed: \(error.localizedDescription)")
+        }
     }
 
     // Usage-threshold watchdog: the only supported way to DETECT "shield set

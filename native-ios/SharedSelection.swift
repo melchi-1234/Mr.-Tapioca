@@ -37,6 +37,13 @@ enum SharedSelection {
     // DeviceActivity. Both sides wrap it in DeviceActivityName(...).
     static let watchdogName = "shieldWatchdog"
 
+    // DeviceActivity activity name for the timed auto-unblock. Distinct from the
+    // watchdog: THIS activity's intervalEnd is the session end time, so the monitor
+    // extension's intervalDidEnd (which already clears the shield for any non-
+    // watchdog activity) frees the apps when a session ends with the app
+    // backgrounded. Plain string because not every target imports DeviceActivity.
+    static let focusSessionName = "focusSession"
+
     static func markDefeated() {
         UserDefaults(suiteName: appGroup)?.set(Date().timeIntervalSince1970, forKey: defeatedKey)
     }
