@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{--bark:#3c2018;--bark-mid:#8b5e4a;--cream:#fdf5ec;--card:#fffaf2;
+    --line:rgba(60,32,24,.14);--teal:#158f92;--rose:#ef6f8d;--gold:#f0bb4f;}
+  *{box-sizing:border-box;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  body{width:300px;background:linear-gradient(180deg,#fffbf3,#fdf4e6);color:var(--bark);padding:16px;}
+  .head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .head img{width:40px;height:40px;}
+  .head h1{font-size:1.05rem;font-weight:900;line-height:1.1;}
+  .head span{display:block;font-size:.72rem;color:var(--bark-mid);font-weight:600;}
+  .timer{font-size:2.6rem;font-weight:900;text-align:center;letter-spacing:-.02em;margin:6px 0 2px;font-variant-numeric:tabular-nums;}
+  .status{text-align:center;font-size:.82rem;color:var(--bark-mid);font-weight:600;margin-bottom:12px;}
+  .durs{display:flex;gap:8px;margin-bottom:12px;}
+  .durs button{flex:1;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:10px 0;font-weight:800;color:var(--bark);cursor:pointer;font-size:.9rem;}
+  .durs button.sel{background:var(--bark);color:#fff7ee;border-color:var(--bark);}
+  .cta{width:100%;background:var(--bark);color:#fff7ee;border:0;border-radius:14px;padding:13px;font-weight:800;font-size:1rem;cursor:pointer;}
+  .cta.stop{background:#fff;color:var(--bark);border:1.5px solid var(--line);}
+  .row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;}
+  .row a{font-size:.8rem;color:var(--teal);font-weight:700;cursor:pointer;text-decoration:none;}
+  .sites{margin-top:10px;display:none;}
+  .sites textarea{width:100%;height:96px;border:1.5px solid var(--line);border-radius:10px;padding:8px;font-size:.78rem;font-family:inherit;color:var(--bark);resize:vertical;}
+  .sites .save{margin-top:6px;background:var(--teal);color:#fff;border:0;border-radius:9px;padding:7px 12px;font-weight:700;font-size:.8rem;cursor:pointer;}
+  .hint{font-size:.7rem;color:var(--bark-mid);margin-top:4px;}
+</style>
+</head>
+<body>
+  <div class="head">
+    <img src="icons/mascot.png" alt="">
+    <div><h1>Mr. Tapioca Focus<span>Block distractions on your computer</span></h1></div>
+  </div>
+
+  <div id="idle">
+    <div class="durs" id="durs">
+      <button data-min="25" class="sel">25 min</button>
+      <button data-min="50">50 min</button>
+      <button data-min="90">90 min</button>
+    </div>
+    <button class="cta" id="startBtn">Start focusing</button>
+  </div>
+
+  <div id="running" style="display:none">
+    <div class="timer" id="timer">25:00</div>
+    <div class="status">Mr. Tapioca is mixing your drink 🧋</div>
+    <button class="cta stop" id="stopBtn">End early</button>
+  </div>
+
+  <div class="row">
+    <a id="editLink">Edit blocked sites</a>
+    <span class="hint" id="siteCount"></span>
+  </div>
+  <div class="sites" id="sitesBox">
+    <textarea id="sitesArea" spellcheck="false"></textarea>
+    <div class="hint">One site per line, like instagram.com</div>
+    <button class="save" id="saveSites">Save list</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

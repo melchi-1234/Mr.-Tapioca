@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Mr. Tapioca Focus",
+  "version": "1.0.0",
+  "description": "Block distracting sites while you focus. A little boba mascot brews your drink while you work.",
+  "permissions": ["declarativeNetRequest", "storage", "alarms", "notifications"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" }
+  },
+  "background": { "service_worker": "background.js" },
+  "icons": { "16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "web_accessible_resources": [
+    { "resources": ["blocked.html", "icons/*"], "matches": ["<all_urls>"] }
+  ]
+}
