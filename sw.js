@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v197";
+const CACHE = "mr-tapioca-v198";
 
 // Focus-tune audio lives in its OWN cache, on purpose, and is deliberately NOT
 // in SHELL below. Two reasons, both learned the hard way:

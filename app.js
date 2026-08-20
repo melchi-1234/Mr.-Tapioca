@@ -126,7 +126,7 @@ const GOLDEN_VALUE  = 3;
 // Break games are a small once-per-day bonus, not a pearl farm (see CATCH_CAP,
 // gameDoneToday). Rewards are intentionally modest vs. honest focus earning.
 const SLOT_REWARDS = [5, 3, 1, 1, 1, 3, 5];   // edges rare & rewarding, center likely & small
-const REWARD_UNBLOCKED_FRACTION = 0.5;        // native focus with NO apps blocked earns half pearls (web = full)
+const REWARD_UNBLOCKED_FRACTION = 0.1;        // iPhone focus with NO apps blocked earns 90% fewer pearls (web = full, it can't block)
 // Designed landing odds (NOT raw physics): the old peg geometry actually funneled
 // pearls to the high edges (paying ~9.4/day). We now pick a slot from this cozy
 // bell curve and steer the pearl there → edges ~7-9%, center ~20%, ~6.2/day avg.
@@ -2509,9 +2509,10 @@ function completeSession(options) {
   }
 
   // Pearls are floor(totalMinutes/15). Scale by whether apps were blocked: full when a
-  // shield was up (or on web, where blocking isn't possible), half when a native user
-  // chose NOT to block — a nudge to actually use the blocker. Any completed session
-  // earns at least 1 pearl (so a short Custom cup never shows a deflating "+0").
+  // shield was up (or on web, where blocking isn't possible), a tenth (90% fewer) when
+  // an iPhone user chose NOT to block — a strong nudge to actually use the blocker,
+  // since blocking is the whole point. Any completed session earns at least 1 pearl
+  // (so a short Custom cup never shows a deflating "+0").
   const oldTotal = totalMinutes();
   const fullPearls = Math.floor((oldTotal + minutes) / 15) - Math.floor(oldTotal / 15);
   // Withhold the unblocked share EXACTLY. Rounding it UP per session meant a
