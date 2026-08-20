@@ -1,0 +1,34 @@
+[
+  {
+    "action": { "type": "block" },
+    "trigger": {
+      "url-filter": "^https?://([a-z0-9-]+\\.)?youtube\\.com/shorts",
+      "resource-type": ["document"]
+    }
+  },
+  {
+    "action": { "type": "block" },
+    "trigger": {
+      "url-filter": "^https?://([a-z0-9-]+\\.)?instagram\\.com/reels",
+      "resource-type": ["document"]
+    }
+  },
+  {
+    "action": {
+      "type": "css-display-none",
+      "selector": "ytd-reel-shelf-renderer, ytm-reel-shelf-renderer, grid-shelf-view-model, ytd-mini-guide-entry-renderer[aria-label=\"Shorts\"], a[title=\"Shorts\"]"
+    },
+    "trigger": {
+      "url-filter": "^https?://([a-z0-9-]+\\.)?youtube\\.com/"
+    }
+  },
+  {
+    "action": {
+      "type": "css-display-none",
+      "selector": "a[href^=\"/reels\"]"
+    },
+    "trigger": {
+      "url-filter": "^https?://([a-z0-9-]+\\.)?instagram\\.com/"
+    }
+  }
+]
