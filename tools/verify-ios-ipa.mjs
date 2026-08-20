@@ -425,7 +425,9 @@ function relativeFiles(directory, prefix = "") {
     const relative = path.join(prefix, entry.name);
     const absolute = path.join(directory, entry.name);
     if (entry.isDirectory()) files.push(...relativeFiles(absolute, relative));
-    else if (entry.isFile()) files.push(relative);
+    // copy-web strips .DS_Store on the way into the bundle, so it is never a real
+    // canonical file; a stray one in the repo must not fail the parity check.
+    else if (entry.isFile() && entry.name !== ".DS_Store") files.push(relative);
   }
   return files;
 }
