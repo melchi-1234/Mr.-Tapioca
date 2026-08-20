@@ -1,845 +1,369 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <title>Mr. Tapioca</title>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mr. Tapioca — a cozy focus timer that brews boba while you study</title>
+  <meta name="description" content="Set a focus session and a little tapioca-pearl mascot brews your bubble tea while you work. On iPhone, block your most distracting apps with Apple Screen Time. Free, no ads, no subscriptions.">
+  <link rel="icon" href="assets/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 
-    <!-- PWA / installable app -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#3c2018">
-    <meta name="description" content="A cozy boba-themed focus timer. Study, fill your drink, collect cute rewards.">
-    <link rel="icon" href="assets/icon-192.png" sizes="192x192" type="image/png">
-    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Mr. Tapioca">
-    <meta name="mobile-web-app-capable" content="yes">
+  <!-- Open Graph / social -->
+  <meta property="og:title" content="Mr. Tapioca — focus, and brew boba while you do">
+  <meta property="og:description" content="A cozy boba-themed focus timer. Study, fill your drink, collect cute rewards. On iPhone it blocks distracting apps with Screen Time.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://mrtapioca.me/">
+  <meta property="og:image" content="https://mrtapioca.me/assets/landing/01-home-cozy.jpg">
+  <meta name="twitter:card" content="summary_large_image">
 
-    <!-- Social link previews (Reddit / Discord / iMessage / X). Absolute URLs
-         are required here; the site lives at mrtapioca.me (GitHub Pages
-         custom domain, see the CNAME file). -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Mr. Tapioca, a cozy boba focus timer">
-    <meta property="og:description" content="Pick a drink and a little tapioca pearl brews it while you focus. Earn pearls for cute skins. On iPhone he even blocks your distracting apps.">
-    <meta property="og:url" content="https://mrtapioca.me/">
-    <meta property="og:image" content="https://mrtapioca.me/assets/og.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Mr. Tapioca, a cozy boba focus timer">
-    <meta name="twitter:description" content="Pick a drink and a little tapioca pearl brews it while you focus. Earn pearls for cute skins. On iPhone he even blocks your distracting apps.">
-    <meta name="twitter:image" content="https://mrtapioca.me/assets/og.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="styles.css">
-  </head>
-  <body>
-    <!-- Desktop-only marketing rails; the app in the middle is the live demo.
-         Hidden below 1180px, so phones, tablets and the native app never see
-         them (see "Desktop marketing rails" in styles.css). -->
-    <aside class="site-rail rail-left">
-      <img class="rail-mascot" src="assets/Pose Happy.png" alt="">
-      <h1 class="rail-title">Mr. Tapioca</h1>
-      <p class="rail-tagline">study with a little boba buddy</p>
-      <p class="rail-pitch">Pick a drink and he brews it while you focus. Finished drinks fill your shelf and earn pearls for cute skins. On iPhone he even blocks your distracting apps until the timer is done.</p>
-      <a class="rail-store-btn" href="https://apps.apple.com/app/id6786023560" target="_blank" rel="noopener">Download free on the App Store</a>
-      <p class="rail-note">or just try him right here, this page is the real app</p>
-    </aside>
+  <style>
+    :root{
+      --bark:#3c2018; --bark-mid:#8b5e4a; --bark-light:#c4956a;
+      --cream:#fdf5ec; --card:#fffaf2; --line:rgba(60,32,24,.12);
+      --rose:#ef6f8d; --teal:#158f92; --mint:#d9f3ea; --gold:#f0bb4f;
+      --ui-paper:linear-gradient(180deg,#fffbf3 0%,#fdf4e6 58%,#f8ecda 100%);
+      --lift:0 1px 0 rgba(96,58,36,.10), 0 10px 22px -10px rgba(60,32,24,.28), 0 26px 50px -30px rgba(60,32,24,.38);
+      --radius:22px;
+      --maxw:1120px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      color:var(--bark);
+      background:
+        radial-gradient(1200px 620px at 80% -8%, #fff6e6 0%, rgba(255,246,230,0) 55%),
+        radial-gradient(900px 520px at -10% 8%, #ffeef2 0%, rgba(255,238,242,0) 55%),
+        var(--cream);
+      line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+    }
+    a{color:inherit;text-decoration:none}
+    .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+    .eyebrow{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:.74rem;color:var(--teal)}
 
-    <main class="scene-wrap">
+    /* ── App Store button ── */
+    .cta{
+      display:inline-flex;align-items:center;gap:10px;
+      background:var(--bark);color:#fff7ee;font-weight:800;font-size:1rem;
+      padding:14px 24px;border-radius:999px;border:0;cursor:pointer;
+      box-shadow:var(--lift);transition:transform .16s ease, box-shadow .16s ease;white-space:nowrap;
+    }
+    .cta:hover{transform:translateY(-2px)}
+    .cta .apple{width:19px;height:19px;fill:#fff7ee;flex:0 0 auto}
+    .cta small{display:block;font-weight:600;font-size:.66rem;opacity:.8;line-height:1;margin-bottom:2px}
+    .cta b{font-size:1rem;line-height:1.05}
+    .ghost{
+      display:inline-flex;align-items:center;gap:8px;font-weight:700;color:var(--bark);
+      padding:14px 20px;border-radius:999px;border:2px solid var(--line);background:rgba(255,255,255,.55);
+      transition:border-color .16s ease, transform .16s ease;
+    }
+    .ghost:hover{border-color:var(--bark-light);transform:translateY(-2px)}
 
-      <!-- ── Full-screen boba shop scene ─────────────────────────── -->
-      <section id="shopScene" class="scene" aria-label="Boba shop" data-theme="cozy">
-        <!-- ── Animated window ──────────────────────────────────────
-             The backdrop is one flat PNG, so nothing inside the window could
-             ever move. These two layers fix that: .win-fx paints animated
-             content masked to the glass, and .scene-front is the SAME room art
-             with the glass cut out, sitting on top of it. The frame, and on
-             Taro Galaxy the little moon, are part of the front plate, so they
-             occlude the animation for free. Both are empty on themes that have
-             no animated window yet. -->
-        <div class="win-fx" aria-hidden="true">
-          <!-- src is set by renderWindowLoop() per theme, not here: an unused
-               <video> with a src still costs a fetch and a decoder on themes
-               that have no loop. muted+playsinline are what let iOS autoplay it
-               at all. The CSS spin underneath stays as the fallback for when
-               autoplay is refused or motion is reduced. -->
-          <video class="win-video hidden" muted loop playsinline preload="none" aria-hidden="true"></video>
-        </div>
-        <div class="scene-front" aria-hidden="true"></div>
-        <!-- Soft cafe ambiance: gentle pastel light orbs (replaces the old
-             crude jar/window/light blocks that read as unfinished). -->
-        <div class="cafe-glow" aria-hidden="true">
-          <span></span><span></span><span></span>
-        </div>
-        <!-- Volumetric light through the window. Sits UNDER .theme-fx so weather
-             falls in front of the shafts, which is the right depth order. -->
-        <div class="scene-rays" aria-hidden="true"></div>
-        <!-- Per-theme ambient weather: petals, leaves, snow, dust, rain, sparkles. -->
-        <div class="theme-fx" aria-hidden="true"></div>
-        <!-- Cozy nap nook during breaks (shown only on break). The bed is TWO
-             layers with him sandwiched between them: frame and pillow behind,
-             blanket in front, so he is tucked UNDER the covers instead of
-             sitting on top of them. Both halves come from one drawing, so they
-             line up. -->
-        <div class="break-rug" aria-hidden="true"></div>
-        <img id="breakBedBack" class="break-bed-back" src="assets/bed-back.png" alt="" aria-hidden="true">
-        <div id="makerWrap" class="maker-wrap">
-          <img id="focusMakerCharacter" class="maker-img" src="assets/poses/base-idle.png" alt="Mr. Tapioca">
-          <!-- Speech bubble lives INSIDE the wrap so it travels with him as he walks. -->
-          <div id="makerSpeech" class="speech-bubble">Mr. Tapioca is ready to make your focus drink.</div>
-        </div>
-        <img id="breakBedFront" class="break-bed-front" src="assets/bed-front.png" alt="" aria-hidden="true">
-        <!-- The near plane in break mode: the desk you are sitting at, in front
-             of the room. Purely decorative, break-only, drawn above the bed and
-             the mascot but below the panel and the nav. -->
-        <div class="fg-desk" aria-hidden="true"></div>
-        <div class="work-counter">
-          <!-- Counter dressing. Measured free space is only ~30px left of the
-               character and ~24px right of the cup, so these are small and sit
-               partly behind both — which is how a real counter reads anyway. -->
-          <img class="counter-prop prop-straws" src="assets/counter-straws.png" alt="" aria-hidden="true">
-          <img class="counter-prop prop-plant" src="assets/counter-plant.png" alt="" aria-hidden="true">
-          <div class="cup-stage">
-            <div class="steam"><span></span><span></span><span></span></div>
-            <div id="focusCup" class="cup-frame" data-topping="pearls">
-              <!-- Crafted SVG cup: the liquid is clipped to the EXACT interior shape
-                   so the fill hugs the tapered walls. updateCup() drives #liquid's
-                   y/height/fill from the session progress + chosen tea base. -->
-              <svg class="cup-svg" viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg" aria-label="Boba cup">
-                <defs>
-                  <clipPath id="cupClip">
-                    <path d="M26,60 L33,151 Q34,156 39,156 L81,156 Q86,156 87,151 L94,60 Z"/>
-                  </clipPath>
-                </defs>
-                <path class="cup-body-fill" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58 Z"/>
-                <g clip-path="url(#cupClip)">
-                  <rect id="liquid" x="22" y="156" width="76" height="0"/>
-                  <rect id="foamBand" class="foam-band" x="22" y="150" width="76" height="7"/>
-                  <!-- Bubbles rise inside the liquid while a session runs. They live
-                       in the same clip as the liquid, and are hidden unless brewing. -->
-                  <g class="cup-bubbles" aria-hidden="true">
-                    <circle cx="40" cy="150" r="2.1"/>
-                    <circle cx="58" cy="150" r="1.5"/>
-                    <circle cx="74" cy="150" r="1.8"/>
-                    <circle cx="49" cy="150" r="1.2"/>
-                    <circle cx="66" cy="150" r="2.4"/>
-                  </g>
-                  <ellipse id="liqSurface" class="liq-surface" cx="60" cy="156" rx="36" ry="3.4"/>
-                  <g class="cup-pearls">
-                    <circle cx="42" cy="152" r="4.6"/><circle cx="52" cy="153" r="4.6"/><circle cx="62" cy="152" r="4.6"/>
-                    <circle cx="72" cy="153" r="4.6"/><circle cx="82" cy="152" r="4.6"/>
-                    <circle cx="47" cy="146" r="4.6"/><circle cx="57" cy="147" r="4.6"/>
-                    <circle cx="67" cy="146" r="4.6"/><circle cx="77" cy="147" r="4.6"/>
-                  </g>
-                  <g class="cup-pearl-shine">
-                    <circle cx="40.3" cy="150.3" r="1.3"/><circle cx="50.3" cy="151.3" r="1.3"/><circle cx="60.3" cy="150.3" r="1.3"/>
-                    <circle cx="70.3" cy="151.3" r="1.3"/><circle cx="80.3" cy="150.3" r="1.3"/>
-                    <circle cx="45.3" cy="144.3" r="1.3"/><circle cx="55.3" cy="145.3" r="1.3"/>
-                    <circle cx="65.3" cy="144.3" r="1.3"/><circle cx="75.3" cy="145.3" r="1.3"/>
-                  </g>
-                  <path class="cup-sheen" d="M33,66 q-2,45 3,88" fill="none"/>
-                </g>
-                <path class="cup-outline" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58" fill="none"/>
-                <path class="cup-straw" d="M71,9 L80,11 L70,120 L61,118 Z"/>
-                <path class="cup-straw-hl" d="M71,9 L80,11 L78,20 L72,18 Z"/>
-                <path class="cup-lid" d="M18,58 L18,53 Q18,50 21,50 L99,50 Q102,50 102,53 L102,58 Z"/>
-                <path class="cup-dome" d="M23,50 C23,30 39,24 60,24 C81,24 97,30 97,50 Z"/>
-                <ellipse class="cup-dome-hl" cx="46" cy="36" rx="9" ry="4"/>
-              </svg>
-            </div>
-          </div>
-        </div>
+    /* ── Nav ── */
+    nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);
+      background:rgba(253,245,236,.72);border-bottom:1px solid var(--line)}
+    nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.15rem}
+    .brand img{width:34px;height:34px;border-radius:9px;box-shadow:0 4px 10px -4px rgba(60,32,24,.4)}
+    nav .cta{padding:10px 18px;font-size:.92rem}
+    nav .cta b{font-size:.92rem}
 
-        <!-- Ambient effects (CSS only, work on any skin) -->
-        <div class="focus-fx" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span><span></span>
-        </div>
-        <div class="break-zzz" aria-hidden="true"><span>z</span><span>z</span><span>z</span></div>
-        <div id="celebrateFx" class="celebrate-fx" aria-hidden="true">
-          <span>🧋</span><span>✨</span><span>💛</span><span>⭐</span><span>🧋</span><span>✨</span><span>💛</span><span>⭐</span>
-        </div>
+    /* ── Hero ── */
+    .hero{padding:56px 0 34px}
+    .hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center}
+    .hero h1{font-size:clamp(2.2rem,5.2vw,3.5rem);line-height:1.04;font-weight:900;letter-spacing:-.02em;margin:14px 0 16px}
+    .hero h1 .swirl{color:var(--teal)}
+    .hero p.lede{font-size:1.16rem;color:#5a3d2f;max-width:34ch}
+    .hero .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+    .trust{margin-top:16px;font-size:.9rem;color:var(--bark-mid);font-weight:600}
+    .trust b{color:var(--bark)}
 
-        <!-- Catch the Pearls game overlay -->
-        <div id="pearlGame" class="pearl-game" style="display:none">
-          <div class="game-hud">
-            <span id="gameScore" class="game-score"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="7.6"/><ellipse cx="9.6" cy="9.2" rx="2.1" ry="1.5" fill="rgba(255,255,255,.5)" transform="rotate(-28 9.6 9.2)"/></svg>0</span>
-            <span id="gameTimer" class="game-timer">0:20</span>
-            <button id="quitGameBtn" class="game-quit-btn">Quit</button>
-          </div>
-          <div id="gameArea" class="game-area">
-            <div id="gameCombo" class="game-combo" aria-hidden="true"></div>
-            <div id="gameCup" class="game-cup" aria-hidden="true">
-              <div class="cup-mouth"></div>
-              <div class="cup-body"><span class="cup-face">◡‿◡</span></div>
-            </div>
-            <button id="catchLeft" class="catch-arrow catch-arrow-l" aria-label="Move cup left">‹</button>
-            <button id="catchRight" class="catch-arrow catch-arrow-r" aria-label="Move cup right">›</button>
-          </div>
-          <div id="gameResult" class="game-result" style="display:none">
-            <p class="eyebrow" id="gameResultEyebrow">Time's up!</p>
-            <h3 id="gameResultText">You caught 0 pearls!</h3>
-            <button id="gameCloseBtn" class="primary">Sweet!</button>
-          </div>
-        </div>
+    /* phone frame */
+    .stage{position:relative;display:flex;justify-content:center;align-items:center;min-height:420px}
+    .phone{position:relative;width:266px;border-radius:44px;padding:11px;
+      background:linear-gradient(160deg,#4a2c20,#2c1710);
+      box-shadow:0 40px 80px -34px rgba(60,32,24,.6), 0 8px 20px -10px rgba(60,32,24,.5);
+      transform:rotate(-4deg)}
+    .phone::before{content:"";position:absolute;top:20px;left:50%;transform:translateX(-50%);
+      width:96px;height:24px;background:#1c0e08;border-radius:0 0 16px 16px;z-index:3}
+    .phone img{width:100%;display:block;border-radius:34px}
+    .mascot-float{position:absolute;z-index:4;width:132px;filter:drop-shadow(0 16px 22px rgba(60,32,24,.32));
+      right:-6px;bottom:-14px;animation:bob 4.6s ease-in-out infinite}
+    @keyframes bob{0%,100%{transform:translateY(0) rotate(3deg)}50%{transform:translateY(-14px) rotate(-2deg)}}
+    .blob{position:absolute;border-radius:50%;filter:blur(8px);opacity:.5;z-index:-1}
+    .blob.a{width:230px;height:230px;background:var(--mint);left:-30px;top:20px}
+    .blob.b{width:200px;height:200px;background:#ffe0d0;right:-10px;bottom:0}
 
-        <!-- Boba Plinko game overlay -->
-        <div id="plinkoGame" class="plinko-game" style="display:none">
-          <div class="game-hud">
-            <span id="plinkoPlaysLeft" class="game-score">3 drops left</span>
-            <button id="quitPlinkoBtn" class="game-quit-btn">Quit</button>
-          </div>
-          <canvas id="plinkoCanvas" class="plinko-canvas"></canvas>
-          <div class="plinko-controls">
-            <button id="plinkoDropBtn" class="primary">Drop Pearl</button>
-          </div>
-          <div id="plinkoResult" class="plinko-result" style="display:none">
-            <p class="eyebrow" id="plinkoResultEyebrow">Nice drop!</p>
-            <h3 id="plinkoResultText">+10 pearls!</h3>
-            <div class="plinko-result-actions">
-              <button id="plinkoAgainBtn" class="primary">Drop Again</button>
-              <button id="plinkoDoneBtn" class="quiet">Done</button>
-            </div>
-          </div>
-        </div>
+    /* ── logos strip / honesty ── */
+    .badges{display:flex;flex-wrap:wrap;gap:10px 12px;justify-content:center;padding:6px 0 4px}
+    .badge{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);
+      border-radius:999px;padding:9px 16px;font-weight:700;font-size:.9rem;box-shadow:var(--lift)}
+    .badge .dot{width:9px;height:9px;border-radius:50%}
 
-        <!-- Cup Pong game overlay -->
-        <div id="pongGame" class="pong-game" style="display:none">
-          <div class="game-hud">
-            <span id="pongScore" class="game-score"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="7.6"/><ellipse cx="9.6" cy="9.2" rx="2.1" ry="1.5" fill="rgba(255,255,255,.5)" transform="rotate(-28 9.6 9.2)"/></svg>0</span>
-            <span id="pongThrows" class="game-timer">4 left</span>
-            <button id="quitPongBtn" class="game-quit-btn">Quit</button>
-          </div>
-          <canvas id="pongCanvas" class="pong-canvas"></canvas>
-          <div id="pongHint" class="pong-hint">Swipe up to toss the pearl into the cup</div>
-          <div id="pongResult" class="pong-result" style="display:none">
-            <p class="eyebrow" id="pongResultEyebrow">Nice toss!</p>
-            <h3 id="pongResultText">You sank 0!</h3>
-            <button id="pongCloseBtn" class="primary">Done</button>
-          </div>
-        </div>
-      </section>
+    /* ── section scaffolding ── */
+    section.block{padding:46px 0}
+    .head{max-width:640px;margin:0 auto 34px;text-align:center}
+    .head h2{font-size:clamp(1.7rem,3.6vw,2.4rem);font-weight:900;letter-spacing:-.01em;margin:10px 0 8px}
+    .head p{font-size:1.06rem;color:#5a3d2f}
 
-      <!-- ── Top HUD overlay ──────────────────────────────────────── -->
-      <header class="top-hud">
-        <div class="drink-label">
-          <span id="drinkName">Classic Milk Tea + Pearls</span>
-        </div>
-        <div class="hud-chips">
-          <div class="pearl-chip">
-            <img src="assets/Tapioca Currency.png" class="pearl-icon" alt="">
-            <span id="pearlCount">0</span>
-          </div>
-          <div class="pearl-chip streak-chip">
-            <span class="flame" aria-hidden="true"><svg class="ico ico-flame" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 2.2c.6 3.1-.7 4.6-2 6-1.4 1.5-2.9 3-2.9 5.6a5.4 5.4 0 0 0 10.8 0c0-2.3-1-4-2.1-5.4-.5.9-1.2 1.5-2 1.7.7-2.9-.2-5.6-1.8-7.9Z"/><path d="M10.4 15.1c-.5.7-.8 1.5-.8 2.4a2.7 2.7 0 0 0 5.4 0c0-1.3-.7-2.2-1.4-3-.3.7-.8 1.2-1.4 1.4.1-1.1-.8-.5-1.8-.8Z" opacity=".55"/></svg></span><span id="hudStreak">0</span>
-          </div>
-        </div>
-        <button type="button" class="pearl-chip hud-name hidden" id="hudName"></button>
-        <!-- The bar is full width but everything above lives in its left 41%, so
-             space-between had nothing to push against. This chip both fills that
-             dead half and finally gives the drink shelf / treat jar / badges a
-             way in: they were all being written to state and never rendered. -->
-        <button class="pearl-chip shelf-chip" id="shelfChip" aria-label="Open your shelf">
-          <span class="shelf-ico" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5h17M3.5 15.5h17"/><path d="M6.5 8.5v-2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/><path d="M14 15.5v-2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg></span>
-          <span id="shelfCount">0</span>
-        </button>
-      </header>
+    /* feature: big alternating rows */
+    .feat{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center;margin:0 auto;max-width:960px;padding:26px 0}
+    .feat.reverse .fcopy{order:2}
+    .feat .fcopy h3{font-size:1.6rem;font-weight:800;letter-spacing:-.01em;margin:10px 0 10px}
+    .feat .fcopy p{font-size:1.04rem;color:#5a3d2f}
+    .feat .fart{display:flex;justify-content:center}
+    .chip{display:inline-flex;align-items:center;gap:8px;background:var(--mint);color:var(--teal);
+      font-weight:800;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;padding:6px 13px;border-radius:999px}
+    .chip.rose{background:#ffe4ea;color:#c53f63}
+    .chip.gold{background:#fdeecb;color:#a97b1e}
+    .phone.sm{width:220px;transform:rotate(3deg)}
+    .phone.sm.left{transform:rotate(-3deg)}
 
-      <!-- ── Daily goal progress (always visible) ─────────────────── -->
-      <div id="dailyGoal" class="daily-goal">
-        <span class="dg-icon" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.6"/></svg></span>
-        <div class="dg-track"><span id="dgFill" class="dg-fill"></span></div>
-        <span id="dgLabel" class="dg-label">0/60</span>
+    /* ── skins grid ── */
+    .skins{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:760px;margin:0 auto}
+    .skin{width:118px;background:var(--ui-paper);border:1.5px solid var(--line);border-radius:20px;
+      padding:12px 10px 10px;text-align:center;box-shadow:var(--lift);transition:transform .18s ease}
+    .skin:hover{transform:translateY(-4px)}
+    .skin img{width:88px;height:88px;object-fit:contain}
+    .skin span{display:block;font-weight:700;font-size:.82rem;color:var(--bark-mid);margin-top:4px}
+
+    /* ── grid of small features ── */
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:960px;margin:0 auto}
+    .mini{background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--lift)}
+    .mini .ic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;margin-bottom:12px;background:var(--mint)}
+    .mini .ic svg{width:24px;height:24px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .mini h4{font-size:1.1rem;font-weight:800;margin-bottom:6px}
+    .mini p{font-size:.96rem;color:#5a3d2f}
+
+    /* ── partners ── */
+    .partners{max-width:720px;margin:0 auto;background:var(--ui-paper);border:1.5px solid var(--line);
+      border-radius:26px;padding:30px 26px;box-shadow:var(--lift);text-align:center}
+    .prow{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:18px}
+    .pcard{flex:1 1 240px;background:#fff;border:1.5px solid var(--line);border-radius:18px;padding:18px 20px;text-align:left}
+    .pcard .name{font-weight:800;font-size:1.05rem}
+    .pcard .perk{color:var(--teal);font-weight:800;margin-top:2px}
+    .pcard .loc{color:var(--bark-mid);font-size:.9rem;margin-top:2px}
+    .pnote{font-size:.9rem;color:var(--bark-mid);margin-top:16px}
+
+    /* ── final CTA ── */
+    .final{margin:40px auto;max-width:var(--maxw)}
+    .final .box{background:linear-gradient(160deg,#4a2c20,#301810);color:#fff7ee;border-radius:30px;
+      padding:52px 28px;text-align:center;box-shadow:var(--lift);position:relative;overflow:hidden}
+    .final h2{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:900;margin-bottom:10px}
+    .final p{opacity:.9;max-width:44ch;margin:0 auto 22px}
+    .final .cta{background:#fff7ee;color:var(--bark)}
+    .final .cta .apple{fill:var(--bark)}
+    .final .m{position:absolute;width:150px;bottom:-24px;left:-10px;opacity:.9;transform:rotate(-8deg)}
+
+    /* ── footer ── */
+    footer{border-top:1px solid var(--line);padding:34px 0 46px;margin-top:20px}
+    footer .wrap{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between;align-items:center}
+    footer .links{display:flex;flex-wrap:wrap;gap:18px;font-weight:600;color:var(--bark-mid)}
+    footer .links a:hover{color:var(--bark)}
+    footer .made{color:var(--bark-mid);font-size:.9rem}
+
+    @media (max-width:860px){
+      .hero .wrap{grid-template-columns:1fr;gap:26px;text-align:center}
+      .hero p.lede{margin-inline:auto}
+      .hero .actions{justify-content:center}
+      .feat{grid-template-columns:1fr;gap:22px;text-align:center}
+      .feat.reverse .fcopy{order:0}
+      .cards{grid-template-columns:1fr;max-width:420px}
+      .chip{margin-inline:auto}
+    }
+    @media (max-width:520px){
+      nav .brand span{display:none}
+      .phone{width:236px}
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="wrap">
+      <a class="brand" href="#top"><img src="assets/icon-192.png" alt="Mr. Tapioca"><span>Mr. Tapioca</span></a>
+      <a class="cta" href="https://apps.apple.com/app/id6786023560">
+        <svg class="apple" viewBox="0 0 24 24"><path d="M16.36 12.7c.02 2.62 2.3 3.49 2.33 3.5-.02.06-.36 1.24-1.2 2.46-.72 1.05-1.47 2.1-2.66 2.12-1.16.03-1.54-.68-2.87-.68-1.33 0-1.75.66-2.85.71-1.14.04-2.01-1.14-2.74-2.19-1.49-2.15-2.63-6.08-1.1-8.73.76-1.32 2.12-2.15 3.6-2.18 1.12-.02 2.18.75 2.87.75.68 0 1.97-.93 3.32-.79.57.02 2.16.23 3.18 1.73-.08.05-1.9 1.11-1.88 3.32M14.2 4.9c.61-.74 1.02-1.77.9-2.8-.88.04-1.94.59-2.57 1.33-.56.65-1.06 1.7-.93 2.7.98.08 1.98-.5 2.6-1.23"/></svg>
+        <span><small>Download on the</small><b>App Store</b></span>
+      </a>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="wrap">
+      <div class="hcopy">
+        <div class="eyebrow">A cozy focus timer</div>
+        <h1>Study. Brew <span class="swirl">boba.</span> Actually get it done.</h1>
+        <p class="lede">Start a focus session and a little tapioca-pearl mascot brews your bubble tea while you work. Finish, and the drink joins your collection.</p>
+        <div class="actions">
+          <a class="cta" href="https://apps.apple.com/app/id6786023560">
+            <svg class="apple" viewBox="0 0 24 24"><path d="M16.36 12.7c.02 2.62 2.3 3.49 2.33 3.5-.02.06-.36 1.24-1.2 2.46-.72 1.05-1.47 2.1-2.66 2.12-1.16.03-1.54-.68-2.87-.68-1.33 0-1.75.66-2.85.71-1.14.04-2.01-1.14-2.74-2.19-1.49-2.15-2.63-6.08-1.1-8.73.76-1.32 2.12-2.15 3.6-2.18 1.12-.02 2.18.75 2.87.75.68 0 1.97-.93 3.32-.79.57.02 2.16.23 3.18 1.73-.08.05-1.9 1.11-1.88 3.32M14.2 4.9c.61-.74 1.02-1.77.9-2.8-.88.04-1.94.59-2.57 1.33-.56.65-1.06 1.7-.93 2.7.98.08 1.98-.5 2.6-1.23"/></svg>
+            <span><small>Download on the</small><b>App Store</b></span>
+          </a>
+          <a class="ghost" href="app.html">Try it in your browser</a>
+        </div>
+        <p class="trust">Free. <b>No ads, no subscriptions.</b> A few optional skins, if you want them.</p>
       </div>
+      <div class="stage">
+        <span class="blob a"></span><span class="blob b"></span>
+        <div class="phone">
+          <img src="assets/landing/01-home-cozy.jpg" alt="Mr. Tapioca home screen with the boba mascot in a cozy tea room" width="266" height="578" loading="eager">
+          <img class="mascot-float" src="assets/landing/hero-base.png" alt="" aria-hidden="true">
+        </div>
+      </div>
+    </div>
+  </header>
 
-      <!-- ── Focus controls ───────────────────────────────────────── -->
-      <div id="focusControls" class="focus-controls">
-        <div class="size-picker" role="group" aria-label="Session length">
-          <button class="size-btn active" data-mode="custom">
-            Custom
-          </button>
-          <button class="size-btn" data-mode="goal">
-            Goal
-          </button>
-        </div>
-        <div class="timer-card" id="timerCard">
-          <!-- In Custom mode the −/+ flank the time IN-CARD, so picking Custom adds
-               no extra row (which used to push the controls up over the character). -->
-          <div class="timer-time-row">
-            <button id="customMinus" class="adj-btn time-adj" aria-label="Less time">−</button>
-            <div class="timer-time" id="timerText">00:30</div>
-            <button id="customPlus" class="adj-btn time-adj" aria-label="More time">+</button>
+  <div class="badges wrap" style="margin-top:6px">
+    <span class="badge"><span class="dot" style="background:var(--teal)"></span>Blocks distracting apps on iPhone</span>
+    <span class="badge"><span class="dot" style="background:var(--rose)"></span>14 collectible characters</span>
+    <span class="badge"><span class="dot" style="background:var(--gold)"></span>Calm, licensed focus music</span>
+  </div>
+
+  <!-- Headline feature: real app blocking -->
+  <section class="block" id="blocking">
+    <div class="wrap">
+      <div class="feat">
+        <div class="fart">
+          <div class="phone sm left">
+            <img src="assets/landing/02-session-running.jpg" alt="A running focus session, the drink filling as time passes" width="220" height="478" loading="lazy">
           </div>
-          <div class="timer-meta">
-            <span id="sessionLabel">Custom Cup</span>
-            <button id="customizeDrinkBtn" class="customize-inline-btn">Customize</button>
-          </div>
-          <div class="progress-track"><span id="progressBar"></span></div>
         </div>
-        <!-- Reset rides ALONGSIDE the primary button, not under it. It used to own
-             a whole 45px row of its own, which left a bare strip of floor between
-             Pause and the nav for the sake of one small undo. -->
-        <div class="start-row">
-          <button id="startPauseBtn" class="start-btn">Start Focus</button>
-          <button id="resetBtn" class="reset-link" aria-label="Reset this session"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3.5v5.5h5.5"/><path d="M3.6 15.2a9 9 0 1 0 1.7-8.9L3 9"/></svg><span class="reset-word">Reset</span></button>
-        </div>
-        <!-- Shield pill: shown only on the native iPhone app (JS reveals it when the
-             Screen Time plugin is present). Makes app blocking a visible feature
-             instead of something buried in Settings. -->
-        <div class="session-row">
-          <button id="blockPill" class="block-pill hidden">
-            <span class="block-pill-ico" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.3-2.9 7.7-7 9.5-4.1-1.8-7-5.2-7-9.5V6l7-3Z"/></svg></span>
-            <span id="blockPillLabel">App blocking: Off</span>
-            <span class="block-pill-chev" aria-hidden="true">›</span>
-          </button>
+        <div class="fcopy">
+          <span class="chip">iPhone feature</span>
+          <h3>Lock out the apps that steal your focus</h3>
+          <p>On iPhone, Mr. Tapioca uses Apple's own Screen Time to shield the apps you pick for as long as your session runs. Try to open one and you get a gentle wall instead of an endless scroll. Pause or finish, and everything unlocks right away. Blocking is optional, and every session works fine without it.</p>
         </div>
       </div>
 
-      <!-- ── Break offer panel ────────────────────────────────────── -->
-      <div id="breakOffer" class="break-panel hidden">
-        <p class="break-title">Session complete! Nice work</p>
-        <div class="break-adjust-row">
-          <button id="breakMinus" class="adj-btn" aria-label="Decrease break time">−</button>
-          <div class="timer-card compact">
-            <div class="timer-time" id="breakDurationDisplay">10:00</div>
-            <p class="timer-sub">break length</p>
+      <div class="feat reverse">
+        <div class="fart">
+          <div class="phone sm">
+            <img src="assets/landing/04-customize.jpg" alt="Customizing the drink with tea bases and toppings" width="220" height="478" loading="lazy">
           </div>
-          <button id="breakPlus" class="adj-btn" aria-label="Increase break time">+</button>
         </div>
-        <button id="startBreakBtn" class="start-btn">Start Break</button>
-        <button id="skipBreakBtn" class="reset-link">Skip</button>
-      </div>
-
-      <!-- ── Break running panel ──────────────────────────────────── -->
-      <div id="breakRunningPanel" class="break-panel hidden">
-        <!-- End Break rides the header instead of sitting alone under the games.
-             As a lone pill below three tiles it read as stranded, and it cost a
-             whole extra row on a screen that already had four. -->
-        <div class="break-head">
-          <p class="break-title">Chill Mode</p>
-          <button id="skipBreakRunningBtn" class="reset-link break-end">End Break</button>
-        </div>
-        <div class="timer-card">
-          <div class="timer-time" id="breakTimerText">10:00</div>
-          <div class="timer-meta">
-            <span>You earned it</span>
-            <span id="breakProgressLabel">0%</span>
-          </div>
-          <div class="progress-track break-track"><span id="breakProgressBar"></span></div>
-        </div>
-        <div class="break-games-row">
-          <button id="playGameBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="4.5"/><path d="M7 11v3M5.5 12.5h3M15.5 12h.01M18 14h.01"/></svg></span><span class="g-label">Catch</span></button>
-          <button id="playPlinkoBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="4.5" r="1.6"/><circle cx="7.5" cy="9.5" r="1.6"/><circle cx="16.5" cy="9.5" r="1.6"/><circle cx="5" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="19" cy="14.5" r="1.6"/><path d="M4 19h16v2H4z"/></svg></span><span class="g-label">Plinko</span></button>
-          <button id="playPongBtn" class="start-btn game-launch-btn"><span class="g-emoji"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 12.4a1.6 1.6 0 0 1-1.6 1.6H8.6A1.6 1.6 0 0 1 7 19.4L6 7Z"/><path d="M5 7h14" stroke-linecap="round"/></svg></span><span class="g-label">Pong</span></button>
+        <div class="fcopy">
+          <span class="chip rose">Brew &amp; collect</span>
+          <h3>Every focused hour brews a real drink</h3>
+          <p>Pick a Custom Cup from 15 minutes up to 4 hours, or chase your daily Goal Cup. As you focus, your bubble tea fills up. Finish the session and it is added to your collection, along with pearls you can spend on new characters, tea bases, toppings, and shop backgrounds. Pearls come from focus time, about four an hour, so the reward is the work.</p>
         </div>
       </div>
+    </div>
+  </section>
 
-      <!-- ── Bottom navigation bar ────────────────────────────────── -->
-      <nav class="bottom-bar">
-        <button class="icon-pill" id="questsBtn" aria-label="Daily quests">
-          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/></svg></span>
-          <span class="pill-label">Quests</span>
-          <span id="questBadge" class="nav-badge hidden">3</span>
-        </button>
-        <button class="icon-pill" id="shopBtn" aria-label="Shop">
-          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 8h15l-1.1 11.2a2 2 0 0 1-2 1.8H7.6a2 2 0 0 1-2-1.8L4.5 8Z"/><path d="M8.8 8V6.4a3.2 3.2 0 0 1 6.4 0V8"/></svg></span>
-          <span class="pill-label">Shop</span>
-        </button>
-        <button class="icon-pill" id="mapBtn" aria-label="Boba map">
-          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
-          <span class="pill-label">Map</span>
-        </button>
-        <button class="icon-pill" id="friendsBtn" aria-label="Study Squad">
-          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.6a3.2 3.2 0 0 1 0 5.8M17.5 20a5.5 5.5 0 0 0-2.2-4.4"/></svg></span>
-          <span class="pill-label">Squad</span>
-        </button>
-        <button class="icon-pill" id="settingsBtn" aria-label="Settings">
-          <span class="nav-icon" aria-hidden="true"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M19.2 14.4a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg></span>
-          <span class="pill-label">Settings</span>
-        </button>
-      </nav>
+  <!-- Skins showcase -->
+  <section class="block" style="background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,246,232,.6),rgba(255,255,255,0))">
+    <div class="head">
+      <div class="eyebrow">Collect the crew</div>
+      <h2>Fourteen little characters to unlock</h2>
+      <p>Your tapioca pearl can dress up as a wizard, an angel, a ninja, a dragon and more. Most are earned with pearls; a few are optional one-time purchases.</p>
+    </div>
+    <div class="skins">
+      <div class="skin"><img src="assets/landing/skin-base.png" alt="Classic pearl character"><span>Classic</span></div>
+      <div class="skin"><img src="assets/landing/skin-angel.png" alt="Angel character"><span>Angel</span></div>
+      <div class="skin"><img src="assets/landing/skin-ninja.png" alt="Ninja character"><span>Ninja</span></div>
+      <div class="skin"><img src="assets/landing/skin-wizard.png" alt="Wizard character"><span>Wizard</span></div>
+      <div class="skin"><img src="assets/landing/skin-dragon.png" alt="Dragon character"><span>Dragon</span></div>
+      <div class="skin"><img src="assets/landing/skin-royal.png" alt="Royal character"><span>Royal</span></div>
+      <div class="skin"><img src="assets/landing/skin-strawberry.png" alt="Strawberry character"><span>Strawberry</span></div>
+      <div class="skin"><img src="assets/landing/skin-flower.png" alt="Flower character"><span>Flower</span></div>
+    </div>
+  </section>
 
-      <!-- ── Install prompt (PWA) ─────────────────────────────────────── -->
-      <div id="installBanner" class="install-banner" role="status" aria-live="polite" aria-label="Install Mr. Tapioca" hidden>
-        <span class="install-icon" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 7h11l-1 12.5a1.6 1.6 0 0 1-1.6 1.5H9.1a1.6 1.6 0 0 1-1.6-1.5L6.5 7Z"/><path d="M5.6 7h12.8M14 3.2 12.6 7" stroke-linecap="round"/><circle cx="10" cy="17" r="1.3" fill="currentColor" stroke="none"/><circle cx="14" cy="17.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="14.6" r="1.3" fill="currentColor" stroke="none"/></svg></span>
-        <p id="installText" class="install-text">Install Mr. Tapioca for the full-screen app.</p>
-        <button id="installBtn" class="install-btn">Install</button>
-        <button id="installDismiss" class="install-x" aria-label="Dismiss"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-      </div>
-
-      <!-- ── Sheet: Shop ──────────────────────────────────────────── -->
-      <div id="shopSheet" class="sheet hidden" role="dialog" aria-label="Shop" aria-modal="true">
-        <div class="sheet-handle"></div>
-        <div class="sheet-head">
-          <h2>Shop</h2>
-          <div class="pearl-chip small">
-            <img src="assets/Tapioca Currency.png" class="pearl-icon" alt="">
-            <span id="shopPearlCount">0 pearls</span>
-          </div>
-          <button class="sheet-close" id="shopClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <!-- Small feature grid -->
+  <section class="block">
+    <div class="head">
+      <div class="eyebrow">More to love</div>
+      <h2>Built to make focusing feel cozy</h2>
+    </div>
+    <div class="wrap">
+      <div class="cards">
+        <div class="mini">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+          <h4>Calm focus music</h4>
+          <p>A dozen gentle, hand-picked tracks that loop softly in the background. Every one is properly licensed for the app.</p>
         </div>
-        <div class="sheet-body shop-grid" id="shopGrid" aria-live="polite"></div>
-      </div>
-
-      <!-- ── Sheet: Customize ─────────────────────────────────────── -->
-      <div id="customizeSheet" class="sheet hidden" role="dialog" aria-label="Customize drink" aria-modal="true">
-        <div class="sheet-handle"></div>
-        <div class="sheet-head">
-          <h2>Customize Drink</h2>
-          <div class="pearl-chip small">
-            <img src="assets/Tapioca Currency.png" class="pearl-icon" alt="">
-            <span id="customizePearlCount">0 pearls</span>
-          </div>
-          <button class="sheet-close" id="customizeClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <div class="mini">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h4>Study Squad</h4>
+          <p>Optional and anonymous. Share a code with friends and cheer each other on with a shared board of focus minutes, drinks and streaks.</p>
         </div>
-        <div class="sheet-body">
-          <h3>Tea Base</h3>
-          <div id="baseGrid" class="option-list" role="group" aria-label="Tea base"></div>
-
-          <h3 class="section-gap">Topping</h3>
-          <div id="toppingRow" class="option-list" role="group" aria-label="Topping"></div>
+        <div class="mini">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+          <h4>Boba Map</h4>
+          <p>Find real bubble tea shops near you, pulled from OpenStreetMap. A fun little nudge to go reward yourself after a long session.</p>
+        </div>
+        <div class="mini">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
+          <h4>Break mini-games</h4>
+          <p>Earn a break and play Catch the Pearls, Boba Plinko or Cup Pong for a few extra pearls before the next round of focus.</p>
+        </div>
+        <div class="mini">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 3 2 5 2 7h10c0-2 2-4 2-7a7 7 0 0 0-7-7z"/><path d="M9 22h6"/></svg></div>
+          <h4>Themes &amp; backgrounds</h4>
+          <p>Redecorate the tea room. Cozy daytime, calm night, a starry galaxy and more set the mood for your session.</p>
+        </div>
+        <div class="mini">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg></div>
+          <h4>Yours, privately</h4>
+          <p>Your progress lives on your device. No account is required to focus, and there are no third-party trackers or ad networks.</p>
         </div>
       </div>
+    </div>
+  </section>
 
-      <!-- ── Sheet: Settings ──────────────────────────────────────── -->
-      <div id="settingsSheet" class="sheet hidden" role="dialog" aria-label="Settings" aria-modal="true">
-        <div class="sheet-handle"></div>
-        <div class="sheet-head">
-          <h2>Settings</h2>
-          <button class="sheet-close" id="settingsClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <!-- Partner rewards, told honestly -->
+  <section class="block" id="partners">
+    <div class="wrap">
+      <div class="partners">
+        <span class="chip gold">Partner rewards</span>
+        <h2 style="font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:900;margin:12px 0 6px">Real focus, real boba</h2>
+        <p style="color:#5a3d2f;max-width:48ch;margin:0 auto">Study four cumulative hours and earn a one-time perk you can redeem in person at a partner shop. These are our first two partners, and the list grows from here.</p>
+        <div class="prow">
+          <div class="pcard">
+            <div class="name">U Tea</div>
+            <div class="perk">10% off your drink</div>
+            <div class="loc">Collegetown, Ithaca NY</div>
+          </div>
+          <div class="pcard">
+            <div class="name">Dream Tea &amp; Poké</div>
+            <div class="perk">5% off your drink</div>
+            <div class="loc">The Commons, Ithaca NY</div>
+          </div>
         </div>
-        <div class="sheet-body">
-          <div class="settings-row stack">
-            <span class="settings-row-label">Your Name: <span id="yourNameValue"></span></span>
-            <button id="changeNameBtn" class="settings-action-btn name-btn"><span id="changeNameLabel">Change Name</span><span id="renameCostTag">20</span></button>
-          </div>
-
-          <div class="settings-row">
-            <span class="settings-row-label">Focus Goal</span>
-            <div class="goal-stepper">
-              <button id="goalMinus" class="adj-btn small-adj" aria-label="Lower daily goal">−</button>
-              <span id="goalDisplay" class="goal-display">60 min</span>
-              <button id="goalPlus" class="adj-btn small-adj" aria-label="Raise daily goal">+</button>
-            </div>
-          </div>
-
-          <!-- Focus Tunes. The music is a set of real recordings that shuffle and
-               crossfade into each other, not one loop. Every track is either
-               public domain (CC0) or CC BY, and CC BY only holds if the artist is
-               named somewhere the listener can reach, which is what the credits
-               list below is for. It is a licence term, not decoration. -->
-          <div class="settings-row stack">
-            <span class="settings-row-label">Focus Tunes</span>
-            <div class="volume-control">
-              <input id="musicVol" class="volume-slider" type="range" min="0" max="100" step="1" value="80" aria-label="Music volume">
-              <span id="musicVolLabel" class="volume-val">80</span>
-            </div>
-            <p class="settings-note music-now hidden" id="musicNowPlaying"></p>
-            <button id="musicCreditsBtn" class="settings-action-btn music-credits-btn" aria-expanded="false" aria-controls="musicCredits">Music Credits</button>
-            <ul class="music-credits hidden" id="musicCredits"></ul>
-          </div>
-
-          <div class="settings-row stack">
-            <span class="settings-row-label">Sound Effects</span>
-            <div class="volume-control">
-              <input id="sfxVol" class="volume-slider" type="range" min="0" max="100" step="1" value="90" aria-label="Sound effects volume">
-              <span id="sfxVolLabel" class="volume-val">90</span>
-            </div>
-          </div>
-
-          <div class="settings-row hidden" id="restoreRow">
-            <span class="settings-row-label">Purchases</span>
-            <button id="restorePurchasesBtn" class="settings-action-btn">Restore</button>
-          </div>
-
-          <div class="settings-row hidden" id="devRow">
-            <span class="settings-row-label">Dev Mode</span>
-            <button id="devToggle" class="toggle" role="switch" aria-checked="false">
-              <span class="toggle-knob"></span>
-            </button>
-          </div>
-
-          <!-- Notifications. Two, and only two. No streak warnings and no "we
-               miss you" nudges: this app is a boba shop, not a collections
-               agency. The whole row hides when no backend exists (a desktop
-               browser without the Notification API), because a toggle that
-               cannot do anything is worse than no toggle. -->
-          <div class="settings-row stack hidden" id="notifyRow">
-            <span class="settings-row-label">Reminders</span>
-            <p class="settings-note" id="notifyNote">Mr. Tapioca can tell you when your
-              drink is ready, so you can put your phone down and forget about it.</p>
-            <div class="notify-line">
-              <span>When my drink is ready</span>
-              <button id="notifyDoneToggle" class="toggle" role="switch" aria-checked="false">
-                <span class="toggle-knob"></span>
-              </button>
-            </div>
-            <div class="notify-line">
-              <span>Daily nudge to study</span>
-              <button id="notifyDailyToggle" class="toggle" role="switch" aria-checked="false">
-                <span class="toggle-knob"></span>
-              </button>
-            </div>
-            <div class="notify-line hidden" id="notifyTimeLine">
-              <span>Nudge me at</span>
-              <input id="notifyTime" class="notify-time" type="time" value="20:00" aria-label="Daily reminder time">
-            </div>
-          </div>
-
-          <div class="settings-row">
-            <span class="settings-row-label">Welcome Tour</span>
-            <button id="replayIntroBtn" class="settings-action-btn">Replay</button>
-          </div>
-
-          <div class="settings-row">
-            <span class="settings-row-label">Feature Tour</span>
-            <button id="featureTourBtn" class="settings-action-btn">Replay</button>
-          </div>
-
-          <div class="settings-row">
-            <span class="settings-row-label">Love Mr. Tapioca?</span>
-            <button id="rateAppBtn" class="settings-action-btn">Rate it <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 3.2 2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8L12 3.2Z"/></svg></button>
-          </div>
-
-          <div class="settings-row hidden" id="deleteAccountRow">
-            <span class="settings-row-label">Delete My Account</span>
-            <button id="deleteAccountBtn" class="settings-action-btn danger">Delete</button>
-          </div>
-
-          <div class="blocked-panel section-gap">
-            <div class="section-head compact">
-              <h3>App Blocking</h3>
-              <span class="soon-badge">iPhone app</span>
-            </div>
-            <button id="chooseAppsBtn" class="settings-action-btn">Choose Apps to Block while Focusing</button>
-            <button id="repickAppsBtn" class="settings-action-btn hidden">Blocking Not Working? Re-pick Apps</button>
-          </div>
-
-          <!-- ── Your progress (stats / streaks / collection) ──────────── -->
-          <h3 class="settings-section-title">Your Progress</h3>
-          <div class="stats-card">
-            <div class="stat-block stat-streak">
-              <span class="stat-value" id="statStreak">0</span>
-              <span class="stat-label">Streak</span>
-              <span id="streakFreezeNote" class="streak-freeze-note hidden">0 brain freezes ready</span>
-            </div>
-            <div class="stats-grid">
-              <div class="stat-block">
-                <span class="stat-value" id="statTotalTime">0m</span>
-                <span class="stat-label">Total Focus</span>
-              </div>
-              <div class="stat-block">
-                <span class="stat-value" id="statWeeklyAvg">0m</span>
-                <span class="stat-label">Weekly Average</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-head compact section-gap">
-            <h3>This Week</h3>
-            <span id="weekTotal" class="badge">0 min</span>
-          </div>
-          <div id="weekChart" class="week-chart" aria-label="Focus minutes for the last 7 days"></div>
-          <div id="weekInsights" class="insights-card"></div>
-
-          <div class="pearl-info-card">
-            <h3>How Do Pearls Work?</h3>
-            <div class="pearl-info-rows">
-              <div class="pearl-info-row">
-                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span><strong>15 min</strong> of focus = <strong>1 pearl</strong></span>
-              </div>
-              <div class="pearl-info-row">
-                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Spend pearls on Cute Skins &amp; Backgrounds</span>
-              </div>
-              <div class="pearl-info-row">
-                <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Collect pearls to earn real boba discounts in the future</span>
-              </div>
-            </div>
-          </div>
-
-          <p class="made-by">Made with 🧋 by Melchi &amp; Dasha</p>
-        </div>
+        <p class="pnote">Partner rewards are available in the iPhone app and use verified focus time. Nothing changes at the shop's register; you just show your perk at the counter.</p>
       </div>
+    </div>
+  </section>
 
-      <!-- ── Sheet: Boba Map ──────────────────────────────────────── -->
-      <div id="mapSheet" class="sheet hidden" role="dialog" aria-label="Boba map" aria-modal="true">
-        <div class="sheet-handle"></div>
-        <div class="sheet-head">
-          <h2>Boba Map</h2>
-          <button class="sheet-close" id="mapClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        </div>
-        <div class="sheet-body map-body">
-          <p class="map-intro"><strong>Find real boba shops near you.</strong> Starred shops are partners: finish a long drink and they will honour a real reward in person.</p>
-          <div id="mapPerkBanner" class="map-perk-banner hidden"></div>
-          <div id="map" class="map-canvas">
-            <div id="mapStatus" class="map-status">Loading the map…</div>
-          </div>
-          <div id="mapShopList" class="map-shop-list hidden"></div>
-        </div>
+  <!-- Final CTA -->
+  <section class="final">
+    <div class="wrap">
+      <div class="box">
+        <img class="m" src="assets/landing/skin-wizard.png" alt="" aria-hidden="true">
+        <h2>Your next study session, but cozy</h2>
+        <p>Free to download, no ads, no subscriptions. Set a cup, press start, and let Mr. Tapioca keep you company.</p>
+        <a class="cta" href="https://apps.apple.com/app/id6786023560">
+          <svg class="apple" viewBox="0 0 24 24"><path d="M16.36 12.7c.02 2.62 2.3 3.49 2.33 3.5-.02.06-.36 1.24-1.2 2.46-.72 1.05-1.47 2.1-2.66 2.12-1.16.03-1.54-.68-2.87-.68-1.33 0-1.75.66-2.85.71-1.14.04-2.01-1.14-2.74-2.19-1.49-2.15-2.63-6.08-1.1-8.73.76-1.32 2.12-2.15 3.6-2.18 1.12-.02 2.18.75 2.87.75.68 0 1.97-.93 3.32-.79.57.02 2.16.23 3.18 1.73-.08.05-1.9 1.11-1.88 3.32M14.2 4.9c.61-.74 1.02-1.77.9-2.8-.88.04-1.94.59-2.57 1.33-.56.65-1.06 1.7-.93 2.7.98.08 1.98-.5 2.6-1.23"/></svg>
+          <span><small>Download on the</small><b>App Store</b></span>
+        </a>
       </div>
+    </div>
+  </section>
 
-      <!-- ── Study Squad (friends) ────────────────────────────────── -->
-      <div id="friendsSheet" class="sheet hidden" role="dialog" aria-label="Study Squad" aria-modal="true">
-        <div class="sheet-handle"></div>
-        <div class="sheet-head">
-          <h2>Study Squad</h2>
-          <button class="sheet-close" id="friendsClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        </div>
-        <div class="sheet-body">
-          <div class="squad-me">
-            <img id="squadMeAvatar" class="squad-avatar" src="assets/Mr. Tapioca.png" alt="">
-            <div class="squad-me-info">
-              <span id="squadMeName" class="squad-name">You</span>
-              <div id="squadMeStats" class="squad-stats">0h &middot; 0 drinks &middot; 0<svg class="ico ico-flame" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 2.2c.6 3.1-.7 4.6-2 6-1.4 1.5-2.9 3-2.9 5.6a5.4 5.4 0 0 0 10.8 0c0-2.3-1-4-2.1-5.4-.5.9-1.2 1.5-2 1.7.7-2.9-.2-5.6-1.8-7.9Z"/></svg></div>
-            </div>
-          </div>
-          <div id="squadMyCodeRow" class="squad-mycode hidden">
-            <span class="squad-mycode-label">Your code</span>
-            <button id="squadMyCode" class="squad-mycode-value" title="Tap to copy">······</button>
-          </div>
-          <button id="squadShareBtn" class="squad-share">Generate Code to Invite a Friend</button>
-          <p id="squadHint" class="squad-hint">Don't forget to Share Your Code to keep up with everyone's stats. Start focusing together now!</p>
-          <div class="squad-add">
-            <input id="squadCodeInput" class="squad-input" placeholder="Paste a friend's code here" autocomplete="off" autocapitalize="off" spellcheck="false">
-            <button id="squadAddBtn" class="squad-add-btn">Add</button>
-          </div>
-          <div class="squad-board-head"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H4.5A2.5 2.5 0 0 0 7 9M17 5.5h2.5A2.5 2.5 0 0 1 17 9M12 14v3M8.5 20h7l-.7-3h-5.6l-.7 3Z"/></svg>Leaderboard</div>
-          <div id="squadBoard" class="squad-board"></div>
-        </div>
-      </div>
-
-      <!-- ── Daily Quests ─────────────────────────────────────────── -->
-      <div id="questsSheet" class="sheet hidden" role="dialog" aria-label="Daily Quests" aria-modal="true">
-        <div class="sheet-handle"></div>
-        <div class="sheet-head">
-          <h2>Daily Quests</h2>
-          <button class="sheet-close" id="questsClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        </div>
-        <div class="sheet-body">
-          <p class="quests-intro">Three fresh challenges to earn pearls every day!</p>
-          <div id="questsList" class="quests-list"></div>
-        </div>
-      </div>
-
-      <!-- ── Your shelf: finished drinks, treats and badges ──────────
-           Every finished drink has always been pushed to state.collection and
-           every reward to state.rewards, and twelve badges unlock in
-           checkBadges(), but none of it had a screen. Badges surfaced only as a
-           2-second toast and were then gone forever, and the reward dialog's own
-           button says "Saved to my Treat Jar" for a Treat Jar that did not
-           exist. This is that screen. -->
-      <div id="collectionSheet" class="sheet hidden" role="dialog" aria-label="Your shelf" aria-modal="true">
-        <div class="sheet-handle"></div>
-        <div class="sheet-head">
-          <h2>Your Shelf</h2>
-          <button class="sheet-close" id="collectionClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        </div>
-        <div class="sheet-body">
-          <div class="coll-tabs" role="tablist">
-            <button class="coll-tab active" id="collTabDrinks" data-tab="drinks" role="tab">Drinks</button>
-            <button class="coll-tab" id="collTabTreats" data-tab="treats" role="tab">Treats</button>
-            <button class="coll-tab" id="collTabBadges" data-tab="badges" role="tab">Badges</button>
-          </div>
-          <div id="collDrinks" class="coll-panel"></div>
-          <div id="collTreats" class="coll-panel hidden"></div>
-          <div id="collBadges" class="coll-panel hidden"></div>
-        </div>
-      </div>
-
-      <!-- ── Toast (badge unlocks etc.) ───────────────────────────── -->
-      <div id="toast" class="toast hidden" aria-live="polite"></div>
-
-      <!-- ── Sheet backdrop ───────────────────────────────────────── -->
-      <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
-
-      <!-- ── First-run onboarding ─────────────────────────────────── -->
-      <!-- ── Feature tour (spotlight coach marks) ─────────────────────── -->
-      <div id="coachTour" class="coach-overlay hidden" role="dialog" aria-modal="true" aria-label="Feature tour">
-        <div id="coachHole" class="coach-hole"></div>
-        <div id="coachTip" class="coach-tip">
-          <h3 id="coachTitle"></h3>
-          <p id="coachText"></p>
-          <div class="coach-foot">
-            <div id="coachDots" class="coach-dots" aria-hidden="true"></div>
-            <div class="coach-btns">
-              <button id="coachSkip" type="button" class="coach-skip">Skip</button>
-              <button id="coachNext" type="button" class="coach-next">Next</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="onboarding" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Welcome">
-        <div class="onboard-card">
-          <button id="onboardSkip" class="onboard-skip">Skip</button>
-          <div class="onboard-visual">
-            <img id="onboardImg" class="onboard-img" src="assets/Mr. Tapioca.png" alt="">
-            <span id="onboardEmoji" class="onboard-emoji hidden"></span>
-          </div>
-          <h2 id="onboardTitle">Meet Mr. Tapioca</h2>
-          <p id="onboardBody">Your cozy study buddy.</p>
-          <input id="onboardNameInput" class="onboard-name-input hidden" type="text" maxlength="24" placeholder="Your name" autocomplete="off" autocapitalize="words" enterkeyhint="done">
-          <div id="onboardDots" class="onboard-dots"></div>
-          <div class="onboard-actions">
-            <button id="onboardBack" class="quiet onboard-back">Back</button>
-            <button id="onboardNext" class="start-btn onboard-next">Next</button>
-          </div>
-        </div>
-      </div>
-
-    </main>
-
-    <aside class="site-rail rail-right">
-      <div class="rail-qr-card">
-        <img class="rail-qr" src="assets/appstore-qr.png" alt="QR code for the App Store listing">
-        <span>point your iPhone camera here</span>
-      </div>
-      <div class="rail-links">
+  <footer>
+    <div class="wrap">
+      <div class="made">Made with care by Melchi &amp; Dasha. &copy; 2026 Mr. Tapioca.</div>
+      <div class="links">
+        <a href="https://apps.apple.com/app/id6786023560">App Store</a>
+        <a href="app.html">Web app</a>
         <a href="support.html">Support</a>
         <a href="privacy.html">Privacy</a>
-        <a href="mailto:mrtapioca.app@gmail.com">Say hi</a>
       </div>
-      <p class="rail-made">Made with 🧋 by Melchi &amp; Dasha</p>
-    </aside>
-
-    <!-- Dialogs (outside main so they can use native dialog z-index) -->
-    <dialog id="rewardDialog">
-      <div class="reward-card">
-        <div class="reward-confetti" aria-hidden="true">
-          <span>🎉</span><span>✨</span><span>🧋</span><span>💛</span><span>⭐</span><span>🎉</span><span>✨</span>
-        </div>
-        <div id="rewardDrink" class="reward-drink">
-          <!-- Same crafted SVG cup as the focus screen, shown FULL (a finished drink),
-               tinted to the chosen tea via --drink-color set in showReward(). -->
-          <svg class="reward-cup-svg" viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs><clipPath id="rewardCupClip"><path d="M26,60 L33,151 Q34,156 39,156 L81,156 Q86,156 87,151 L94,60 Z"/></clipPath></defs>
-            <path class="cup-body-fill" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58 Z"/>
-            <g clip-path="url(#rewardCupClip)">
-              <rect class="reward-liquid" x="22" y="60" width="76" height="96"/>
-              <g class="cup-pearls">
-                <circle cx="42" cy="152" r="4.6"/><circle cx="52" cy="153" r="4.6"/><circle cx="62" cy="152" r="4.6"/>
-                <circle cx="72" cy="153" r="4.6"/><circle cx="82" cy="152" r="4.6"/>
-                <circle cx="47" cy="146" r="4.6"/><circle cx="57" cy="147" r="4.6"/>
-                <circle cx="67" cy="146" r="4.6"/><circle cx="77" cy="147" r="4.6"/>
-              </g>
-              <path class="cup-sheen" d="M33,66 q-2,45 3,88" fill="none"/>
-            </g>
-            <path class="cup-outline" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58" fill="none"/>
-            <path class="cup-straw" d="M71,9 L80,11 L70,120 L61,118 Z"/>
-            <path class="cup-straw-hl" d="M71,9 L80,11 L78,20 L72,18 Z"/>
-            <path class="cup-lid" d="M18,58 L18,53 Q18,50 21,50 L99,50 Q102,50 102,53 L102,58 Z"/>
-            <path class="cup-dome" d="M23,50 C23,30 39,24 60,24 C81,24 97,30 97,50 Z"/>
-            <ellipse class="cup-dome-hl" cx="46" cy="36" rx="9" ry="4"/>
-          </svg>
-        </div>
-        <p class="eyebrow">Drink complete!</p>
-        <h2 id="rewardTitle">Nice work!</h2>
-        <p id="rewardCopy">Your focus session filled a fresh boba drink.</p>
-        <div class="reward-earned">
-          <img src="assets/Tapioca Currency.png" class="reward-pearl" alt="">
-          <span id="rewardPearls">+0 pearls</span>
-        </div>
-        <div id="partnerReward" class="partner"></div>
-        <div class="dialog-actions">
-          <!-- Share generates a cute card (native share sheet on iOS, download on
-               desktop). It sits OUTSIDE the method=dialog form so tapping it does
-               not close the modal. -->
-          <button id="shareRewardBtn" type="button" class="secondary">Share my drink</button>
-          <form method="dialog">
-            <!-- The drink + reward are already banked by completeSession(). -->
-            <button id="saveRewardBtn" class="primary" value="save">Saved to my Treat Jar</button>
-          </form>
-        </div>
-      </div>
-    </dialog>
-
-    <!-- Shown to a barista across the counter. Big shop name, big perk, and a
-         ticking clock so a screenshot cannot stand in for the live app. -->
-    <dialog id="redeemDialog">
-      <div class="reward-card redeem-card">
-        <div class="redeem-star" aria-hidden="true"><svg class="ico-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.7l6.1-.9L12 3.2Z"/></svg></div>
-        <p class="eyebrow">Show this at the counter</p>
-        <h2 id="redeemShop">Partner shop</h2>
-        <p id="redeemAddress" class="redeem-address"></p>
-        <div id="redeemPerk" class="redeem-perk"></div>
-        <!-- Server-issued handoff code. Hidden entirely unless Reward V2 is on
-             and the server actually returned one, so with the flag down this
-             element never renders and the card is exactly the v1 card. -->
-        <p id="redeemCode" class="redeem-code hidden" aria-live="polite"></p>
-        <p id="redeemStamp" class="redeem-stamp"></p>
-        <p id="redeemNote" class="redeem-note"></p>
-        <div class="dialog-actions">
-          <button id="redeemConfirmBtn" type="button" class="primary">Use one reward</button>
-          <form method="dialog">
-            <button class="secondary" value="cancel">Not now</button>
-          </form>
-        </div>
-      </div>
-    </dialog>
-
-    <dialog id="blockPrompt">
-      <div class="reward-card block-card">
-        <div class="block-shield" aria-hidden="true"><svg class="ico-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l7.5 3.2v5.9c0 4.6-3.1 8.3-7.5 10.2-4.4-1.9-7.5-5.6-7.5-10.2V5.7L12 2.5Z"/><path d="M9 12.2l2.1 2.1L15.2 10" stroke-linecap="round"/></svg></div>
-        <p class="eyebrow">Focus mode</p>
-        <h2>Block distractions?</h2>
-        <p id="blockPromptCopy">Mr. Tapioca can shield your distracting apps while
-          you focus, so nothing pulls you away. You will also earn full pearls.</p>
-        <div class="block-actions">
-          <button id="blockChooseBtn" type="button" class="primary">Choose apps to block</button>
-          <button id="blockSkipBtn" type="button" class="quiet">Start without blocking</button>
-          <button id="blockNeverBtn" type="button" class="block-never">Don’t ask again</button>
-        </div>
-      </div>
-    </dialog>
-
-    <!-- In-world replacement for window.confirm / prompt / alert. The stock OS
-         boxes rendered as UIAlertController on the Capacitor build, which is the
-         hardest break of the app's world, and they fired on the most-used paths
-         (Reset mid-session, changing drink or size, every pearl purchase).
-         Driven by askConfirm() / askPrompt() / askAlert() in app.js. -->
-    <dialog id="askDialog">
-      <div class="reward-card ask-card">
-        <p class="eyebrow" id="askEyebrow">Just checking</p>
-        <h2 id="askTitle">Are you sure?</h2>
-        <p id="askCopy"></p>
-        <input id="askInput" class="ask-input hidden" type="text" autocomplete="off" spellcheck="false">
-        <div class="block-actions">
-          <button id="askConfirmBtn" type="button" class="primary">Yes</button>
-          <button id="askCancelBtn" type="button" class="quiet">Cancel</button>
-        </div>
-      </div>
-    </dialog>
-
-    <dialog id="premiumDialog">
-      <div class="reward-card premium-card">
-        <p class="eyebrow">Premium skin</p>
-        <h2 id="premiumTitle">Coming soon</h2>
-        <p id="premiumCopy">This premium skin will be available as an in-app purchase on the iPhone version.</p>
-        <div class="partner">No real purchase happens in this prototype.</div>
-        <form method="dialog" class="dialog-actions">
-          <button class="primary" value="close">Got it</button>
-        </form>
-      </div>
-    </dialog>
-
-    <script src="config.js"></script>
-    <script src="squad-cloud.js"></script>
-    <script src="metrics.js"></script>
-    <!-- Product analytics, feature-flagged OFF in config.js. Inert with the flag
-         down: no queue, no network, no storage writes. -->
-    <script src="analytics.js"></script>
-    <!-- Local notifications. Inert with no backend and schedules nothing until
-         the user turns a preference on in Settings. -->
-    <script src="notifications.js"></script>
-    <!-- Reward V2, feature-flagged OFF in config.js. Both files return
-         immediately when the flag is down, so with it off this is two script
-         tags and no behaviour change. reward-config.js must load first:
-         reward-v2.js has no opinion about what a threshold means. -->
-    <script src="reward-config.js"></script>
-    <script src="reward-v2.js"></script>
-    <script src="app.js"></script>
-  </body>
+    </div>
+  </footer>
+</body>
 </html>

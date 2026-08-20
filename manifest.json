@@ -2,7 +2,7 @@
   "name": "Mr. Tapioca",
   "short_name": "Mr. Tapioca",
   "description": "A cozy boba-themed focus timer. Study, fill your drink, collect cute rewards.",
-  "start_url": ".",
+  "start_url": "app.html",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
