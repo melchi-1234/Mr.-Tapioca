@@ -29,7 +29,7 @@ test("secondary phone controls keep a 44-point target and the page declares an i
     page = await Page.open(chrome.port, { width: 375, height: 667, scale: 1 });
     page.port = chrome.port;
     await page.send("Page.addScriptToEvaluateOnNewDocument", { source: "localStorage.clear();" });
-    await page.goto(`${server.origin}/index.html`, { waitMs: 350 });
+    await page.goto(`${server.origin}/app.html`, { waitMs: 350 });
     const metrics = await page.eval(`(() => {
       const rect = (selector) => {
         const r = document.querySelector(selector).getBoundingClientRect();

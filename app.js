@@ -2250,12 +2250,17 @@ function pauseFocus() {
 // drink you've brewed (freezes + banks it, resumable), then unlocks. Never
 // discards progress — ending should feel safe, not punishing.
 async function endFocusSession() {
-  if (!(await askConfirm(
-      "Your blocked apps will unlock. You keep the drink you have brewed so far, and can come back to it anytime.",
+  // Only the native build actually has blocked apps to unlock; on web the shield
+  // never existed, so don't promise to lift it.
+  const body = FocusBlocker.available()
+    ? "Your blocked apps will unlock. You keep the drink you have brewed so far, and can come back to it anytime."
+    : "You keep the drink you have brewed so far, and can come back to it anytime.";
+  if (!(await askConfirm(body,
       { title: "End this session?", eyebrow: "Take a break", confirmLabel: "End session" }))) return;
   if (state.running) pauseFocus();   // freeze + bank progress (pause keeps the shield up)
   FocusBlocker.stop();               // the deliberate unlock
   FocusActivity.stop();
+  if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});
 }
 
 // ── App-blocking discoverability (start-focus prompt + status pill) ──────────
@@ -2411,6 +2416,10 @@ function resetSession() {
   }
   FocusBlocker.stop();
   FocusActivity.stop();
+  // Discarding the drink must also cancel the pending "your drink is ready"
+  // notification, or it fires later for a session that no longer exists
+  // (pauseFocus and completeSession already do this).
+  if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});
   clearTimeout(state.breakMakerCycleId);
   state.breakMakerCycleId = null;
   clearInterval(state.breakTimerId);
@@ -2522,7 +2531,14 @@ function completeSession(options) {
   // fullPearls === 0 keeps the "a finished drink always pays something" rule.
   const share = wasBlocked ? 1 : REWARD_UNBLOCKED_FRACTION;
   const awardedExact = fullPearls > 0 ? fullPearls * share : 1;
-  const pearlsEarned = Math.max(1, Math.round(awardedExact));
+  // Show what we ACTUALLY bank. Only guarantee "at least 1" at full rate (blocked
+  // or web); an unblocked session under the 90% penalty can honestly round to 0,
+  // which is the whole point. Claiming "+1" while banking 0.2 read as a broken
+  // counter. Restoring a min-1 for the unblocked case would also re-open a farm:
+  // 1 pearl per short session is the full rate again.
+  const pearlsEarned = wasBlocked
+    ? Math.max(1, Math.round(awardedExact))
+    : Math.round(awardedExact);
   // Reconcile against the minutes-derived balance (currentPearls): bank a top-up
   // (the min-1 guarantee) as bonus pearls, or withhold the unblocked shortfall as a
   // persistent penalty that currentPearls() subtracts.
@@ -2721,8 +2737,10 @@ async function buildShareCard(reward) {
   c.restore();
   c.textAlign = "center";
 
-  // Streak + total stats row
-  const streak = state.streak || 0;
+  // Streak + total stats row. state.streak is never assigned anywhere; the real
+  // current streak comes from computeStats(), so the share card used to brag a
+  // hard 0 for every user on the app's headline growth surface.
+  const streak = (computeStats().current) || 0;
   const totalDrinks = (state.collection && state.collection.length) || 0;
   c.fillStyle = bark;
   c.font = "900 56px system-ui, -apple-system, Segoe UI, sans-serif";
@@ -3576,29 +3594,6 @@ function flashMiss() {
   els.gameArea.classList.add("area-flash");
 }
 
-// Leaving mid-session no longer spills the whole drink (long drinks are meant
-// to be filled across multiple sittings). Instead we pause and bank progress,
-// with a startled reaction, so the user can resume right where they left off.
-function pauseAndBank() {
-  stopTicker();
-  stopAmbience();
-  stopMusic();
-  FocusBlocker.stop();
-  state.running = false;
-  state.lastTick = null;
-  state.autoPaused = true;   // so returning to the app can auto-resume
-  saveState();
-  clearTimeout(walkTimer); setWalk(0);   // hurry back to the station
-  currentMakerState = ""; setMakerState("shocked");
-  updateCup();
-  els.makerSpeech.textContent = "You stepped away — saved your spot! 🧋";
-  setTimeout(() => {
-    if (!state.running && state.phase === "focus") {
-      currentMakerState = "";
-      setMakerState("idle");
-    }
-  }, 1600);
-}
 
 function plinkoRoundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -7869,11 +7864,22 @@ if (IAP.available()) {
   IAP.restoreAll(false);
 }
 
-// Safety: if no session is running, no app shield should be up and no
-// lock-screen countdown should be live. Heals the stuck-shield and stale
-// Live Activity cases where iOS killed the app mid-session and the block /
-// countdown outlived it. No-ops on web and when nothing is active.
-if (!state.running) { FocusBlocker.stop(); FocusActivity.stop(); }
+// Safety: heal the stuck-shield / stale Live Activity cases where iOS killed the
+// app mid-session and the block or countdown outlived it. BUT a PAUSED in-progress
+// drink deliberately keeps its shield up (pause no longer unlocks — only End does),
+// and a session killed mid-run is restored PAUSED, so tearing the shield down here
+// would silently reopen the pause-then-scroll escape hatch on every relaunch.
+// So only clear the shield when there is no in-progress focus drink; for a paused
+// one, re-assert the shield instead. The Live Activity is always cleared (a frozen
+// countdown is wrong either way).
+if (!state.running) {
+  FocusActivity.stop();
+  if (state.phase === "focus" && state.elapsed > 0) {
+    if (FocusBlocker.available() && state.shieldWasUp) FocusBlocker.start();
+  } else {
+    FocusBlocker.stop();
+  }
+}
 
 // On iPhone, learn whether blocking is already set up so the shield pill shows
 // the right state and the start-focus prompt only fires when needed.

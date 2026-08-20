@@ -87,7 +87,7 @@ test("440x956 native Angel focus scene is composed and aligned", { timeout: 30_0
     const errors = page.collectErrors();
     const bootHook = nativeBootHook();
     await page.send("Page.addScriptToEvaluateOnNewDocument", { source: bootHook });
-    await page.goto(`${server.origin}/index.html`, { waitMs: 600 });
+    await page.goto(`${server.origin}/app.html`, { waitMs: 600 });
     await page.eval(`(() => {
       const style = document.createElement("style");
       style.textContent = "*,*::before,*::after{animation:none!important;transition:none!important}";
@@ -230,7 +230,7 @@ test("native focus layout clears controls on every supported phone size", { time
         await page.send("Page.addScriptToEvaluateOnNewDocument", {
           source: nativeBootHook(viewport),
         });
-        await page.goto(`${server.origin}/index.html`, { waitMs: 450 });
+        await page.goto(`${server.origin}/app.html`, { waitMs: 450 });
         await page.eval(`(() => {
           const style = document.createElement("style");
           style.textContent = "*,*::before,*::after{animation:none!important;transition:none!important}";

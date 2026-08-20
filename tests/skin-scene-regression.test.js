@@ -66,7 +66,7 @@ async function withPage(width, height, run) {
     page = await Page.open(chrome.port, { width, height, scale: 1 });
     page.port = chrome.port;
     await page.send("Page.addScriptToEvaluateOnNewDocument", { source: nativeBootHook() });
-    await page.goto(`${server.origin}/index.html`, { waitMs: 500 });
+    await page.goto(`${server.origin}/app.html`, { waitMs: 500 });
     return await run(page);
   } finally {
     if (page) await page.close();

@@ -36,7 +36,7 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES } from "./public-bundle-manifest.mjs";
+import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES, PUBLIC_ENTRY } from "./public-bundle-manifest.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const WEB = join(REPO, "www");
@@ -71,7 +71,7 @@ function sha(p) {
 // the failure this script is supposed to catch. Parsing the real script is the
 // only version that cannot go stale.
 function copywebManifest() {
-  return { files: [...PUBLIC_ROOT_FILES], assets: PUBLIC_ASSET_DIRECTORY === "assets", error: null };
+  return { files: [...PUBLIC_ROOT_FILES], entry: PUBLIC_ENTRY, assets: PUBLIC_ASSET_DIRECTORY === "assets", error: null };
 }
 
 function walk(dir) {
@@ -103,6 +103,16 @@ function compareBundle(directory, label, manifest, allowedExtra = new Set()) {
     else (rootHash === bundleHash ? same : differs).push(f);
   }
 
+  // The native entry (index.html) is built from app.html, so compare the bundled
+  // index.html against the repo's app.html, not against the landing index.html.
+  if (manifest.entry) {
+    const srcHash = sha(join(REPO, manifest.entry.source));
+    const bundleHash = sha(join(directory, manifest.entry.dest));
+    if (srcHash == null) fail(1, `public entry source ${manifest.entry.source} is not in the repo root`);
+    else if (bundleHash == null) missing.push(manifest.entry.dest);
+    else (srcHash === bundleHash ? same : differs).push(manifest.entry.dest);
+  }
+
   const rootAssets = manifest.assets ? walk(join(REPO, PUBLIC_ASSET_DIRECTORY)) : [];
   const bundleAssets = manifest.assets ? walk(join(directory, PUBLIC_ASSET_DIRECTORY)) : [];
   const rootAssetSet = new Set(rootAssets);
@@ -112,7 +122,7 @@ function compareBundle(directory, label, manifest, allowedExtra = new Set()) {
   const assetDiffer = rootAssets.filter((name) => bundleAssetSet.has(name)
     && sha(join(REPO, PUBLIC_ASSET_DIRECTORY, name)) !== sha(join(directory, PUBLIC_ASSET_DIRECTORY, name)));
 
-  const shipped = new Set(manifest.files);
+  const shipped = new Set([...manifest.files, ...(manifest.entry ? [manifest.entry.dest] : [])]);
   const extra = walk(directory).filter((name) => !name.startsWith(`${PUBLIC_ASSET_DIRECTORY}/`)
     && !shipped.has(name) && !allowedExtra.has(name));
   return { label, missing, differs, same, extra, assetMissing, assetDiffer, assetExtra };
@@ -136,7 +146,7 @@ function checkBundleSync(manifest) {
       + result.assetMissing.length + result.assetDiffer.length + result.assetExtra.length;
     bad += count;
     say("");
-    say(`  ${result.label}: ${result.same.length}/${manifest.files.length} shell files match; ` +
+    say(`  ${result.label}: ${result.same.length}/${manifest.files.length + (manifest.entry ? 1 : 0)} shell files match; ` +
       `${walk(join(result.label === "www" ? WEB : STAGED, PUBLIC_ASSET_DIRECTORY)).length} assets`);
     for (const name of result.missing) say(`    --  ${name}`);
     for (const name of result.differs) say(`    !!  ${name}`);
@@ -148,7 +158,7 @@ function checkBundleSync(manifest) {
 
   say("");
   if (bad === 0) {
-    pass(`root, www and staged iOS public bundle are byte-identical (${manifest.files.length} files + ${PUBLIC_ASSET_DIRECTORY}/)`);
+    pass(`root, www and staged iOS public bundle are byte-identical (${manifest.files.length + (manifest.entry ? 1 : 0)} files + ${PUBLIC_ASSET_DIRECTORY}/)`);
   } else {
     fail(1, `public bundle parity failed with ${bad} missing, changed or unexpected path(s)`);
     always("      fix:  npm run ios:sync");
@@ -256,7 +266,9 @@ function checkRewardWiring(manifest) {
 
   const shell = shellOf(readText(join(REPO, "sw.js"))) || [];
   const inCopyweb = new Set(manifest.files);
-  const indexSrc = readText(join(REPO, "index.html")) || "";
+  // The reward scripts live in the app, which is app.html (index.html is now the
+  // marketing landing page). The native bundle ships app.html AS index.html.
+  const indexSrc = readText(join(REPO, (manifest.entry && manifest.entry.source) || "index.html")) || "";
 
   let ok = true;
   for (const f of REWARD_FILES) {

@@ -1480,7 +1480,10 @@ test("the drink-complete summary publishes only a delivered server snapshot", ()
     "local reward arithmetic must exist only in the non-server branch");
 });
 
-test("pause and reset execute zero-credit abandonment before releasing the native shield", () => {
+test("reset abandons then releases the shield; pause abandons but KEEPS the shield up", () => {
+  // Pause no longer lifts the Screen Time shield (only End/reset does), so a
+  // paused session must NOT emit shield-stop — that is the whole anti-scroll fix.
+  const expected = { pause: ["reward-abandon"], reset: ["reward-abandon", "shield-stop"] };
   for (const kind of ["pause", "reset"]) {
     const events = [];
     const context = {
@@ -1510,7 +1513,7 @@ test("pause and reset execute zero-credit abandonment before releasing the nativ
       ? sourceBetween("function pauseFocus()", "// ── App-blocking discoverability")
       : sourceBetween("function resetSession()", "function completeSession(options)"), context);
     context[kind === "pause" ? "pauseFocus" : "resetSession"]();
-    assert.deepEqual(events, ["reward-abandon", "shield-stop"]);
+    assert.deepEqual(events, expected[kind]);
   }
 });
 

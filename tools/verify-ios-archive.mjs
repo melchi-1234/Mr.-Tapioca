@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES } from "./public-bundle-manifest.mjs";
+import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES, PUBLIC_ENTRY } from "./public-bundle-manifest.mjs";
 
 const toolPath = fileURLToPath(import.meta.url);
 const invokedAsScript = Boolean(process.argv[1])
@@ -498,6 +498,7 @@ function verifyCanonicalPublicParity() {
   const canonicalAssets = path.join(repositoryRoot, "assets");
   const expected = [
     ...PUBLIC_ROOT_FILES,
+    PUBLIC_ENTRY.dest,   // index.html, built from app.html (the app); see copy-web.mjs
     ...relativeFiles(canonicalAssets).map((name) => path.join(PUBLIC_ASSET_DIRECTORY, name)),
   ];
   const expectedSet = new Set(expected);

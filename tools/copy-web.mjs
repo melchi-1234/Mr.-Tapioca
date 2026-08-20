@@ -2,7 +2,7 @@
 import { cpSync, mkdirSync, readdirSync, rmSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES } from "./public-bundle-manifest.mjs";
+import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES, PUBLIC_ENTRY } from "./public-bundle-manifest.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const destination = path.join(repositoryRoot, "www");
@@ -15,6 +15,12 @@ mkdirSync(destination, { recursive: true });
 for (const name of PUBLIC_ROOT_FILES) {
   cpSync(path.join(repositoryRoot, name), path.join(destination, name));
 }
+// The native/Capacitor WKWebView entry is index.html, so build it from app.html
+// (the actual app), NOT from the repo's index.html (the web marketing landing).
+cpSync(
+  path.join(repositoryRoot, PUBLIC_ENTRY.source),
+  path.join(destination, PUBLIC_ENTRY.dest),
+);
 cpSync(
   path.join(repositoryRoot, PUBLIC_ASSET_DIRECTORY),
   path.join(destination, PUBLIC_ASSET_DIRECTORY),
@@ -29,4 +35,4 @@ function removeFinderMetadata(directory) {
   }
 }
 removeFinderMetadata(destination);
-console.log(`Copied ${PUBLIC_ROOT_FILES.length} shell files and ${PUBLIC_ASSET_DIRECTORY}/ into www/`);
+console.log(`Copied ${PUBLIC_ROOT_FILES.length + 1} shell files (entry ${PUBLIC_ENTRY.dest} <- ${PUBLIC_ENTRY.source}) and ${PUBLIC_ASSET_DIRECTORY}/ into www/`);

@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v199";
+const CACHE = "mr-tapioca-v200";
 
 // Focus-tune audio lives in its OWN cache, on purpose, and is deliberately NOT
 // in SHELL below. Two reasons, both learned the hard way:
@@ -22,7 +22,6 @@ const MUSIC_CACHE = "mr-tapioca-music-v1";
 
 // Core app shell precached on install so the app boots with no network.
 const SHELL = [
-  "./",
   "app.html",
   "styles.css",
   "config.js",

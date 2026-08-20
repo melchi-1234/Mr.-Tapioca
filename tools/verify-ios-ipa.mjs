@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES } from "./public-bundle-manifest.mjs";
+import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES, PUBLIC_ENTRY } from "./public-bundle-manifest.mjs";
 
 const expectedVersion = "1.1.1";
 const expectedBuild = "10";
@@ -436,6 +436,7 @@ function verifyCanonicalPublicParity(appBundle) {
   const canonicalAssets = path.join(repositoryRoot, "assets");
   const canonicalFiles = [
     ...PUBLIC_ROOT_FILES,
+    PUBLIC_ENTRY.dest,   // index.html, built from app.html (the app); see copy-web.mjs
     ...relativeFiles(canonicalAssets).map((name) => path.join(PUBLIC_ASSET_DIRECTORY, name)),
   ];
   const expectedFiles = [...canonicalFiles, "cordova.js", "cordova_plugins.js"].sort();

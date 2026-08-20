@@ -770,7 +770,7 @@ async function prelude(port, origin) {
   await page.send("Page.addScriptToEvaluateOnNewDocument", {
     source: bootHook({ bobaFocusOnboarded: "true", bobaFocusTourDone: "1" }),
   });
-  await page.goto(origin + "/index.html", { waitMs: 1500 });
+  await page.goto(origin + "/app.html", { waitMs: 1500 });
 
   const curatedFor = async (fix) => page.eval(`(() => {
     const la = ${fix.lat}, ln = ${fix.lng};
@@ -880,7 +880,7 @@ async function main() {
           }
           const seed = typeof st.seed === "function" ? st.seed() : st.seed;
           await page.send("Page.addScriptToEvaluateOnNewDocument", { source: bootHook(seed) });
-          await page.goto(origin + "/index.html", { waitMs: 900 });
+          await page.goto(origin + "/app.html", { waitMs: 900 });
 
           const out = await st.run(page);
           if (!out.ok) {
