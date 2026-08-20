@@ -2233,13 +2233,29 @@ function pauseFocus() {
   if (window.RewardV2 && RewardV2.enabled && typeof RewardV2.abandonSession === "function") {
     Promise.resolve(RewardV2.abandonSession()).catch(() => {});
   }
-  FocusBlocker.stop();        // lift the shield when paused
-  FocusActivity.stop();       // clear the Lock Screen countdown
+  // Pause KEEPS the shield up on purpose. Pausing used to lift it, which made
+  // pause -> scroll -> resume a free escape hatch. Now your blocked apps stay
+  // locked while paused (everything you didn't block still works: calls, texts,
+  // your study apps). The only way to actually free them is to End the session.
+  FocusActivity.stop();       // clear the Lock Screen countdown (it's frozen now)
   // The session is no longer going to end when it said it would, so the pending
   // "your drink is ready" would be a lie. beginFocus reschedules on resume.
   if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});
   walkToStation("idle");      // walk back to his spot
   saveState();                // bank progress whenever the user pauses
+}
+
+// The deliberate way out of a blocked session. Pause no longer frees the apps,
+// so this is the ONLY thing that lifts the shield mid-session. It keeps the
+// drink you've brewed (freezes + banks it, resumable), then unlocks. Never
+// discards progress — ending should feel safe, not punishing.
+async function endFocusSession() {
+  if (!(await askConfirm(
+      "Your blocked apps will unlock. You keep the drink you have brewed so far, and can come back to it anytime.",
+      { title: "End this session?", eyebrow: "Take a break", confirmLabel: "End session" }))) return;
+  if (state.running) pauseFocus();   // freeze + bank progress (pause keeps the shield up)
+  FocusBlocker.stop();               // the deliberate unlock
+  FocusActivity.stop();
 }
 
 // ── App-blocking discoverability (start-focus prompt + status pill) ──────────
@@ -7193,11 +7209,10 @@ function wireEvents() {
   els.startPauseBtn.addEventListener("click", () => { playSfx("tap"); startPause(); });
   els.resetBtn.addEventListener("click", async () => {
     playSfx("tap");
-    // guard against erasing a partly-filled drink (mirrors the size-switch guard)
-    if (state.elapsed > 0 && progress() < 1 &&
-        !(await askConfirm("Your current progress will be lost.",
-          { title: "Reset this drink?", eyebrow: "Careful", confirmLabel: "Reset", danger: true }))) return;
-    resetSession();
+    // This is now the "End session" control: it is the only mid-session way to
+    // free the blocked apps (pause keeps them locked). It KEEPS the drink you
+    // have brewed (resumable), so ending never costs your progress.
+    endFocusSession();
   });
 
   // ── Mode / size picker ───────────────────────────────────────────────────
