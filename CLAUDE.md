@@ -10,7 +10,12 @@ feature is real app blocking during focus sessions via Apple's Screen Time
 ## Stack + layout
 
 - **Plain HTML/CSS/JS, no build step.** The whole app is:
-  - `index.html` — markup + all dialogs/sheets
+  - `app.html` — the app itself (markup + all dialogs/sheets). NOTE (front-door flip, Aug 2026):
+    on the web, `index.html` is the marketing LANDING page (the front door of mrtapioca.me) and
+    the app lives at `app.html`. The native/Capacitor bundle is built with app.html copied in AS
+    index.html, because Capacitor loads index.html as its entry (see `tools/copy-web.mjs` +
+    `PUBLIC_ENTRY` in `tools/public-bundle-manifest.mjs`; the verifiers/check-release know this
+    mapping). So do NOT assume `index.html` is the app.
   - `app.js` — ~5800 lines, all logic (timer, economy, games, squad, audio, map, poses, icons, native bridges)
   - `styles.css` — all styling + themes + animations
   - `sw.js` — service worker (offline + install). `const CACHE = "mr-tapioca-vNN"` MUST be bumped on every release or installed users keep the old shell.
@@ -121,10 +126,10 @@ picks the new list up on the next Boba Map open.
 
 ⚠️ **"Every client" means every client that HAS the partner system.** The live App
 Store release was archived before the partner code existed, so it ignores
-`partners.json` entirely. Build 8 reached TestFlight but is a rejected
-release candidate and must never be submitted. The corrected code reaches App Store
-phones with **1.1.1 / build 9**. Until that ships, a shop added here is live
-on mrtapioca.me and invisible on iPhone. Do not tell anyone a new shop is on their
+`partners.json` entirely. Builds 8, 9 and 10 are superseded and must never be
+submitted. The corrected code reaches App Store phones with **1.1.1 / build 11**
+(uploaded + on TestFlight, not yet submitted). Until that ships, a shop added here is live
+on mrtapioca.me and invisible on the current App Store iPhone build. Do not tell anyone a new shop is on their
 phone before checking `CURRENT_PROJECT_VERSION` against the build that has partners.
 Pulling a shop is the same edit in reverse, which is what lets us keep the promise
 the pitch makes: they come off the app the day they ask.
@@ -175,18 +180,27 @@ the pitch makes: they come off the app the day they ask.
 - Two people work on this repo (both push to `feature-work`). **Pull/rebase before you start** to avoid conflicts. If you see uncommitted changes that aren't yours (e.g. outreach tracking files), stash around them rather than committing them.
 - Prefer separate branches for big parallel work, then merge.
 
-## Current status (as of 2026-08-17)
+## Current status (as of 2026-08-21)
 
-- **Shipped and live.** v1.0 went up around Jul 30 2026; **v1.0.1 (build 6) went live Aug 4 2026**.
-  The web app is live at https://mrtapioca.me and auto-deploys from `feature-work`.
-- **Nothing is in App Review right now.** Build 8 is available in TestFlight but is
-  explicitly rejected as a release candidate because it contains the green Angel
-  halo and broken focus-screen spacing reported on a real phone. Never submit it.
-  The next candidate is **1.1.1 / build 9** and must pass the wrapper-only archive,
-  export, IPA verification, and real-iPhone TestFlight checklist above.
+- **Shipped and live.** v1.0 (~Jul 30 2026), v1.0.1 (build 6) live Aug 4, v1.1.0 (build 7)
+  approved. The web app is live at https://mrtapioca.me and auto-deploys from `feature-work`.
+- **1.1.1 / build 11 is UPLOADED to App Store Connect (Aug 20 2026), VALID, on TestFlight, and
+  ATTACHED to the 1.1.1 version (state PREPARE_FOR_SUBMISSION — not yet submitted).** It is the
+  candidate. **Builds 8, 9 and 10 are SUPERSEDED — never submit them.** Build 11 carries: the
+  music/Spotify audio-session fix (AppDelegate `.playback + .mixWithOthers`), pause now keeps
+  blocked apps locked with a deliberate "End", 90%-fewer-pearls when a session blocks nothing,
+  the native auto-unblock at session end (a scheduled DeviceActivity clears the shield with the
+  app closed), and ~30 review/audit bug fixes. Remaining before it ships, all owner steps: run
+  the physical-iPhone gates, set the App Privacy labels, tap Submit.
+- **The release wrapper signs headlessly via the App Store Connect API key.**
+  `tools/export-ios-release.mjs` passes `-authenticationKey*` read from
+  `~/.appstoreconnect/config.json`, so a build exports + uploads with NO Xcode account signed in
+  (that is how build 11 shipped). ⚠️ `verify-ios-archive.mjs` and `verify-ios-ipa.mjs` each hard-code
+  `expectedBuild` — bump it (and the fixtures in the ios-* tests) every build, or the archive
+  verifier rejects the new build.
 - The generated web and iOS bundles are release inputs, not hand-edited source.
   `npm run ios:release-setup` regenerates them; the archive wrapper refuses stale
-  source → www → iOS parity or a dirty worktree.
+  source → www → iOS parity or a dirty worktree (untracked files included — stash them).
 - Aug 4 2026 was a large visual overhaul: sprite sheets deleted in favor of poses, break mode
   rebuilt as a real bedroom, drawn art for the counter and all three game boards, the `--ui-*`
   material system, and one inline-SVG icon family replacing every last emoji in UI chrome.
