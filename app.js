@@ -6198,16 +6198,22 @@ function confirmRedeem() {
 
   // v1, unchanged: a local ledger entry. Live today.
   if (earnedPerkCount() <= 0) return;
+  // Capture and clear the guard first (and disable the button), so a queued
+  // double-tap re-enters confirmRedeem and returns at the top !redeemPartner
+  // check instead of spending a second perk. Mirrors the server path above.
+  const partner = redeemPartner;
+  redeemPartner = null;
+  if (els.redeemConfirmBtn) els.redeemConfirmBtn.disabled = true;
   if (!Array.isArray(state.perkRedemptions)) state.perkRedemptions = [];
   state.perkRedemptions.push({
     at: Date.now(),
-    shop: redeemPartner.name,
-    perk: redeemPartner.perk
+    shop: partner.name,
+    perk: partner.perk
   });
   saveState();
-  trk("redemption_completed", { partner_id: redeemPartner.id || null });
+  trk("redemption_completed", { partner_id: partner.id || null });
   playSfx("success");
-  showToast(`Used at ${redeemPartner.name}. Enjoy 🧋`);
+  showToast(`Used at ${partner.name}. Enjoy 🧋`);
   try { els.redeemDialog.close(); } catch (e) {}
   renderAll();
   // The banner counts live perks, and one just stopped being live. Re-render
@@ -7423,7 +7429,11 @@ function wireEvents() {
     hudPearlEl.style.cursor = "pointer";
     hudPearlEl.setAttribute("role", "button");
     hudPearlEl.setAttribute("aria-label", "Open shop");
+    hudPearlEl.setAttribute("tabindex", "0");   // keyboard-reachable, like #hudName
     hudPearlEl.addEventListener("click", () => { playSfx("open"); openSheet("shopSheet"); });
+    hudPearlEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hudPearlEl.click(); }
+    });
   }
   // Streak chip → the Your Progress section; name chip → the Change Name row.
   // The 60ms delay lets the freshly-opened sheet lay out before scrolling.
@@ -7432,9 +7442,13 @@ function wireEvents() {
     hudStreakEl.style.cursor = "pointer";
     hudStreakEl.setAttribute("role", "button");
     hudStreakEl.setAttribute("aria-label", "See your progress");
+    hudStreakEl.setAttribute("tabindex", "0");   // keyboard-reachable, like #hudName
     hudStreakEl.addEventListener("click", () => {
       playSfx("open"); renderNameRow(); openSheet("settingsSheet");
       scrollSheetTo("#settingsSheet", ".settings-section-title");
+    });
+    hudStreakEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hudStreakEl.click(); }
     });
   }
   const hudNameEl = document.querySelector("#hudName");
