@@ -126,9 +126,10 @@ picks the new list up on the next Boba Map open.
 
 ⚠️ **"Every client" means every client that HAS the partner system.** The live App
 Store release was archived before the partner code existed, so it ignores
-`partners.json` entirely. Builds 8, 9 and 10 are superseded and must never be
-submitted. The corrected code reaches App Store phones with **1.1.1 / build 11**
-(uploaded + on TestFlight, not yet submitted). Until that ships, a shop added here is live
+`partners.json` entirely. Build 8 was rejected, and builds 9, 10 and 11 are
+superseded; none of them must ever be submitted. The corrected code reaches App
+Store phones with **1.1.1 / build 12** (the auto-unblock + End-spills fixes;
+uploaded to App Store Connect, not yet submitted). Until that ships, a shop added here is live
 on mrtapioca.me and invisible on the current App Store iPhone build. Do not tell anyone a new shop is on their
 phone before checking `CURRENT_PROJECT_VERSION` against the build that has partners.
 Pulling a shop is the same edit in reverse, which is what lets us keep the promise
