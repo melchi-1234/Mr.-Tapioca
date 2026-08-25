@@ -185,18 +185,22 @@ the pitch makes: they come off the app the day they ask.
 
 - **Shipped and live.** v1.0 (~Jul 30 2026), v1.0.1 (build 6) live Aug 4, v1.1.0 (build 7)
   approved. The web app is live at https://mrtapioca.me and auto-deploys from `feature-work`.
-- **1.1.1 / build 11 is UPLOADED to App Store Connect (Aug 20 2026), VALID, on TestFlight, and
-  ATTACHED to the 1.1.1 version (state PREPARE_FOR_SUBMISSION — not yet submitted).** It is the
-  candidate. **Builds 8, 9 and 10 are SUPERSEDED — never submit them.** Build 11 carries: the
-  music/Spotify audio-session fix (AppDelegate `.playback + .mixWithOthers`), pause now keeps
-  blocked apps locked with a deliberate "End", 90%-fewer-pearls when a session blocks nothing,
-  the native auto-unblock at session end (a scheduled DeviceActivity clears the shield with the
-  app closed), and ~30 review/audit bug fixes. Remaining before it ships, all owner steps: run
-  the physical-iPhone gates, set the App Privacy labels, tap Submit.
+- **1.1.1 / build 12 is UPLOADED to App Store Connect (Aug 25 2026) via the API key, processing.**
+  It is the candidate; **builds 8-11 are superseded and must never be submitted.** Build 11 shipped
+  a real bug (the native auto-unblock never armed for a 15-min session: `scheduleAutoEnd` guarded the
+  raw remaining time against exactly 15 min and lost to Capacitor-bridge epsilon), caught by an
+  adversarial multi-agent review. Build 12 carries everything build 11 did (music/Spotify audio-session
+  fix, pause keeps apps locked with a deliberate "End", 90%-fewer-pearls when nothing is blocked, native
+  auto-unblock at session end, ~30 review/audit fixes) PLUS three fixes: the 15-min auto-unblock guard
+  now gates the back-padded scheduled span, the closed-app auto-unblock clears `webDomains` too (blocked
+  websites), and ENDING a session now spills the in-progress drink (real stakes; pause still keeps it).
+  Remaining before it ships, all owner steps: install build 12 from TestFlight and run the physical-iPhone
+  gates (a 20-min cup exercises the auto-unblock), re-point the 1.1.1 version's attached build from 11 to
+  12, set the App Privacy labels, tap Submit.
 - **The release wrapper signs headlessly via the App Store Connect API key.**
   `tools/export-ios-release.mjs` passes `-authenticationKey*` read from
   `~/.appstoreconnect/config.json`, so a build exports + uploads with NO Xcode account signed in
-  (that is how build 11 shipped). ⚠️ `verify-ios-archive.mjs` and `verify-ios-ipa.mjs` each hard-code
+  (that is how builds 11 and 12 shipped). ⚠️ `verify-ios-archive.mjs` and `verify-ios-ipa.mjs` each hard-code
   `expectedBuild` — bump it (and the fixtures in the ios-* tests) every build, or the archive
   verifier rejects the new build.
 - The generated web and iOS bundles are release inputs, not hand-edited source.
