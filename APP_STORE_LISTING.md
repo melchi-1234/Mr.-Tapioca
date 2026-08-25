@@ -138,44 +138,59 @@ A few clarifications in case a question gives you pause:
 
 ## 8. App Privacy (questionnaire answers)
 
-**"Do you or your third-party partners collect data from this app?"** Yes (location queries for the map; Study Squad data only if the user turns it on).
+**"Do you or your third-party partners collect data from this app?"** Yes. On iOS the app
+collects more than the map query, and it is NOT gated on Study Squad. At first launch it creates
+an anonymous cloud account (verified: squad-cloud.js defaults a fresh install to an active account,
+and boot runs `signInAnonymously()` + pushes a profile), and the drink counter (metrics.js, on
+because config.js carries the Supabase keys) sends a row on every finished drink. Declare all of
+the below. Nothing is used for tracking.
 
 ### Data types to declare
 
-**1. Location > Precise Location**
-- Collected: Yes (coordinates are sent off-device to fetch nearby boba shops)
-- Purpose: App Functionality (the nearby shop map)
-- Linked to the user's identity: **No**
-- Used for tracking: **No**
-
-**2. User Content (display name + focus stats), only when Study Squad cloud sync is enabled**
-- Collected: Yes, but only if the user opts into Study Squad cloud
-- What: chosen display name, focus session stats (minutes, streaks, currently-focusing status)
-- Purpose: App Functionality (showing squad members each other's progress)
-- Linked to the user's identity: **Yes**, linked to an anonymous account id (no email, phone, or real name is ever required)
-- Used for tracking: **No**
-- Account deletion is available in-app (Settings), which Apple requires whenever account creation exists. It removes the cloud data.
-
-**3. Identifiers > User ID (the anonymous account id itself), same condition as above**
-- Collected: Yes, only with Study Squad cloud
+**1. Identifiers > User ID** — the anonymous Supabase account id (plus its 6-char friend code), shared by Study Squad and partner rewards.
+- Collected: Yes. Created automatically at first launch (default), NOT only when Study Squad is used. Absent only if the user deletes the cloud account.
 - Purpose: App Functionality
-- Linked: Yes (it is the account id) / Tracking: **No**
+- Linked to identity: **Yes** (it is the account id) / Tracking: **No**
 
-**4. Purchases > Purchase History**
-- Purchases are processed entirely by Apple's In-App Purchase system; we never see payment details and run no purchase server.
-- If declaring: Purpose: App Functionality, Linked: No, Tracking: No.
+**2. Identifiers > Device ID** — the drink counter's random per-install id (metrics.js `device`, localStorage `bobaMetricsDevice`).
+- Collected: Yes, on every finished drink.
+- Purpose: Analytics (counting how many drinks the app has brewed)
+- Linked to identity: **No** (its row carries no name or account) / Tracking: **No**
+
+**3. Usage Data > Product Interaction**
+- Collected: Yes. (a) The drink counter sends size + minutes + platform on every finished drink (unlinked, Analytics). (b) The Study Squad profile sends focus minutes, drinks, streak, skin (linked to the account). (c) Partner rewards send planned session minutes, platform, blocking-on flags, session start/stop timing, the chosen partner shop, and redemption codes (linked to the account).
+- Purpose: App Functionality + Analytics
+- Linked to identity: **Yes** (App Store Connect takes one linked answer per type; the squad + reward portions tie it to the account) / Tracking: **No**
+
+**4. User Content** — the chosen display name (`bobaFocusName`, or the literal "You" if unset), pushed to the account profile at first launch by default.
+- Collected: Yes. Can contain a real first name; usually left as "You".
+- Purpose: App Functionality
+- Linked to identity: **Yes** / Tracking: **No**
+- (Conservative alternative: Contact Info > Name. User Content is the better fit for a chosen display handle.)
+- Account deletion is available in-app (Settings > Delete account), which Apple requires whenever account creation exists. It removes the cloud data.
+
+**5. Location > Precise Location**
+- Collected: Yes, only if the user opens the Boba Map AND grants permission. Coordinates go to third-party OpenStreetMap/Overpass services to find nearby shops; never sent to our backend, cached only on-device.
+- Purpose: App Functionality
+- Linked to identity: **No** / Tracking: **No**
+
+**6. Purchases > Purchase History** — answer **Not collected**.
+- The six cosmetic IAPs are pure Apple StoreKit 2. No purchase, transaction, receipt, or Apple ID is ever sent to our backend. Apple handles it under its own terms.
 
 ### The big one
 
-**"Do you or your third-party partners use data for tracking?" No.** No third-party ads, no ad SDKs, no analytics brokers, no data sold, ever.
+**"Do you or your third-party partners use data for tracking?" No.** No third-party ads, no ad SDKs, no analytics brokers, no IDFA, no data sold, ever. There is no "Data Used to Track You" section.
 
-### How the label should read on the product page
+### How the label reads on the product page
 
-- **Data Not Linked to You:** Precise Location, Purchase History
-- **Data Linked to You** (only if Study Squad cloud is enabled): User Content, User ID
-- **No "Data Used to Track You" section at all.**
+- **Data Linked to You:** User ID, User Content (display name), Usage Data.
+- **Data Not Linked to You:** Device ID, Usage Data (the drink-counter portion), Precise Location.
+- **No "Data Used to Track You" section.**
 
-If someone never touches Study Squad cloud, the only thing the app ever sends anywhere is a map query.
+⚠️ Rewritten Aug 25 2026 after a verified data-flow audit. The earlier version was WRONG: it omitted
+the drink counter (Device ID + Usage Data, on by default) and claimed the account, display name, and
+stats are collected "only if the user opts into Study Squad." They are created and pushed at first
+launch by default (verified in squad-cloud.js + app.js boot). Do not restore the "only a map query" framing.
 
 ---
 
