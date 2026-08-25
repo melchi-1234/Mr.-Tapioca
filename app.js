@@ -2265,22 +2265,22 @@ function pauseFocus() {
   saveState();                // bank progress whenever the user pauses
 }
 
-// The deliberate way out of a blocked session. Pause no longer frees the apps,
-// so this is the ONLY thing that lifts the shield mid-session. It keeps the
-// drink you've brewed (freezes + banks it, resumable), then unlocks. Never
-// discards progress — ending should feel safe, not punishing.
+// The deliberate way out of a blocked session, now with real stakes. Pause keeps
+// the shield up AND your drink, so this is the only mid-session way to free the
+// blocked apps — and it SPILLS the in-progress drink: the brewing progress is
+// gone and it can't be resumed. Your collection and pearls are untouched (an
+// unfinished drink never earned pearls anyway; pearls come from finishing). That
+// cost is the whole point: pause-to-scroll-then-resume used to be free, so the
+// only real way out now throws away what you were brewing.
 async function endFocusSession() {
   // Only the native build actually has blocked apps to unlock; on web the shield
   // never existed, so don't promise to lift it.
   const body = FocusBlocker.available()
-    ? "Your blocked apps will unlock. You keep the drink you have brewed so far, and can come back to it anytime."
-    : "You keep the drink you have brewed so far, and can come back to it anytime.";
+    ? "Your blocked apps unlock, but this drink spills and the progress on it is gone. Your collection and pearls stay safe."
+    : "This drink spills and the progress on it is gone. Your collection and pearls stay safe.";
   if (!(await askConfirm(body,
-      { title: "End this session?", eyebrow: "Take a break", confirmLabel: "End session" }))) return;
-  if (state.running) pauseFocus();   // freeze + bank progress (pause keeps the shield up)
-  FocusBlocker.stop();               // the deliberate unlock
-  FocusActivity.stop();
-  if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});
+      { title: "End and spill this drink?", eyebrow: "This one has stakes", confirmLabel: "End and spill" }))) return;
+  resetSession();   // discard the drink, lift the shield, abandon the reward, cancel the "drink ready" notice
 }
 
 // ── App-blocking discoverability (start-focus prompt + status pill) ──────────

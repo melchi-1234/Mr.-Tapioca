@@ -35,6 +35,11 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         guard activity != Self.watchdog else { return }
         store.shield.applications = nil
         store.shield.applicationCategories = nil
+        // Mirror stopBlocking/applyShield: a selection can include websites, and
+        // this closed-app auto-unblock is the only teardown path that used to miss
+        // them, so blocked sites stayed shielded past session end until the next
+        // foreground. Clear them here too.
+        store.shield.webDomains = nil
     }
 
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name,

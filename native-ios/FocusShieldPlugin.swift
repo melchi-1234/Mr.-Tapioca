@@ -167,15 +167,20 @@ public class FocusShieldPlugin: CAPPlugin, CAPBridgedPlugin {
 
         let now = Date()
         let end = Date(timeIntervalSince1970: endMs / 1000)
-        // Below the DeviceActivity ~15-minute minimum -> skip (intervalTooShort
-        // would throw). Real Custom/Goal cups are always >= 15 min; only dev/Taste
-        // sessions land here, and those lift fine on next foreground.
-        guard end.timeIntervalSince(now) >= 15 * 60 else { return }
+        // 2-min back-pad: makes the interval "ongoing" now (extension arms
+        // immediately) AND clears the DeviceActivity ~15-min minimum with margin.
+        let start = now.addingTimeInterval(-120)
+        // Gate on the SCHEDULED span (start...end), not the raw remaining time.
+        // A real 15-min cup sends endsAt = (JS) now + 900_000, but by the time this
+        // samples `now` after the async Capacitor bridge, end - now is 899.9xx s, so
+        // an exact `>= 15*60` on the remaining time silently rejected the minimum
+        // real session by epsilon and it never auto-unblocked with the app closed.
+        // The padded span (end - start = remaining + 120) clears 15 min with room;
+        // a small cushion arms every real cup while true sub-15-min dev/Taste
+        // sessions still fall through to the next-foreground lift.
+        guard end.timeIntervalSince(start) >= 15 * 60 + 30 else { return }
 
         let cal = Calendar.current
-        // 2-min back-pad: makes the interval "ongoing" now (extension arms
-        // immediately) AND clears the 15-min minimum with margin on a 15-min cup.
-        let start = now.addingTimeInterval(-120)
         let startComps = cal.dateComponents([.hour, .minute, .second], from: start)
         let endComps   = cal.dateComponents([.hour, .minute, .second], from: end)
         // hour/minute/second only: when endComps' time-of-day is earlier than

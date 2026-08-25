@@ -12,7 +12,7 @@ const uploaderUrl = pathToFileURL(path.join(root, "tools", "upload-ios-release.m
 function fixture(t) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "mrtap-upload-workflow-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const ipa = path.join(directory, "Mr-Tapioca-1.1.1-11.ipa");
+  const ipa = path.join(directory, "Mr-Tapioca-1.1.1-12.ipa");
   const key = path.join(directory, "AuthKey_TESTKEY123.p8");
   fs.writeFileSync(ipa, "verified ipa fixture");
   fs.writeFileSync(key, "private key fixture");

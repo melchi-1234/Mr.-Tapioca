@@ -110,7 +110,7 @@ export function uploadIosRelease({
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === toolPath;
 if (invokedDirectly) {
   if (process.argv.length !== 3) {
-    console.error("Usage: npm run ios:upload-release -- /absolute/path/Mr-Tapioca-1.1.1-11.ipa");
+    console.error("Usage: npm run ios:upload-release -- /absolute/path/Mr-Tapioca-1.1.1-12.ipa");
     process.exit(2);
   }
   try {
