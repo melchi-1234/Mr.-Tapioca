@@ -185,8 +185,12 @@ the pitch makes: they come off the app the day they ask.
 
 - **Shipped and live.** v1.0 (~Jul 30 2026), v1.0.1 (build 6) live Aug 4, v1.1.0 (build 7)
   approved. The web app is live at https://mrtapioca.me and auto-deploys from `feature-work`.
-- **1.1.1 / build 12 is UPLOADED to App Store Connect (Aug 25 2026) via the API key, processing.**
-  It is the candidate; **builds 8-11 are superseded and must never be submitted.** Build 11 shipped
+- **1.1.1 / build 12 is SUBMITTED to App Review (Aug 25 2026), state WAITING_FOR_REVIEW.** The whole
+  submission was done headlessly via the App Store Connect API key: build uploaded + attached, the App
+  Privacy labels corrected + published, the 5 bare screenshots replaced with a new marketed set
+  (iPhone 6.5"), and the review submission created + submitted. Auto-unblock was verified on a physical
+  iPhone: a real 15-min cup, phone locked/app closed, apps freed themselves at session end. **Builds
+  8-11 are superseded and must never be submitted.** Build 11 shipped
   a real bug (the native auto-unblock never armed for a 15-min session: `scheduleAutoEnd` guarded the
   raw remaining time against exactly 15 min and lost to Capacitor-bridge epsilon), caught by an
   adversarial multi-agent review. Build 12 carries everything build 11 did (music/Spotify audio-session
