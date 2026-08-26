@@ -1124,12 +1124,25 @@ function computeStats() {
     cursor--;
   }
 
-  // Longest streak across all history
+  // Longest streak across all history. A streak-freeze-protected day BRIDGES a
+  // gap here too (same rule as `current`), so a freeze that keeps the visible
+  // streak alive also counts toward the "On a Roll" / "Unstoppable" badges. Only
+  // actually-focused days increment the run; a gap breaks it only when some day
+  // in the gap was NOT freeze-protected. (Without this, longest could sit below
+  // current, which is logically impossible and left those badges unreachable.)
   let longest = 0;
   const sorted = [...ordinals].sort((a, b) => a - b);
   let run = 0, prev = null;
   for (const o of sorted) {
-    run = (prev !== null && o === prev + 1) ? run + 1 : 1;
+    if (prev === null) {
+      run = 1;
+    } else if (o === prev + 1) {
+      run += 1;
+    } else {
+      let bridged = true;
+      for (let g = prev + 1; g < o; g++) { if (!frozen.has(g)) { bridged = false; break; } }
+      run = bridged ? run + 1 : 1;
+    }
     longest = Math.max(longest, run);
     prev = o;
   }
@@ -1197,10 +1210,20 @@ function renderDailyGoal() {
   if (els.goalDisplay) els.goalDisplay.textContent = `${goal} min`;
 }
 
-function adjustDailyGoal(delta) {
+async function adjustDailyGoal(delta) {
+  // A Goal Cup's length IS the daily goal (modeDuration reads it live), so
+  // retargeting it mid-drink would silently discard progress or extend a
+  // nearly-finished session. Guard it exactly like setMode / adjustCustomDuration:
+  // confirm, then resetSession so the change starts a clean cup instead of
+  // mutating the one in flight. A non-goal session (a Custom cup) is untouched.
+  if (state.mode === "goal" && state.elapsed > 0 && progress() < 1) {
+    if (!(await askConfirm("Your current drink's progress will be lost.",
+        { title: "Change your goal?", eyebrow: "Heads up", confirmLabel: "Change it" }))) return;
+  }
   state.dailyGoal = Math.min(GOAL_MAX, Math.max(GOAL_MIN, state.dailyGoal + delta));
   saveState();
   renderDailyGoal();
+  if (state.mode === "goal") resetSession();
 }
 
 // ── Weekly focus chart (last 7 days of focus minutes) ─────────────────────────
@@ -1915,7 +1938,12 @@ function tick() {
     lastShieldAssert = now;
     // Await the flag read before start() re-arms the watchdog (which clears it),
     // otherwise the two bridge calls race and the warning can be lost.
-    (async () => { await FocusBlocker.checkDefeated(); FocusBlocker.start(); })();
+    // Re-check state.running AFTER the await: this tick may also complete the
+    // session (progress()>=1 below), which runs synchronously and calls
+    // FocusBlocker.stop(). Without this guard the resumed continuation would
+    // call start() AFTER that stop() and silently re-block the freed apps for
+    // a session that is already over. A genuine mid-session re-assert still runs.
+    (async () => { await FocusBlocker.checkDefeated(); if (state.running) FocusBlocker.start(); })();
   }
 
   if (progress() >= 1) {
@@ -2088,8 +2116,18 @@ const IAP = {
   itemId(productId) { return productId.startsWith(this.PREFIX)
     ? productId.slice(this.PREFIX.length).replace(".", "-") : null; },
   premiumItems() { return SHOP_ITEMS.filter(i => i.premium); },
+  _updatesBound: false,
   async init() {
     const p = this.plugin(); if (!p) return;
+    // A purchase can finalize while the app is open (an Ask-to-Buy approval, or a
+    // buy on another device). The native Transaction.updates listener fires
+    // "iapUpdated"; re-checking entitlements grants + equips it in-session instead
+    // of only on the next cold launch, honoring the "it'll unlock automatically"
+    // toast. Bound once; safe no-op on web (no plugin, so init returned above).
+    if (!this._updatesBound && typeof p.addListener === "function") {
+      this._updatesBound = true;
+      try { p.addListener("iapUpdated", () => { this.restoreAll(false); }); } catch (e) {}
+    }
     try {
       const ids = this.premiumItems().map(i => this.productId(i.id));
       const r = await p.getProducts({ ids });
@@ -6142,6 +6180,11 @@ function confirmRedeem() {
     Promise.resolve(spending).then((res) => {
       if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
       if (res && res.ok) {
+        // The spend has ALREADY committed on the server. Wrap the post-success UI
+        // (render, toast, share offer) so a throw in it cannot fall through to the
+        // outer .catch() below and mislabel a completed redemption as an offline
+        // failure — the reward is spent, so telling the user it failed is wrong.
+        try {
         const completed = Object.freeze({
           shareGeneration: spend.shareGeneration,
           partnerId: spend.partnerId,
@@ -6182,6 +6225,12 @@ function confirmRedeem() {
             }, shareCurrent);
           }
         }).catch(() => {});
+        } catch (e) {
+          // Post-commit UI blew up, but the redemption itself succeeded. Swallow
+          // rather than showing the offline-failure copy. retireRedeemView clears
+          // this view so the user can't re-confirm an already-spent reward.
+          retireRedeemView(spend.generation, spend.partnerId);
+        }
       } else {
         if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
         trk("redemption_failed", { partner_id: spend.partnerId,
@@ -7905,6 +7954,13 @@ if (pendingResume && state.phase === "focus" && progress() >= 1) {
   // The local drink is real, but process downtime cannot prove merchant-reward
   // focus. Bank the drink and explicitly close the server session at zero.
   completeSession({ abandonReward: true });
+} else if (pendingResume && state.phase === "focus") {
+  // Killed mid-session and reconstructed PAUSED before the planned end: the OS
+  // still holds the "your drink is ready" notification beginFocus scheduled, but
+  // the drink is not done. Cancel it now so it can't fire and lie while paused.
+  // Resume reschedules it (beginFocus); End cancels it (resetSession) — this
+  // covers the case where the user just backgrounds without pressing either.
+  if (window.MrTNotify) Promise.resolve(MrTNotify.cancelSessionDone()).catch(() => {});
 }
 
 // First-time visitors get the welcome tour

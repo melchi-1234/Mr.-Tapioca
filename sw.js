@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v204";
+const CACHE = "mr-tapioca-v205";
 
 // Focus-tune audio lives in its OWN cache, on purpose, and is deliberately NOT
 // in SHELL below. Two reasons, both learned the hard way:
@@ -234,11 +234,16 @@ self.addEventListener("fetch", (event) => {
   // Leave it to the network (GitHub Pages serves it with max-age=600).
   if (url.pathname.endsWith("/partners.json")) return;
 
-  // The landing + download pages are marketing, not the app shell. Serve them
-  // fresh from the network so edits appear immediately, with no cache-bump
-  // dance and no stale copy pinned in the cache. Same reasoning as partners.json.
+  // The landing + download pages are marketing, and privacy.html / support.html
+  // are legal pages that MUST match the published App Privacy labels. None are
+  // app shell, so serve them fresh from the network so edits appear immediately,
+  // with no cache-bump dance and no stale copy pinned in the cache. Otherwise a
+  // returning visitor who already cached one keeps the old text until an
+  // unrelated release bumps CACHE. Same reasoning as partners.json.
   if (url.pathname === "/" || url.pathname.endsWith("/index.html")
-      || url.pathname.endsWith("/chrome.html")) return;
+      || url.pathname.endsWith("/chrome.html")
+      || url.pathname.endsWith("/privacy.html")
+      || url.pathname.endsWith("/support.html")) return;
 
   // Focus tunes: cache-first out of the long-lived music cache, stored on first
   // play, so the second session onward has music with no network. Kept out of

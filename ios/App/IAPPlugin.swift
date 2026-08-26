@@ -21,6 +21,32 @@ public class IAPPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "openReviewPage", returnType: CAPPluginReturnPromise),
     ]
 
+    // Lifelong StoreKit 2 transaction listener (Apple's required pattern). It
+    // catches transactions that finalize while the app is ALREADY running:
+    // Ask-to-Buy (Family Sharing) parental approvals, and purchases/renewals made
+    // on another device. Without it those never .finish() (they linger in the
+    // queue) and never surface until the next cold-boot restore, so an Ask-to-Buy
+    // approval wouldn't unlock in-session despite the "it'll unlock automatically"
+    // toast. Retained for the plugin's lifetime; started in load(), cancelled in
+    // deinit. Finishes each verified transaction, then tells the web layer to
+    // re-check entitlements (which grants + equips the item).
+    private var updatesTask: Task<Void, Never>?
+
+    override public func load() {
+        updatesTask = Task { [weak self] in
+            for await update in Transaction.updates {
+                if case .verified(let txn) = update {
+                    await txn.finish()
+                    self?.notifyListeners("iapUpdated", data: ["productId": txn.productID])
+                }
+            }
+        }
+    }
+
+    deinit {
+        updatesTask?.cancel()
+    }
+
     @objc func getProducts(_ call: CAPPluginCall) {
         let ids = (call.getArray("ids", String.self)) ?? []
         guard !ids.isEmpty else { call.resolve(["products": []]); return }
