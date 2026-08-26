@@ -2285,9 +2285,18 @@ body {
    below this rule today and still wins, but that is source order, not intent.
    Pin it, because #resetBtn IS toggled with .hidden (idle, no elapsed time). */
 .reset-link.hidden { display: none; }
-/* Skip / End Break keep the original size: they are the break screen's main
-   controls, not an afterthought like Reset. */
+/* Skip / End Break are SECONDARY on the break screens (Start Break /
+   games row are primary). Keep them as quiet text links, same size and
+   weight as the Reset link. The 44px hit floor lives on the pill below. */
 .break-panel .reset-link { font-size: 0.74rem; }
+/* Center the small skip link on its own row so it doesn't hug the primary
+   button. Aligned to the panel's centre line, not off-axis, so the eye
+   doesn't read the screen as tilted. */
+.break-panel .break-secondary-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
 
 /* ── Break panels ───────────────────────────────────────────────────────── */
 /* bottom clears the nav rather than guessing at it. .bottom-bar measures 102px
@@ -2307,14 +2316,20 @@ body {
   gap: 12px;
   padding: 0 20px;
 }
-/* Skip was 27px tall, the only control in the app under the 44px floor that the
-   hit-target system at the top of this file exists to enforce. */
+/* Keep Skip at hit-safe size WITHOUT making it look like a second primary
+   button. Small text link visually (padding kept modest), with an invisible
+   ::before pad that expands its hit target to the 44px floor. */
 .break-panel .reset-link {
-  min-height: 44px;
-  padding: 0 24px;
+  padding: 6px 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+.break-panel .reset-link::before {
+  content: "";
+  position: absolute;
+  inset: -10px -8px;   /* extends tap area to ≥44px without changing visuals */
 }
 .break-panel.hidden { display: none; }
 
