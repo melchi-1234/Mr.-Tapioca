@@ -62,6 +62,9 @@
       transition:border-color .16s ease, transform .16s ease;
     }
     .ghost:hover{border-color:var(--bark-light);transform:translateY(-2px)}
+    .alt{margin-top:14px;font-size:.92rem;color:var(--bark-mid);font-weight:600}
+    .alt a{color:var(--teal);font-weight:700;border-bottom:1.5px solid transparent;transition:border-color .16s ease}
+    .alt a:hover{border-color:var(--teal)}
 
     /* ── Nav ── */
     nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);
@@ -195,18 +198,18 @@
   <header class="hero" id="top">
     <div class="wrap">
       <div class="hcopy">
-        <div class="eyebrow">A cozy focus timer</div>
-        <h1>Study. Brew <span class="swirl">boba.</span> Actually get it done.</h1>
-        <p class="lede">Start a focus session and a little tapioca-pearl mascot brews your bubble tea while you work. Finish, and the drink joins your collection.</p>
+        <div class="eyebrow">A cozy focus timer for students</div>
+        <h1>Study. Brew <span class="swirl">boba.</span> Lock out the scroll.</h1>
+        <p class="lede">A cozy timer that actually keeps you off distracting apps. On iPhone it locks the ones you pick behind Apple's Screen Time until your session ends, while a little tapioca-pearl mascot brews your boba. Finish, and the drink is yours to keep.</p>
         <div class="actions">
           <a class="cta" href="https://apps.apple.com/app/id6786023560">
             <svg class="apple" viewBox="0 0 24 24"><path d="M16.36 12.7c.02 2.62 2.3 3.49 2.33 3.5-.02.06-.36 1.24-1.2 2.46-.72 1.05-1.47 2.1-2.66 2.12-1.16.03-1.54-.68-2.87-.68-1.33 0-1.75.66-2.85.71-1.14.04-2.01-1.14-2.74-2.19-1.49-2.15-2.63-6.08-1.1-8.73.76-1.32 2.12-2.15 3.6-2.18 1.12-.02 2.18.75 2.87.75.68 0 1.97-.93 3.32-.79.57.02 2.16.23 3.18 1.73-.08.05-1.9 1.11-1.88 3.32M14.2 4.9c.61-.74 1.02-1.77.9-2.8-.88.04-1.94.59-2.57 1.33-.56.65-1.06 1.7-.93 2.7.98.08 1.98-.5 2.6-1.23"/></svg>
             <span><small>Download on the</small><b>App Store</b></span>
           </a>
-          <a class="ghost" href="app.html">Try it in your browser</a>
-          <a class="ghost" href="chrome.html">Get the Chrome extension</a>
+          <a class="ghost" href="app.html">Try it free in your browser</a>
         </div>
-        <p class="trust">Free. <b>No ads, no subscriptions.</b> A few optional skins, if you want them.</p>
+        <p class="alt">On a computer? <a href="chrome.html">Get the Chrome extension</a></p>
+        <p class="trust">Free, and no account needed. <b>No ads, no subscriptions.</b> A few optional skins, if you want them.</p>
       </div>
       <div class="stage">
         <span class="blob a"></span><span class="blob b"></span>
