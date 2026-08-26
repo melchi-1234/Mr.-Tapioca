@@ -1096,10 +1096,37 @@ function updateCup() {
 }
 
 
+// Roll a number in `el` from `from` to `to` over `ms` with an ease-out cubic, so a
+// balance animates up instead of snapping. Snaps instantly under reduced motion or
+// on a no-op. `fmt` renders the running integer (e.g. `${v} pearls`).
+function tweenCount(el, from, to, ms = 650, fmt = (v) => String(v)) {
+  if (!el) return;
+  from = Number(from); to = Number(to);
+  if (!isFinite(from) || !isFinite(to) || from === to || prefersReducedMotion()) {
+    el.textContent = fmt(to);
+    return;
+  }
+  const start = performance.now();
+  const delta = to - from;
+  function frame(now) {
+    const t = Math.min(1, (now - start) / ms);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = fmt(Math.round(from + delta * eased));
+    if (t < 1) requestAnimationFrame(frame);
+    else el.textContent = fmt(to);
+  }
+  requestAnimationFrame(frame);
+}
+
+let pearlDisplayVal = null;   // last balance shown, so the chip can roll to the new one
+let shelfDisplayVal = null;   // same, for the shelf count
 function updateStats() {
   const pearls = currentPearls();
-  els.pearlCount.textContent  = String(pearls);
-  if (els.customizePearlCount) els.customizePearlCount.textContent = `${pearls} pearls`;
+  // First paint has no prior value to roll from — snap. After that, roll.
+  const prev = (pearlDisplayVal == null) ? pearls : pearlDisplayVal;
+  pearlDisplayVal = pearls;
+  tweenCount(els.pearlCount, prev, pearls);
+  if (els.customizePearlCount) tweenCount(els.customizePearlCount, prev, pearls, 650, (v) => `${v} pearls`);
 }
 
 // Convert a YYYY-MM-DD key to a whole-day ordinal so we can compare/streak them
@@ -1166,6 +1193,9 @@ function formatFocusTotal(minutes) {
   return `${m}m`;
 }
 
+const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
+let prevStreakShown = null;   // baseline set on first render; toast only on a live crossing
+
 function renderStats() {
   const s = computeStats();
   els.statStreak.textContent    = String(s.current);
@@ -1174,6 +1204,23 @@ function renderStats() {
   // Front-page HUD: streak chip beside the pearls, name chip top-right.
   const hudStreak = document.querySelector("#hudStreak");
   if (hudStreak) hudStreak.textContent = String(s.current);
+  // Living streak flame: lit while a streak is going. Crossing a milestone this
+  // session gives the chip a one-shot cheer + a keep-it-warm toast.
+  const flameEl = document.querySelector(".streak-chip .flame");
+  if (flameEl) flameEl.classList.toggle("is-lit", s.current > 0);
+  if (prevStreakShown != null && s.current > prevStreakShown) {
+    const crossed = STREAK_MILESTONES.filter(m => prevStreakShown < m && s.current >= m).pop();
+    if (crossed) {
+      showToast(`${crossed}-day streak! Keep it warm.`);
+      const streakChip = document.querySelector(".streak-chip");
+      if (streakChip && !prefersReducedMotion()) {
+        streakChip.classList.remove("pearl-pop");
+        void streakChip.offsetWidth;
+        streakChip.classList.add("pearl-pop");
+      }
+    }
+  }
+  prevStreakShown = s.current;
   const hudName = document.querySelector("#hudName");
   if (hudName) {
     const n = (state.displayName || "").trim();
@@ -1505,11 +1552,15 @@ function renderCollection() {
     }).join("") +
     `</div>`;
 
-  if (els.shelfCount) els.shelfCount.textContent = drinks.length;
+  if (els.shelfCount) {
+    tweenCount(els.shelfCount, shelfDisplayVal == null ? drinks.length : shelfDisplayVal, drinks.length);
+    shelfDisplayVal = drinks.length;
+  }
 }
 
 function emptyState(title, copy) {
   return `<div class="coll-empty">
+    <span class="coll-empty-zzz" aria-hidden="true"><span>z</span><span>z</span></span>
     <img class="coll-empty-art" src="assets/poses/base-sleeping.png" alt="" aria-hidden="true">
     <p class="coll-empty-title">${escapeHTML(title)}</p>
     <p class="coll-empty-copy">${escapeHTML(copy)}</p>
@@ -1893,7 +1944,11 @@ function renderAll() {
   renderQuests();
   updateQuestBadge();
   // Keeps the HUD shelf count live; the sheet body itself re-renders on open.
-  if (els.shelfCount) els.shelfCount.textContent = (state.collection || []).length;
+  if (els.shelfCount) {
+    const shelfN = (state.collection || []).length;
+    tweenCount(els.shelfCount, shelfDisplayVal == null ? shelfN : shelfDisplayVal, shelfN);
+    shelfDisplayVal = shelfN;
+  }
 }
 
 let lastPersist = 0;
@@ -6770,6 +6825,13 @@ function renderOnboardStep() {
 
   els.onboardTitle.textContent = step.title;
   els.onboardBody.textContent = step.body;
+  // Cross-fade the new title + body in, same animation-restart trick as the visual.
+  [els.onboardTitle, els.onboardBody].forEach((el) => {
+    if (!el) return;
+    el.style.animation = "none";
+    void el.offsetWidth;
+    el.style.animation = "";
+  });
 
   // Name-creation step: reveal the text input + focus it.
   const isName = !!step.name;
@@ -7577,6 +7639,12 @@ function wireEvents() {
   els.onboardNext.addEventListener("click", onboardAdvance);
   els.onboardBack.addEventListener("click", onboardGoBack);
   els.onboardSkip.addEventListener("click", () => finishOnboarding(true));
+  // The name field advertises enterkeyhint="done"; honour it. Enter = tap Next.
+  if (els.onboardNameInput) {
+    els.onboardNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); onboardAdvance(); }
+    });
+  }
   els.replayIntroBtn.addEventListener("click", () => {
     // In dev mode, do a TRUE fresh first-run (blank name + reset economy) for testing.
     // For normal users it just replays the slides (name stays; no free-rename loophole).
