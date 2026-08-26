@@ -988,8 +988,15 @@ body {
    the transform property, so a scale declared here is silently dropped. Size the
    bed instead; --bed-w is the knob. */
 .scene.is-on-break.is-on-break .maker-wrap {
-  left: calc(50% - 102px);
+  /* Centre against his ACTUAL box width. The old hard-coded 50% - 102px was
+     only right at the default 205px; the short-phone breakpoint shrinks him to
+     176px and he sat 14px off the mattress centre. */
+  left: calc(50% - var(--maker-w) / 2);
   bottom: calc(var(--floor-y) + 122px);
+  /* No walking happens in bed, and the leftover walk offset is zeroed the
+     moment break starts — without this the zeroing itself played as a 1s
+     slide across the mattress. */
+  transition: none;
 }
 
 /* ── Premium background ambience ───────────────────────────────────────────
@@ -1310,11 +1317,18 @@ body {
   /* z-index ABOVE the counter (8) so he stands AT it, ~85% visible; his feet
      fade behind the counter lip via the mask on .maker-img */
   bottom: calc(var(--floor-y) + 16px);
-  width: calc(205px * var(--fig));
+  /* One knob for his box width. The break-mode centring rule divides this in
+     half, so any width override (the short-phone breakpoint) must go through
+     --maker-w or he re-centres against the wrong number. */
+  --maker-w: calc(205px * var(--fig));
+  width: var(--maker-w);
   height: calc(230px * var(--fig));
   z-index: 9;
   --walk: 0px;
   transform: translateX(var(--walk));
+  /* The 1050ms here is only the fallback: setWalk() in app.js sets an inline
+     transition-duration proportional to the distance, so short hops don't
+     play out as a slow-motion crawl under a fast waddle. */
   transition: transform 1050ms cubic-bezier(0.45, 0.05, 0.35, 1);
   cursor: pointer;   /* tap him for a personality line */
 }
@@ -1340,7 +1354,7 @@ body {
    not just the base art. transform-origin is center-bottom for squash/stretch. */
 .maker-img { will-change: transform; }
 .maker-img[data-state="idle"]    { animation: maker-idle  4s   ease-in-out infinite; }
-.maker-img[data-state="walking"] { animation: maker-walk  0.34s ease-in-out infinite; }
+.maker-img[data-state="walking"] { animation: maker-walk  0.52s ease-in-out infinite; }
 .maker-img[data-state="mixing"]  { animation: maker-mixing 0.9s ease-in-out infinite; }
 .maker-img[data-state="sleeping"]{ animation: maker-sleep  3.6s ease-in-out infinite; }
 .maker-img[data-state="drinking"]{ animation: maker-drink  1.4s ease-in-out infinite; }
@@ -1369,12 +1383,15 @@ body {
   80%      { transform: translateY(-13px) scaleX(0.97) scaleY(1.05); }  /* hop */
   90%      { transform: translateY(0)    scaleX(1.05) scaleY(0.95); }   /* land squash */
 }
-/* Walking: quick waddle (bob + tilt) while he glides toward/away from the cup */
+/* Walking: soft waddle (bob + tilt) while he glides toward/away from the cup.
+   Starts and ends UPRIGHT so any stop mid-cycle (the glide duration is set per
+   distance in JS) settles cleanly instead of freezing him mid-tilt. The old
+   0.34s ±5° version read as jitter, not walking. */
 @keyframes maker-walk {
-  0%, 100% { transform: translateY(0)    rotate(-5deg); }
-  25%      { transform: translateY(-5px) rotate(4deg); }
-  50%      { transform: translateY(0)    rotate(-5deg); }
-  75%      { transform: translateY(-5px) rotate(4deg); }
+  0%, 100% { transform: translateY(0)    rotate(0deg); }
+  25%      { transform: translateY(-4px) rotate(3deg); }
+  50%      { transform: translateY(0)    rotate(0deg); }
+  75%      { transform: translateY(-4px) rotate(-3deg); }
 }
 
 /* Mixing: leans toward the cup on the right and bobs as if working */
@@ -1676,7 +1693,10 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 52px 18px 16px;
+  /* 20px sides on regular widths = the same rail every control below uses
+     (timer card, buttons, nav). The ≤430px override keeps its tighter 12px:
+     that one is a measured fit constraint for name + two chips, not drift. */
+  padding: 52px 20px 16px;
   pointer-events: none;
 }
 .top-hud > * { pointer-events: auto; }
@@ -2426,7 +2446,11 @@ body {
   bottom: 0; left: 0; right: 0;
   z-index: 10;
   display: flex;
-  justify-content: space-around;
+  /* space-between, not space-around: space-around leaves half-width gaps at the
+     rail's edges, so whenever the pills hit their max-width the outer spacing
+     read as ~half the inner spacing. space-between pins the outer pills flush
+     to the same 20px rail every control above uses, and the inner gaps match. */
+  justify-content: space-between;
   align-items: center;
   gap: 6px;
   /* 20px side padding, not 12px: the nav rail was 12/363 while every control
@@ -3045,7 +3069,11 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
    "no shops" note never hides the (still useful) map tiles underneath. */
 .map-status {
   position: absolute;
-  left: 12px; right: 12px; top: 12px;
+  /* 64px side insets, not 12px: the card sits BELOW Leaflet's zoom control on
+     purpose (so + / − stay tappable), which means it must also clear it
+     horizontally — at 12px the zoom buttons covered the first word of every
+     notice. Symmetric on both sides so the card reads as centred, not dodged. */
+  left: 64px; right: 64px; top: 12px;
   z-index: 500;   /* above Leaflet tiles/markers, below its popups & controls */
   display: flex;
   flex-direction: column;
@@ -4376,7 +4404,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   /* Keep the break nook lifted clear of the compact panel, but lower than on tall
      phones so the bed doesn't crowd the top HUD on short screens. */
   .scene.is-on-break.is-on-break { --floor-y: clamp(280px, 46vh, 360px); }
-  .maker-wrap { width: 176px; height: 188px; bottom: calc(var(--floor-y) + 12px); }
+  .maker-wrap { --maker-w: 176px; height: 188px; bottom: calc(var(--floor-y) + 12px); }
   .cup-stage { width: 112px; height: 150px; top: -100px; }
   .work-counter { height: 72px; }
   .daily-goal { top: max(104px, calc(env(safe-area-inset-top) + 64px)); }

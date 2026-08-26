@@ -542,14 +542,39 @@ function scheduleFidget() {
 // How far right the maker walks to reach the cup and stir it. During focus the
 // counter is lifted above him (.scene.is-focusing .work-counter) so he tucks
 // BEHIND the counter + cup to stir, with the cup staying visible in front. Tuned
-// so his face peeks out just left of the cup. WALK_MS must match the .maker-wrap
-// CSS transition (1050ms).
+// so his face peeks out just left of the cup. The glide duration is set per
+// distance by setWalk() (inline transition-duration), capped at WALK_MS_MAX
+// which must match the .maker-wrap CSS fallback transition (1050ms).
 const MIX_WALK_X = 118;
-const WALK_MS = 1050;   // keep in sync with the .maker-wrap CSS transition (1050ms)
+const WALK_SPEED = 0.112;  // px per ms — the original 118px / 1050ms feel
+const WALK_MS_MIN = 240;   // floor so a 20px hop still reads as a step, not a snap
+const WALK_MS_MAX = 1050;  // matches the .maker-wrap CSS fallback transition
 let walkTimer = null;
 
+// Read the maker's CURRENT rendered translateX (mid-transition safe): --walk
+// only ever holds the TARGET, so anything that needs "where is he right now"
+// must go through the transform matrix.
+function makerVisualX() {
+  try {
+    const t = getComputedStyle(els.makerWrap).transform;
+    if (t && t !== "none") return new DOMMatrixReadOnly(t).m41;
+  } catch (e) { /* fall through */ }
+  return parseFloat(getComputedStyle(els.makerWrap).getPropertyValue("--walk")) || 0;
+}
+
+// Set the walk target AND a transition duration proportional to the distance
+// actually left to cover, so he moves at one constant speed from anywhere.
+// The old fixed 1050ms was the "uncontrollable wiggle": a rapid pause/resume
+// left him inches from his goal, and a near-zero distance spread over a full
+// second played the fast waddle loop on a character who was barely moving —
+// he vibrated in place. Returns {ms, dist} so callers can time their state
+// change to the real arrival and skip the waddle entirely for tiny hops.
 function setWalk(px) {
+  const dist = Math.abs(px - makerVisualX());
+  const ms = Math.max(WALK_MS_MIN, Math.min(WALK_MS_MAX, dist / WALK_SPEED));
+  els.makerWrap.style.transitionDuration = ms + "ms";
   els.makerWrap.style.setProperty("--walk", px + "px");
+  return { ms: ms, dist: dist };
 }
 
 // Walk over to the cup, then start mixing once he arrives. The distance is
@@ -558,51 +583,48 @@ function setWalk(px) {
 // front of the counter and leans into the cup's left edge to stir.
 function walkToCupAndMix() {
   clearTimeout(walkTimer);
-  setMakerState("walking");
   requestAnimationFrame(() => {
+    // A pause (or session end) can land between scheduling and this frame;
+    // walking to the cup then would override walkToStation's send-home.
+    if (!state.running || state.phase !== "focus") return;
     const wrap = els.makerWrap, cup = els.focusCup;
+    let target = MIX_WALK_X;   // fallback if rects unavailable
     if (wrap && cup) {
       const cupRect = cup.getBoundingClientRect();
       const wrapRect = wrap.getBoundingClientRect();
       // MID-TRANSITION FIX: --walk holds the TARGET, but wrapRect reflects the
-      // CURRENT visual position. Mixing the two (old code) made a pause→quick
-      // resume land him short of the cup, stirring the air. Derive the actual
-      // rendered translateX from the transform matrix instead, so
-      // walk = currentVisualX + (gap to cup) is exact from any mid-walk point.
-      let visualX = 0;
-      try {
-        const t = getComputedStyle(wrap).transform;
-        if (t && t !== "none") visualX = new DOMMatrixReadOnly(t).m41;
-      } catch (e) {
-        visualX = parseFloat(getComputedStyle(wrap).getPropertyValue("--walk")) || 0;
-      }
-      // Land the maker box's right edge near the cup's centre so he stands right
-      // beside the cup and leans in to stir (cup's right half stays visible).
+      // CURRENT visual position, so the gap must be added to the RENDERED
+      // translateX (makerVisualX), not the target. Mixing the two (old code)
+      // made a pause→quick resume land him short of the cup, stirring the air.
+      // Land the maker box's right edge near the cup's centre so he stands
+      // right beside the cup and leans in to stir (cup's right half visible).
       const targetRight = cupRect.left + cupRect.width * 0.45;
-      const walk = Math.max(0, visualX + (targetRight - wrapRect.right));
-      setWalk(walk);
-    } else {
-      setWalk(MIX_WALK_X);   // fallback if rects unavailable
+      target = Math.max(0, makerVisualX() + (targetRight - wrapRect.right));
     }
+    const trip = setWalk(target);
+    if (trip.dist < 8) {
+      // Already at the cup (a quick pause→resume) — no waddle theater.
+      setMakerState("mixing");
+      return;
+    }
+    setMakerState("walking");
+    walkTimer = setTimeout(() => {
+      if (state.running && state.phase === "focus") setMakerState("mixing");
+    }, trip.ms);
   });
-  walkTimer = setTimeout(() => {
-    if (state.running && state.phase === "focus") setMakerState("mixing");
-  }, WALK_MS);
 }
 
 // Walk back to his station, then settle into the given resting state
 function walkToStation(restState = "idle") {
   clearTimeout(walkTimer);
-  // Capture how far out he is BEFORE zeroing it, so the waddle only plays when
-  // he actually has ground to cover (reading after setWalk(0) always saw 0).
-  const current = parseFloat(getComputedStyle(els.makerWrap).getPropertyValue("--walk")) || 0;
-  setWalk(0);
-  if (current !== 0) {
-    setMakerState("walking");
-    walkTimer = setTimeout(() => { if (!state.running) setMakerState(restState); }, WALK_MS);
-  } else {
+  const trip = setWalk(0);
+  if (trip.dist < 8) {
+    // Effectively home already — settle without playing the walk.
     setMakerState(restState);
+    return;
   }
+  setMakerState("walking");
+  walkTimer = setTimeout(() => { if (!state.running) setMakerState(restState); }, trip.ms);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1652,8 +1674,8 @@ function buyConsumable(itemId) {
   if (!item || item.type !== "consumable") return;
   const key = item.consumableKey;
   const have = state[key] || 0;
-  if (have >= FREEZE_CAP) { showToast(`You're stocked up — ${FREEZE_CAP} ${item.name}s max 🧊`); playSfx("tap"); return; }
-  if (currentPearls() < item.price) { showToast("Not enough pearls yet — keep focusing! 🧋"); playSfx("tap"); return; }
+  if (have >= FREEZE_CAP) { showToast(`You're stocked up, ${FREEZE_CAP} ${item.name}s max 🧊`); playSfx("tap"); return; }
+  if (currentPearls() < item.price) { showToast("Not enough pearls yet. Keep focusing! 🧋"); playSfx("tap"); return; }
   state[key] = have + 1;
   state.spent += item.price;
   saveState();
@@ -1923,7 +1945,7 @@ function renderShop() {
       const label = btn.textContent;
       btn.textContent = "…";
       try { await IAP.buy(btn.dataset.iap); }
-      catch (e) { showToast("Purchase didn't go through — you weren't charged."); }
+      catch (e) { showToast("Purchase didn't go through. You weren't charged."); }
       finally { btn.disabled = false; btn.textContent = label; renderShop(); }
     });
   });
@@ -2211,7 +2233,7 @@ const IAP = {
       const item = SHOP_ITEMS.find(i => i.id === itemId);
       showToast(`✦ ${item ? item.name : "Purchase"} unlocked!`);
     } else if (r && r.state === "pending") {
-      showToast("Purchase pending approval — it'll unlock automatically.");
+      showToast("Purchase pending approval. It'll unlock automatically.");
     }
     return r || { state: "unknown" };
   },
@@ -2224,7 +2246,7 @@ const IAP = {
       // — reconciling against it would strip items the customer actually owns.
       const list = r && Array.isArray(r.owned) ? r.owned : null;
       if (!list) {
-        if (interactive) showToast("Couldn't reach the App Store — try again.");
+        if (interactive) showToast("Couldn't reach the App Store. Try again.");
         return 0;
       }
       const entitled = new Set(list.map((pid) => this.itemId(pid)).filter(Boolean));
@@ -2257,7 +2279,7 @@ const IAP = {
       }
       return granted;
     } catch (e) {
-      if (interactive) showToast("Couldn't reach the App Store — try again.");
+      if (interactive) showToast("Couldn't reach the App Store. Try again.");
       return 0;
     }
   }
@@ -2740,7 +2762,7 @@ function completeSession(options) {
     // queue the goal toast after any badge toasts (each badge toast holds ~1.5s)
     const delay = newBadges > 0 ? newBadges * 1500 + 200 : 900;
     trk("daily_goal_completed", { minutes: todayMinutes(), goal: state.dailyGoal });
-    setTimeout(() => { showToast("🎯 Daily goal reached — nice!"); playSfx("success"); }, delay);
+    setTimeout(() => { showToast("🎯 Daily goal reached, nice!"); playSfx("success"); }, delay);
   }
 }
 
@@ -3023,7 +3045,7 @@ async function shareRewardEarned(opts, isCurrent) {
     if (!stillCurrent()) return false;
     if (!(e && e.name === "AbortError")) {
       if (!stillCurrent()) return false;
-      showToast("Couldn't make the card — try again.");
+      showToast("Couldn't make the card. Try again.");
     }
     return false;
   }
@@ -3052,7 +3074,7 @@ async function shareDrink(reward) {
       showToast("Saved your card. The link is on your clipboard 🧋");
     }
   } catch (e) {
-    if (!(e && e.name === "AbortError")) showToast("Couldn't make the card — try again.");
+    if (!(e && e.name === "AbortError")) showToast("Couldn't make the card. Try again.");
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = "Share my drink"; }
   }
@@ -3139,6 +3161,11 @@ function onRewardDialogClose() {
 function startBreakOffer() {
   state.phase = "break-offer";
   els.shopScene.classList.add("is-on-break");
+  // He just finished a session AT THE CUP, so --walk still holds the mixing
+  // offset. The bed is centred; without this reset he lay in it shifted a full
+  // walk-width to the right. Zeroed AFTER the class lands so the break-mode
+  // transition:none makes it an instant snap, not a slide across the mattress.
+  clearTimeout(walkTimer); setWalk(0);
   // The bed appears the moment this class lands, so settle him into it now.
   // Without this he sat bolt upright under the duvet, wide awake and hopping,
   // until Start Break was tapped.
@@ -4886,7 +4913,7 @@ function openMap() {
     .then(locateAndBuild)
     .catch(() => {
       mapBuilding = false;
-      setMapStatus("Couldn't load the map — check your connection.", openMap);
+      setMapStatus("Couldn't load the map. Check your connection.", openMap);
     });
 }
 
@@ -4925,7 +4952,7 @@ function relocateMap() {
     },
     () => {
       if (lastFix && !lastFix.real) {
-        setMapStatus("Still can't get your location — check Location Services for Mr. Tapioca.", relocateMap);
+        setMapStatus("Still can't get your location. Check Location Services for Mr. Tapioca.", relocateMap);
       }
     },
     { timeout: 12000, maximumAge: 120000 }
@@ -5738,8 +5765,8 @@ function buildMap(lat, lng, real, why) {
   if (!real) {
     setMapStatus(
       why === "denied"
-        ? "Location is off for Mr. Tapioca — allow it in Settings, then try again."
-        : "Couldn't get your location — give it another try.",
+        ? "Location is off for Mr. Tapioca. Allow it in Settings, then try again."
+        : "Couldn't get your location. Give it another try.",
       relocateMap);
     renderShopList([]);
     return;
@@ -5771,7 +5798,7 @@ function loadNearbyShops(lat, lng) {
         return;
       }
       if (shops.partial) {
-        setMapStatus("The map service was slow — this list may be incomplete.",
+        setMapStatus("The map service was slow, so this list may be incomplete.",
           () => loadNearbyShops(lat, lng));
       } else {
         setMapStatus("");
@@ -5789,11 +5816,11 @@ function loadNearbyShops(lat, lng) {
       // is a path users really see.
       fallback.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng));
       if (fallback.length) {
-        setMapStatus("Live search is busy — showing verified boba spots nearby.",
+        setMapStatus("Live search is busy. Showing verified boba spots nearby.",
           () => loadNearbyShops(lat, lng));
         placeShopMarkers(fallback, lat, lng);
       } else {
-        setMapStatus("The free map service is busy right now — give it a minute.",
+        setMapStatus("The free map service is busy right now. Give it a minute.",
           () => loadNearbyShops(lat, lng));
       }
     });
@@ -6530,7 +6557,7 @@ function addFriendByCode(raw) {
     return true;
   }
   const f = snap;
-  if (!f) { showToast("Hmm, that code didn't work — copy the whole thing."); return false; }
+  if (!f) { showToast("Hmm, that code didn't work. Copy the whole thing."); return false; }
   const isSelf = f.sid ? (f.sid === mySquadId())
                        : (f.name.toLowerCase() === myDisplayName().toLowerCase());
   if (isSelf) { showToast("That's your own code 🧋"); return false; }
