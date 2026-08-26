@@ -624,7 +624,14 @@ function walkToCupAndMix() {
       // made a pause→quick resume land him short of the cup, stirring the air.
       // Land the maker box's right edge near the cup's centre so he stands
       // right beside the cup and leans in to stir (cup's right half visible).
-      const targetRight = cupRect.left + cupRect.width * 0.45;
+      // How far into the cup the maker's box lands. 0.45 = default (his face
+      // peeks left of the cup, cup's right half stays visible). Wide-costume
+      // skins whose art extends far to the right (angel wings, devil cape,
+      // ninja's cross-body shuriken/sword, cat-hoodie's held object, royal's
+      // cape) land EARLIER so their props don't pass through the cup graphic.
+      const wideRightSkins = { angel: 0.05, devil: 0.12, ninja: 0.15, "cat-hoodie": 0.18, royal: 0.20 };
+      const mixReachIn = (state.skin in wideRightSkins) ? wideRightSkins[state.skin] : 0.45;
+      const targetRight = cupRect.left + cupRect.width * mixReachIn;
       target = Math.max(0, makerVisualX() + (targetRight - wrapRect.right));
     }
     leanForWalk(target);
