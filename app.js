@@ -3565,7 +3565,7 @@ function gameLoop(ts) {
       // Burn the daily play (and pay the quest) on the FIRST pearl actually
       // caught, not on opening the game — matches Plinko/Pong. A phone call or
       // misclick at the start shouldn't forfeit the whole day's bonus.
-      if (game.caught === 0) { markGamePlayed("catch"); bumpQuest("gamesPlayed", 1); }
+      if (!state.devMode && game.caught === 0) { markGamePlayed("catch"); bumpQuest("gamesPlayed", 1); }
       game.caught += 1;
       game.combo += 1;
       game.bestCombo = Math.max(game.bestCombo, game.combo);
