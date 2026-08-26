@@ -1325,7 +1325,13 @@ body {
   height: calc(230px * var(--fig));
   z-index: 9;
   --walk: 0px;
-  transform: translateX(var(--walk));
+  --walk-lean: 0deg;
+  /* The lean rides the SAME transition as the glide, so he tips into his
+     direction of travel while moving and rights himself on arrival — set from
+     JS (setLean) only while walking, always 0 at rest. Bottom origin so the
+     lean (and every wrap-level squash) pivots at his feet, not his belly. */
+  transform: translateX(var(--walk)) rotate(var(--walk-lean));
+  transform-origin: center bottom;
   /* The 1050ms here is only the fallback: setWalk() in app.js sets an inline
      transition-duration proportional to the distance, so short hops don't
      play out as a slow-motion crawl under a fast waddle. */
@@ -4539,6 +4545,14 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .maker-wrap.pop       { animation: wrap-pop       0.42s ease-out; }
 .maker-wrap.celebrate { animation: wrap-celebrate 1.1s  ease-in-out; }
 .maker-wrap.wiggle    { animation: wrap-wiggle    0.8s  ease-in-out; }
+/* Arrival settle: one quick squash-and-recover the moment a walk lands, so he
+   has weight when he stops (and it masks the lean easing back to zero). */
+.maker-wrap.settle    { animation: wrap-settle    0.3s  ease-out; }
+@keyframes wrap-settle {
+  0%   { transform: translateX(var(--walk)) scale(1.05, 0.95); }
+  60%  { transform: translateX(var(--walk)) scale(0.98, 1.02); }
+  100% { transform: translateX(var(--walk)) scale(1, 1); }
+}
 @keyframes wrap-pop {
   0%   { transform: translateX(var(--walk)) translateY(0)     scale(1); }
   40%  { transform: translateX(var(--walk)) translateY(-10px) scale(1.12, 0.92); }

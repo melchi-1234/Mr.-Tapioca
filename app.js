@@ -577,6 +577,24 @@ function setWalk(px) {
   return { ms: ms, dist: dist };
 }
 
+// Tip him a couple of degrees into his direction of travel while he glides
+// (rides the walk transition; see --walk-lean in styles.css). Always call
+// arriveAtWalkTarget when a walk lands so the lean never sticks.
+function setLean(deg) {
+  els.makerWrap.style.setProperty("--walk-lean", deg + "deg");
+}
+function leanForWalk(targetPx) {
+  if (prefersReducedMotion()) return;
+  setLean(targetPx >= makerVisualX() ? 2.2 : -2.2);
+}
+function arriveAtWalkTarget() {
+  // Short duration for the un-lean (the walk's own duration was set for the
+  // full glide); the settle squash plays over it and hides the transition.
+  els.makerWrap.style.transitionDuration = "300ms";
+  setLean(0);
+  pulseMaker("settle", 320);
+}
+
 // Walk over to the cup, then start mixing once he arrives. The distance is
 // computed from the cup's ACTUAL on-screen position so he reaches it on any
 // viewport width (a fixed pixel walk fell short on wider phones). He stays in
@@ -601,14 +619,17 @@ function walkToCupAndMix() {
       const targetRight = cupRect.left + cupRect.width * 0.45;
       target = Math.max(0, makerVisualX() + (targetRight - wrapRect.right));
     }
+    leanForWalk(target);
     const trip = setWalk(target);
     if (trip.dist < 8) {
       // Already at the cup (a quick pause→resume) — no waddle theater.
+      setLean(0);
       setMakerState("mixing");
       return;
     }
     setMakerState("walking");
     walkTimer = setTimeout(() => {
+      arriveAtWalkTarget();
       if (state.running && state.phase === "focus") setMakerState("mixing");
     }, trip.ms);
   });
@@ -617,14 +638,19 @@ function walkToCupAndMix() {
 // Walk back to his station, then settle into the given resting state
 function walkToStation(restState = "idle") {
   clearTimeout(walkTimer);
+  leanForWalk(0);
   const trip = setWalk(0);
   if (trip.dist < 8) {
     // Effectively home already — settle without playing the walk.
+    setLean(0);
     setMakerState(restState);
     return;
   }
   setMakerState("walking");
-  walkTimer = setTimeout(() => { if (!state.running) setMakerState(restState); }, trip.ms);
+  walkTimer = setTimeout(() => {
+    arriveAtWalkTarget();
+    if (!state.running) setMakerState(restState);
+  }, trip.ms);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3165,7 +3191,7 @@ function startBreakOffer() {
   // offset. The bed is centred; without this reset he lay in it shifted a full
   // walk-width to the right. Zeroed AFTER the class lands so the break-mode
   // transition:none makes it an instant snap, not a slide across the mattress.
-  clearTimeout(walkTimer); setWalk(0);
+  clearTimeout(walkTimer); setWalk(0); setLean(0);
   // The bed appears the moment this class lands, so settle him into it now.
   // Without this he sat bolt upright under the duvet, wide awake and hopping,
   // until Start Break was tapped.
