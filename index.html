@@ -106,6 +106,14 @@
     .badge{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);
       border-radius:999px;padding:9px 16px;font-weight:700;font-size:.9rem;box-shadow:var(--lift)}
     .badge .dot{width:9px;height:9px;border-radius:50%}
+    /* On phone the three badges stacked into three rows separated by ~200px
+       of empty cream. Keep them on one row (or two if truly needed) with
+       tighter type and pill padding so they read as a compact strip. */
+    @media (max-width:640px){
+      .badges{gap:8px;padding:6px 12px 4px;flex-wrap:wrap;justify-content:center}
+      .badge{font-size:.78rem;padding:7px 12px;gap:6px}
+      .badge .dot{width:7px;height:7px}
+    }
 
     /* ── section scaffolding ── */
     section.block{padding:46px 0}
@@ -200,7 +208,7 @@
       <div class="hcopy">
         <div class="eyebrow">A cozy focus timer for students</div>
         <h1>Study. Brew <span class="swirl">boba.</span> Lock out the scroll.</h1>
-        <p class="lede">A cozy timer that actually keeps you off distracting apps. On iPhone it locks the ones you pick behind Apple's Screen Time until your session ends, while a little tapioca-pearl mascot brews your boba. Finish, and the drink is yours to keep.</p>
+        <p class="lede">A cozy focus timer that locks distracting apps while a boba mascot brews your drink. Finish, keep the drink.</p>
         <div class="actions">
           <a class="cta" href="https://apps.apple.com/app/id6786023560">
             <svg class="apple" viewBox="0 0 24 24"><path d="M16.36 12.7c.02 2.62 2.3 3.49 2.33 3.5-.02.06-.36 1.24-1.2 2.46-.72 1.05-1.47 2.1-2.66 2.12-1.16.03-1.54-.68-2.87-.68-1.33 0-1.75.66-2.85.71-1.14.04-2.01-1.14-2.74-2.19-1.49-2.15-2.63-6.08-1.1-8.73.76-1.32 2.12-2.15 3.6-2.18 1.12-.02 2.18.75 2.87.75.68 0 1.97-.93 3.32-.79.57.02 2.16.23 3.18 1.73-.08.05-1.9 1.11-1.88 3.32M14.2 4.9c.61-.74 1.02-1.77.9-2.8-.88.04-1.94.59-2.57 1.33-.56.65-1.06 1.7-.93 2.7.98.08 1.98-.5 2.6-1.23"/></svg>
@@ -266,13 +274,19 @@
     </div>
     <div class="skins">
       <div class="skin"><img src="assets/landing/skin-base.png" alt="Classic pearl character"><span>Classic</span></div>
-      <div class="skin"><img src="assets/landing/skin-angel.png" alt="Angel character"><span>Angel</span></div>
-      <div class="skin"><img src="assets/landing/skin-ninja.png" alt="Ninja character"><span>Ninja</span></div>
-      <div class="skin"><img src="assets/landing/skin-wizard.png" alt="Wizard character"><span>Wizard</span></div>
-      <div class="skin"><img src="assets/landing/skin-dragon.png" alt="Dragon character"><span>Dragon</span></div>
-      <div class="skin"><img src="assets/landing/skin-royal.png" alt="Royal character"><span>Royal</span></div>
-      <div class="skin"><img src="assets/landing/skin-strawberry.png" alt="Strawberry character"><span>Strawberry</span></div>
+      <div class="skin"><img src="assets/landing/skin-grad-cap.png" alt="Graduation cap character"><span>Grad</span></div>
       <div class="skin"><img src="assets/landing/skin-flower.png" alt="Flower character"><span>Flower</span></div>
+      <div class="skin"><img src="assets/landing/skin-scarf.png" alt="Scarf character"><span>Scarf</span></div>
+      <div class="skin"><img src="assets/landing/skin-shades.png" alt="Shades character"><span>Shades</span></div>
+      <div class="skin"><img src="assets/landing/skin-strawberry.png" alt="Strawberry character"><span>Strawberry</span></div>
+      <div class="skin"><img src="assets/landing/skin-astro-blue.png" alt="Astronaut character"><span>Astro</span></div>
+      <div class="skin"><img src="assets/landing/skin-dragon.png" alt="Dragon character"><span>Dragon</span></div>
+      <div class="skin"><img src="assets/landing/skin-cat-hoodie.png" alt="Cat hoodie character"><span>Cat</span></div>
+      <div class="skin"><img src="assets/landing/skin-royal.png" alt="Royal character"><span>Royal</span></div>
+      <div class="skin"><img src="assets/landing/skin-ninja.png" alt="Ninja character"><span>Ninja</span></div>
+      <div class="skin"><img src="assets/landing/skin-angel.png" alt="Angel character"><span>Angel</span></div>
+      <div class="skin"><img src="assets/landing/skin-devil.png" alt="Devil character"><span>Devil</span></div>
+      <div class="skin"><img src="assets/landing/skin-wizard.png" alt="Wizard character"><span>Wizard</span></div>
     </div>
   </section>
 

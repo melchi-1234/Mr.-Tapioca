@@ -3139,10 +3139,14 @@ function maybeRequestReview() {
 }
 
 function renderRewardPartner(reward) {
-  els.partnerReward.textContent = reward.partner;
+  // reward.partner can legitimately be missing (short drinks under the perk
+  // floor never get one; test/mock callers may omit it). Empty string means
+  // "no perk row"; treating undefined as a crash killed the entire dialog.
+  const partner = (reward && typeof reward.partner === "string") ? reward.partner : "";
+  els.partnerReward.textContent = partner;
   // Three states, not two: an earned perk reads as a coupon, a not-yet perk
   // reads as a quiet next-goal line, and neither reads as an empty slot.
-  const earned = reward.partner.startsWith("🌟");
+  const earned = partner.startsWith("🌟");
   els.partnerReward.classList.toggle("has-perk", earned);
   els.partnerReward.classList.toggle("is-next", !earned);
 
@@ -3187,6 +3191,14 @@ function onRewardDialogClose() {
 function startBreakOffer() {
   state.phase = "break-offer";
   els.shopScene.classList.add("is-on-break");
+  // celebrate() ran just before us (onRewardDialogClose) and armed a 1.2s
+  // wrap-celebrate + 1.5s scene .celebrating burst. The class flip to
+  // is-on-break kills the wrap's transition and snaps him into bed, but
+  // the running keyframes DO NOT clear — so the sleeping mascot bounced
+  // and rotated for over a second inside the duvet, and treat particles
+  // rained across the mattress. Stop both here, before setMakerState fires.
+  els.makerWrap.classList.remove("celebrate");
+  els.shopScene.classList.remove("celebrating");
   // He just finished a session AT THE CUP, so --walk still holds the mixing
   // offset. The bed is centred; without this reset he lay in it shifted a full
   // walk-width to the right. Zeroed AFTER the class lands so the break-mode

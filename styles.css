@@ -2049,7 +2049,7 @@ body {
 }
 
 .adj-btn.small-adj {
-  width: 40px; height: 40px;
+  width: 44px; height: 44px;
   font-size: 1.2rem;
   border-width: 2px;
 }
@@ -3012,16 +3012,22 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 .onboard-actions {
   display: flex;
   gap: 10px;
-  align-items: center;
+  align-items: stretch;   /* both buttons match Next's height, not center-offset */
 }
 .onboard-next { flex: 1; }
 .onboard-back {
-  min-width: 76px;
+  min-width: 96px;
+  /* Match the primary Next button's minimum height so Back doesn't look
+     squished under a taller neighbor and their centers actually align. */
+  min-height: 56px;
 }
 .onboard-back.hidden { display: none; }
 
 .settings-action-btn {
-  min-height: 34px;
+  /* Own the visible 44px hit floor — the shared ::after expander at the top of
+     this file grows the tap zone but the visible rect stayed 34px, so a list
+     of five row-buttons had overlapping tap zones under the 44px rule. */
+  min-height: 44px;
   padding: 0 16px;
   border: 2px solid var(--teal);
   border-radius: 999px;
@@ -3114,7 +3120,8 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 .map-retry {
   border: none;
   border-radius: 999px;
-  padding: 8px 18px;
+  min-height: 44px;
+  padding: 8px 20px;
   background: var(--bark);
   color: #fff;
   font: inherit;
@@ -3503,8 +3510,8 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 }
 
 .shop-buy-btn {
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: 40px;
+  padding: 0 14px;
   border: 2px solid var(--bark);
   border-radius: 999px;
   background: var(--bark);
@@ -3531,8 +3538,8 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 .shop-buy-btn:disabled { opacity: 0.36; cursor: not-allowed; box-shadow: none; }
 
 .shop-equip-btn {
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: 40px;
+  padding: 0 14px;
   border: 2px solid var(--teal);
   border-radius: 999px;
   background: var(--mint);
@@ -3564,8 +3571,8 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 }
 
 .shop-preview-btn {
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: 40px;
+  padding: 0 14px;
   border: 2px solid var(--gold);
   border-radius: 999px;
   background: #fff4cf;
@@ -4298,7 +4305,8 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 .squad-mycode-label { font-size: 0.76rem; font-weight: 850; color: var(--bark-mid); }
 .squad-mycode-value {
-  border: none; background: none; padding: 4px 6px;
+  border: none; background: none; padding: 10px 8px;
+  min-height: 44px;   /* it's the only tap target on the row */
   font-size: 1.15rem; font-weight: 950; letter-spacing: 0.16em;
   color: var(--bark); font-variant-numeric: tabular-nums;
 }
