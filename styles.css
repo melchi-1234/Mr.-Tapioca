@@ -4490,7 +4490,11 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .cup-stage { width: 112px; height: 150px; top: -100px; }
   .work-counter { height: 72px; }
   .daily-goal { top: max(104px, calc(env(safe-area-inset-top) + 64px)); }
-  .focus-controls { bottom: calc(90px + env(safe-area-inset-bottom)); gap: 7px; }
+  /* 110px, not 90px: measured on SE (375x667) the primary action row overlapped
+     the ENTIRE 102px bottom-nav by ~12px, the Quests red badge sat inside the
+     button's shadow lip. The 90px offset was set against a shorter nav; bump
+     to restore the ~8px breathing gap the 812 breakpoint has. */
+  .focus-controls { bottom: calc(110px + env(safe-area-inset-bottom)); gap: 7px; }
   .scene-wrap.has-native-blocking .focus-controls {
     bottom: max(114px, calc(98px + env(safe-area-inset-bottom)));
   }

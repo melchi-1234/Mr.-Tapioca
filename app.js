@@ -629,7 +629,7 @@ function walkToCupAndMix() {
       // skins whose art extends far to the right (angel wings, devil cape,
       // ninja's cross-body shuriken/sword, cat-hoodie's held object, royal's
       // cape) land EARLIER so their props don't pass through the cup graphic.
-      const wideRightSkins = { angel: 0.05, devil: 0.12, ninja: 0.15, "cat-hoodie": 0.18, royal: 0.20 };
+      const wideRightSkins = { angel: 0.05, devil: 0.12, ninja: 0.15, "cat-hoodie": 0.18, royal: 0.20, wizard: 0.22, dragon: 0.20 };
       const mixReachIn = (state.skin in wideRightSkins) ? wideRightSkins[state.skin] : 0.45;
       const targetRight = cupRect.left + cupRect.width * mixReachIn;
       target = Math.max(0, makerVisualX() + (targetRight - wrapRect.right));
