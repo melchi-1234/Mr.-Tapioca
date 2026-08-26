@@ -629,7 +629,11 @@ function walkToCupAndMix() {
       // skins whose art extends far to the right (angel wings, devil cape,
       // ninja's cross-body shuriken/sword, cat-hoodie's held object, royal's
       // cape) land EARLIER so their props don't pass through the cup graphic.
-      const wideRightSkins = { angel: 0.05, devil: 0.12, ninja: 0.15, "cat-hoodie": 0.18, royal: 0.20, wizard: 0.22, dragon: 0.20 };
+      // Angel + devil at 0.05 / 0.12 were unreachable on 375x812: angel's
+      // home wrap.right already sits at frac ~0.17 of cup, so setWalk() got
+      // clamped to 0 and the walk beat was skipped entirely. Raised to values
+      // above the natural home fraction so the glide actually plays.
+      const wideRightSkins = { angel: 0.22, devil: 0.20, ninja: 0.18, "cat-hoodie": 0.20, royal: 0.22, wizard: 0.24, dragon: 0.22 };
       const mixReachIn = (state.skin in wideRightSkins) ? wideRightSkins[state.skin] : 0.45;
       const targetRight = cupRect.left + cupRect.width * mixReachIn;
       target = Math.max(0, makerVisualX() + (targetRight - wrapRect.right));
@@ -1881,7 +1885,7 @@ function renderShop() {
       action = isDefault
         ? `<span class="shop-equipped-badge">Default</span>`
         : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
-           <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+           <button class="shop-unequip-btn" data-unequip="${item.type}">Unequip</button>`;
     } else if (item.premium && !owned) {
       action = IAP.available()
         ? `<button class="shop-preview-btn" data-iap="${item.id}">✦ ${IAP.prices[item.id] || "$1.99"}</button>`
@@ -1927,7 +1931,7 @@ function renderShop() {
       action = isDefault
         ? `<span class="shop-equipped-badge">Default</span>`
         : `<span class="shop-equipped-badge">${item.premium ? "✦ " : ""}Equipped</span>
-           <button class="shop-unequip-btn" data-unequip="${item.type}">Remove</button>`;
+           <button class="shop-unequip-btn" data-unequip="${item.type}">Unequip</button>`;
     } else if (item.premium && !owned) {
       action = IAP.available()
         ? `<button class="shop-preview-btn" data-iap="${item.id}">✦ ${IAP.prices[item.id] || "$1.99"}</button>`
@@ -6526,19 +6530,32 @@ function questsRemaining() {
   return state.quests.active.filter((a) => !a.done).length;
 }
 
-// Little count badge on the nav Quests pill.
+// Little count badge on the nav Quests pill. Suppressed on the very first
+// launch (before the user has ever opened the Quests panel) so the bright
+// pink "3" doesn't read as an unread-notification alert on day one.
 function updateQuestBadge() {
   const badge = document.querySelector("#questBadge");
   if (!badge) return;
   const n = questsRemaining();
+  const seen = !!localStorage.getItem("bobaFocusQuestsSeen");
   badge.textContent = String(n);
-  badge.classList.toggle("hidden", n === 0);
+  badge.classList.toggle("hidden", n === 0 || !seen);
 }
 
 function renderQuests() {
   const list = document.querySelector("#questsList");
   if (!list) return;
   ensureTodayQuests();
+  // Swap the intro copy once every quest is done — the invite-to-earn line
+  // stayed put and read as a stale prompt with no acknowledgement of
+  // completion or when the next set unlocks.
+  const intro = document.querySelector(".quests-intro");
+  if (intro) {
+    const allDone = state.quests && state.quests.active.every((a) => a.done);
+    intro.textContent = allDone
+      ? "All done today. New set opens tomorrow!"
+      : "Three fresh challenges to earn pearls every day!";
+  }
   const cards = state.quests.active.map((a) => {
     const def = questDef(a.key);
     if (!def) return "";   // defensive: skip a quest whose key no longer exists
@@ -6559,6 +6576,9 @@ function renderQuests() {
 function openQuests() {
   ensureTodayQuests();
   renderQuests();
+  // First-open of the panel graduates the user out of "day 1 unseen"; from
+  // this point the count badge is legitimate feedback, not a stray alert.
+  try { localStorage.setItem("bobaFocusQuestsSeen", "1"); } catch (e) {}
   updateQuestBadge();
   openSheet("questsSheet");
 }

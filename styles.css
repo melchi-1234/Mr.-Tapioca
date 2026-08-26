@@ -334,6 +334,12 @@ body {
               #2e3b57 url('assets/Shop Background Night.png') top center / cover no-repeat;
 }
 .scene[data-theme="night"] .speech-bubble { background: #fff0be; }
+/* Night mascot silhouette blends into the dim wall; a soft warm rim halo
+   behind him gives the character a lit-from-behind edge without changing
+   the drawn art. */
+.scene[data-theme="night"] .maker-img {
+  filter: drop-shadow(0 0 10px rgba(255,214,150,0.22));
+}
 .scene[data-theme="night"] .work-counter {
   --counter-tint: rgba(40,34,66,0.30);
   border-color: rgba(20,14,30,0.22);
@@ -2909,11 +2915,14 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 /* ── Achievements / badges ──────────────────────────────────────────────── */
 /* ── Toast ──────────────────────────────────────────────────────────────── */
 .toast {
-  position: absolute;
+  /* Pinned to viewport instead of the scene, so a toast fired while a sheet
+     is open (Shop, Squad, Map) sits reliably above the safe-area bottom
+     instead of intruding into whatever scroll position the sheet is in. */
+  position: fixed;
   left: 50%;
-  bottom: 120px;
+  bottom: calc(env(safe-area-inset-bottom) + 28px);
   transform: translateX(-50%) translateY(20px);
-  z-index: 120;
+  z-index: 200;   /* above sheets (100) so a Shop toast still reads on top */
   max-width: 84%;
   padding: 11px 18px;
   border-radius: 999px;
