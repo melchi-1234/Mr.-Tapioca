@@ -1273,7 +1273,11 @@ body {
   height: auto;
   filter: drop-shadow(0 2px 2px rgba(60,32,24,0.16));
 }
+/* left is skin-aware so the pastel straws jar doesn't disappear behind Angel's
+   opaque left wing (its wrap footprint covers the old 1px slot). Angel gets a
+   wider shift; every other skin (and no-skin) keeps the tight anchor. */
 .prop-straws { left: 1px;  width: calc(23px * var(--fig)); }
+.scene[data-skin="angel"] .prop-straws { left: 32px; }
 .prop-plant  { right: 2px; width: calc(25px * var(--fig)); }
 /* The counter is hidden on break, and so are its props (inherited), but be
    explicit so a future layout change can't leave them floating in the bedroom. */
@@ -1496,6 +1500,13 @@ body {
   display: flex;
   gap: 4px;
   z-index: 9;                      /* above the mascot, below the break panel (z-index:10) */
+}
+/* Devil's tiny red trident tip is painted to his upper right; the Z stack sat
+   directly on top of it so the trident poked through the middle Z. Nudge the
+   stack right + up when devil is equipped so both read cleanly. */
+.scene[data-skin="devil"] .break-zzz {
+  left: calc(50% + 80px);
+  bottom: calc(var(--floor-y) + 224px);
 }
 /* Floating zzz while napping. Every character needs it now: the old base nap art
    had zzz drawn into the picture, the new generated set deliberately has no text
@@ -2897,9 +2908,13 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   inset: 0;
   z-index: 100;
   display: flex;
-  align-items: center;
+  /* Anchor the card to the LOWER third of the overlay instead of dead-center.
+     On a 812-tall phone dead-center left ~430px of empty pastel above it,
+     making the card feel unmoored. flex-end + a bottom pad keeps the illustration
+     zone at the top for a future brand mark without pinning it now. */
+  align-items: flex-end;
   justify-content: center;
-  padding: 24px;
+  padding: 24px 24px max(48px, env(safe-area-inset-bottom));
   background: linear-gradient(160deg, #fff2dd 0%, #ffe6ea 55%, #e8f3ee 100%);
 }
 .onboarding.hidden { display: none; }
@@ -4306,9 +4321,15 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .squad-mycode-label { font-size: 0.76rem; font-weight: 850; color: var(--bark-mid); }
 .squad-mycode-value {
   border: none; background: none; padding: 10px 8px;
-  min-height: 44px;   /* it's the only tap target on the row */
+  min-height: 44px;   /* self keeps the floor even if the row shrinks */
   font-size: 1.15rem; font-weight: 950; letter-spacing: 0.16em;
   color: var(--bark); font-variant-numeric: tabular-nums;
+  position: relative;
+}
+/* Extend the tap target to the whole row height: an invisible ::before sits
+   over the label + code so a tap on either lands the copy action. */
+.squad-mycode-value::before {
+  content: ""; position: absolute; inset: -12px -180px;
 }
 .squad-mycode-value:active { transform: scale(0.96); }
 .squad-hint { font-size: 0.76rem; font-weight: 750; color: var(--bark-mid); line-height: 1.45; margin: 0 2px 12px; }
@@ -4773,6 +4794,13 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   background-repeat: no-repeat;
   background-image: radial-gradient(80% 60% at 50% 30%, rgba(214,226,235,0.35), transparent 75%);
   animation: fog-breathe 9s ease-in-out infinite alternate;
+  /* Inset the whole rain layer to sit ONLY over the window glass instead of
+     the whole upper 54% of the scene. Rain over the wall reads as raining
+     inside the room, which pushes on the fiction. The window pane occupies
+     roughly the middle-upper area; these numbers were eyeballed against
+     Shop Background Rainy.png fitted with `cover`. */
+  left: 8%; right: 8%;
+  top: 8%; height: 42%;
 }
 @keyframes fog-breathe { from { opacity: 0.35; } to { opacity: 0.8; } }
 
@@ -4932,6 +4960,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .squad-board-head { display: flex; align-items: center; gap: 7px; }
 .squad-board-head .ico { width: 17px; height: 17px; }
 .install-icon .ico { width: 26px; height: 26px; }
+.install-icon img { width: 26px; height: 26px; border-radius: 6px; display: block; }
 .settings-action-btn .ico { width: 15px; height: 15px; display: inline-block; vertical-align: -2px; }
 .squad-stats, .squad-row-stats { display: inline-flex; align-items: center; gap: 1px; }
 .squad-stats .ico, .squad-row-stats .ico { width: 13px; height: 13px; color: #ef8a3c; }

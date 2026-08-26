@@ -169,6 +169,11 @@
     .final .cta{background:#fff7ee;color:var(--bark)}
     .final .cta .apple{fill:var(--bark)}
     .final .m{position:absolute;width:150px;bottom:-24px;left:-10px;opacity:.9;transform:rotate(-8deg)}
+    @media (max-width:520px){
+      /* Wizard's wand tip was crossing under the App Store pill on 375. Move
+         it to the outer corner and shrink so it decorates instead of clashing. */
+      .final .m{width:104px;left:auto;right:-8px;bottom:-16px;opacity:.85}
+    }
 
     /* ── footer ── */
     footer{border-top:1px solid var(--line);padding:34px 0 46px;margin-top:20px}
