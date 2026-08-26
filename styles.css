@@ -1764,6 +1764,13 @@ body {
   100% { transform: scale(1); }
 }
 
+/* Every HUD chip is tappable (pearls → shop, streak → progress, name → rename,
+   shelf → your shelf) but pressed dead. A quick scale gives them a press state.
+   The name chip keeps its translateX(-50%) centring in the pressed transform. */
+.hud-chips .pearl-chip, .shelf-chip, .hud-name { transition: transform 90ms ease; }
+.hud-chips .pearl-chip:active, .shelf-chip:active { transform: scale(0.95); }
+.hud-name:active { transform: translateX(-50%) scale(0.95); }
+
 /* ── Daily goal progress pill (under the top HUD) ───────────────────────── */
 /* Declutter: hidden while a focus session runs or during a break (it otherwise
    collides with the speech bubble on short phones). Returns when idle/paused. */
@@ -2067,6 +2074,13 @@ body {
    "streak" — a monochrome glyph in body-text brown reads as decoration. Keeping
    the warmth is the point, not a flourish. */
 .flame { color: #ef8a3c; display: flex; align-items: center; }
+/* A lit streak flame breathes so it reads as alive, not printed. renderStats
+   toggles .is-lit whenever the current streak is above zero. */
+.flame.is-lit { animation: flame-flicker 2.4s ease-in-out infinite alternate; transform-origin: center bottom; }
+@keyframes flame-flicker {
+  from { opacity: 0.85; transform: scale(1); }
+  to   { opacity: 1;    transform: scale(1.06); }
+}
 .block-pill-ico .ico { width: 15px; height: 15px; }
 .ico-lg { width: 44px; height: 44px; display: block; margin: 0 auto; }
 .block-shield { color: var(--teal); }
@@ -2579,8 +2593,14 @@ body {
   background: rgba(60,32,24,0.45);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
+  opacity: 1;
+  /* Fade the scrim in/out so it moves WITH the sheet card instead of popping.
+     The hidden state keeps display:block (its 0,2,0 specificity beats the global
+     .hidden {display:none} at 0,1,0) so the element stays rendered through the
+     fade; pointer-events:none lets taps pass once it is invisible. */
+  transition: opacity 320ms cubic-bezier(0.32,0.72,0,1);
 }
-.sheet-backdrop.hidden { display: none; }
+.sheet-backdrop.hidden { display: block; opacity: 0; pointer-events: none; }
 
 /* ── Headings inside sheets ─────────────────────────────────────────────── */
 h2 { font-size: 1.08rem; }
@@ -2886,6 +2906,14 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   0%   { transform: scale(0.6) translateY(10px); opacity: 0; }
   60%  { transform: scale(1.06); }
   100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+/* Step title + body cross-fade in as you page the onboarding, the same
+   animation-restart trick used on the visual above. renderOnboardStep() retriggers
+   these after swapping the text. */
+#onboardTitle, #onboardBody { animation: onboard-content-in 260ms ease both; }
+@keyframes onboard-content-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .onboard-card h2 {
@@ -3496,7 +3524,9 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   font-size: 0.76rem;
   font-weight: 950;
   white-space: nowrap;
-  box-shadow: 2px 2px 0 rgba(60,32,24,0.1);
+  /* The raised 3D lip lives in the shared .shop-equip-btn/.shop-preview-btn depth
+     rule below; the old 2px 2px 0 offset-square (a different depth language the
+     buy button already dropped) was removed here. */
 }
 
 .shop-preview { position: relative; }
@@ -3525,6 +3555,23 @@ dialog {
   background: transparent;
 }
 dialog::backdrop { background: rgba(60,32,24,0.45); }
+/* Every dialog shares this shell, so one entrance lifts them all at once
+   (reward, premium, redeem, block, ask). The card gently springs in while its
+   scrim fades; the reward drink-pop / confetti still layer on top. */
+dialog[open] { animation: dialog-pop 300ms cubic-bezier(0.34,1.4,0.5,1) both; }
+dialog[open]::backdrop { animation: backdrop-fade 240ms ease both; }
+@keyframes dialog-pop {
+  /* A translateY lift, NOT a scale: scaling the dialog shrinks its buttons
+     mid-animation (a 44px target reads as 39.6px at scale 0.9 and trips the
+     touch-target check). Translation moves the card without changing any
+     measured height, so every control keeps its full hit area throughout. */
+  0%   { transform: translateY(14px); opacity: 0; }
+  100% { transform: translateY(0);    opacity: 1; }
+}
+@keyframes backdrop-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
 .reward-card {
   position: relative;
@@ -3730,16 +3777,49 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .sheet-close, .settings-action-btn, .game-quit-btn, .toggle {
   transition: transform 90ms ease, background 180ms, color 180ms, box-shadow 180ms;
 }
-/* Squish is for flat controls only. .primary and .shop-buy-btn are KEYS with a
-   lip beneath them and depress with translateY instead — they were listed here
-   too, and since this rule comes later it won the transform while their own
-   rule still removed the lip, so a press both squished AND flattened them. Two
-   depth metaphors at once reads as a glitch. */
+/* Squish is for flat controls only. .primary, .shop-buy-btn, .shop-equip-btn and
+   .shop-preview-btn are KEYS with a lip beneath them and depress with translateY
+   instead — a press that both squished AND flattened them reads as a glitch (two
+   depth metaphors at once), so they are kept out of this list. */
 .size-btn:active, .choice:active, .base-option:active, .adj-btn:active,
-.quiet:active, .shop-equip-btn:active,
-.shop-unequip-btn:active, .shop-preview-btn:active, .sheet-close:active,
+.quiet:active, .shop-unequip-btn:active, .sheet-close:active,
 .settings-action-btn:active, .game-quit-btn:active {
   transform: scale(0.93);
+}
+
+/* ── Item 8: one depth language for the shop button family ────────────────────
+   Equip + Preview were flat / carried the old offset-square. Give them the same
+   raised tile + press-onto-the-lip as the buy button, in a translucent bark lip
+   that reads correctly under any face colour (mint, gold). The reward card keeps
+   its 8px 8px 0 offset as the sole intentional accent. */
+.shop-equip-btn, .shop-preview-btn {
+  box-shadow:
+    var(--ui-sheen),
+    0 3px 0 rgba(60,32,24,0.20),
+    0 6px 12px -6px rgba(60,32,24,0.34);
+}
+.shop-equip-btn:active, .shop-preview-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    var(--ui-sheen),
+    0 1px 0 rgba(60,32,24,0.20),
+    0 3px 8px -5px rgba(60,32,24,0.30);
+}
+
+/* ── Item 6: the keys spring back on release ──────────────────────────────────
+   Press stays snappy (fast :active transition); the RESTING state eases the
+   transform back with the overshoot curve already used for the toast / speech
+   bubble, so a key rebounds instead of snapping flat. This block sits after the
+   shared transition rule above so it wins for .primary / .shop-buy-btn. Reduced
+   motion clamps every transition to 1ms via the global rule, so the spring is
+   already neutralised there. */
+.start-btn, .shop-buy-btn, .primary, .icon-pill {
+  transition: transform 180ms cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 180ms ease,
+              background 180ms, color 180ms;
+}
+.start-btn:active, .shop-buy-btn:active, .primary:active, .icon-pill:active {
+  transition: transform 80ms ease, box-shadow 80ms ease;
 }
 
 /* ── Game overlays ──────────────────────────────────────────────────────── */
@@ -4340,6 +4420,12 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }
+  /* Fully opt the feel-polish animations out so nothing settles mid-transform
+     (the 1ms clamp above already neutralises the transitions). */
+  dialog[open], dialog[open]::backdrop,
+  #onboardTitle, #onboardBody,
+  .flame.is-lit,
+  .coll-empty-art, .coll-empty-zzz span { animation: none !important; }
 }
 
 /* ── Feature tour (spotlight coach marks) ─────────────────────────────────── */
@@ -4926,8 +5012,35 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .coll-badge-name { margin: 0; font-size: 0.64rem; font-weight: 950; color: var(--bark); line-height: 1.2; }
 .coll-badge-desc { margin: 2px 0 0; font-size: 0.56rem; font-weight: 850; color: var(--bark-mid); line-height: 1.25; }
 
-.coll-empty { text-align: center; padding: 26px 18px 30px; }
-.coll-empty-art { width: 92px; height: auto; opacity: 0.75; margin-bottom: 10px; }
+.coll-empty { text-align: center; padding: 26px 18px 30px; position: relative; }
+.coll-empty-art {
+  width: 92px; height: auto; opacity: 0.75; margin-bottom: 10px;
+  /* The sleeping mascot breathes so an empty shelf reads as "resting", not
+     "nothing loaded". A couple of drifting zzz reuse the nap keyframe. */
+  animation: empty-breathe 3.2s ease-in-out infinite alternate;
+  transform-origin: center bottom;
+}
+@keyframes empty-breathe {
+  from { transform: translateY(0) scale(1); }
+  to   { transform: translateY(-2px) scale(1.03); }
+}
+.coll-empty-zzz {
+  position: absolute;
+  top: 14px;
+  left: calc(50% + 22px);
+  display: flex;
+  gap: 3px;
+  pointer-events: none;
+}
+.coll-empty-zzz span {
+  font-style: italic;
+  font-weight: 950;
+  color: #b0a2d8;
+  opacity: 0;
+  animation: zzz-float 2.8s ease-in-out infinite;
+}
+.coll-empty-zzz span:nth-child(1) { font-size: 0.85rem; animation-delay: 0s;   }
+.coll-empty-zzz span:nth-child(2) { font-size: 1.05rem; animation-delay: 0.7s; }
 .coll-empty-title { margin: 0; font-size: 1rem; font-weight: 950; color: var(--bark); }
 .coll-empty-copy { margin: 5px auto 0; max-width: 250px; font-size: 0.8rem; font-weight: 850; color: var(--bark-mid); line-height: 1.45; }
 
