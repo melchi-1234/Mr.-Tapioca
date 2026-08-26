@@ -509,12 +509,20 @@ function setMakerState(stateName) {
 // Play a one-shot reaction class on the maker (pop / celebrate) without
 // disturbing its looping idle/mixing animation. Applied to the WRAP, not the
 // img, so the two animations compose instead of one replacing the other.
+// Per-class timer id, so a second pulseMaker(cls) call within the first
+// animation's window doesn't lose the tail of the second when the FIRST
+// setTimeout fires and strips the class early.
+const _pulseTimers = Object.create(null);
 function pulseMaker(cls, ms) {
   const wrap = els.makerWrap;
+  if (_pulseTimers[cls]) { clearTimeout(_pulseTimers[cls]); _pulseTimers[cls] = 0; }
   wrap.classList.remove(cls);
   void wrap.offsetWidth;       // force reflow so the animation restarts
   wrap.classList.add(cls);
-  setTimeout(() => wrap.classList.remove(cls), ms);
+  _pulseTimers[cls] = setTimeout(() => {
+    wrap.classList.remove(cls);
+    _pulseTimers[cls] = 0;
+  }, ms);
 }
 
 // Happy hop + a burst of treats over the scene
@@ -3529,6 +3537,12 @@ function showPremiumPreview(title, price) {
   }
 }
 
+// Any open game overlay owns the surface — the install banner sat on top of
+// the game HUD (score/timer/quit). This class is the toggle CSS reads.
+function markGameOpen(open) {
+  document.body.classList.toggle("game-open", !!open);
+}
+
 function stopGame() {
   if (game.active) {
     bankCatchScore();   // early exit (quit / break ended) keeps pearls earned so far
@@ -3542,7 +3556,9 @@ function stopGame() {
   // Always hide the overlay, even if the game already ended and is showing its
   // result screen — otherwise it stays painted over the focus UI after a break.
   els.gameResult.style.display = "none";
+  els.pearlGame.classList.remove("result-shown");
   els.pearlGame.style.display = "none";
+  markGameOpen(false);
 }
 
 function spawnPearl() {
@@ -3554,7 +3570,15 @@ function spawnPearl() {
   else if (r < ICE_CHANCE + BOMB_CHANCE + GOLDEN_CHANCE) kind = "golden";
 
   const size = kind === "ice" ? ICE_SIZE : (kind === "bomb" ? BOMB_SIZE : PEARL_SIZE);
-  const x = Math.random() * (els.gameArea.offsetWidth - size);
+  // Constrain spawn to the visible playfield only (~14% shelf inset on both
+  // sides of catch-board.jpg). Items were spawning inside the drawn pantry
+  // shelves — visually falling through jars and cups, and the cup can't reach
+  // that region anyway, so any spawn there was a target the player couldn't
+  // chase.
+  const w = els.gameArea.offsetWidth;
+  const inset = Math.round(w * 0.14);
+  const range = Math.max(1, w - size - inset * 2);
+  const x = inset + Math.random() * range;
   const el = document.createElement("div");
   el.className = "falling-pearl falling-" + kind;
   if (kind === "bomb") el.textContent = "💣";
@@ -3691,7 +3715,9 @@ function startPearlGame() {
   els.gameScore.innerHTML = ICON.pearl + "0";
   els.gameTimer.textContent = "0:" + String(CATCH_DURATION).padStart(2, "0");
   els.gameResult.style.display = "none";
+  els.pearlGame.classList.remove("result-shown");
   els.pearlGame.style.display = "flex";
+  markGameOpen(true);
   // Show the overlay BEFORE measuring, or offsetWidth is 0 (display:none) and the
   // cup spawns off-screen at left:-36px until the first touch.
   game.cupX = (els.gameArea.offsetWidth - GAME_CUP_W) / 2;
@@ -3745,6 +3771,7 @@ function endPearlGame() {
     "You caught " + game.caught + " pearl" + (game.caught !== 1 ? "s" : "") +
     " (best streak ×" + game.bestCombo + "). +" + earned + " to your stash" + capNote + ".";
   els.gameResult.style.display = "flex";
+  els.pearlGame.classList.add("result-shown");    // hides steering arrows via CSS
 }
 
 // ── Catch feel/juice helpers ──────────────────────────────────────────────
@@ -3909,6 +3936,13 @@ function drawPlinkoPearl(x, y) {
   const canvas = els.plinkoCanvas;
   const ctx = canvas.getContext("2d");
   const r = 8;
+  // Cream halo behind the pearl so the dark body no longer visually merges
+  // with the same-dark pegs it's bouncing through. The halo is drawn first
+  // and slightly larger; then the pearl on top.
+  ctx.beginPath();
+  ctx.arc(x, y, r + 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255, 246, 231, 0.72)";
+  ctx.fill();
   const grad = ctx.createRadialGradient(x - 2.5, y - 2.5, 1, x, y, r);
   grad.addColorStop(0, "rgba(255,255,255,0.75)");
   grad.addColorStop(0.45, "#5b3d46");
@@ -3917,6 +3951,10 @@ function drawPlinkoPearl(x, y) {
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = grad;
   ctx.fill();
+  // Cream outline to keep the pearl distinct even against dark peg cores.
+  ctx.strokeStyle = "rgba(255, 246, 231, 0.85)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
 }
 
 // Peg centres — same formula the board is drawn with, so the sim matches visuals
@@ -4053,6 +4091,7 @@ function openPlinko() {
   els.plinkoDropBtn.textContent = "Drop Pearl";
   updatePlinkoHUD();
   els.plinkoGame.style.display = "flex";
+  markGameOpen(true);
   requestAnimationFrame(() => drawPlinkoBoard(-1));
 }
 
@@ -4060,6 +4099,7 @@ function closePlinko() {
   if (plinko.animId) { cancelAnimationFrame(plinko.animId); plinko.animId = null; }
   plinko.dropping = false;
   els.plinkoGame.style.display = "none";
+  markGameOpen(false);
 }
 
 function updatePlinkoHUD() {
@@ -6913,8 +6953,13 @@ function renderOnboardStep() {
     .join("");
 
   els.onboardBack.classList.toggle("hidden", onboardStep === 0);
-  els.onboardNext.textContent = isName ? "That's me! 🧋"
-    : (onboardStep === onboardDeck().length - 1 ? "Let's go! 🧋" : "Next");
+  // Drop the trailing 🧋 on primary CTAs: the emoji pushed the label past the
+  // pill's intrinsic width on every phone ≤414px, so "That's me!" wrapped to
+  // two lines with the boba glyph dangling on line 2, and because .onboard-
+  // actions is align-items:stretch the Back pill inflated to match (both grew
+  // to 76-96px tall). Kept the emoji on inner illustrations, not chrome.
+  els.onboardNext.textContent = isName ? "That's me!"
+    : (onboardStep === onboardDeck().length - 1 ? "Let's go!" : "Next");
 }
 
 function onboardAdvance() {
@@ -7155,6 +7200,7 @@ function openPong() {
   els.pongResult.style.display = "none";
   els.pongHint.style.display = "";
   els.pongGame.style.display = "flex";
+  markGameOpen(true);
   updatePongHUD();
   requestAnimationFrame(() => {
     if (!pong.opening) return;         // closed again before this frame ran — don't revive
@@ -7174,6 +7220,7 @@ function closePong() {
   pong.active = false;
   pong.splash = null;
   els.pongGame.style.display = "none";
+  markGameOpen(false);
 }
 
 function pongLaunch() {

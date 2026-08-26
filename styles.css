@@ -65,6 +65,15 @@ img { -webkit-user-drag: none; user-select: none; }
 }
 .install-banner.show { transform: translateY(0); }
 .install-banner[hidden] { display: none; }
+/* Any open game overlay owns the whole surface — the install banner sat on
+   top and hid the game HUD (score/timer/quit). Suppress the banner while a
+   game is open; it comes back the moment the overlay closes. app.js toggles
+   `.game-open` on <body> in openPearlGame/openPlinko/openPong + their
+   stop/close counterparts. */
+body.game-open .install-banner {
+  transform: translateY(-110%) !important;
+  pointer-events: none;
+}
 .install-icon { font-size: 1.3rem; }
 .install-text { flex: 1; font-size: 0.8rem; font-weight: 800; line-height: 1.25; }
 .install-btn {
@@ -1010,10 +1019,14 @@ body {
    moving parts; each theme repurposes them. All are low-contrast and slow on
    purpose — this is ambience behind a character you stare at for 30 minutes,
    not a screensaver. */
-.scene[data-theme="winter"] .cafe-glow,
-.scene[data-theme="galaxy"] .cafe-glow,
-.scene[data-theme="library"] .cafe-glow,
-.scene[data-theme="sunset"] .cafe-glow {
+/* Doubled .cafe-glow.cafe-glow on the re-enable to match the (0,3,0)
+   specificity of the higher-up disable rules — a single-class version lost
+   the tiebreak and left the "second animated layer" invisible on every paid
+   theme, so premium buyers got fewer effects than the free night theme. */
+.scene[data-theme="winter"]  .cafe-glow.cafe-glow,
+.scene[data-theme="galaxy"]  .cafe-glow.cafe-glow,
+.scene[data-theme="library"] .cafe-glow.cafe-glow,
+.scene[data-theme="sunset"]  .cafe-glow.cafe-glow {
   display: block;
   inset: 0;
   height: auto;
@@ -4113,6 +4126,10 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 @keyframes area-flash { from { opacity: 1; } to { opacity: 0; } }
 
+/* Hide catch arrows while the result overlay is up: they sat at z:6 above
+   the .game-result at z:5, so their cream circles bled through as ghost
+   buttons and taps in that region hit the arrows, not the result CTA. */
+.pearl-game.result-shown .catch-arrow { display: none; }
 .game-result {
   position: absolute;
   inset: 0;
@@ -4504,6 +4521,17 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   #onboardTitle, #onboardBody,
   .flame.is-lit,
   .coll-empty-art, .coll-empty-zzz span { animation: none !important; }
+  /* Exempt the four core mascot state anims from the 1ms clamp — otherwise
+     the character froze mid-transform (or teleported across the counter on
+     focus), which read as broken, not calm. Idle breathing + sleep breathing
+     are gentle enough that they stay; walk/mix keep their motion because
+     losing them made the session read as dead. */
+  .maker-img[data-state="idle"]     { animation-duration: 4s   !important; animation-iteration-count: infinite !important; }
+  .maker-img[data-state="walking"]  { animation-duration: 0.52s !important; animation-iteration-count: infinite !important; }
+  .maker-img[data-state="mixing"]   { animation-duration: 0.9s !important; animation-iteration-count: infinite !important; }
+  .maker-img[data-state="sleeping"] { animation-duration: 3.6s !important; animation-iteration-count: infinite !important; }
+  /* The wrap's walk glide is a transition, not a keyframe — keep it. */
+  .maker-wrap { transition-duration: 1050ms !important; }
 }
 
 /* ── Feature tour (spotlight coach marks) ─────────────────────────────────── */
@@ -4799,6 +4827,14 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
      inside the room, which pushes on the fiction. The window pane occupies
      roughly the middle-upper area; these numbers were eyeballed against
      Shop Background Rainy.png fitted with `cover`. */
+  left: 8%; right: 8%;
+  top: 8%; height: 42%;
+}
+
+/* Same fiction-break as rainy: snow/leaves fell over the interior wall on
+   both sides of the window. Inset both to the window pane. */
+.scene[data-theme="winter"] .theme-fx,
+.scene[data-theme="autumn"] .theme-fx {
   left: 8%; right: 8%;
   top: 8%; height: 42%;
 }
