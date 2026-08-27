@@ -823,17 +823,19 @@ body {
    and its opacity is multiplied by --focus-progress inside the keyframe, so the
    sky is barely there at the start of a cup and gently full by the end. */
 .scene[data-theme="galaxy"] .fx-fill {
-  background-image: url('assets/fx-sparkle.webp');
-  background-repeat: repeat;
-  background-size: 205px 205px;
-  background-position: 44px 28px;
-  filter: drop-shadow(0 0 4px rgba(214,198,255,0.9));
+  /* Two stacked star sheets at different tile sizes so the added field reads as
+     a genuinely fuller, brighter sky by the end, not a faint dusting. */
+  background-image: url('assets/fx-sparkle.webp'), url('assets/fx-sparkle.webp');
+  background-repeat: repeat, repeat;
+  background-size: 130px 130px, 88px 88px;
+  background-position: 30px 18px, 64px 52px;
+  filter: drop-shadow(0 0 5px rgba(224,210,255,1)) brightness(1.25);
   opacity: 1;   /* real visibility is driven by the keyframe's progress calc */
-  animation: fx-fill-stars 5.6s ease-in-out infinite, fx-sway 15s ease-in-out infinite alternate;
+  animation: fx-fill-stars 4.8s ease-in-out infinite, fx-sway 15s ease-in-out infinite alternate;
 }
 @keyframes fx-fill-stars {
-  0%, 100% { opacity: calc(var(--focus-progress, 0) * 0.30); }
-  50%      { opacity: calc(var(--focus-progress, 0) * 0.92); }
+  0%, 100% { opacity: calc(var(--focus-progress, 0) * 0.62); }
+  50%      { opacity: calc(var(--focus-progress, 0) * 1.15); }
 }
 /* Reduced motion: no twinkle/sway, but keep the state-based fill (it's a status
    readout, not decoration) held at a steady mid value. */
@@ -858,48 +860,55 @@ body {
 }
 .scene.is-on-break.is-on-break .scene-fill { display: none; }
 
-/* WINTER — the hearth builds from ember to a fuller glow as the session fills.
-   Sat on the fireplace (lower-left of the art) and flickering gently. */
+/* WINTER — the hearth builds from ember to a real fire glow as the session
+   fills. Bright orange core on the fireplace (lower-left of the art), strong
+   enough to read clearly against the wood, flickering. */
 .scene[data-theme="winter"] .scene-fill {
   background:
-    radial-gradient(30% 26% at 11% 70%, rgba(255,170,88,0.75), rgba(255,140,66,0.24) 46%, transparent 72%),
-    radial-gradient(46% 40% at 14% 66%, rgba(255,150,70,0.26), transparent 70%);
-  animation: hearth-build 3.6s ease-in-out infinite;
+    radial-gradient(26% 22% at 10% 71%, rgba(255,196,96,1), rgba(255,150,60,0.6) 40%, transparent 66%),
+    radial-gradient(52% 46% at 15% 66%, rgba(255,138,54,0.55), transparent 72%);
+  animation: hearth-build 3.4s ease-in-out infinite;
 }
 @keyframes hearth-build {
-  0%, 100% { opacity: calc(var(--focus-progress, 0) * 0.60); }
-  50%      { opacity: calc(var(--focus-progress, 0) * 0.92); }
+  0%, 100% { opacity: calc(var(--focus-progress, 0) * 1.05); }
+  50%      { opacity: calc(var(--focus-progress, 0) * 1.55); }
 }
 
-/* LIBRARY — the window light strengthens through the session: a warm top-down
-   wash that deepens as the cup fills, so the room reads sunnier by the end. */
+/* LIBRARY — the window sun strengthens through the session. Overlay blend (not
+   screen): it brightens the light and deepens the shadows, so the window and
+   godrays clearly gain strength instead of a flat warm wash washing out on the
+   already-amber room. */
 .scene[data-theme="library"] .scene-fill {
-  background: linear-gradient(178deg,
-    rgba(255,214,140,0.52) 0%, rgba(255,198,112,0.17) 32%, transparent 58%);
-  animation: sun-build 9s ease-in-out infinite alternate;
+  mix-blend-mode: overlay;
+  background:
+    radial-gradient(42% 30% at 47% 12%, rgba(255,246,214,1), rgba(255,214,140,0.5) 46%, transparent 74%),
+    linear-gradient(178deg, rgba(255,226,160,0.7) 0%, rgba(255,206,120,0.2) 30%, transparent 56%);
+  animation: sun-build 8s ease-in-out infinite alternate;
 }
 @keyframes sun-build {
-  from { opacity: calc(var(--focus-progress, 0) * 0.55); }
-  to   { opacity: calc(var(--focus-progress, 0) * 0.85); }
+  from { opacity: calc(var(--focus-progress, 0) * 0.85); }
+  to   { opacity: calc(var(--focus-progress, 0) * 1.3); }
 }
-/* SUNSET — the golden hour deepens as the session fills: a warm wash centred on
-   the ocean-sunset window (upper right of the art) that enriches the sky's
-   orange and pink toward dusk. Screen blend so it saturates the sunset rather
-   than darkening it. */
+/* SUNSET — golden hour deepens toward dusk. Overlay blend so it enriches
+   contrast: the sun disc and its reflection pop brighter while the sky edges
+   deepen to pink/magenta (a hue the golden base lacks, so the shift actually
+   shows). Warm-on-warm screen was invisible; this is the fix. */
 .scene[data-theme="sunset"] .scene-fill {
+  mix-blend-mode: overlay;
   background:
-    radial-gradient(48% 40% at 70% 30%, rgba(255,150,70,0.48), rgba(255,108,92,0.18) 50%, transparent 74%),
-    linear-gradient(180deg, rgba(255,140,80,0.16) 0%, transparent 44%);
+    radial-gradient(30% 22% at 66% 44%, rgba(255,250,224,1), rgba(255,196,120,0.5) 48%, transparent 76%),
+    radial-gradient(70% 55% at 72% 24%, rgba(255,120,150,0.55), rgba(210,90,150,0.24) 52%, transparent 80%),
+    linear-gradient(200deg, rgba(150,70,140,0.4) 0%, transparent 34%);
   animation: dusk-build 8s ease-in-out infinite alternate;
 }
 @keyframes dusk-build {
-  from { opacity: calc(var(--focus-progress, 0) * 0.50); }
-  to   { opacity: calc(var(--focus-progress, 0) * 0.82); }
+  from { opacity: calc(var(--focus-progress, 0) * 0.9); }
+  to   { opacity: calc(var(--focus-progress, 0) * 1.35); }
 }
 @media (prefers-reduced-motion: reduce) {
   .scene[data-theme="winter"] .scene-fill,
   .scene[data-theme="library"] .scene-fill,
-  .scene[data-theme="sunset"] .scene-fill { animation: none; opacity: calc(var(--focus-progress, 0) * 0.6); }
+  .scene[data-theme="sunset"] .scene-fill { animation: none; opacity: calc(var(--focus-progress, 0) * 1.0); }
 }
 
 /* WINTER ($1.99) — denser falling snow (two drifting layers) + a soft aurora. */
