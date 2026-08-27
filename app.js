@@ -7047,8 +7047,10 @@ const ONBOARD_STEPS_ALL = [
   },
   {
     emoji: ICON.trophy,
-    title: "Share with Friends!",
-    body: "Show off your focus stats with invited users on a group leaderboard."
+    title: "Study Squad",
+    // Name the actual feature ("Study Squad") and drop the generic SaaS phrasing
+    // ("invited users on a group leaderboard") for the app's warmer voice.
+    body: "Add friends with a code and cheer each other on. Your focus minutes, drinks, and streak all show up on your shared board."
   },
   {
     emoji: ICON.map,
