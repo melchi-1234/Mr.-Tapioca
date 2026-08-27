@@ -417,15 +417,12 @@ body {
   --floor-a: #b9a8d6;
   --floor-b: #cfc2e6;
   --floor-tint: rgba(207,194,230,0.55);
-  /* Aug 2026: upgraded to a single rich boba-shop scene (galaxy sky baked into
-     the window) like the free themes. The old .scene-front room plate + .win-fx
-     animated video window are hidden below; ambient motion now comes from
-     .theme-fx (twinkling stars). */
-  background: var(--floor-grad) no-repeat,
-              #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
+  /* Room art moved to .scene-front so a rotating galaxy can live behind the
+     glass. Only the wall colour stays here, as the base under everything. */
+  background: #efe4d2;
 }
 .scene[data-theme="galaxy"] .win-fx,
-.scene[data-theme="galaxy"] .scene-front { display: none; }
+.scene[data-theme="galaxy"] .scene-front { display: block; }
 /* .cafe-glow is big soft coloured orbs that existed to fake depth on a flat
    backdrop. With a real galaxy turning behind the glass it stops reading as
    atmosphere and starts reading as fog: bisected in the browser, it was what
@@ -491,7 +488,7 @@ body {
    so it gets the real generated loop like galaxy. */
 
 .scene[data-theme="winter"] .win-fx,
-.scene[data-theme="winter"] .scene-front { display: none; }   /* rich single scene now; snow via .theme-fx */
+.scene[data-theme="winter"] .scene-front { display: block; }
 /* Same reasoning as galaxy: a real window scene supersedes cafe-glow's fake-depth
    trick. Doubled class for the same specificity-tie reason documented on galaxy's
    own version of this rule above — do not de-duplicate it. */
@@ -533,7 +530,7 @@ body {
 }
 
 .scene[data-theme="library"] .win-fx,
-.scene[data-theme="library"] .scene-front { display: none; }   /* rich single scene now; dust via .theme-fx */
+.scene[data-theme="library"] .scene-front { display: block; }
 .scene[data-theme="library"] .scene-front {
   background: var(--floor-grad) no-repeat,
               url('assets/bg-library-front.webp') top center / cover no-repeat;
@@ -590,7 +587,7 @@ body {
 }
 
 .scene[data-theme="sunset"] .win-fx,
-.scene[data-theme="sunset"] .scene-front { display: none; }   /* rich single scene now; shimmer via .theme-fx */
+.scene[data-theme="sunset"] .scene-front { display: block; }
 .scene[data-theme="sunset"] .scene-front {
   background: var(--floor-grad) no-repeat,
               url('assets/bg-sunset-front.webp') top center / cover no-repeat;
@@ -623,12 +620,6 @@ body {
    character, or controls in the lower half. */
 .theme-fx { position: absolute; left: 0; right: 0; top: 0; height: 54%; z-index: 1; pointer-events: none; overflow: hidden; }
 .theme-fx::before, .theme-fx::after { content: ""; position: absolute; inset: 0; }
-/* Progress-tied PREMIUM layer. Invisible by default and on every free theme; a
-   premium theme opts in (below) and scales its visibility by --focus-progress
-   (set by updateCup every tick), so the scene visibly fills in as the session
-   does — the Forest "your focus is doing something" reward, kept slow and
-   peripheral. 0 when idle, so it never shows on the picker/home screen. */
-.fx-fill { position: absolute; inset: 0 -6%; pointer-events: none; opacity: 0; will-change: opacity, transform; }
 
 /* ── Animated window ─────────────────────────────────────────────────────────
    Off by default; a theme opts in by setting display:block on both layers plus
@@ -808,107 +799,11 @@ body {
   background-repeat: no-repeat;
   background-image: linear-gradient(118deg, transparent 0 42%, rgba(255,255,255,0.95) 49% 51%, transparent 58%);
   background-size: 92px 2.5px;
-  /* Rare, not a metronome. A streak every ~52s (over the last ~6% of the loop)
-     reads as a surprise that rewards attention; the old 7s cadence turned it
-     into wallpaper. Modeled on Cozy Grove's occasional ambient events. */
-  animation: shooting-star 52s ease-in infinite;
+  animation: shooting-star 7s ease-in infinite;
 }
 @keyframes shooting-star {
-  0%, 94% { background-position: -130px 10%; }
+  0%, 72% { background-position: -130px 10%; }
   100%    { background-position: 118% 52%; }
-}
-
-/* GALAXY session-tie: a second, denser star field that twinkles IN as the focus
-   session fills. Offset from the base star layer so it adds rather than doubling,
-   and its opacity is multiplied by --focus-progress inside the keyframe, so the
-   sky is barely there at the start of a cup and gently full by the end. */
-.scene[data-theme="galaxy"] .fx-fill {
-  /* Two stacked star sheets at different tile sizes so the added field reads as
-     a genuinely fuller, brighter sky by the end, not a faint dusting. */
-  background-image: url('assets/fx-sparkle.webp'), url('assets/fx-sparkle.webp');
-  background-repeat: repeat, repeat;
-  background-size: 130px 130px, 88px 88px;
-  background-position: 30px 18px, 64px 52px;
-  filter: drop-shadow(0 0 5px rgba(224,210,255,1)) brightness(1.25);
-  opacity: 1;   /* real visibility is driven by the keyframe's progress calc */
-  animation: fx-fill-stars 4.8s ease-in-out infinite, fx-sway 15s ease-in-out infinite alternate;
-}
-@keyframes fx-fill-stars {
-  0%, 100% { opacity: calc(var(--focus-progress, 0) * 0.62); }
-  50%      { opacity: calc(var(--focus-progress, 0) * 1.15); }
-}
-/* Reduced motion: no twinkle/sway, but keep the state-based fill (it's a status
-   readout, not decoration) held at a steady mid value. */
-@media (prefers-reduced-motion: reduce) {
-  .scene[data-theme="galaxy"] .fx-fill {
-    animation: none;
-    opacity: calc(var(--focus-progress, 0) * 0.6);
-  }
-}
-
-/* ── Full-scene progress glow ────────────────────────────────────────────────
-   Session-tie for premium themes whose signature light is NOT in the sky band
-   that .theme-fx (and .fx-fill) is clipped to. One full-scene layer, tinted per
-   theme, its opacity multiplied by --focus-progress so it is dark at idle and
-   builds through the cup. z-index 1 keeps it behind the counter (8), character
-   (9) and UI (10); screen blend so it only ADDS light to the art beneath. */
-.scene-fill {
-  position: absolute; inset: 0; z-index: 1;
-  pointer-events: none; opacity: 0;
-  mix-blend-mode: screen;
-  will-change: opacity;
-}
-.scene.is-on-break.is-on-break .scene-fill { display: none; }
-
-/* WINTER — the hearth builds from ember to a real fire glow as the session
-   fills. Bright orange core on the fireplace (lower-left of the art), strong
-   enough to read clearly against the wood, flickering. */
-.scene[data-theme="winter"] .scene-fill {
-  background:
-    radial-gradient(26% 22% at 10% 71%, rgba(255,196,96,1), rgba(255,150,60,0.6) 40%, transparent 66%),
-    radial-gradient(52% 46% at 15% 66%, rgba(255,138,54,0.55), transparent 72%);
-  animation: hearth-build 3.4s ease-in-out infinite;
-}
-@keyframes hearth-build {
-  0%, 100% { opacity: calc(var(--focus-progress, 0) * 1.05); }
-  50%      { opacity: calc(var(--focus-progress, 0) * 1.55); }
-}
-
-/* LIBRARY — the window sun strengthens through the session. Overlay blend (not
-   screen): it brightens the light and deepens the shadows, so the window and
-   godrays clearly gain strength instead of a flat warm wash washing out on the
-   already-amber room. */
-.scene[data-theme="library"] .scene-fill {
-  mix-blend-mode: overlay;
-  background:
-    radial-gradient(42% 30% at 47% 12%, rgba(255,246,214,1), rgba(255,214,140,0.5) 46%, transparent 74%),
-    linear-gradient(178deg, rgba(255,226,160,0.7) 0%, rgba(255,206,120,0.2) 30%, transparent 56%);
-  animation: sun-build 8s ease-in-out infinite alternate;
-}
-@keyframes sun-build {
-  from { opacity: calc(var(--focus-progress, 0) * 0.85); }
-  to   { opacity: calc(var(--focus-progress, 0) * 1.3); }
-}
-/* SUNSET — golden hour deepens toward dusk. Overlay blend so it enriches
-   contrast: the sun disc and its reflection pop brighter while the sky edges
-   deepen to pink/magenta (a hue the golden base lacks, so the shift actually
-   shows). Warm-on-warm screen was invisible; this is the fix. */
-.scene[data-theme="sunset"] .scene-fill {
-  mix-blend-mode: overlay;
-  background:
-    radial-gradient(30% 22% at 66% 44%, rgba(255,250,224,1), rgba(255,196,120,0.5) 48%, transparent 76%),
-    radial-gradient(70% 55% at 72% 24%, rgba(255,120,150,0.55), rgba(210,90,150,0.24) 52%, transparent 80%),
-    linear-gradient(200deg, rgba(150,70,140,0.4) 0%, transparent 34%);
-  animation: dusk-build 8s ease-in-out infinite alternate;
-}
-@keyframes dusk-build {
-  from { opacity: calc(var(--focus-progress, 0) * 0.9); }
-  to   { opacity: calc(var(--focus-progress, 0) * 1.35); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .scene[data-theme="winter"] .scene-fill,
-  .scene[data-theme="library"] .scene-fill,
-  .scene[data-theme="sunset"] .scene-fill { animation: none; opacity: calc(var(--focus-progress, 0) * 1.0); }
 }
 
 /* WINTER ($1.99) — denser falling snow (two drifting layers) + a soft aurora. */

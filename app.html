@@ -75,16 +75,8 @@
         <!-- Volumetric light through the window. Sits UNDER .theme-fx so weather
              falls in front of the shafts, which is the right depth order. -->
         <div class="scene-rays" aria-hidden="true"></div>
-        <!-- Per-theme ambient weather: petals, leaves, snow, dust, rain, sparkles.
-             The .fx-fill child is a progress-tied layer (premium themes only): it
-             fades in as the focus session fills, so the scene visibly rewards the
-             session the way Forest's tree grows. Invisible on free themes and idle. -->
-        <div class="theme-fx" aria-hidden="true"><div class="fx-fill" aria-hidden="true"></div></div>
-        <!-- Full-scene progress glow (premium themes only): a warm light that
-             builds with the focus session where .theme-fx can't reach (it's
-             sky-only). Winter's hearth, library's sun. Invisible on free themes
-             and at idle; sits behind the counter and character (z-index 1). -->
-        <div class="scene-fill" aria-hidden="true"></div>
+        <!-- Per-theme ambient weather: petals, leaves, snow, dust, rain, sparkles. -->
+        <div class="theme-fx" aria-hidden="true"></div>
         <!-- Cozy nap nook during breaks (shown only on break). The bed is TWO
              layers with him sandwiched between them: frame and pillow behind,
              blanket in front, so he is tucked UNDER the covers instead of
