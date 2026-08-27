@@ -417,12 +417,15 @@ body {
   --floor-a: #b9a8d6;
   --floor-b: #cfc2e6;
   --floor-tint: rgba(207,194,230,0.55);
-  /* Room art moved to .scene-front so a rotating galaxy can live behind the
-     glass. Only the wall colour stays here, as the base under everything. */
-  background: #efe4d2;
+  /* Aug 2026: upgraded to a single rich boba-shop scene (galaxy sky baked into
+     the window) like the free themes. The old .scene-front room plate + .win-fx
+     animated video window are hidden below; ambient motion now comes from
+     .theme-fx (twinkling stars). */
+  background: var(--floor-grad) no-repeat,
+              #efe4d2 url('assets/Shop Background Galaxy.png') top center / cover no-repeat;
 }
 .scene[data-theme="galaxy"] .win-fx,
-.scene[data-theme="galaxy"] .scene-front { display: block; }
+.scene[data-theme="galaxy"] .scene-front { display: none; }
 /* .cafe-glow is big soft coloured orbs that existed to fake depth on a flat
    backdrop. With a real galaxy turning behind the glass it stops reading as
    atmosphere and starts reading as fog: bisected in the browser, it was what
@@ -488,7 +491,7 @@ body {
    so it gets the real generated loop like galaxy. */
 
 .scene[data-theme="winter"] .win-fx,
-.scene[data-theme="winter"] .scene-front { display: block; }
+.scene[data-theme="winter"] .scene-front { display: none; }   /* rich single scene now; snow via .theme-fx */
 /* Same reasoning as galaxy: a real window scene supersedes cafe-glow's fake-depth
    trick. Doubled class for the same specificity-tie reason documented on galaxy's
    own version of this rule above — do not de-duplicate it. */
@@ -530,7 +533,7 @@ body {
 }
 
 .scene[data-theme="library"] .win-fx,
-.scene[data-theme="library"] .scene-front { display: block; }
+.scene[data-theme="library"] .scene-front { display: none; }   /* rich single scene now; dust via .theme-fx */
 .scene[data-theme="library"] .scene-front {
   background: var(--floor-grad) no-repeat,
               url('assets/bg-library-front.webp') top center / cover no-repeat;
@@ -587,7 +590,7 @@ body {
 }
 
 .scene[data-theme="sunset"] .win-fx,
-.scene[data-theme="sunset"] .scene-front { display: block; }
+.scene[data-theme="sunset"] .scene-front { display: none; }   /* rich single scene now; shimmer via .theme-fx */
 .scene[data-theme="sunset"] .scene-front {
   background: var(--floor-grad) no-repeat,
               url('assets/bg-sunset-front.webp') top center / cover no-repeat;
