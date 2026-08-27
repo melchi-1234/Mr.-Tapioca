@@ -258,6 +258,7 @@ const els = {
   focusControls:        document.querySelector("#focusControls"),
   pearlCount:           document.querySelector("#pearlCount"),
   rewardDialog:         document.querySelector("#rewardDialog"),
+  rewardEyebrow:        document.querySelector("#rewardEyebrow"),
   rewardTitle:          document.querySelector("#rewardTitle"),
   rewardCopy:           document.querySelector("#rewardCopy"),
   rewardPearls:         document.querySelector("#rewardPearls"),
@@ -2851,6 +2852,10 @@ function completeSession(options) {
     }
   }
 
+  // First finished drink of THIS day gets a warmer eyebrow — a small "welcome
+  // back" moment for returning each day. Checked before the drink is added.
+  const firstOfDay = !state.collection.some((d) => d.dateKey === drink.dateKey);
+
   const reward = {
     id: uuid(),
     title: "You deserve to go get one in-person!",
@@ -2860,7 +2865,8 @@ function completeSession(options) {
     minutes,                // for the shareable card
     pearls: pearlsEarned,
     partner,
-    partnerNext
+    partnerNext,
+    firstOfDay
   };
 
   state.collection.unshift(drink);
@@ -3298,6 +3304,7 @@ function showReward(reward) {
   // The reward moment wins; the tour can be replayed from Settings.
   if (tourOn) endFeatureTour(false);
   lastReward = reward;
+  if (els.rewardEyebrow) els.rewardEyebrow.textContent = reward.firstOfDay ? "First brew of the day! 🌅" : "Drink complete!";
   els.rewardTitle.textContent  = `${reward.size} complete!`;
   els.rewardCopy.textContent   = reward.copy;
   els.rewardPearls.textContent = `+${reward.pearls} pearl${reward.pearls !== 1 ? "s" : ""}`;
