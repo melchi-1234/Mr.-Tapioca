@@ -1756,6 +1756,18 @@ body {
    its flame the way the pearl chip leads with its pearl; the icon-less name
    chip centers with symmetric padding. */
 .top-hud .pearl-chip { min-height: 44px; }
+/* HUD chip contrast on cream themes (rainy/winter/sakura/autumn): the chip
+   paper and the wall behind it are close-shade, so the pill outline was
+   the only separation. Add a soft grounding shadow on those themes only. */
+.scene[data-theme="rainy"]   ~ .top-hud .pearl-chip,
+.scene[data-theme="winter"]  ~ .top-hud .pearl-chip,
+.scene[data-theme="sakura"]  ~ .top-hud .pearl-chip,
+.scene[data-theme="autumn"]  ~ .top-hud .pearl-chip,
+.scene[data-theme="library"] ~ .top-hud .pearl-chip {
+  box-shadow: var(--ui-sheen), var(--ui-lift),
+              0 0 0 1px rgba(60,32,24,0.10),
+              0 4px 10px -4px rgba(60,32,24,0.25);
+}
 .pearl-chip.streak-chip .flame { font-size: 1.05rem; line-height: 1; }
 .pearl-chip.hud-name { justify-content: center; padding: 6px 12px; }
 /* Inline Customize chip in the timer card (replaces the old percent label) */
@@ -4865,6 +4877,17 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .scene[data-theme="autumn"] .theme-fx {
   left: 8%; right: 8%;
   top: 8%; height: 42%;
+}
+
+/* Short phones (SE etc.) shrink the scene stack such that the drawn window
+   in the background art occupies a taller RELATIVE band. Bump height so the
+   fx zone still covers the full glass instead of stopping halfway down. */
+@media (max-height: 720px) {
+  .scene[data-theme="rainy"] .theme-fx,
+  .scene[data-theme="winter"] .theme-fx,
+  .scene[data-theme="autumn"] .theme-fx {
+    height: 52%;
+  }
 }
 @keyframes fog-breathe { from { opacity: 0.35; } to { opacity: 0.8; } }
 
