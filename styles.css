@@ -3734,7 +3734,10 @@ dialog {
   padding: 0;
   background: transparent;
 }
-dialog::backdrop { background: rgba(60,32,24,0.45); }
+/* Backdrop deep enough to actually darken the shop scene behind — 0.45 left
+   the scene fully legible through the modal, which weakened the celebratory
+   focus of the reward and the urgency of the blocking prompt. */
+dialog::backdrop { background: rgba(30,18,14,0.62); }
 /* Every dialog shares this shell, so one entrance lifts them all at once
    (reward, premium, redeem, block, ask). The card gently springs in while its
    scrim fades; the reward drink-pop / confetti still layer on top. */
@@ -3756,6 +3759,12 @@ dialog[open]::backdrop { animation: backdrop-fade 240ms ease both; }
 .reward-card {
   position: relative;
   width: min(380px, calc(100vw - 32px));
+  /* Cap height + let the card scroll internally so on short phones (SE) the
+     paper doesn't extend into the bottom nav band. The dialog itself lives
+     in the top layer above the nav anyway, but keeping the visible card
+     within one viewport reads as intentional celebration. */
+  max-height: min(640px, calc(100vh - 40px));
+  overflow-y: auto;
   padding: 22px 24px 24px;
   border: 3px solid var(--bark);
   border-radius: 26px;
@@ -3768,7 +3777,6 @@ dialog[open]::backdrop { animation: backdrop-fade 240ms ease both; }
     0 18px 40px -18px rgba(60,32,24,0.45);
   color: var(--bark);
   text-align: center;
-  overflow: hidden;
 }
 .reward-card .eyebrow { text-align: center; }
 .reward-card h2 {
@@ -3864,6 +3872,11 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 }
 .reward-earned .reward-pearl { width: 22px; height: 22px; object-fit: contain; }
 
+/* Hide the whole partner pill when there's no partner text (drinks under the
+   perk floor). renderRewardPartner leaves textContent empty; :empty removes
+   the outlined dashed pill entirely so the reward card doesn't show a hollow
+   frame with nothing inside it. */
+.partner:empty { display: none; }
 .partner {
   margin: 14px 0 4px;
   padding: 13px;
