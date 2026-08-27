@@ -1079,6 +1079,43 @@ const TAP_LINES = {
 let lastTapLine = "";
 let tapLineTimer = null;
 
+// Milestone cheers: fired once each as a running session crosses 25/50/75%.
+// Keeps the mascot feeling present during a long focus without nagging — one
+// short line + a happy wiggle at each quarter mark.
+const MILESTONE_LINES = {
+  25: ["A quarter of the way! 🌱", "Off to a great start.", "Nice warm-up, keep going!"],
+  50: ["Halfway there! 🧋", "Look at you go — halfway!", "The pearls are settling in nicely."],
+  75: ["Three quarters done! ✨", "Almost there, superstar.", "Final stretch — you've got this."]
+};
+// Session-scoped set of milestone percents already cheered. Reset on a fresh
+// brew in beginFocus() so every session gets its own cheers.
+let firedMilestones = new Set();
+let lastMilestoneLine = "";
+
+function maybeCheerMilestone() {
+  if (prefersReducedMotion()) return;              // calm mode: no interruptions
+  if (state.phase !== "focus" || !state.running) return;
+  const pct = Math.round(progress() * 100);
+  for (const mark of [75, 50, 25]) {               // highest crossed first
+    if (pct >= mark && !firedMilestones.has(mark)) {
+      firedMilestones.add(mark);
+      // Don't stomp a tap line the user just triggered.
+      if (els.makerSpeech.classList.contains("show")) return;
+      const pool = MILESTONE_LINES[mark];
+      let line = pool[Math.floor(Math.random() * pool.length)];
+      if (pool.length > 1 && line === lastMilestoneLine) line = pool[(pool.indexOf(line) + 1) % pool.length];
+      lastMilestoneLine = line;
+      els.makerSpeech.textContent = line;
+      els.makerSpeech.classList.add("show");
+      pulseMaker("wiggle", 820);
+      playSfx("blip");
+      clearTimeout(tapLineTimer);
+      tapLineTimer = setTimeout(() => els.makerSpeech.classList.remove("show"), 3200);
+      return;
+    }
+  }
+}
+
 function tapLineStateKey() {
   // Prefer the actual pose he's in so the line matches what he's doing.
   if (state.phase === "break" || state.phase === "break-offer") {
@@ -2044,6 +2081,7 @@ function tick() {
   state.lastTick = now;
   state.elapsed = Math.min(modeDuration(), state.elapsed + delta);
   updateCup();
+  maybeCheerMilestone();   // little cheer as he crosses 25/50/75%
 
   // Persist progress every ~10s so a long drink survives an unexpected close
   if (now - lastPersist > 10000) {
@@ -2381,6 +2419,12 @@ function playBrewIntro() {
 // blocking prompt's buttons once the user has chosen.
 function beginFocus() {
   const freshStart = state.elapsed <= 0;
+  if (freshStart) firedMilestones = new Set();   // fresh brew → fresh cheers
+  else {
+    // On resume, treat already-passed marks as done so we don't replay them.
+    const pct = Math.round(progress() * 100);
+    firedMilestones = new Set([25, 50, 75].filter((m) => pct >= m));
+  }
   state.running = true;
   state.lastTick = Date.now();
   updateCup();
