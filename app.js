@@ -1165,6 +1165,10 @@ function updateCup() {
   }
   if (els.foamBand) els.foamBand.setAttribute("y", Math.max(CUP_LIQ_TOP, surfaceY - 3).toFixed(1));
   els.focusCup.classList.toggle("has-fill", pct > 0);
+  // Warm glow behind the cup grows with the fill. Eased (frac^1.4) so it reads
+  // subtly early and blooms near the end. Idle cups have frac 0 → no glow.
+  const stageEl = els.focusCup.closest(".cup-stage");
+  if (stageEl) stageEl.style.setProperty("--brew-glow", Math.pow(frac, 1.4).toFixed(3));
   els.progressBar.style.width = `${pct}%`;
   els.focusCup.dataset.topping = state.topping;
   // Maker state is driven by the walk choreography (startPause/reset/break),
@@ -3248,6 +3252,39 @@ function renderRewardPartner(reward) {
   if (shareBtn) shareBtn.textContent = earned ? "Share my reward" : "Share my drink";
 }
 
+// Count the reward pearls up from 0 → N with a soft coin tick per step, so the
+// payout feels earned instead of just appearing. Instant under reduced motion
+// or when there's nothing to count.
+let pearlCountTimer = null;
+function animatePearlCountUp(total) {
+  clearInterval(pearlCountTimer);
+  const label = (n) => `+${n} pearl${n !== 1 ? "s" : ""}`;
+  if (prefersReducedMotion() || !total || total <= 1) {
+    els.rewardPearls.textContent = label(total || 0);
+    return;
+  }
+  let n = 0;
+  els.rewardPearls.textContent = label(0);
+  // ~90ms per step, capped so a big payout still finishes in ~1.1s.
+  const steps = Math.min(total, 12);
+  const per = Math.max(1, Math.round(total / steps));
+  const stepMs = Math.max(70, Math.min(140, Math.round(1000 / steps)));
+  pearlCountTimer = setInterval(() => {
+    n = Math.min(total, n + per);
+    els.rewardPearls.textContent = label(n);
+    pulseReward();
+    playSfx("coin");
+    if (n >= total) clearInterval(pearlCountTimer);
+  }, stepMs);
+}
+function pulseReward() {
+  const el = els.rewardPearls && els.rewardPearls.closest(".reward-earned");
+  if (!el) return;
+  el.classList.remove("pearl-tick");
+  void el.offsetWidth;
+  el.classList.add("pearl-tick");
+}
+
 function showReward(reward) {
   // A session finishing MID-TOUR would open this dialog in the top layer above
   // the coach overlay, leaving the tour spotlighting hidden controls behind it.
@@ -3262,6 +3299,7 @@ function showReward(reward) {
 
   if (typeof els.rewardDialog.showModal === "function") {
     els.rewardDialog.showModal();
+    animatePearlCountUp(reward.pearls);   // count +0 → +N once the dialog is up
   } else {
     // Very old WebView without <dialog>.showModal — don't dead-end the app:
     // toast the reward and run the close handler directly.

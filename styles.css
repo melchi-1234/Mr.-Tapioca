@@ -1663,7 +1663,25 @@ body {
   width: calc(130px * var(--fig)); height: calc(174px * var(--fig));
   z-index: 5;
   pointer-events: none;
+  --brew-glow: 0;   /* 0..1, driven by fill progress in updateCup() */
 }
+/* Warm ambient glow behind the cup that grows as the drink fills — a subtle
+   "it's getting good" cue over a long session. Sits behind the cup art. */
+.cup-stage::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 58%;
+  width: 130%; height: 90%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(240,187,79,0.42), rgba(240,187,79,0.16) 55%, transparent 78%);
+  opacity: calc(var(--brew-glow) * 0.9);
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity 600ms ease;
+}
+@media (prefers-reduced-motion: reduce) { .cup-stage::after { transition: none; } }
 
 .cup-frame {
   --fill: 0%;
@@ -3934,6 +3952,13 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   color: #7a4e0e;
 }
 .reward-earned .reward-pearl { width: 22px; height: 22px; object-fit: contain; }
+/* Little bounce each time the pearl counter ticks up during the count-up. */
+.reward-earned.pearl-tick { animation: pearl-tick 0.16s ease-out; }
+@keyframes pearl-tick {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.11); }
+  100% { transform: scale(1); }
+}
 
 /* Hide the whole partner pill when there's no partner text (drinks under the
    perk floor). renderRewardPartner leaves textContent empty; :empty removes
