@@ -1404,6 +1404,56 @@ body {
 .maker-img[data-state="idle"]    { animation: maker-idle  4s   ease-in-out infinite; }
 .maker-img[data-state="walking"] { animation: maker-walk  0.52s ease-in-out infinite; }
 .maker-img[data-state="mixing"]  { animation: maker-mixing 0.9s ease-in-out infinite; }
+
+/* ── Stir-implement overlay for skins whose mixing pose reads as idle ─────
+   Cat-hoodie/ninja/angel/devil mixing poses were re-audited: hands clasped
+   at the chest, no outward reach — reads as portrait, not brewing. Rather
+   than regenerate 4 pose PNGs (AI drift risk against the canonical set),
+   we composit a tiny wooden stir stick over the mascot's right shoulder
+   during the mixing state only, animated in a stir-arc that matches the
+   maker-mixing keyframe timing. Anchored to .maker-wrap so it rides the
+   walk transition and the character's own bob. */
+.maker-wrap .stir-stick {
+  position: absolute;
+  right: -2px;
+  bottom: 46%;
+  width: 4px; height: 46px;
+  background: linear-gradient(180deg, #d9b58a 0%, #b28556 55%, #7a4f2b 100%);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(60,32,24,0.35);
+  transform-origin: 50% 100%;
+  transform: rotate(-14deg);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 200ms ease;
+}
+.maker-wrap .stir-stick::before {
+  /* Rounded bulb at the top (grip end) */
+  content: "";
+  position: absolute;
+  left: 50%; top: -3px;
+  transform: translateX(-50%);
+  width: 7px; height: 7px;
+  background: #7a4f2b;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(60,32,24,0.35);
+}
+/* Only show + animate for the 4 skins with weak mixing gestures, and only
+   while the state is mixing. */
+.scene[data-skin="angel"]      .maker-img[data-state="mixing"] ~ .stir-stick,
+.scene[data-skin="devil"]      .maker-img[data-state="mixing"] ~ .stir-stick,
+.scene[data-skin="ninja"]      .maker-img[data-state="mixing"] ~ .stir-stick,
+.scene[data-skin="cat-hoodie"] .maker-img[data-state="mixing"] ~ .stir-stick {
+  opacity: 0.95;
+  animation: stir-arc 0.9s ease-in-out infinite;
+}
+@keyframes stir-arc {
+  0%, 100% { transform: rotate(-14deg) translateY(0); }
+  25%      { transform: rotate(6deg)   translateY(-2px); }
+  50%      { transform: rotate(-8deg)  translateY(0); }
+  75%      { transform: rotate(10deg)  translateY(-2px); }
+}
 .maker-img[data-state="sleeping"]{ animation: maker-sleep  3.6s ease-in-out infinite; }
 .maker-img[data-state="drinking"]{ animation: maker-drink  1.4s ease-in-out infinite; }
 .maker-img[data-state="shocked"] { animation: maker-shock  0.5s ease-out forwards; }

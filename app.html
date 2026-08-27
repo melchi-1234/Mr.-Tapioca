@@ -86,6 +86,11 @@
         <img id="breakBedBack" class="break-bed-back" src="assets/bed-back.png" alt="" aria-hidden="true">
         <div id="makerWrap" class="maker-wrap">
           <img id="focusMakerCharacter" class="maker-img" src="assets/poses/base-idle.png" alt="Mr. Tapioca">
+          <!-- Small wooden stir stick for skins whose mixing pose doesn't reach
+               (angel/devil/ninja/cat-hoodie). Sibling to the img on purpose so
+               the `~` selector in styles.css turns it on only during mixing.
+               Aria-hidden — decorative. -->
+          <div class="stir-stick" aria-hidden="true"></div>
           <!-- Speech bubble lives INSIDE the wrap so it travels with him as he walks. -->
           <div id="makerSpeech" class="speech-bubble">Mr. Tapioca is ready to make your focus drink.</div>
         </div>
