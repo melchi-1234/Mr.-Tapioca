@@ -1950,7 +1950,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 70%;
+  max-width: 76%;
 }
 
 .pearl-chip {
@@ -1971,6 +1971,10 @@ body {
   font-size: 0.82rem;
   padding: 5px 12px 5px 6px;
 }
+/* A stat still at 0 reads as an empty placeholder and makes a fresh account's
+   HUD look unfinished. Fade those chips back so they recede until they matter,
+   then brighten to full the moment the value climbs. */
+.pearl-chip.is-zero { opacity: 0.5; transition: opacity 200ms ease; }
 .pearl-chip.small .pearl-icon { width: 20px; height: 20px; }
 .pearl-chip.pearl-pop {
   animation: pearlPop 0.45s ease;
@@ -2410,28 +2414,32 @@ body {
      (and the whole stack above it) never changes height when pausing */
   border: 2px solid transparent;
   border-radius: 999px;
-  background: linear-gradient(180deg, #4a2a20, #3c2018);
+  /* Warm brown-sugar boba caramel, not the old near-black espresso that stacked
+     with the mascot and install bar into three dark blobs. This reads as an
+     inviting primary action, in the same warm family as the rest of the app. */
+  background: linear-gradient(180deg, #cd8f52, #a3612c);
   color: var(--cream);
   font-size: 1.05rem;
   font-weight: 950;
   letter-spacing: 0.01em;
+  text-shadow: 0 1px 1px rgba(94,52,18,0.45);
   /* The main CTA is the most-tapped thing in the app, so it gets real
      tactility: a bright top edge, a solid lip beneath it, and ambient shadow.
      Pressing depresses it onto the lip rather than only dimming it. */
   box-shadow:
-    inset 0 1.5px 0 rgba(255,255,255,0.20),
-    inset 0 -2px 0 rgba(0,0,0,0.20),
-    0 5px 0 #2a1610,
-    0 12px 22px -8px rgba(60,32,24,0.48);
+    inset 0 1.5px 0 rgba(255,255,255,0.30),
+    inset 0 -2px 0 rgba(0,0,0,0.16),
+    0 5px 0 #77451c,
+    0 12px 22px -8px rgba(120,70,30,0.46);
   transition: transform 70ms ease, box-shadow 70ms ease, background 150ms;
 }
 .start-btn:active {
   transform: translateY(4px);
   box-shadow:
-    inset 0 1.5px 0 rgba(255,255,255,0.14),
-    inset 0 -2px 0 rgba(0,0,0,0.20),
-    0 1px 0 #2a1610,
-    0 5px 12px -6px rgba(60,32,24,0.44);
+    inset 0 1.5px 0 rgba(255,255,255,0.22),
+    inset 0 -2px 0 rgba(0,0,0,0.16),
+    0 1px 0 #77451c,
+    0 5px 12px -6px rgba(120,70,30,0.42);
 }
 
 /* While the focus session is running, the Start button becomes the Pause
@@ -5637,9 +5645,11 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
    against the cream pill; gold and rose both failed at their palette values
    (2.04 and 2.65) and are darkened here rather than shipped illegible.
    The icons inherit `currentColor`, so a colour on the pill is all it takes. */
-#questsBtn   .nav-icon { color: #b8801f; }   /* gold darkened to 3.16:1 on the cream pill */
-#shopBtn     .nav-icon { color: #e0507a; }   /* rose darkened to 3.47:1 */
-#mapBtn      .nav-icon { color: #5f9455; }   /* matcha, 3.32:1 */
-#friendsBtn  .nav-icon { color: #8f66c4; }   /* taro, 4.00:1 */
-#settingsBtn .nav-icon { color: var(--teal); }   /* 3.62:1 */
-/* Labels stay --bark: five coloured icons plus five coloured words is noise. */
+/* One warm family, not five clashing hues. All nav icons share the milk-tea
+   brown (--bark-mid, ~4.7:1 on the cream pill, well past WCAG 1.4.11's 3:1), so
+   the bar reads as one designed control instead of five random stickers. The
+   active/pressed tab gets the single teal accent for clear feedback. */
+.icon-pill .nav-icon { color: var(--bark-mid); transition: color 120ms ease; }
+.icon-pill:active .nav-icon,
+.icon-pill.is-active .nav-icon { color: var(--teal); }
+/* Labels stay --bark: coloured icons plus coloured words is noise. */

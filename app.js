@@ -939,7 +939,11 @@ function currentDrinkName() {
 // reads as that flavor. Banked drinks and shares keep currentDrinkName().
 function themeFlavorName() {
   const t = SHOP_ITEMS.find(i => i.type === "shopTheme" && i.value === state.shopTheme);
-  return `${t ? t.name : BASES[state.base].label} + ${TOPPINGS[state.topping].label}`;
+  const flavor = t ? t.name : BASES[state.base].label;
+  // "pearls" is the default topping, so "+ Tapioca Pearls" is just noise on the
+  // compact timer label and pushed the name into an ellipsis ("...Tapioca Pe...").
+  // Only append a topping the user has actually chosen away from the default.
+  return state.topping === "pearls" ? flavor : `${flavor} + ${TOPPINGS[state.topping].label}`;
 }
 
 // The colour at the very top of each scene (the "sky"), so the phone status-bar
@@ -1250,6 +1254,10 @@ function updateStats() {
   const prev = (pearlDisplayVal == null) ? pearls : pearlDisplayVal;
   pearlDisplayVal = pearls;
   tweenCount(els.pearlCount, prev, pearls);
+  // Dim the chip while it reads 0 so a fresh account's HUD doesn't look like a
+  // row of empty placeholders. It lights up the moment the stat has a value.
+  const pearlChip = els.pearlCount && els.pearlCount.closest(".pearl-chip");
+  if (pearlChip) pearlChip.classList.toggle("is-zero", pearls <= 0);
   if (els.customizePearlCount) tweenCount(els.customizePearlCount, prev, pearls, 650, (v) => `${v} pearls`);
 }
 
@@ -1332,6 +1340,8 @@ function renderStats() {
   // session gives the chip a one-shot cheer + a keep-it-warm toast.
   const flameEl = document.querySelector(".streak-chip .flame");
   if (flameEl) flameEl.classList.toggle("is-lit", s.current > 0);
+  const streakChipEl = document.querySelector(".streak-chip");
+  if (streakChipEl) streakChipEl.classList.toggle("is-zero", s.current <= 0);
   if (prevStreakShown != null && s.current > prevStreakShown) {
     const crossed = STREAK_MILESTONES.filter(m => prevStreakShown < m && s.current >= m).pop();
     if (crossed) {
@@ -1679,6 +1689,7 @@ function renderCollection() {
   if (els.shelfCount) {
     tweenCount(els.shelfCount, shelfDisplayVal == null ? drinks.length : shelfDisplayVal, drinks.length);
     shelfDisplayVal = drinks.length;
+    if (els.shelfChip) els.shelfChip.classList.toggle("is-zero", drinks.length <= 0);
   }
 }
 
@@ -2072,6 +2083,7 @@ function renderAll() {
     const shelfN = (state.collection || []).length;
     tweenCount(els.shelfCount, shelfDisplayVal == null ? shelfN : shelfDisplayVal, shelfN);
     shelfDisplayVal = shelfN;
+    if (els.shelfChip) els.shelfChip.classList.toggle("is-zero", shelfN <= 0);
   }
 }
 
