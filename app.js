@@ -1147,13 +1147,20 @@ function showMakerLine() {
 
 // SVG interior y-range the liquid sweeps between (matches the #cupClip path).
 const CUP_LIQ_TOP = 60, CUP_LIQ_BOT = 156;
+const MIN_BREW_FILL = 0.06;   // shallow visible pool while a session runs
 function updateCup() {
   const frac = Math.max(0, Math.min(1, progress()));
   const pct = Math.round(frac * 100);
   const remaining = modeDuration() - state.elapsed;
+  // Liquid GEOMETRY uses a display fraction that floors at a shallow pool while
+  // a session is underway, so the pour flourish deposits something visible and
+  // the cup never reads bone-empty mid-brew. Real progress (pct, the bar, the
+  // glow, labels) still uses the true frac — this floor is purely visual.
+  const underwayFill = state.running || state.elapsed > 0;
+  const dispFrac = underwayFill ? Math.max(frac, MIN_BREW_FILL) : frac;
   // Drive the SVG liquid: surface rises from the cup base toward the rim, clipped
   // to the exact interior shape so it follows the tapered walls.
-  const surfaceY = CUP_LIQ_BOT - (CUP_LIQ_BOT - CUP_LIQ_TOP) * frac;
+  const surfaceY = CUP_LIQ_BOT - (CUP_LIQ_BOT - CUP_LIQ_TOP) * dispFrac;
   if (els.liquid) {
     els.liquid.setAttribute("y", surfaceY.toFixed(1));
     els.liquid.setAttribute("height", (CUP_LIQ_BOT - surfaceY).toFixed(1));
@@ -1161,10 +1168,10 @@ function updateCup() {
   }
   if (els.liqSurface) {
     els.liqSurface.setAttribute("cy", (surfaceY + 1).toFixed(1));
-    els.liqSurface.style.opacity = frac > 0.02 ? "" : "0";   // hide the meniscus when empty
+    els.liqSurface.style.opacity = dispFrac > 0.02 ? "" : "0";   // hide the meniscus when empty
   }
   if (els.foamBand) els.foamBand.setAttribute("y", Math.max(CUP_LIQ_TOP, surfaceY - 3).toFixed(1));
-  els.focusCup.classList.toggle("has-fill", pct > 0);
+  els.focusCup.classList.toggle("has-fill", dispFrac > 0);
   // Warm glow behind the cup grows with the fill. Eased (frac^1.4) so it reads
   // subtly early and blooms near the end. Idle cups have frac 0 → no glow.
   const stageEl = els.focusCup.closest(".cup-stage");

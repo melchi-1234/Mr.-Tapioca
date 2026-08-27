@@ -3887,12 +3887,18 @@ dialog[open]::backdrop { animation: backdrop-fade 240ms ease both; }
 .reward-liquid { fill: var(--drink-color, #c98a5e); }
 /* "Sealed & perfect" gleam — a bright band sweeps across the finished drink
    once, just after the pop settles. Clipped to the cup interior. */
-.reward-gleam { fill: rgba(255,255,255,0.55); opacity: 0; }
+.reward-gleam { fill: rgba(255,255,255,0.7); opacity: 0; }
 dialog[open] .reward-gleam { animation: reward-gleam 0.7s ease-in-out 0.42s both; }
+/* Peak brightness is timed to when the band is MID-CUP (~68-85% of the sweep),
+   not at 30% where it was still clipped off the left edge — the art-director
+   review measured the bright phase landing entirely outside the cup clip, so
+   only a dim fading tail was ever visible. */
 @keyframes reward-gleam {
-  0%   { opacity: 0;    transform: translateX(0)    skewX(-18deg); }
-  30%  { opacity: 0.85; }
-  100% { opacity: 0;    transform: translateX(150px) skewX(-18deg); }
+  0%   { opacity: 0;   transform: translateX(0)    skewX(-18deg); }
+  55%  { opacity: 0;   }
+  68%  { opacity: 0.9; }
+  85%  { opacity: 0.9; }
+  100% { opacity: 0;   transform: translateX(150px) skewX(-18deg); }
 }
 /* Proud little pop-in when the celebration opens */
 dialog[open] .reward-drink { animation: reward-drink-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
