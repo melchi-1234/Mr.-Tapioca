@@ -623,6 +623,12 @@ body {
    character, or controls in the lower half. */
 .theme-fx { position: absolute; left: 0; right: 0; top: 0; height: 54%; z-index: 1; pointer-events: none; overflow: hidden; }
 .theme-fx::before, .theme-fx::after { content: ""; position: absolute; inset: 0; }
+/* Progress-tied PREMIUM layer. Invisible by default and on every free theme; a
+   premium theme opts in (below) and scales its visibility by --focus-progress
+   (set by updateCup every tick), so the scene visibly fills in as the session
+   does — the Forest "your focus is doing something" reward, kept slow and
+   peripheral. 0 when idle, so it never shows on the picker/home screen. */
+.fx-fill { position: absolute; inset: 0 -6%; pointer-events: none; opacity: 0; will-change: opacity, transform; }
 
 /* ── Animated window ─────────────────────────────────────────────────────────
    Off by default; a theme opts in by setting display:block on both layers plus
@@ -802,11 +808,40 @@ body {
   background-repeat: no-repeat;
   background-image: linear-gradient(118deg, transparent 0 42%, rgba(255,255,255,0.95) 49% 51%, transparent 58%);
   background-size: 92px 2.5px;
-  animation: shooting-star 7s ease-in infinite;
+  /* Rare, not a metronome. A streak every ~52s (over the last ~6% of the loop)
+     reads as a surprise that rewards attention; the old 7s cadence turned it
+     into wallpaper. Modeled on Cozy Grove's occasional ambient events. */
+  animation: shooting-star 52s ease-in infinite;
 }
 @keyframes shooting-star {
-  0%, 72% { background-position: -130px 10%; }
+  0%, 94% { background-position: -130px 10%; }
   100%    { background-position: 118% 52%; }
+}
+
+/* GALAXY session-tie: a second, denser star field that twinkles IN as the focus
+   session fills. Offset from the base star layer so it adds rather than doubling,
+   and its opacity is multiplied by --focus-progress inside the keyframe, so the
+   sky is barely there at the start of a cup and gently full by the end. */
+.scene[data-theme="galaxy"] .fx-fill {
+  background-image: url('assets/fx-sparkle.webp');
+  background-repeat: repeat;
+  background-size: 205px 205px;
+  background-position: 44px 28px;
+  filter: drop-shadow(0 0 4px rgba(214,198,255,0.9));
+  opacity: 1;   /* real visibility is driven by the keyframe's progress calc */
+  animation: fx-fill-stars 5.6s ease-in-out infinite, fx-sway 15s ease-in-out infinite alternate;
+}
+@keyframes fx-fill-stars {
+  0%, 100% { opacity: calc(var(--focus-progress, 0) * 0.30); }
+  50%      { opacity: calc(var(--focus-progress, 0) * 0.92); }
+}
+/* Reduced motion: no twinkle/sway, but keep the state-based fill (it's a status
+   readout, not decoration) held at a steady mid value. */
+@media (prefers-reduced-motion: reduce) {
+  .scene[data-theme="galaxy"] .fx-fill {
+    animation: none;
+    opacity: calc(var(--focus-progress, 0) * 0.6);
+  }
 }
 
 /* WINTER ($1.99) — denser falling snow (two drifting layers) + a soft aurora. */

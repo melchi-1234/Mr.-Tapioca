@@ -1190,6 +1190,10 @@ function updateCup() {
   // Maker state is driven by the walk choreography (startPause/reset/break),
   // not here — updateCup runs every tick and would override the walk.
   els.shopScene.dataset.theme = state.shopTheme;
+  // Session-tied premium motion (galaxy stars filling in, etc). The scene's
+  // .fx-fill layer reads this and fades in as the session progresses, so the
+  // scene rewards the focus the way Forest's tree grows. 0 when idle/empty.
+  els.shopScene.style.setProperty("--focus-progress", frac.toFixed(3));
   renderWindowLoop(state.shopTheme);
   els.shopScene.classList.toggle("is-focusing", state.running);
   // Drop the size picker for the WHOLE session, paused included. Keying this off
