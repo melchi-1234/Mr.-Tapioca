@@ -633,7 +633,7 @@ function walkToCupAndMix() {
       // home wrap.right already sits at frac ~0.17 of cup, so setWalk() got
       // clamped to 0 and the walk beat was skipped entirely. Raised to values
       // above the natural home fraction so the glide actually plays.
-      const wideRightSkins = { angel: 0.22, devil: 0.20, ninja: 0.18, "cat-hoodie": 0.20, royal: 0.22, wizard: 0.24, dragon: 0.22 };
+      const wideRightSkins = { angel: 0.22, devil: 0.20, ninja: 0.18, "cat-hoodie": 0.20, royal: 0.22, wizard: 0.24, dragon: 0.22, scarf: 0.22 };
       const mixReachIn = (state.skin in wideRightSkins) ? wideRightSkins[state.skin] : 0.45;
       const targetRight = cupRect.left + cupRect.width * mixReachIn;
       target = Math.max(0, makerVisualX() + (targetRight - wrapRect.right));

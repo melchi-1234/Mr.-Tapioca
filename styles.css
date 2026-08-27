@@ -1047,6 +1047,16 @@ body {
   filter: none;
   opacity: 1;
   animation: none;
+  /* Reset the base positional + sizing rules so the per-theme override's
+     left/right/top/bottom offsets actually take effect. Without this, the
+     base rule (`width:52px height:52px` at :1170 and `top:14/70/…` at :1160+)
+     leaked through, and the per-theme rules that set `left:0; right:0` (or
+     `bottom: floor-y - 14px`) were over-constrained → the third span
+     collapsed into a 52px sliver in the top-left of the scene, and the
+     winter fog bands stayed pinned to the top instead of drifting along
+     the floor. */
+  top: auto; left: auto; right: auto; bottom: auto;
+  width: auto; height: auto;
 }
 
 /* WINTER — fairy lights twinkling above, cold fog drifting along the floor. */
