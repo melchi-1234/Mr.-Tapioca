@@ -1085,17 +1085,25 @@ let tapLineTimer = null;
 // short line + a happy wiggle at each quarter mark.
 const MILESTONE_LINES = {
   25: ["A quarter of the way! 🌱", "Off to a great start.", "Nice warm-up, keep going!"],
-  50: ["Halfway there! 🧋", "Look at you go — halfway!", "The pearls are settling in nicely."],
-  75: ["Three quarters done! ✨", "Almost there, superstar.", "Final stretch — you've got this."]
+  50: ["Halfway there! 🧋", "Look at you go, halfway!", "The pearls are settling in nicely."],
+  75: ["Three quarters done! ✨", "Almost there, superstar.", "Final stretch. You've got this."]
 };
 // Session-scoped set of milestone percents already cheered. Reset on a fresh
 // brew in beginFocus() so every session gets its own cheers.
 let firedMilestones = new Set();
 let lastMilestoneLine = "";
+// Did the pour flourish already play for the current brew? Cleared when a
+// session ends (completeSession) or is reset, so the next brand-new brew pours.
+let pouredThisSession = false;
 
 function maybeCheerMilestone() {
   if (prefersReducedMotion()) return;              // calm mode: no interruptions
   if (state.phase !== "focus" || !state.running) return;
+  // A tick that reaches 100% completes the session THIS same tick. Don't fire a
+  // "keep going" cheer on the finishing tick (it's logically wrong and would
+  // stack a blip/wiggle onto the completion moment + leave the bubble shown,
+  // which then orphans onto the break screen). Mark all marks done and bail.
+  if (progress() >= 1) { firedMilestones.add(25); firedMilestones.add(50); firedMilestones.add(75); return; }
   const pct = Math.round(progress() * 100);
   for (const mark of [75, 50, 25]) {               // highest crossed first
     if (pct >= mark && !firedMilestones.has(mark)) {
@@ -2441,7 +2449,10 @@ function beginFocus() {
   state.lastTick = Date.now();
   updateCup();
   refreshSessionChrome();     // hide/show the daily-goal pill as the session starts
-  if (freshStart) playBrewIntro();   // pour flourish only on a brand-new brew
+  // Pour flourish only on a brand-new brew, and only ONCE per session: a
+  // pause at exactly 0 elapsed still reads as freshStart, so guard on a
+  // session flag to avoid re-pouring on such a resume.
+  if (freshStart && !pouredThisSession) { pouredThisSession = true; playBrewIntro(); }
   walkToCupAndMix();          // glide over to the cup, then mix
   startAmbience();            // soundscape on while focusing
   startMusic("focus");        // lo-fi while focusing
@@ -2523,6 +2534,17 @@ async function endFocusSession() {
     : "This drink spills and the progress on it is gone. Your collection and pearls stay safe.";
   if (!(await askConfirm(body,
       { title: "End and spill this drink?", eyebrow: "This one has stakes", confirmLabel: "End and spill" }))) return;
+  // The copy promises a spill, so actually tip the cup. The .spilling keyframe
+  // (cup-spill) rotates + fades it; remove the class on animationend so the cup
+  // returns to a clean empty state. resetSession runs immediately underneath so
+  // state teardown isn't delayed — the tilt is a purely visual send-off.
+  const cup = els.focusCup;
+  if (cup && !prefersReducedMotion()) {
+    cup.classList.add("spilling");
+    const clearSpill = () => { cup.classList.remove("spilling"); cup.removeEventListener("animationend", clearSpill); };
+    cup.addEventListener("animationend", clearSpill);
+    setTimeout(clearSpill, 1100);   // fallback if animationend never fires
+  }
   resetSession();   // discard the drink, lift the shield, abandon the reward, cancel the "drink ready" notice
 }
 
@@ -2667,6 +2689,7 @@ function renderBlockPill() {
 }
 
 function resetSession() {
+  pouredThisSession = false;   // next brand-new brew pours again
   closePlinko();
   closePong();
   stopGame();
@@ -2704,6 +2727,7 @@ function resetSession() {
 }
 
 function completeSession(options) {
+  pouredThisSession = false;   // this brew is done; the next one pours fresh
   const wasRunning = state.running === true;
   // Idempotency guard: once banked, elapsed is 0 and we're not running, so a
   // second call (e.g. reload mid-reward-dialog then re-press) can't double-bank.
@@ -3397,6 +3421,9 @@ function endBreak() {
   els.shopScene.classList.remove("maker-up");
   clearTimeout(walkTimer); setWalk(0);   // walk him back from wherever he wandered
   currentMakerState = ""; setMakerState("idle");
+  // Clear any lingering break-context speech (a sleeping tap line, "take a
+  // breather") so it doesn't float over the awake idle mascot on the way out.
+  clearTimeout(tapLineTimer); els.makerSpeech.classList.remove("show");
   updatePhaseUI();
   renderAll();
   els.makerSpeech.textContent = "Break over. Ready for another round?";
@@ -3417,6 +3444,8 @@ function skipBreak() {
   els.shopScene.classList.remove("maker-up");
   clearTimeout(walkTimer); setWalk(0);
   currentMakerState = ""; setMakerState("idle");
+  // Same as endBreak: drop any lingering break-context bubble on exit.
+  clearTimeout(tapLineTimer); els.makerSpeech.classList.remove("show");
   updatePhaseUI();
   renderAll();
 }
