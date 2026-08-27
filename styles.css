@@ -4899,6 +4899,23 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
     height: 52%;
   }
 }
+
+/* Landscape (browser only — the installed PWA is orientation-locked). When
+   height gets crushed under ~500px in landscape, the character wrap sits
+   below the viewport entirely and only the counter tops peek in. Give the
+   .scene-wrap a landscape-friendly overlay hint so users know to rotate. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .scene-wrap::before {
+    content: "Rotate your phone for the full cozy shop";
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 24px;
+    z-index: 1000;
+    background: linear-gradient(160deg, #fff2dd, #ffe6ea);
+    color: var(--bark); font-weight: 900; font-size: 1.1rem;
+    line-height: 1.4;
+  }
+}
 @keyframes fog-breathe { from { opacity: 0.35; } to { opacity: 0.8; } }
 
 /* HONEY LIBRARY — golden dust in the lamplight, over the lamp's own breath. */
