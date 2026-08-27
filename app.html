@@ -107,6 +107,9 @@
           <img class="counter-prop prop-plant" src="assets/counter-plant.png" alt="" aria-hidden="true">
           <div class="cup-stage">
             <div class="steam"><span></span><span></span><span></span></div>
+            <!-- Soft warm ring that pulses out once when a fresh session begins,
+                 reinforcing the "brewing started" moment. Decorative. -->
+            <div class="brew-ring" aria-hidden="true"></div>
             <div id="focusCup" class="cup-frame" data-topping="pearls">
               <!-- Crafted SVG cup: the liquid is clipped to the EXACT interior shape
                    so the fill hugs the tapered walls. updateCup() drives #liquid's
@@ -144,6 +147,12 @@
                     <circle cx="65.3" cy="144.3" r="1.3"/><circle cx="75.3" cy="145.3" r="1.3"/>
                   </g>
                   <path class="cup-sheen" d="M33,66 q-2,45 3,88" fill="none"/>
+                  <!-- Pour stream + splash: play once on a fresh session start.
+                       Both live inside the cup clip so they hug the interior.
+                       Driven by the .pouring class (added by playBrewIntro). -->
+                  <rect id="pourStream" class="pour-stream" x="56.5" y="52" width="7" height="0" rx="3.5"/>
+                  <rect id="pourStreamHl" class="pour-stream-hl" x="58" y="52" width="2" height="0" rx="1"/>
+                  <ellipse id="pourSplash" class="pour-splash" cx="60" cy="150" rx="0" ry="0"/>
                 </g>
                 <path class="cup-outline" d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58" fill="none"/>
                 <path class="cup-straw" d="M71,9 L80,11 L70,120 L61,118 Z"/>

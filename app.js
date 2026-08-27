@@ -2352,13 +2352,40 @@ async function startPause() {
   beginFocus();
 }
 
+// One-shot pour flourish when a FRESH session begins: a liquid stream falls
+// into the cup, lands with a splash ripple, and a warm ring pulses out. Tinted
+// to the chosen tea base. Skipped on resume (elapsed > 0) and under reduced
+// motion — a resume is a continuation, not a new brew.
+function playBrewIntro() {
+  if (prefersReducedMotion()) return;
+  const stream = document.getElementById("pourStream");
+  const splash = document.getElementById("pourSplash");
+  const cup = els.focusCup, stage = els.focusCup && els.focusCup.closest(".cup-stage");
+  if (!cup) return;
+  const color = (BASES[state.base] && BASES[state.base].color) || "#c98a5e";
+  if (stream) stream.setAttribute("fill", color);
+  // Restart the animations cleanly if a previous run left the classes on.
+  cup.classList.remove("pouring");
+  if (stage) stage.classList.remove("brewing-in");
+  void cup.offsetWidth;                 // force reflow so the animation replays
+  cup.classList.add("pouring");
+  if (stage) stage.classList.add("brewing-in");
+  playSfx("pour");                       // no-op if the sound isn't loaded
+  setTimeout(() => {
+    cup.classList.remove("pouring");
+    if (stage) stage.classList.remove("brewing-in");
+  }, 950);
+}
+
 // The actual "begin a running focus session" body — called directly, or by the
 // blocking prompt's buttons once the user has chosen.
 function beginFocus() {
+  const freshStart = state.elapsed <= 0;
   state.running = true;
   state.lastTick = Date.now();
   updateCup();
   refreshSessionChrome();     // hide/show the daily-goal pill as the session starts
+  if (freshStart) playBrewIntro();   // pour flourish only on a brand-new brew
   walkToCupAndMix();          // glide over to the cup, then mix
   startAmbience();            // soundscape on while focusing
   startMusic("focus");        // lo-fi while focusing
@@ -4411,6 +4438,11 @@ function playSfx(name) {
       case "rimRattle": tone(ctx, { freq: 240, type: "triangle", dur: 0.04, peak: 0.08 });
                         tone(ctx, { freq: 200, type: "triangle", t0: 0.05, dur: 0.05, peak: 0.06 }); break;
       case "buzz":    tone(ctx, { freq: 180, freq2: 80, type: "sawtooth", dur: 0.20, peak: 0.13 }); break;
+      // Soft liquid pour: a gentle descending gurgle then a little splash tap,
+      // for the session-start brew flourish.
+      case "pour":    tone(ctx, { freq: 620, freq2: 300, type: "sine", dur: 0.34, peak: 0.06 });
+                      tone(ctx, { freq: 440, freq2: 260, type: "sine", t0: 0.12, dur: 0.26, peak: 0.05 });
+                      tone(ctx, { freq: 300, type: "triangle", t0: 0.42, dur: 0.10, peak: 0.06 }); break;
     }
   } catch (e) { /* audio unavailable — ignore */ }
 }

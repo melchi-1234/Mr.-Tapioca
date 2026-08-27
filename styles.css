@@ -1718,6 +1718,60 @@ body {
   100% { opacity: 0;    transform: translateY(-46px) scale(1); }
 }
 
+/* ── Session-start pour flourish ──────────────────────────────────────────
+   playBrewIntro() adds .pouring to the cup for ~0.9s at a fresh start: a
+   liquid stream falls from the top, lands with a splash ripple, and a warm
+   ring pulses out from the cup. Purely decorative; the persistent liquid
+   level stays driven by real progress. */
+.pour-stream {
+  opacity: 0;
+  transform-box: fill-box;
+}
+/* Bright leading highlight down the stream so it reads as moving liquid, not a
+   static bar. Rides the same keyframe/timing as the stream. */
+.pour-stream-hl {
+  fill: rgba(255,255,255,0.7);
+  opacity: 0;
+  transform-box: fill-box;
+}
+.cup-frame.pouring .pour-stream-hl { animation: pour-fall 0.62s cubic-bezier(0.5,0,0.7,1) forwards; }
+.pour-splash {
+  fill: none;
+  stroke: rgba(255,255,255,0.85);
+  stroke-width: 2;
+  opacity: 0;
+}
+.cup-frame.pouring .pour-stream { animation: pour-fall 0.62s cubic-bezier(0.5,0,0.7,1) forwards; }
+.cup-frame.pouring .pour-splash { animation: pour-splash 0.5s ease-out 0.5s forwards; }
+@keyframes pour-fall {
+  0%   { opacity: 0;    y: 52px;  height: 0;  }
+  18%  { opacity: 0.92; }
+  55%  { opacity: 0.92; y: 52px;  height: 98px; }  /* stream reaches the base */
+  100% { opacity: 0;    y: 150px; height: 4px; }   /* tail drains into the pool */
+}
+@keyframes pour-splash {
+  0%   { opacity: 0.9; rx: 2;  ry: 1;   }
+  100% { opacity: 0;   rx: 30; ry: 7;   }
+}
+/* Warm brewing ring, pulses out once behind the cup. */
+.brew-ring {
+  position: absolute;
+  left: 50%; top: 54%;
+  width: 40px; height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 999px;
+  border: 3px solid rgba(240,187,79,0.55);
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+.cup-stage.brewing-in .brew-ring { animation: brew-ring 0.85s ease-out forwards; }
+@keyframes brew-ring {
+  0%   { opacity: 0.7;  transform: scale(0.4); }
+  70%  { opacity: 0.28; }
+  100% { opacity: 0;    transform: scale(2.6); }
+}
+
 /* The meniscus breathes instead of sitting perfectly still. */
 .scene.is-focusing .cup-frame.has-fill .liq-surface {
   animation: liq-settle 2.8s ease-in-out infinite;
