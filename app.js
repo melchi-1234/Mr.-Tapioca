@@ -2410,27 +2410,18 @@ async function startPause() {
   beginFocus();
 }
 
-// One-shot pour flourish when a FRESH session begins: a liquid stream falls
-// into the cup, lands with a splash ripple, and a warm ring pulses out. Tinted
-// to the chosen tea base. Skipped on resume (elapsed > 0) and under reduced
-// motion — a resume is a continuation, not a new brew.
+// One-shot brew cue when a FRESH session begins: a soft warm ring pulses out
+// from behind the cup. The old falling-liquid "pour stream" was removed — it
+// read cheap — leaving only the gentle ring + the shallow starter pool the cup
+// keeps while brewing. Skipped on resume and under reduced motion.
 function playBrewIntro() {
   if (prefersReducedMotion()) return;
-  const stream = document.getElementById("pourStream");
-  const splash = document.getElementById("pourSplash");
   const cup = els.focusCup, stage = els.focusCup && els.focusCup.closest(".cup-stage");
   if (!cup) return;
-  const color = (BASES[state.base] && BASES[state.base].color) || "#c98a5e";
-  if (stream) stream.setAttribute("fill", color);
-  // Restart the animations cleanly if a previous run left the classes on.
-  cup.classList.remove("pouring");
   if (stage) stage.classList.remove("brewing-in");
-  void cup.offsetWidth;                 // force reflow so the animation replays
-  cup.classList.add("pouring");
+  void cup.offsetWidth;                 // force reflow so the ring replays
   if (stage) stage.classList.add("brewing-in");
-  playSfx("pour");                       // no-op if the sound isn't loaded
   setTimeout(() => {
-    cup.classList.remove("pouring");
     if (stage) stage.classList.remove("brewing-in");
   }, 950);
 }
