@@ -5047,7 +5047,7 @@ function renderMusicCredits() {
     const li = document.createElement("li");
     const name = document.createElement("span");
     name.className = "credit-track";
-    name.textContent = t.title + " — ";
+    name.textContent = t.title + " by ";   // house style: no em-dash separator
     const who = document.createElement("a");
     who.href = MUSIC_ARTIST_URLS[t.artist] || "#";
     who.target = "_blank"; who.rel = "noopener";
