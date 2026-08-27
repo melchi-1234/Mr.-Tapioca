@@ -882,9 +882,24 @@ body {
   from { opacity: calc(var(--focus-progress, 0) * 0.55); }
   to   { opacity: calc(var(--focus-progress, 0) * 0.85); }
 }
+/* SUNSET — the golden hour deepens as the session fills: a warm wash centred on
+   the ocean-sunset window (upper right of the art) that enriches the sky's
+   orange and pink toward dusk. Screen blend so it saturates the sunset rather
+   than darkening it. */
+.scene[data-theme="sunset"] .scene-fill {
+  background:
+    radial-gradient(48% 40% at 70% 30%, rgba(255,150,70,0.48), rgba(255,108,92,0.18) 50%, transparent 74%),
+    linear-gradient(180deg, rgba(255,140,80,0.16) 0%, transparent 44%);
+  animation: dusk-build 8s ease-in-out infinite alternate;
+}
+@keyframes dusk-build {
+  from { opacity: calc(var(--focus-progress, 0) * 0.50); }
+  to   { opacity: calc(var(--focus-progress, 0) * 0.82); }
+}
 @media (prefers-reduced-motion: reduce) {
   .scene[data-theme="winter"] .scene-fill,
-  .scene[data-theme="library"] .scene-fill { animation: none; opacity: calc(var(--focus-progress, 0) * 0.6); }
+  .scene[data-theme="library"] .scene-fill,
+  .scene[data-theme="sunset"] .scene-fill { animation: none; opacity: calc(var(--focus-progress, 0) * 0.6); }
 }
 
 /* WINTER ($1.99) — denser falling snow (two drifting layers) + a soft aurora. */
