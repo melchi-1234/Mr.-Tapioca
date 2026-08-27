@@ -2178,12 +2178,12 @@ body {
   position: absolute;
   /* add the home-indicator inset so the Reset link clears the bottom nav (which
      grows with safe-area) on notched iPhones — otherwise the nav covered it. */
-  bottom: calc(108px + env(safe-area-inset-bottom)); left: 0; right: 0;
+  bottom: calc(104px + env(safe-area-inset-bottom)); left: 0; right: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   padding: 0 20px;
 }
 
@@ -2667,7 +2667,7 @@ body {
   gap: 6px;
   /* 20px side padding, not 12px: the nav rail was 12/363 while every control
      above it used 20/355, an 8px misalignment on both sides. */
-  padding: 12px 20px 28px;
+  padding: 10px 20px 22px;
   background: linear-gradient(0deg, rgba(60,32,24,0.18) 0%, transparent 100%);
 }
 /* In break the desk's ::after draws a proper recessed strip with a dark lip for
@@ -4485,7 +4485,7 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   /* Keep the goal pill BELOW the safe-area-pushed top HUD (notch / Dynamic Island)
      so they don't overlap — the bug was a fixed top:92px ignoring the inset. */
   .daily-goal { top: max(108px, calc(env(safe-area-inset-top) + 68px)); }
-  .bottom-bar { padding-bottom: max(28px, env(safe-area-inset-bottom) + 12px); }
+  .bottom-bar { padding-bottom: max(20px, calc(env(safe-area-inset-bottom) + 4px)); }
   /* Keep game HUD/controls clear of the notch + home indicator. */
   .game-hud { padding-top: max(10px, calc(env(safe-area-inset-top) + 6px)); }
   .game-cup { bottom: max(12px, calc(env(safe-area-inset-bottom) + 6px)); }
