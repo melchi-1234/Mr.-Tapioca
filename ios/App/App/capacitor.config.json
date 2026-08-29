@@ -10,6 +10,7 @@
 		"LocalNotificationsPlugin",
 		"FocusShieldPlugin",
 		"FocusActivityPlugin",
-		"IAPPlugin"
+		"IAPPlugin",
+		"WidgetStatsPlugin"
 	]
 }
