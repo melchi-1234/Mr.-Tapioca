@@ -565,7 +565,7 @@
                this app different from every other timer was three taps deep. -->
           <div id="settingsRewardProgress" class="reward-progress settings-reward-progress" hidden>
             <div class="reward-progress-top">
-              <span class="reward-progress-label">Next real-shop reward</span>
+              <span class="reward-progress-label">Real-shop reward</span>
               <span id="settingsRewardProgressCount" class="reward-progress-count"></span>
             </div>
             <div class="reward-progress-track" role="img" aria-labelledby="settingsRewardProgressCount">
@@ -599,7 +599,7 @@
           <!-- Weekly Wrapped. It sits under the week chart because that is where
                someone is already looking at their own week; a share button on the
                home screen would be an ask, and this is an offer. -->
-          <button id="wrappedShareBtn" class="secondary wrapped-share">Share my week</button>
+          <button id="wrappedShareBtn" class="settings-action-btn wrapped-share">Share my week</button>
 
           <div class="pearl-info-card">
             <h3>How Do Pearls Work?</h3>
@@ -614,7 +614,7 @@
               </div>
               <div class="pearl-info-row">
                 <img src="assets/Tapioca Currency.png" class="pearl-info-pearl" alt="">
-                <span>Collect pearls to earn real boba discounts in the future</span>
+                <span>Focus time also earns <strong>real discounts</strong> at partner boba shops</span>
               </div>
             </div>
           </div>
@@ -677,7 +677,7 @@
               <span class="toggle-knob"></span>
             </button>
           </div>
-          <p id="squadPresenceNote" class="settings-note hidden">Your squad sees "Brewing now" while a session is running. Nothing else, and only the friends who added your code.</p>
+          <p id="squadPresenceNote" class="squad-hint hidden">Your squad sees "Brewing now" while a session is running. Nothing else, and only the friends who added your code.</p>
           <div class="squad-board-head"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H4.5A2.5 2.5 0 0 0 7 9M17 5.5h2.5A2.5 2.5 0 0 1 17 9M12 14v3M8.5 20h7l-.7-3h-5.6l-.7 3Z"/></svg>This Week</div>
           <p class="squad-board-note">Resets every Monday, so a bad week is only ever a week.</p>
           <div id="squadBoard" class="squad-board"></div>
@@ -685,14 +685,14 @@
       </div>
 
       <!-- ── Daily Quests ─────────────────────────────────────────── -->
-      <div id="questsSheet" class="sheet hidden" role="dialog" aria-label="Daily Quests" aria-modal="true">
+      <div id="questsSheet" class="sheet hidden" role="dialog" aria-label="Quests" aria-modal="true">
         <div class="sheet-handle"></div>
         <div class="sheet-head">
-          <h2>Daily Quests</h2>
+          <h2>Quests</h2>
           <button class="sheet-close" id="questsClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="sheet-body">
-          <p class="quests-intro">Three fresh challenges to earn pearls every day!</p>
+          <p class="quests-intro">Three fresh challenges every day, plus one that runs all week.</p>
           <div id="questsList" class="quests-list"></div>
         </div>
       </div>
@@ -828,7 +828,7 @@
              [hidden] is restated because this rule sets its own display. -->
         <div id="rewardProgress" class="reward-progress" hidden>
           <div class="reward-progress-top">
-            <span class="reward-progress-label">Next real-shop reward</span>
+            <span class="reward-progress-label">Real-shop reward</span>
             <span id="rewardProgressCount" class="reward-progress-count"></span>
           </div>
           <div class="reward-progress-track" role="img" aria-labelledby="rewardProgressCount">

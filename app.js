@@ -7561,10 +7561,15 @@ function renderQuests() {
   // completion or when the next set unlocks.
   const intro = document.querySelector(".quests-intro");
   if (intro) {
-    const allDone = state.quests && state.quests.active.every((a) => a.done);
-    intro.textContent = allDone
-      ? "All done today. New set opens tomorrow!"
-      : "Three fresh challenges to earn pearls every day!";
+    const dailyDone = state.quests && state.quests.active.every((a) => a.done);
+    const weeklyDone = state.weeklyQuest && state.weeklyQuest.active.every((a) => a.done);
+    // Three states, because "all done today" would be a lie while a weekly is
+    // still open and sitting right underneath the line saying it.
+    intro.textContent = dailyDone && weeklyDone
+      ? "Everything's done. Nice one. New quests tomorrow!"
+      : dailyDone
+        ? "All three dailies done. The weekly one is still going."
+        : "Three fresh challenges every day, plus one that runs all week.";
   }
   const card = (a, weekly) => {
     const def = questDef(a.key);
@@ -7966,6 +7971,7 @@ function renderMyCode() {
 function openFriends() {
   openSheet("friendsSheet");
   renderSquad();
+  renderSquadPresence();
   renderMyCode();
   if (window.SquadCloud && SquadCloud.enabled) {
     SquadCloud.fetchFriends();   // refresh the leaderboard now…
@@ -8190,21 +8196,21 @@ const TOUR_STEPS = [
   { sel: null, title: "Welcome to Mr. Tapioca's shop!",
     text: "Here's a quick tutorial of what everything does. You can replay it anytime from Settings." },
   { sel: [".size-picker"], title: "Set a Timer!",
-    text: "Customize your session anywhere from 15 minutes to 4 hours OR complete the daily Focus Goal set for yourself in Settings." },
+    text: "Anywhere from 15 minutes to 4 hours, your daily Focus Goal, or a Pomodoro cycle that runs work and breaks back to back." },
   { sel: ["#startPauseBtn"], title: "Start Focusing!",
     text: "Mr. Tapioca will brew your boba as the session progresses." },
   { sel: [".pearl-chip"], title: "Pearl Count",
     text: "Keep track of your hard earned pearls." },
   { sel: [".streak-chip"], title: "Streak Count",
     text: "Come back every day to keep it up." },
-  { sel: ["#questsBtn"], title: "Daily Quests",
-    text: "Complete new goals each day to earn bonus pearls!" },
+  { sel: ["#questsBtn"], title: "Quests",
+    text: "New goals every day, plus one bigger one each week. All of them pay pearls." },
   { sel: ["#shopBtn"], title: "The Shop",
     text: "Spend pearls or buy cool character skins, premium backgrounds, and special boosts!" },
   { sel: ["#mapBtn"], title: "Boba Map",
     text: "Locate boba shops near you!" },
   { sel: ["#friendsBtn"], title: "Study Squad",
-    text: "Add friends and climb a shared leaderboard together. Focusing is cozier with good company!" },
+    text: "Add friends and climb a weekly leaderboard together. Turn on presence and you can see who else is brewing right now." },
 ];
 let tourStep = 0;
 let tourOn = false;
