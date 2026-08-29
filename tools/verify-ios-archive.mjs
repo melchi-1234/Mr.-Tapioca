@@ -22,8 +22,8 @@ const appBundle = archivePath
 const toolRoot = path.dirname(toolPath);
 const repositoryRoot = path.resolve(toolRoot, "..");
 const canonicalPoseDirectory = path.join(repositoryRoot, "assets", "poses");
-const expectedVersion = "1.1.1";
-const expectedBuild = "12";
+const expectedVersion = "1.2.0";
+const expectedBuild = "13";
 const expectedTeamIdentifier = "T6235QVFYG";
 const fixtureEntitlementKey = "com.melchior.mrtapioca.archive-verifier-fixture";
 const bundles = appBundle ? [
@@ -33,7 +33,8 @@ const bundles = appBundle ? [
     bundleId: "com.melchior.mrtapioca",
     packageType: "APPL",
     privacyManifest: true,
-    screenTimeEntitlements: true,
+    familyControls: true,
+    appGroup: true,
     liveActivities: true,
   },
   {
@@ -43,7 +44,8 @@ const bundles = appBundle ? [
     packageType: "XPC!",
     extensionPoint: "com.apple.deviceactivity.monitor-extension",
     privacyManifest: true,
-    screenTimeEntitlements: true,
+    familyControls: true,
+    appGroup: true,
   },
   {
     name: "ShieldAction",
@@ -51,7 +53,8 @@ const bundles = appBundle ? [
     bundleId: "com.melchior.mrtapioca.ShieldAction",
     packageType: "XPC!",
     extensionPoint: "com.apple.ManagedSettings.shield-action-service",
-    screenTimeEntitlements: true,
+    familyControls: true,
+    appGroup: true,
   },
   {
     name: "ShieldConfiguration",
@@ -59,7 +62,8 @@ const bundles = appBundle ? [
     bundleId: "com.melchior.mrtapioca.ShieldConfiguration",
     packageType: "XPC!",
     extensionPoint: "com.apple.ManagedSettingsUI.shield-configuration-service",
-    screenTimeEntitlements: true,
+    familyControls: true,
+    appGroup: true,
   },
   {
     name: "FocusWidgetExtension",
@@ -67,7 +71,13 @@ const bundles = appBundle ? [
     bundleId: "com.melchior.mrtapioca.FocusWidget",
     packageType: "XPC!",
     extensionPoint: "com.apple.widgetkit-extension",
-    screenTimeEntitlements: false,
+    // 1.2.0: the Home Screen widget reads streak / pearls / reward minutes out of
+    // the shared App Group, so it needs THAT and nothing else. Keeping
+    // familyControls false here is the point of splitting these two flags apart:
+    // a widget that quietly acquired the Screen Time entitlement would sail through
+    // a single combined check.
+    familyControls: false,
+    appGroup: true,
   },
 ] : [];
 
@@ -321,11 +331,20 @@ function verifyEntitlements() {
     const appGroups = entitlements["com.apple.security.application-groups"];
     const hasAppGroup = Array.isArray(appGroups)
       && appGroups.includes("group.com.melchior.mrtapioca");
-    if (bundle.screenTimeEntitlements && (!familyControls || !hasAppGroup)) {
-      throw new Error(`${bundle.name} is missing signed Family Controls or App Group entitlements`);
+    // Checked in both directions, per entitlement. A bundle must carry exactly the
+    // entitlements it is declared to need: missing one breaks the feature, and an
+    // extra one is a capability nobody decided to ship.
+    if (bundle.familyControls && !familyControls) {
+      throw new Error(`${bundle.name} is missing the signed Family Controls entitlement`);
     }
-    if (!bundle.screenTimeEntitlements && (familyControls || hasAppGroup)) {
-      throw new Error(`${bundle.name} carries unnecessary Screen Time entitlements`);
+    if (!bundle.familyControls && familyControls) {
+      throw new Error(`${bundle.name} carries an unnecessary Family Controls entitlement`);
+    }
+    if (bundle.appGroup && !hasAppGroup) {
+      throw new Error(`${bundle.name} is missing the signed App Group entitlement`);
+    }
+    if (!bundle.appGroup && hasAppGroup) {
+      throw new Error(`${bundle.name} carries an unnecessary App Group entitlement`);
     }
     const profilePath = path.join(bundle.path, "embedded.mobileprovision");
     const fixtureSigned = entitlements[fixtureEntitlementKey] === true;

@@ -319,7 +319,7 @@ function header(sourcePath) {
     "--",
     "-- Fields partners.json carries that the server has no column for, and which",
     "-- are therefore NOT in this seed: lat, lng, perk (the student-facing wording;",
-    "-- offer_text is what staff honour), since, terms, verification.",
+    "-- offer_text is what staff honour), since and terms.",
     "-- ════════════════════════════════════════════════════════════════════════════",
     "",
   ];

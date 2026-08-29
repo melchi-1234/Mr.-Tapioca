@@ -127,12 +127,14 @@ function loadRedeemHarness({
   progress = { bar: 240, done: 60, left: 180 },
   accountState = "active",
   serverReady = true,
-  heldReward = { id: "held-1", policy_id: "pilot" },
+  heldReward = (partnerId) => ({ id: `held-${partnerId}`, policy_id: "pilot" }),
   policies = [{ id: "pilot", active: true, required_minutes: 240, progress_minutes: 60 }],
   shareConsent = true,
   leaseMode = "ok",
 } = {}) {
-  const openRequests = [];
+  // ONE queue. 1.2.0 deleted the open/mint round trip, so the only network call
+  // this card can make is the single atomic spend, and any test that still needs
+  // to talk about "the open response" is describing a system that no longer runs.
   const spendRequests = [];
   const shares = [];
   const analytics = [];
@@ -157,13 +159,23 @@ function loadRedeemHarness({
   };
   const makeElement = () => ({ textContent: "", classList: makeClassList() });
   let context;
+  // A real <dialog> dispatches "close" to every listener, and app.js hangs two
+  // things off that event: closeRedeem (wired at boot) and the deferred share
+  // prompt (registered per redemption by onRedeemDialogClosed). Faking only the
+  // first would make the share prompt unreachable and silently untested.
+  const closeListeners = [];
   const dialog = {
     open: false,
     classList: makeClassList(),
     showModal() { this.open = true; },
+    addEventListener(type, fn) { if (type === "close") closeListeners.push(fn); },
+    removeEventListener(type, fn) {
+      const at = closeListeners.indexOf(fn);
+      if (at >= 0) closeListeners.splice(at, 1);
+    },
     close() {
       this.open = false;
-      if (context && typeof context.closeRedeem === "function") context.closeRedeem();
+      closeListeners.slice().forEach((fn) => fn());
     },
   };
   context = {
@@ -180,14 +192,18 @@ function loadRedeemHarness({
     durationLabel: (n) => `${n} minutes`,
     clearInterval() {},
     setInterval(fn) { intervalCallbacks.push(fn); return intervalCallbacks.length; },
+    // The share prompt is deferred behind the dialog's close with a 120 ms timer,
+    // so the timer has to actually fire or no test could ever see the prompt.
+    setTimeout(fn) { fn(); return 1; },
     RewardV2: {
       policies,
-      rewardFor: () => heldReward,
-      openRedemption(rewardId, partnerId) {
-        return new Promise((resolve, reject) => openRequests.push({ rewardId, partnerId, resolve, reject }));
-      },
-      redeemByCode(code) {
-        return new Promise((resolve, reject) => spendRequests.push({ code, resolve, reject }));
+      // In-memory lookup, no network. Which shop a held reward belongs to is now
+      // decided before the card paints, so the fixture has to answer per shop.
+      rewardFor: (partnerId) =>
+        typeof heldReward === "function" ? heldReward(partnerId) : heldReward,
+      redeem(rewardId, partnerId) {
+        return new Promise((resolve, reject) =>
+          spendRequests.push({ rewardId, partnerId, resolve, reject }));
       },
     },
     askConfirm: async (copy, options) => {
@@ -206,7 +222,10 @@ function loadRedeemHarness({
       redeemPerk: makeElement(),
       redeemConfirmBtn: { disabled: false },
       redeemNote: makeElement(),
-      redeemCode: makeElement(),
+      redeemStar: makeElement(),
+      redeemEyebrow: makeElement(),
+      redeemUsed: makeElement(),
+      redeemDismissBtn: makeElement(),
       redeemStamp: makeElement(),
       redeemDialog: dialog,
     },
@@ -245,10 +264,11 @@ function loadRedeemHarness({
     sourceBetween("let redeemPartner = null;", "// ── Study Squad (friends leaderboard"),
     context,
   );
+  // Mirror app.js's own boot wiring (els.redeemDialog.addEventListener("close",
+  // closeRedeem)) so a close in a test goes down the same path as a real one.
+  dialog.addEventListener("close", context.closeRedeem);
   return {
     context,
-    requests: openRequests,
-    openRequests,
     spendRequests,
     shares,
     analytics,
@@ -283,18 +303,23 @@ function loadRedeemHarness({
   };
 }
 
-async function flushRedeemLease() {
-  await Promise.resolve();
-  await Promise.resolve();
+// Drain every queued microtask. The account lease resolves through a chain of
+// four or five of them and the spend adds more, so counting ticks by hand is
+// exactly how this file used to go flaky.
+async function flushRedeem() {
+  await new Promise((resolve) => setImmediate(resolve));
 }
 
-function assertRedeemRetired(h) {
-  assert.equal(h.context.els.redeemCode.textContent, "");
-  assert.equal(h.context.els.redeemCode.classList.contains("hidden"), true);
+// A retired card is one the student can no longer spend. With the code element
+// gone, what proves it is that the card never flipped to its stamped "Used"
+// face — the only thing a barista reads as "this reward was honoured" — and that
+// the action is dead with an honest reason under it.
+function assertRedeemRetired(h, copy = /account.*changed|cloud.*off|couldn.t verify|unavailable|close.*open/i) {
+  assert.equal(h.context.els.redeemDialog.classList.contains("is-used"), false);
+  assert.equal(h.context.els.redeemUsed.textContent, "");
   assert.equal(h.context.els.redeemConfirmBtn.disabled, true);
   assert.equal(h.context.els.redeemDialog.classList.contains("not-ready"), true);
-  assert.match(h.context.els.redeemNote.textContent,
-    /account.*changed|cloud.*off|couldn.t verify|unavailable|close.*open/i);
+  assert.match(h.context.els.redeemNote.textContent, copy);
 }
 
 function loadRewardShareHarness({
@@ -592,10 +617,69 @@ test("web/local mode keeps the existing local reward behavior", () => {
   );
 });
 
+// The reward bar is new in 1.2.0 and it has two homes (the drink-complete card
+// and the Settings sheet), so it is a third surface that could quietly answer
+// the reward question from the wrong authority.
+function loadRewardBar(options) {
+  const context = loadAuthority(options);
+  const names = new Set();
+  const wrap = {
+    hidden: false,
+    classList: {
+      add: (name) => names.add(name),
+      remove: (name) => names.delete(name),
+      contains: (name) => names.has(name),
+    },
+  };
+  vm.runInContext(
+    sourceBetween("function renderRewardProgressBar(wrap, countEl, fillEl)",
+                  "// Settings copy of the same bar."),
+    context,
+  );
+  return {
+    context, wrap, names,
+    countEl: { textContent: "" },
+    fillEl: { style: { width: "" } },
+    render() { context.renderRewardProgressBar(this.wrap, this.countEl, this.fillEl); },
+  };
+}
+
+test("the reward progress bar never quotes a number the server has not confirmed", () => {
+  // Enabled-but-unsynced is UNKNOWN. This bar is the one number in the app tied
+  // to something a real shop will be asked to honour, so it hides rather than
+  // falling back to the editable local ledger's arithmetic.
+  const unsynced = loadRewardBar({ enabled: true, ready: false, localRewards: 99 });
+  unsynced.render();
+  assert.equal(unsynced.wrap.hidden, true);
+  assert.equal(unsynced.countEl.textContent, "");
+  assert.equal(unsynced.names.has("is-full"), false);
+
+  // A reward already in hand is a full bar, not progress toward one. "0m of 4h"
+  // to someone holding a redeemable reward reads as if it had been spent.
+  const held = loadRewardBar({ enabled: true, ready: true });
+  held.render();
+  assert.equal(held.wrap.hidden, false);
+  assert.equal(held.names.has("is-full"), true);
+  assert.equal(held.countEl.textContent, "1 ready to use");
+  assert.equal(held.fillEl.style.width, "100%");
+
+  // Mid-bar states both halves, because "2h to go" hides the 2h already done.
+  const partway = loadRewardBar({
+    enabled: true, ready: true, serverProgress: { bar: 240, done: 120, left: 120 },
+  });
+  partway.context.RewardV2.available = () => [];
+  partway.render();
+  assert.equal(partway.wrap.hidden, false);
+  assert.equal(partway.names.has("is-full"), false);
+  assert.equal(partway.countEl.textContent, "120 minutes of 240 minutes");
+  assert.equal(partway.fillEl.style.width, "50%");
+});
+
 test("enabled-but-unsynced V2 cannot spend the editable local reward ledger", () => {
   const context = loadAuthority({ enabled: true, ready: false, localRewards: 99 });
   context.redeemPartner = { id: "u-tea", name: "U Tea", perk: "10% off" };
-  context.redeemCode = null;
+  // No redeemContext means no server-issued reward in hand. The server branch
+  // must return there, and must NOT fall through to the v1 local ledger below it.
   context.redeemContext = null;
   context.state = { perkRedemptions: [] };
   context.saveCalls = 0;
@@ -617,7 +701,6 @@ test("the counter explains an unavailable server instead of quoting local progre
   const classNames = new Set();
   const context = {
     redeemPartner: null,
-    redeemCode: "stale-code",
     redeemClock: null,
     rewardsInHand: () => 0,
     rewardProgressNow: () => null,
@@ -629,6 +712,7 @@ test("the counter explains an unavailable server instead of quoting local progre
     trk() {},
     clearInterval() {},
     setInterval() { return 1; },
+    setTimeout(fn) { fn(); return 1; },
     showToast() {},
     Date,
     Promise,
@@ -638,7 +722,10 @@ test("the counter explains an unavailable server instead of quoting local progre
       redeemPerk: { textContent: "" },
       redeemConfirmBtn: { disabled: false },
       redeemNote: { textContent: "" },
-      redeemCode: { textContent: "", classList: { add() {}, remove() {} } },
+      redeemStar: { textContent: "" },
+      redeemEyebrow: { textContent: "" },
+      redeemUsed: { textContent: "" },
+      redeemDismissBtn: { textContent: "" },
       redeemStamp: { textContent: "" },
       redeemDialog: {
         open: false,
@@ -646,6 +733,7 @@ test("the counter explains an unavailable server instead of quoting local progre
           add: (name) => classNames.add(name),
           remove: (name) => classNames.delete(name),
           toggle: (name, on) => on ? classNames.add(name) : classNames.delete(name),
+          contains: (name) => classNames.has(name),
         },
         showModal() { this.open = true; },
       },
@@ -654,6 +742,9 @@ test("the counter explains an unavailable server instead of quoting local progre
   vm.createContext(context);
   vm.runInContext(redeemSource, context);
 
+  // There is deliberately no RewardV2 in this context. An unverified server must
+  // not even reach for the in-memory reward lookup, let alone localStorage
+  // arithmetic — a missing-global throw here would be a real regression.
   context.openRedeem({ id: "u-tea", name: "U Tea", address: "", perk: "10% off" });
 
   assert.equal(context.els.redeemConfirmBtn.disabled, true);
@@ -661,38 +752,79 @@ test("the counter explains an unavailable server instead of quoting local progre
   assert.equal(classNames.has("not-ready"), true);
 });
 
-test("a current open response replaces cached shop copy, while a stale response cannot repaint another shop", async () => {
-  const { context, requests } = loadRedeemHarness();
-  const first = { id: "shop-a", name: "Cached A", address: "A", perk: "Old A" };
-  const second = { id: "shop-b", name: "Cached B", address: "B", perk: "Old B" };
+test("opening a card paints the cached shop with no network call and arms the button in the same tick", () => {
+  const h = loadRedeemHarness();
 
-  context.openRedeem(first);
-  await flushRedeemLease();
-  context.openRedeem(second);
-  await flushRedeemLease();
-  requests[0].resolve({
-    ok: true, code: "AAAAA2", expires_at: "2026-08-17T20:05:00Z",
-    server_time: "2026-08-17T20:00:00Z", partner_name: "Authoritative A",
-    offer_text: "New A", offer_version: 2, cashier_note: "Show code", bar_minutes: 240,
-  });
-  await Promise.resolve();
-  assert.equal(context.els.redeemShop.textContent, "Cached B");
-  assert.equal(context.els.redeemPerk.textContent, "Old B");
+  h.context.openRedeem({ id: "shop-a", name: "Cached A", address: "12 A Street", perk: "10% off" });
 
-  requests[1].resolve({
-    ok: true, code: "BBBBB2", expires_at: "2026-08-17T20:05:00Z",
-    server_time: "2026-08-17T20:00:00Z", partner_name: "Authoritative B",
-    offer_text: "New B", offer_version: 3, cashier_note: "Show code", bar_minutes: 240,
-  });
-  await Promise.resolve();
-  assert.equal(context.els.redeemShop.textContent, "Authoritative B");
-  assert.equal(context.els.redeemPerk.textContent, "New B");
-  assert.equal(context.els.redeemConfirmBtn.disabled, false);
+  // Synchronously, in the tap's own tick. This is the whole 1.2.0 change: the
+  // card is readable and spendable the instant it opens, because there is
+  // nothing left to fetch. The old flow spent two round trips here behind the
+  // words "Getting your code…", at a register, with a queue behind you.
+  assert.equal(h.context.els.redeemShop.textContent, "Cached A");
+  assert.equal(h.context.els.redeemAddress.textContent, "12 A Street");
+  assert.equal(h.context.els.redeemPerk.textContent, "10% off");
+  assert.equal(h.context.els.redeemConfirmBtn.disabled, false);
+  assert.equal(h.context.els.redeemDialog.classList.contains("not-ready"), false);
+  assert.equal(h.context.els.redeemNote.textContent, "You have 1 reward saved.");
+  assert.equal(h.context.els.redeemDialog.open, true);
+  assert.equal(h.spendRequests.length, 0, "opening a card must dispatch zero RPCs");
+  assert.notEqual(h.context.els.redeemStamp.textContent, "",
+    "the ticking stamp is the only live thing left on the card, so it must start at once");
 });
 
-test("successful server redemption shares only the issuance bar from the validated open response", async () => {
+test("a second shop replaces the first card's copy with its own cached snapshot", async () => {
+  const h = loadRedeemHarness();
+
+  h.context.openRedeem({ id: "shop-a", name: "Cached A", address: "A", perk: "Old A" });
+  await flushRedeem();
+  h.context.openRedeem({ id: "shop-b", name: "Cached B", address: "B", perk: "Old B" });
+  await flushRedeem();
+
+  assert.equal(h.context.els.redeemShop.textContent, "Cached B");
+  assert.equal(h.context.els.redeemPerk.textContent, "Old B");
+  assert.equal(h.context.els.redeemConfirmBtn.disabled, false);
+  assert.equal(h.spendRequests.length, 0);
+});
+
+test("tapping the instant-on button before its background lease lands still spends", async () => {
+  // openRedeem enables this button synchronously and warms the account lease in
+  // the background, which IS the one-tap feature. A tap that beats the warm has
+  // to capture a lease inline (confirmRedeem carries a branch for exactly that)
+  // rather than retiring the card a student is already holding across a counter.
+  const h = loadRedeemHarness();
+  h.context.openRedeem({ id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
+
+  h.context.confirmRedeem();   // deliberately not flushed: no lease exists yet
+  await flushRedeem();
+
+  assert.equal(h.spendRequests.length, 1,
+    "the inline captureRedeemAccountLease() fallback must be reachable");
+});
+
+test("a queued double tap spends the reward exactly once", async () => {
+  const h = loadRedeemHarness();
+  h.context.openRedeem({ id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
+  await flushRedeem();
+
+  // Three taps in one tick is the real case: the later ones were dispatched
+  // before the button's disable could land, so the disable cannot be the guard.
+  // Clearing heldId before the RPC goes out is what actually latches this.
+  h.context.confirmRedeem();
+  h.context.confirmRedeem();
+  h.context.confirmRedeem();
+  await flushRedeem();
+  assert.equal(h.spendRequests.length, 1, "one reward, one spend");
+
+  h.context.confirmRedeem();
+  await flushRedeem();
+  assert.equal(h.spendRequests.length, 1,
+    "a later tap finds no heldId left in the context and has nothing to spend");
+});
+
+test("successful server redemption shares only the issuance bar the spend response returned", async () => {
   let progress = { bar: 120, done: 30, left: 90 };
-  const { context, requests, spendRequests, shares } = loadRedeemHarness({
+  const h = loadRedeemHarness({
     progress: () => progress,
     heldReward: { id: "held-1", policy_id: "held-policy" },
     policies: [
@@ -700,30 +832,40 @@ test("successful server redemption shares only the issuance bar from the validat
       { id: "held-policy", active: false, required_minutes: 60, progress_minutes: 60 },
     ],
   });
-  context.openRedeem({ id: "shop-a", name: "Cached Shop", address: "A", perk: "Cached offer" });
-  await flushRedeemLease();
-  requests[0].resolve({
-    ok: true, code: "AAAAA2", expires_at: "2026-08-17T20:05:00Z",
-    server_time: "2026-08-17T20:00:00Z", partner_name: "Open Server Shop",
-    offer_text: "Open server offer", offer_version: 2, cashier_note: "Show code", bar_minutes: 240,
-  });
-  await Promise.resolve();
+  h.context.openRedeem({ id: "shop-a", name: "Cached Shop", address: "A", perk: "Cached offer" });
+  await flushRedeem();
 
-  context.confirmRedeem();
+  h.context.confirmRedeem();
+  await flushRedeem();
+  assert.equal(h.spendRequests.length, 1);
+  assert.deepEqual(
+    { rewardId: h.spendRequests[0].rewardId, partnerId: h.spendRequests[0].partnerId },
+    { rewardId: "held-1", partnerId: "shop-a" },
+    "the spend names the reward and the shop, and nothing else identifies the student");
+
   progress = { bar: 60, done: 0, left: 60 };
-  spendRequests[0].resolve({
+  h.spendRequests[0].resolve({
     ok: true,
     partner_name: "Redeemed Server Shop",
     offer_text: "Redeemed server offer",
     cashier_note: "Enjoy",
+    bar_minutes: 240,
     redeemed_at: "2026-08-17T20:01:00Z",
     server_time: "2026-08-17T20:01:00Z",
   });
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  await flushRedeem();
 
-  assert.deepEqual(JSON.parse(JSON.stringify(shares)), [{
+  // The prompt waits until the card has been put away. A share sheet stacked on
+  // the stamp mid-transaction is the last thing anyone wants, and on iOS Safari
+  // it lands behind the backdrop anyway.
+  assert.equal(h.confirmations.length, 0);
+  h.context.els.redeemDialog.close();
+  await flushRedeem();
+  assert.equal(h.confirmations.length, 1);
+
+  // 240 is the reward's own issuance bar off the spend response. Neither the
+  // active policy (120) nor the live progress bar (60) may leak in as a stand-in.
+  assert.deepEqual(JSON.parse(JSON.stringify(h.shares)), [{
     minutes: 240,
     shopName: "Redeemed Server Shop",
     offerText: "Redeemed server offer",
@@ -731,121 +873,159 @@ test("successful server redemption shares only the issuance bar from the validat
   }]);
 });
 
-test("closing and reopening the same shop rejects the older open response", async () => {
+test("a completed redemption stamps the card in place instead of closing it", async () => {
+  const h = loadRedeemHarness();
+  const spend = await beginDeferredSpend(h,
+    { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
+  const stampBefore = h.context.els.redeemStamp.textContent;
+
+  spend.resolve({
+    ok: true, partner_name: "Authoritative A", offer_text: "Redeemed A",
+    cashier_note: "Enjoy", bar_minutes: 240,
+    redeemed_at: "2026-08-17T20:01:00Z", server_time: "2026-08-17T20:01:00Z",
+  });
+  await flushRedeem();
+
+  // The barista is looking at this exact screen. Closing the sheet the instant
+  // the reward is spent leaves them staring at a map, and a toast is gone in
+  // three seconds, so the card itself has to say it.
+  assert.equal(h.context.els.redeemDialog.open, true);
+  assert.equal(h.context.els.redeemDialog.classList.contains("is-used"), true);
+  assert.equal(h.context.els.redeemEyebrow.textContent, "Redeemed");
+  assert.match(h.context.els.redeemUsed.textContent, /^Used .+Enjoy/);
+  assert.equal(h.context.els.redeemDismissBtn.textContent, "Done");
+  assert.equal(h.context.els.redeemShop.textContent, "Authoritative A");
+  assert.equal(h.context.els.redeemPerk.textContent, "Redeemed A");
+  assert.equal(h.context.els.redeemNote.textContent, "");
+  assert.equal(h.context.els.redeemConfirmBtn.disabled, true);
+  assert.equal(h.toasts.length, 0, "the card states it; a toast would only repeat it");
+  assert.equal(h.renders, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.analytics[h.analytics.length - 1])),
+    { event: "redemption_completed", data: { partner_id: "shop-a" } });
+
+  // The stamp freezes once spent. A running clock on a used reward is a lie.
+  h.runLatestTick();
+  assert.equal(h.context.els.redeemStamp.textContent, stampBefore);
+});
+
+test("reopening after a redemption shows a fresh unspent face", async () => {
+  const h = loadRedeemHarness();
+  const spend = await beginDeferredSpend(h,
+    { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
+  spend.resolve({
+    ok: true, partner_name: "Authoritative A", offer_text: "Redeemed A",
+    cashier_note: "Enjoy", bar_minutes: 240,
+    redeemed_at: "2026-08-17T20:01:00Z", server_time: "2026-08-17T20:01:00Z",
+  });
+  await flushRedeem();
+  h.context.els.redeemDialog.close();
+  await flushRedeem();
+
+  h.context.openRedeem({ id: "shop-b", name: "Shop B", address: "B", perk: "Offer B" });
+
+  assert.equal(h.context.els.redeemDialog.classList.contains("is-used"), false);
+  assert.equal(h.context.els.redeemUsed.textContent, "");
+  assert.equal(h.context.els.redeemEyebrow.textContent, "Show this at the counter");
+  assert.equal(h.context.els.redeemDismissBtn.textContent, "Not now");
+  assert.equal(h.context.els.redeemConfirmBtn.disabled, false,
+    "the previous card's spent state must not carry over and kill a fresh one");
+});
+
+test("closing and reopening the same shop rejects the older spend response", async () => {
   const h = loadRedeemHarness();
   const shop = { id: "shop-a", name: "Cached A", address: "A", perk: "Old A" };
 
-  h.context.openRedeem(shop);
-  await flushRedeemLease();
+  const stale = await beginDeferredSpend(h, shop);
   h.context.els.redeemDialog.close();
   h.context.openRedeem(shop);
-  await flushRedeemLease();
-  assert.equal(h.openRequests.length, 2);
+  await flushRedeem();
 
-  h.openRequests[0].resolve({
-    ok: true, code: "AAAAA2", expires_at: "2026-08-17T20:05:00Z",
-    server_time: "2026-08-17T20:00:00Z", partner_name: "Stale Server A",
-    offer_text: "Stale offer", offer_version: 2, cashier_note: "Show code", bar_minutes: 240,
+  stale.resolve({
+    ok: true, partner_name: "Stale Server A", offer_text: "Stale offer",
+    cashier_note: "Enjoy", bar_minutes: 240,
+    redeemed_at: "2026-08-17T20:01:00Z", server_time: "2026-08-17T20:01:00Z",
   });
-  await Promise.resolve();
+  await flushRedeem();
+
+  // Same shop, same partner_id: only the generation counter tells the dead view
+  // apart from the live one, and it has to, or a closed card's answer stamps the
+  // card now on screen.
   assert.equal(h.context.els.redeemShop.textContent, "Cached A");
   assert.equal(h.context.els.redeemPerk.textContent, "Old A");
-  assert.equal(h.context.els.redeemCode.textContent, "");
-  assert.equal(h.context.els.redeemConfirmBtn.disabled, true);
-  assert.equal(h.context.els.redeemNote.textContent, "Getting your code…");
-
-  h.openRequests[1].resolve({
-    ok: true, code: "AAAAA3", expires_at: "2026-08-17T20:06:00Z",
-    server_time: "2026-08-17T20:01:00Z", partner_name: "Current Server A",
-    offer_text: "Current offer", offer_version: 3, cashier_note: "Show code", bar_minutes: 240,
-  });
-  await Promise.resolve();
-  assert.equal(h.context.els.redeemShop.textContent, "Current Server A");
-  assert.equal(h.context.els.redeemCode.textContent, "AAAAA3");
+  assert.equal(h.context.els.redeemDialog.classList.contains("is-used"), false);
+  assert.equal(h.context.els.redeemConfirmBtn.disabled, false);
+  assert.equal(h.renders, 0);
+  assert.equal(h.shares.length, 0);
 });
 
-test("an account lease invalidated while opening cannot publish a code or permit spend", async () => {
+test("an account lease invalidated while the card sits open cannot permit a spend", async () => {
   const h = loadRedeemHarness();
   h.context.openRedeem({ id: "shop-a", name: "Cached A", address: "A", perk: "Old A" });
-  await flushRedeemLease();
-  assert.equal(h.openRequests.length, 1);
-
-  h.rotateAccount("pending_delete");
-  h.openRequests[0].resolve({
-    ok: true, code: "AAAAA2", expires_at: "2026-08-17T20:05:00Z",
-    server_time: "2026-08-17T20:00:00Z", partner_name: "Stale Account A",
-    offer_text: "Stale offer", offer_version: 2, cashier_note: "Show code", bar_minutes: 240,
-  });
-  await Promise.resolve();
-  h.context.confirmRedeem();
-
-  assert.equal(h.context.els.redeemShop.textContent, "Cached A");
-  assertRedeemRetired(h);
-  assert.equal(h.spendRequests.length, 0);
-});
-
-test("a code opened for account A cannot spend after account B replaces its lease", async () => {
-  const h = loadRedeemHarness();
-  h.context.openRedeem({ id: "shop-a", name: "Cached A", address: "A", perk: "Old A" });
-  await flushRedeemLease();
-  h.openRequests[0].resolve({
-    ok: true, code: "AAAAA2", expires_at: "2026-08-17T20:05:00Z",
-    server_time: "2026-08-17T20:00:00Z", partner_name: "Server A",
-    offer_text: "Server offer", offer_version: 2, cashier_note: "Show code", bar_minutes: 240,
-  });
-  await Promise.resolve();
+  await flushRedeem();
   assert.equal(h.context.els.redeemConfirmBtn.disabled, false);
 
-  h.rotateAccount("active");
+  h.rotateAccount("pending_delete");
   h.context.confirmRedeem();
+  await flushRedeem();
+
+  assert.equal(h.context.els.redeemShop.textContent, "Cached A");
   assert.equal(h.spendRequests.length, 0);
   assertRedeemRetired(h);
 });
 
-test("missing or broken account lease retires the loading redemption UI before open", async () => {
+test("a card opened for account A cannot spend after account B replaces its lease", async () => {
+  const h = loadRedeemHarness();
+  h.context.openRedeem({ id: "shop-a", name: "Cached A", address: "A", perk: "Old A" });
+  await flushRedeem();
+  assert.equal(h.context.els.redeemConfirmBtn.disabled, false);
+
+  // Still "active", but a different anonymous identity. The lifecycle word alone
+  // is not enough — this is the case a bare accountState() check would wave through.
+  h.rotateAccount("active");
+  h.context.confirmRedeem();
+  await flushRedeem();
+
+  assert.equal(h.spendRequests.length, 0);
+  assertRedeemRetired(h);
+});
+
+test("a broken account lease lets the card open instantly but still refuses the spend", async () => {
+  // The lease no longer gates the card — that is the point of the rework — so the
+  // failure has to land at the spend instead, and it has to fail closed there.
   for (const leaseMode of ["missing", "throw-client", "null-client", "throw-capture", "throw-check"]) {
     const h = loadRedeemHarness({ leaseMode });
     h.context.openRedeem({ id: "shop-a", name: "Cached A", address: "A", perk: "Old A" });
-    await flushRedeemLease();
+    assert.equal(h.context.els.redeemConfirmBtn.disabled, false,
+      `${leaseMode} must not stall the card behind a lease it cannot get`);
+    await flushRedeem();
+
     h.context.confirmRedeem();
-    assert.equal(h.openRequests.length, 0, `${leaseMode} must dispatch zero open RPCs`);
+    await flushRedeem();
     assert.equal(h.spendRequests.length, 0, `${leaseMode} must dispatch zero spend RPCs`);
     assertRedeemRetired(h);
   }
 });
 
-test("the next timer tick retires a visible code whose account lease became stale", async () => {
+test("the next timer tick retires a live card whose account lease became stale", async () => {
   const h = loadRedeemHarness();
   h.context.openRedeem({ id: "shop-a", name: "Cached A", address: "A", perk: "Old A" });
-  await flushRedeemLease();
-  h.openRequests[0].resolve({
-    ok: true, code: "AAAAA2", expires_at: "2026-08-17T20:05:00Z",
-    server_time: "2026-08-17T20:00:00Z", partner_name: "Server A",
-    offer_text: "Server offer", offer_version: 2, cashier_note: "Show code", bar_minutes: 240,
-  });
-  await Promise.resolve();
-  assert.equal(h.context.els.redeemCode.textContent, "AAAAA2");
+  await flushRedeem();
+  assert.notEqual(h.context.els.redeemStamp.textContent, "", "the card is live and ticking");
 
   h.rotateAccount("pending_delete");
   h.runLatestTick();
   assertRedeemRetired(h);
+
   h.context.confirmRedeem();
+  await flushRedeem();
   assert.equal(h.spendRequests.length, 0);
 });
 
-async function beginDeferredSpend(h, shop, openOverrides = {}) {
+async function beginDeferredSpend(h, shop) {
   h.context.openRedeem(shop);
-  await flushRedeemLease();
-  const open = h.openRequests[h.openRequests.length - 1];
-  open.resolve({
-    ok: true, code: shop.id === "shop-a" ? "AAAAA2" : "BBBBB2",
-    expires_at: "2026-08-17T20:05:00Z", server_time: "2026-08-17T20:00:00Z",
-    partner_name: `Server ${shop.name}`, offer_text: `Server ${shop.perk}`,
-    offer_version: 2, cashier_note: "Show code", bar_minutes: 240,
-    ...openOverrides,
-  });
-  await Promise.resolve();
+  await flushRedeem();
   h.context.confirmRedeem();
+  await flushRedeem();
   return h.spendRequests[h.spendRequests.length - 1];
 }
 
@@ -856,11 +1036,11 @@ test("a spend response cannot publish after its account lease is invalidated", a
   h.rotateAccount("active");
   spend.resolve({
     ok: true, partner_name: "Authoritative A", offer_text: "Redeemed A",
-    cashier_note: "Enjoy", redeemed_at: "2026-08-17T20:01:00Z",
-    server_time: "2026-08-17T20:01:00Z",
+    cashier_note: "Enjoy", bar_minutes: 240,
+    redeemed_at: "2026-08-17T20:01:00Z", server_time: "2026-08-17T20:01:00Z",
   });
-  await Promise.resolve();
-  await Promise.resolve();
+  await flushRedeem();
+
   assert.equal(h.context.els.redeemDialog.open, true);
   assertRedeemRetired(h);
   assert.equal(h.toasts.length, 0);
@@ -869,51 +1049,62 @@ test("a spend response cannot publish after its account lease is invalidated", a
   assert.equal(h.shares.length, 0);
 });
 
-test("a rejected spend retires its visible code and cannot re-enable the dead action", async () => {
+test("a rejected spend retires the card and cannot re-enable the dead action", async () => {
   const h = loadRedeemHarness();
   const spend = await beginDeferredSpend(h,
     { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
   spend.reject(new Error("network lost"));
-  await Promise.resolve();
-  await Promise.resolve();
-  assertRedeemRetired(h);
+  await flushRedeem();
+
+  assertRedeemRetired(h, /close this and open it again when you have a signal/i);
   assert.equal(h.context.els.redeemDialog.open, true);
-  assert.equal(h.spendRequests.length, 1);
+
+  h.context.confirmRedeem();
+  await flushRedeem();
+  assert.equal(h.spendRequests.length, 1, "a retired card cannot dispatch a second spend");
 });
 
-test("an old shop failure cannot repaint or attribute a newer shop dialog", async () => {
+test("an old shop refusal cannot repaint or attribute a newer shop dialog", async () => {
   const h = loadRedeemHarness();
   const spendA = await beginDeferredSpend(h,
     { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
   h.context.openRedeem({ id: "shop-b", name: "Shop B", address: "B", perk: "Offer B" });
+  await flushRedeem();
   const analyticsBefore = h.analytics.length;
 
-  spendA.resolve({ ok: false, reason: "failed_code_expired" });
-  await Promise.resolve();
+  spendA.resolve({ ok: false, reason: "failed_already_redeemed" });
+  await flushRedeem();
+
   assert.equal(h.context.els.redeemDialog.open, true);
   assert.equal(h.context.els.redeemShop.textContent, "Shop B");
-  assert.equal(h.context.els.redeemNote.textContent, "Getting your code…");
-  assert.equal(h.analytics.length, analyticsBefore);
+  assert.equal(h.context.els.redeemNote.textContent, "You have 1 reward saved.");
+  assert.equal(h.context.els.redeemConfirmBtn.disabled, false,
+    "shop B's own card must stay spendable");
+  assert.equal(h.analytics.length, analyticsBefore,
+    "a dead view must not file redemption_failed against the shop now on screen");
   assert.equal(h.toasts.length, 0);
 });
 
-test("an old shop success cannot close, publish, or share over a newer shop dialog", async () => {
+test("an old shop success cannot stamp, publish, or share over a newer shop dialog", async () => {
   const h = loadRedeemHarness();
   const spendA = await beginDeferredSpend(h,
     { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
   h.context.openRedeem({ id: "shop-b", name: "Shop B", address: "B", perk: "Offer B" });
+  await flushRedeem();
   const analyticsBefore = h.analytics.length;
 
   spendA.resolve({
     ok: true, partner_name: "Authoritative A", offer_text: "Redeemed A",
-    cashier_note: "Enjoy", redeemed_at: "2026-08-17T20:01:00Z",
-    server_time: "2026-08-17T20:01:00Z",
+    cashier_note: "Enjoy", bar_minutes: 240,
+    redeemed_at: "2026-08-17T20:01:00Z", server_time: "2026-08-17T20:01:00Z",
   });
-  await Promise.resolve();
-  await Promise.resolve();
+  await flushRedeem();
+
   assert.equal(h.context.els.redeemDialog.open, true);
   assert.equal(h.context.els.redeemShop.textContent, "Shop B");
-  assert.equal(h.context.els.redeemNote.textContent, "Getting your code…");
+  assert.equal(h.context.els.redeemDialog.classList.contains("is-used"), false,
+    "shop A's redemption must not stamp shop B's card as used");
+  assert.equal(h.context.els.redeemNote.textContent, "You have 1 reward saved.");
   assert.equal(h.analytics.length, analyticsBefore);
   assert.equal(h.toasts.length, 0);
   assert.equal(h.renders, 0);
@@ -921,24 +1112,124 @@ test("an old shop success cannot close, publish, or share over a newer shop dial
   assert.equal(h.shares.length, 0);
 });
 
-test("a malformed open bar never falls back to current policy or implicit progress", async () => {
-  const h = loadRedeemHarness({
-    progress: { bar: 120, done: 30, left: 90 },
-    heldReward: { id: "held-1", policy_id: "other-policy" },
-    policies: [{ id: "other-policy", active: true, required_minutes: 120, progress_minutes: 30 }],
-  });
+test("every reachable refusal gets plain-English copy and leaves nothing spendable", async () => {
+  // The complete reachable set for redeem_reward. failed_code_expired and
+  // failed_code_unavailable are gone with the handoff table that produced them.
+  const reasons = [
+    ["failed_not_found", /couldn.t use this reward/i],
+    ["failed_partner_paused", /not offering the reward right now/i],
+    ["failed_already_redeemed", /already been used/i],
+    ["failed_expired", /has expired/i],
+    ["failed_wrong_partner", /different shop/i],
+    ["failed_offer_changed", /changed its offer/i],
+    ["failed_capped", /reached its limit/i],
+    ["failed_outside_window", /not available at this time of day/i],
+    // Anything the SDK could not prove — an unrecognised reason, a dispatch or
+    // lease failure — arrives as this, and it must read as "unknown", not "no".
+    ["ambiguous", /couldn.t use this reward/i],
+  ];
+  for (const [reason, copy] of reasons) {
+    const h = loadRedeemHarness();
+    const spend = await beginDeferredSpend(h,
+      { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
+    spend.resolve({ ok: false, reason });
+    await flushRedeem();
+
+    // A student reading "failed_offer_changed" at a counter learns nothing and
+    // cannot act, so every one of these says what happened in words.
+    assert.match(h.context.els.redeemNote.textContent, copy, reason);
+    assert.equal(h.context.els.redeemDialog.classList.contains("is-used"), false,
+      `${reason} must not stamp the card as used`);
+    assert.equal(h.context.els.redeemConfirmBtn.disabled, true, reason);
+    assert.deepEqual(JSON.parse(JSON.stringify(h.analytics[h.analytics.length - 1])),
+      { event: "redemption_failed", data: { partner_id: "shop-a", reason } });
+
+    h.context.confirmRedeem();
+    await flushRedeem();
+    assert.equal(h.spendRequests.length, 1, `${reason} must not leave a second spend available`);
+    assert.equal(h.shares.length, 0);
+    assert.deepEqual(h.context.state.perkRedemptions, [],
+      "a server refusal must never fall through to the editable local ledger");
+  }
+});
+
+test("a refusal cannot repaint the shop name, offer, or minutes onto the card", async () => {
+  // The old redeem_by_code answered refusals with partner_name and offer_text,
+  // and 1.2.0 tightened the server to `{ok:false, reason}` and nothing else. The
+  // client is the second lock: a response carrying them must not be believed.
+  const h = loadRedeemHarness();
   const spend = await beginDeferredSpend(h,
-    { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" },
-    { bar_minutes: null });
+    { id: "shop-a", name: "Shop A", address: "12 A Street", perk: "Offer A" });
   spend.resolve({
-    ok: true, partner_name: "Authoritative A", offer_text: "Redeemed A",
-    cashier_note: "Enjoy", redeemed_at: "2026-08-17T20:01:00Z",
-    server_time: "2026-08-17T20:01:00Z",
+    ok: false,
+    reason: "failed_wrong_partner",
+    partner_name: "Somebody Else's Shop",
+    offer_text: "A free drink you did not earn",
+    cashier_note: "Hand it over",
+    bar_minutes: 240,
   });
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(h.confirmations.length, 0);
+  await flushRedeem();
+
+  assert.equal(h.context.els.redeemShop.textContent, "Shop A");
+  assert.equal(h.context.els.redeemAddress.textContent, "12 A Street");
+  assert.equal(h.context.els.redeemPerk.textContent, "Offer A");
+  assert.match(h.context.els.redeemNote.textContent, /different shop/i);
+
+  h.context.els.redeemDialog.close();
+  await flushRedeem();
+  assert.equal(h.confirmations.length, 0, "a refusal has nothing to offer for sharing");
   assert.equal(h.shares.length, 0);
+});
+
+test("holding a reward for another shop keeps this shop's button dead and says so", async () => {
+  // rewardsInHand() says 1, but rewardFor(shop-b) says none. Spending anyway
+  // would earn a failed_wrong_partner from the server; refusing here means the
+  // request never leaves the phone and the student is told why.
+  const h = loadRedeemHarness({
+    heldReward: (partnerId) =>
+      partnerId === "shop-a" ? { id: "held-a", policy_id: "pilot" } : null,
+  });
+  h.context.openRedeem({ id: "shop-b", name: "Shop B", address: "B", perk: "Offer B" });
+  await flushRedeem();
+
+  assert.equal(h.context.els.redeemNote.textContent, "No reward for this shop yet.");
+  assert.equal(h.context.els.redeemConfirmBtn.disabled, true);
+  assert.equal(h.context.els.redeemDialog.classList.contains("not-ready"), true);
+
+  h.context.confirmRedeem();
+  await flushRedeem();
+  assert.equal(h.spendRequests.length, 0);
+  assert.deepEqual(h.context.state.perkRedemptions, []);
+});
+
+test("a malformed spend bar never falls back to current policy or implicit progress", async () => {
+  // bar_minutes is the reward's OWN issuance bar and it reaches the client on
+  // this response and nowhere else. Missing or out of range means the share card
+  // is not offered at all, rather than quoting whatever bar happens to be current.
+  for (const barMinutes of [null, undefined, 0, 14, 1441, "240", 240.5]) {
+    const h = loadRedeemHarness({
+      progress: { bar: 120, done: 30, left: 90 },
+      heldReward: { id: "held-1", policy_id: "other-policy" },
+      policies: [{ id: "other-policy", active: true, required_minutes: 120, progress_minutes: 30 }],
+    });
+    const spend = await beginDeferredSpend(h,
+      { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
+    spend.resolve({
+      ok: true, partner_name: "Authoritative A", offer_text: "Redeemed A",
+      cashier_note: "Enjoy", bar_minutes: barMinutes,
+      redeemed_at: "2026-08-17T20:01:00Z", server_time: "2026-08-17T20:01:00Z",
+    });
+    await flushRedeem();
+
+    // The redemption itself still lands and the card still stamps. Only the
+    // shareable card, which cannot be drawn without a real bar, is withheld.
+    assert.equal(h.context.els.redeemDialog.classList.contains("is-used"), true,
+      `bar_minutes ${barMinutes} must not undo a committed redemption`);
+    h.context.els.redeemDialog.close();
+    await flushRedeem();
+    assert.equal(h.confirmations.length, 0, `bar_minutes ${barMinutes} must not offer a card`);
+    assert.equal(h.shares.length, 0);
+  }
 });
 
 test("a newer open invalidates an older completed redemption's pending share choice", async () => {
@@ -948,20 +1239,42 @@ test("a newer open invalidates an older completed redemption's pending share cho
     { id: "shop-a", name: "Shop A", address: "A", perk: "Offer A" });
   spend.resolve({
     ok: true, partner_name: "Authoritative A", offer_text: "Redeemed A",
-    cashier_note: "Enjoy", redeemed_at: "2026-08-17T20:01:00Z",
-    server_time: "2026-08-17T20:01:00Z",
+    cashier_note: "Enjoy", bar_minutes: 240,
+    redeemed_at: "2026-08-17T20:01:00Z", server_time: "2026-08-17T20:01:00Z",
   });
-  await Promise.resolve();
-  await Promise.resolve();
+  await flushRedeem();
+  h.context.els.redeemDialog.close();
+  await flushRedeem();
   assert.equal(h.confirmations.length, 1,
-    "the redemption's own close must not suppress its share prompt");
+    "putting the stamped card away is what ASKS for the share, not what cancels it");
 
   h.context.openRedeem({ id: "shop-b", name: "Shop B", address: "B", perk: "Offer B" });
   consent.resolve(true);
-  await Promise.resolve();
-  await Promise.resolve();
+  await flushRedeem();
   assert.equal(h.shares.length, 0,
     "a share answer from the old completed view cannot publish over a newer view");
+});
+
+test("no handoff-code machinery survives anywhere in the client", () => {
+  // 1.2.0 deleted the six-character cashier code end to end: the SQL functions,
+  // the SDK methods, the mock, the code element, and the page a cashier was
+  // supposed to type it into (which was never deployed). These are the names
+  // that would come back first if a merge restored the minting branch, and every
+  // one of them costs a network round trip at a register.
+  const live = appSource.replace(/^\s*\/\/.*$/gm, "");
+  for (const gone of [
+    "redeemCode", "Getting your code", "Show this code to the cashier",
+    "openRedemption", "redeemByCode", "checkCode",
+    "failed_code_expired", "failed_code_unavailable",
+  ]) {
+    assert.equal(live.includes(gone), false, `${gone} must not survive in app.js`);
+  }
+  // And what replaced them: one atomic call by the reward's own owner, and a
+  // card that flips where it stands instead of closing.
+  assert.match(appSource, /RewardV2\.redeem\(spend\.heldId, spend\.partnerId\)/,
+    "the spend must be the single redeem_reward call");
+  assert.match(appSource, /setRedeemUsedFace\(new Date\(\)\)/,
+    "success must stamp the open card rather than dismissing it");
 });
 
 test("real reward sharing has no side effects after its captured account becomes stale", async () => {
@@ -1456,12 +1769,16 @@ test("pending and opted-out states stay truthful across completion, map, and cou
   }
 });
 
-test("pending and opted-out lifecycle overrides a stale ready Reward snapshot at the counter", () => {
+test("pending and opted-out lifecycle overrides a stale ready Reward snapshot at the counter", async () => {
   for (const state of ["pending_delete", "opted_out"]) {
     const h = loadRedeemHarness({ accountState: state, serverReady: true });
     h.context.openRedeem({ id: "shop-a", name: "Shop", address: "A", perk: "Offer" });
     assert.equal(h.context.els.redeemConfirmBtn.disabled, true);
-    assert.equal(h.requests.length, 0, "an off account must not request a handoff code");
+    // No reward is put in hand for an off account, so there is no heldId for a
+    // tap to spend even if one somehow reaches confirmRedeem.
+    h.context.confirmRedeem();
+    await flushRedeem();
+    assert.equal(h.spendRequests.length, 0, "an off account must not spend a reward");
   }
 });
 

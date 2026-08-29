@@ -26,8 +26,6 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // no 0/O/1/I, same as friend codes
-  const HANDOFF_MS = 5 * 60 * 1000;
   const DAILY_CAP = 720;
   const MAX_SESSION_MIN = 480;
   const MIN_SESSION_MIN = 5;
@@ -52,25 +50,17 @@
     // without waiting four hours — and so no code path can quietly read the
     // client's own clock, which is the whole point of the server ledger.
     let clock = opts.now || Date.now();
-    const rnd = opts.random || Math.random;
 
     const db = {
       policies: new Map(),
       partners: new Map(),
       sessions: new Map(),
       rewards: [],            // reward_instances
-      handoffs: new Map(),    // by code
       events: [],             // redemption_events
       user: opts.user || "user-anon-1",
     };
 
     const now = () => clock;
-
-    function code6() {
-      let out = "";
-      while (out.length < 6) out += CODE_ALPHABET[Math.floor(rnd() * CODE_ALPHABET.length)];
-      return out;
-    }
 
     function logEvent(outcome, o) {
       db.events.push(Object.assign({ at: now(), outcome: outcome }, o || {}));
@@ -286,8 +276,10 @@
     }
 
     // ── redemption ───────────────────────────────────────────────────────────
-    // Every reason a reward can be refused, checked before the cashier is
-    // involved. Order matters and mirrors open_redemption().
+    // Every reason a reward can be refused, in one ladder. Order matters and
+    // mirrors redeem_reward()'s elsif chain exactly. Ownership is FIRST: a reward
+    // that is not yours is 'not found', never 'already redeemed', because the
+    // second answer would confirm that some other account's reward id is real.
     function validateFor(reward, partner) {
       if (!reward || reward.user_id !== db.user) return "failed_not_found";
       if (!partner) return "failed_not_found";
@@ -303,8 +295,7 @@
       return null;
     }
 
-    // THE SHARED GATE. Caps and the agreed window, in one place, called by BOTH
-    // openRedemption and redeemByCode.
+    // THE SHARED GATE. Caps and the agreed window, in one place.
     //
     // They used to be checked only at open, counted from rows already marked
     // redeemed. So opening every card FIRST, while that count was still zero,
@@ -349,135 +340,49 @@
       return null;
     }
 
-    function openRedemption(rewardId, partnerId) {
+    // THE SINGLE CONSUMING OPERATION, and now the only one. Mirrors
+    // redeem_reward(reward_id, partner_id) statement for statement.
+    //
+    // 1.2.0 removed the six-character cashier handoff: openRedemption(),
+    // checkCode() and redeemByCode() are gone with the table they read. What made
+    // a redemption safe was never the code. It is (a) ownership, which validateFor
+    // checks first and which redeemByCode structurally COULD NOT check, because it
+    // was anon-callable and holding the code was the credential; (b) the
+    // check-and-write being one indivisible step, which is what makes two
+    // simultaneous taps resolve to exactly one redemption; and (c) the shared gate
+    // running against the same partner the spend writes.
+    function redeemReward(rewardId, partnerId) {
       const reward = db.rewards.find((r) => r.id === rewardId);
       const partner = db.partners.get(partnerId);
-      let reason = validateFor(reward, partner);
 
+      let reason = validateFor(reward, partner);
+      // Caps and window, from the shared gate, excluding this reward so it cannot
+      // count itself toward the cap it is about to fill.
       if (!reason) reason = gate(db.user, partnerId, rewardId);
 
       if (reason) {
-        logEvent(reason, { user_id: db.user, partner_id: partnerId, reward_id: rewardId });
+        // Mirrors the SQL: a refusal is attributed to the shop only when the tap
+        // actually reached one of its offers. A garbage or borrowed reward id, or
+        // an unknown shop, must not land in a real partner's rejection list.
+        const attributable = !!(partner && reward && reward.user_id === db.user);
+        logEvent(reason, { user_id: db.user,
+                           partner_id: attributable ? partnerId : null,
+                           reward_id: rewardId,
+                           offer_version: reward ? reward.offer_version : null });
+        // Refusals carry the reason and nothing else. A tap that was never valid
+        // at this shop must not read back the shop's wording or cashier note.
         return fail(reason);
       }
 
-      // Reuse a live handoff so a reopened sheet does not change the code the
-      // cashier is mid-way through reading.
-      let hit = null;
-      for (const h of db.handoffs.values()) {
-        if (h.reward_id === rewardId && h.partner_id === partnerId &&
-            !h.consumed_at && h.expires_at > now() + 30000) { hit = h; break; }
+      // The atomic step, in the same order as the SQL: re-read the status, write
+      // only if it is still 'issued'. A second tap arriving here finds 'redeemed'
+      // and is refused rather than spending twice.
+      if (reward.status !== "issued") {
+        logEvent("failed_already_redeemed", { user_id: db.user, partner_id: partnerId,
+                                              reward_id: rewardId,
+                                              offer_version: partner.offer_version });
+        return fail("failed_already_redeemed");
       }
-      if (!hit) {
-        // Collision must be checked against EVERY row. The code is the primary
-        // key, so a consumed or expired one is still taken.
-        //
-        // BOUNDED. Never reusing a code means a degenerate or exhausted RNG must
-        // fail cleanly rather than spin: an unbounded retry here hangs the whole
-        // process. With a real RNG over 32^6 (about 1.07 billion) codes, 60 misses
-        // is not something that happens.
-        let c = null;
-        for (let n = 0; n < 60; n++) {
-          const cand = code6();
-          if (!db.handoffs.has(cand)) { c = cand; break; }
-        }
-        if (c === null) {
-          logEvent("failed_code_unavailable", { user_id: db.user, partner_id: partnerId,
-                                                reward_id: rewardId });
-          return fail("failed_code_unavailable");
-        }
-        hit = { code: c, reward_id: rewardId, user_id: db.user, partner_id: partnerId,
-                created_at: now(), expires_at: now() + HANDOFF_MS, consumed_at: null,
-                // Pin the shop's offer version AT OPEN. A passport reward carries no
-                // offer_version of its own, so without this every version check was
-                // dead code for the passport model and a shop could change its offer
-                // between the card opening and the student paying.
-                offer_version: partner.offer_version };
-        db.handoffs.set(c, hit);
-      }
-
-      logEvent("opened", { user_id: db.user, partner_id: partnerId, reward_id: rewardId,
-                           offer_version: partner.offer_version });
-      return { ok: true, code: hit.code, expires_at: hit.expires_at, server_time: now(),
-               partner_name: partner.name, offer_text: partner.offer_text,
-               offer_version: partner.offer_version, cashier_note: partner.cashier_note,
-               bar_minutes: reward.bar_minutes };
-    }
-
-    // Read-only. What the cashier's verification page shows before spending.
-    function checkCode(code) {
-      const h = db.handoffs.get(String(code || "").trim().toUpperCase());
-      if (!h) return fail("failed_not_found");
-      const partner = db.partners.get(h.partner_id);
-      const reward = db.rewards.find((r) => r.id === h.reward_id);
-      // A shop that has vanished from the config leaves its handoffs dangling.
-      // Dereferencing the missing partner used to THROW, so a cashier page showed
-      // a crash instead of "this shop is no longer a partner". Refuse cleanly.
-      // (Server side the FK now cascades handoffs away with the shop, so this is
-      // the belt to that braces.)
-      if (!partner || !reward) return fail("failed_not_found");
-      // Every refusal redeemByCode can raise must be reachable here too. If the
-      // read-only check says VALID and the spend then refuses, the cashier finds
-      // out in front of a queue. The reward's OWN expiry is the easy one to miss:
-      // a fresh 5-minute code can sit in front of a reward that expired last week.
-      let reason = null;
-      if (h.consumed_at || reward.status === "redeemed") reason = "failed_already_redeemed";
-      else if (h.expires_at <= now()) reason = "failed_code_expired";
-      else if (reward.status !== "issued") reason = "failed_not_found";
-      else if (reward.expires_at != null && reward.expires_at <= now()) reason = "failed_expired";
-      else if (reward.offer_version != null && reward.offer_version !== partner.offer_version) {
-        reason = "failed_offer_changed";
-      }
-      // The handoff's PINNED version, then the shared gate (caps + window). Both
-      // were added to the spend path and not to this one, so the cashier's
-      // read-only check said VALID and the spend then refused. Adding a refusal
-      // to redeemByCode and not to checkCode is always a bug.
-      else if (h.offer_version != null && h.offer_version !== partner.offer_version) {
-        reason = "failed_offer_changed";
-      }
-      else reason = gate(h.user_id, h.partner_id, h.reward_id);
-      return { ok: !reason, reason: reason, partner_name: partner.name,
-               offer_text: partner.offer_text, cashier_note: partner.cashier_note,
-               server_time: now(), expires_at: h.expires_at };
-    }
-
-    // The single consuming operation. Mirrors redeem_by_code(): the status check
-    // and the write are one indivisible step, which is what makes two
-    // simultaneous requests resolve to exactly one redemption.
-    function redeemByCode(code) {
-      const h = db.handoffs.get(String(code || "").trim().toUpperCase());
-      if (!h) { logEvent("failed_not_found", {}); return fail("failed_not_found"); }
-      const partner = db.partners.get(h.partner_id);
-      const reward = db.rewards.find((r) => r.id === h.reward_id);
-      // Same guard as checkCode: a pulled shop must refuse, never throw.
-      if (!partner || !reward) {
-        logEvent("failed_not_found", { user_id: h.user_id, partner_id: h.partner_id,
-                                       reward_id: h.reward_id });
-        return fail("failed_not_found");
-      }
-
-      let reason = null;
-      if (h.consumed_at) reason = "failed_already_redeemed";
-      else if (h.expires_at <= now()) reason = "failed_code_expired";
-      else if (!partner.active) reason = "failed_partner_paused";
-      else if (reward.status === "redeemed") reason = "failed_already_redeemed";
-      else if (reward.status !== "issued") reason = "failed_not_found";
-      else if (reward.expires_at != null && reward.expires_at <= now()) reason = "failed_expired";
-      else if (reward.offer_version != null && reward.offer_version !== partner.offer_version) {
-        reason = "failed_offer_changed";
-      }
-      else if (h.offer_version != null && h.offer_version !== partner.offer_version) {
-        reason = "failed_offer_changed";
-      }
-      // Caps and window, re-checked AT SPEND.
-      if (!reason) reason = gate(h.user_id, h.partner_id, h.reward_id);
-
-      if (reason) {
-        logEvent(reason, { user_id: h.user_id, partner_id: h.partner_id, reward_id: h.reward_id,
-                           offer_version: partner.offer_version });
-        return fail(reason, { partner_name: partner.name, offer_text: partner.offer_text });
-      }
-
       reward.status = "redeemed";
       reward.redeemed_at = now();
       reward.redeemed_partner_id = partner.id;
@@ -486,12 +391,14 @@
       // mutable and holds only today's offer, so a report that joined to it
       // would relabel every historical redemption with the current wording.
       reward.redeemed_offer_text = partner.offer_text;
-      h.consumed_at = now();
 
-      logEvent("completed", { user_id: h.user_id, partner_id: h.partner_id,
-                              reward_id: h.reward_id, offer_version: partner.offer_version });
+      logEvent("completed", { user_id: db.user, partner_id: partnerId,
+                              reward_id: rewardId, offer_version: partner.offer_version });
+      // bar_minutes is the reward's OWN issuance bar, not the policy's current
+      // one, and it reaches the client only here. The share card renders off it.
       return { ok: true, partner_name: partner.name, offer_text: partner.offer_text,
-               cashier_note: partner.cashier_note, redeemed_at: now(), server_time: now() };
+               cashier_note: partner.cashier_note, bar_minutes: reward.bar_minutes,
+               redeemed_at: now(), server_time: now() };
     }
 
     // ── merchant report ──────────────────────────────────────────────────────
@@ -560,9 +467,7 @@
         abandon_reward_session: (p) => abandonSession(p),
         issue_my_rewards: () => issueRewards(),
         my_reward_state: () => myRewardState(),
-        open_redemption: (p) => openRedemption(p.reward_id, p.partner_id),
-        check_code: (p) => checkCode(p.code),
-        redeem_by_code: (p) => redeemByCode(p.code),
+        redeem_reward: (p) => redeemReward(p.reward_id, p.partner_id),
         partner_report: (p) => partnerReport(p.partner_id, p.days),
       },
     };
@@ -633,10 +538,8 @@
           input = { session_id: args.p_session_id, shield_held: args.p_shield_held };
         } else if (name === "abandon_reward_session") {
           input = { session_id: args.p_session_id };
-        } else if (name === "open_redemption") {
+        } else if (name === "redeem_reward") {
           input = { reward_id: args.p_reward_id, partner_id: args.p_partner_id };
-        } else if (name === "check_code" || name === "redeem_by_code") {
-          input = { code: args.p_code };
         } else {
           input = {};
         }

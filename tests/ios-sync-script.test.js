@@ -18,7 +18,7 @@ test("iOS sync stops before plugin registration when Capacitor sync fails", () =
 });
 
 test("release setup reapplies the generated iOS version and portrait settings", () => {
-  assert.match(pkg.scripts["ios:release-setup"], /^npm ci --ignore-scripts && npm run ios:sync && node tools\/set-ios-version\.mjs 1\.1\.1 12$/);
+  assert.match(pkg.scripts["ios:release-setup"], /^npm ci --ignore-scripts && npm run ios:sync && node tools\/set-ios-version\.mjs 1\.2\.0 13$/);
   const source = fs.readFileSync(path.join(root, "tools", "set-ios-version.mjs"), "utf8");
   assert.match(source, /currentVersionSettings\.length !== 10/);
   assert.match(source, /marketingVersionSettings\.length !== 10/);

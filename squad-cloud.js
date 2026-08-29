@@ -399,6 +399,15 @@
         p_drinks: Math.max(0, me.drinks || 0),
         p_streak: Math.max(0, me.streak || 0),
         p_status: me.status || "idle",
+        // The opt-in switch travels with every push, so flipping it off reaches the
+        // server on the very next sync rather than waiting for a status change.
+        // The server treats false as "force status to idle", which is what makes
+        // opting out mid-session actually stop the broadcast.
+        p_share_presence: me.sharePresence === true,
+        // This calendar week only. The board resets weekly and the server rolls the
+        // number over on write, so a stale client that keeps pushing last week's
+        // figure gets it replaced rather than clamped upward.
+        p_week_minutes: Math.max(0, Math.round(me.weekMins) || 0),
       });
       return !!(clientIsCurrent(generation, client) && isSuccessfulRpcEnvelope(result));
     } catch (_) { return false; }
@@ -428,7 +437,14 @@
           !Array.isArray(result.data)) return false;
       SquadCloud.friends = result.data.map((r) => ({
         id: r.id, name: r.display_name, mins: r.focus_minutes,
-        drinks: r.drinks, streak: r.streak, skin: r.skin, ts: r.updated_at, status: r.status, me: !!r.is_me,
+        drinks: r.drinks, streak: r.streak, skin: r.skin, ts: r.updated_at,
+        // weekMins is what the board sorts on. status_at is the freshness stamp for
+        // presence and is null for anyone who has not opted in, which is how the
+        // renderer tells "idle because they are idle" from "idle because they are
+        // not sharing" without the server ever disclosing the difference.
+        weekMins: Number.isFinite(r.week_minutes) ? r.week_minutes : 0,
+        status: r.status, statusAt: r.status_at || null,
+        me: !!r.is_me,
       }));
       if (typeof renderSquad === "function") renderSquad();
       return true;

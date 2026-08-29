@@ -76,18 +76,56 @@ function rewardState(eligibleMinutes = 0) {
   };
 }
 
-function openRow(overrides = {}) {
+// The one redemption success shape. 1.2.0 took the handoff code out, and with it
+// this fixture's code, expires_at and offer_version: there is no five-minute
+// window to describe and nothing to show a cashier ahead of the spend.
+function redeemRow(overrides = {}) {
   return Object.assign({
     ok: true,
-    code: "ABC234",
-    expires_at: "2026-08-17T12:05:00.000Z",
-    server_time: "2026-08-17T12:00:00.000Z",
     partner_name: "U Tea",
     offer_text: "10% off",
-    offer_version: 1,
     cashier_note: "Show before paying",
     bar_minutes: 240,
+    redeemed_at: "2026-08-17T12:05:00.000Z",
+    server_time: "2026-08-17T12:05:00.000Z",
   }, overrides);
+}
+
+// A reference backend holding exactly one spendable reward at one shop. The three
+// contract tests below all care about what happens at the tap, not about the four
+// hours of focus that earned the reward, so the earning is done here once.
+function redeemableBackend(overrides = {}) {
+  const backend = RewardMock.createBackend({
+    now: Date.parse("2026-08-17T12:00:00.000Z"),
+    user: overrides.user || "user-anon-1",
+  });
+  backend.loadConfig({
+    policies: [{
+      id: "tap-policy",
+      kind: "global_passport",
+      required_minutes: 240,
+      expires_days: null,
+    }],
+    partners: [{
+      id: "tap-shop",
+      name: "Tap Shop",
+      offer_text: "10% off",
+      policy_id: "tap-policy",
+      cashier_note: "Show before paying",
+    }],
+  });
+  backend.rpc.start_reward_session({
+    session_id: "00000000-0000-4000-8000-000000000601",
+    planned_minutes: 240,
+    platform: "ios",
+    shield_claimed: true,
+  });
+  backend.advance(240 * 60 * 1000);
+  backend.rpc.complete_reward_session({
+    session_id: "00000000-0000-4000-8000-000000000601",
+    shield_held: true,
+  });
+  return { backend, reward: backend.rpc.issue_my_rewards()[0] };
 }
 
 function acknowledgedSession(id, overrides = {}) {
@@ -108,6 +146,7 @@ function responseFor(name, args = {}) {
   if (name === "abandon_reward_session") return ok([closeRow(args.p_session_id, "abandoned", 0)]);
   if (name === "issue_my_rewards") return ok([]);
   if (name === "my_reward_state") return ok(rewardState());
+  if (name === "redeem_reward") return ok(redeemRow());
   throw new Error(`no canonical response fixture for ${name}`);
 }
 
@@ -323,6 +362,32 @@ function loadRewardV2({
       await new Promise((resolve) => setImmediate(resolve));
     },
   };
+}
+
+// Isolates the lease checks RewardV2.redeem makes ON ITS OWN BEHALF from the many
+// that rpc() and refresh() make inside it, and can rotate the account at exactly
+// the Nth of them. Nothing in the returned value distinguishes those checks, so
+// the caller frame is the only handle: a check redeem owns has requireRpcLease
+// called directly from RewardV2.redeem, while the ones rpc() makes while redeem
+// is merely awaiting show up under `async RewardV2.redeem` with rpc above them.
+//
+// This is worth the awkwardness because the four checks are DEFENCE IN DEPTH: any
+// one of them alone would refuse a rotation that all four see, so deleting one
+// breaks nothing observable. Counting them is what makes the deletion visible.
+function redeemLeaseChecks(h, nth) {
+  let checks = 0;
+  const real = h.window.SquadCloud.isAccountLeaseCurrent;
+  h.window.SquadCloud.isAccountLeaseCurrent = function (lease) {
+    const frames = String(new Error().stack).split("\n");
+    const owned = frames.some((frame, index) => /\bRewardV2\.redeem\b/.test(frame) &&
+      !/\basync RewardV2\.redeem\b/.test(frame) &&
+      /\brequireRpcLease\b/.test(frames[index - 1] || ""));
+    if (!owned) return real.call(this, lease);
+    checks++;
+    if (nth != null && checks === nth) return false;
+    return real.call(this, lease);
+  };
+  return () => checks;
 }
 
 test("a status-zero completion failure is retained for replay", async () => {
@@ -1193,78 +1258,76 @@ test("online retry does not boot-recover an ambiguous start from this process", 
   assert.equal(h.reward.ready, false);
 });
 
-test("redemption methods reject malformed objects and accept canonical domain refusals", async () => {
-  const h = loadRewardV2({ rpc(name) {
-    if (name === "open_redemption") return ok({ ok: true, code: "ABC234" });
-    if (name === "check_code") return ok({ ok: false, reason: "invented_reason" });
-    if (name === "redeem_by_code") return ok({ ok: false, reason: "failed_already_redeemed" });
-    return responseFor(name);
-  } });
+test("redemption rejects malformed payloads and invented reasons but passes canonical refusals", async (t) => {
+  const cases = [
+    ["a half-built success", { ok: true, partner_name: "U Tea" }, "ambiguous"],
+    ["a reason nobody translated", { ok: false, reason: "invented_reason" }, "ambiguous"],
+    ["a canonical refusal", { ok: false, reason: "failed_already_redeemed" }, "failed_already_redeemed"],
+  ];
 
-  assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.openRedemption("reward", "partner"))), {
-    ok: false, reason: "ambiguous", message: null,
-  });
-  assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.checkCode("ABC234"))),
-    { ok: false, reason: "ambiguous" });
-  assert.equal((await h.reward.redeemByCode("ABC234")).reason, "failed_already_redeemed");
+  for (const [label, payload, reason] of cases) {
+    await t.test(label, async () => {
+      const h = loadRewardV2({ rpc(name, args) {
+        if (name === "redeem_reward") return ok(payload);
+        return responseFor(name, args);
+      } });
+
+      const result = await h.reward.redeem("reward", "partner");
+      assert.equal(result.reason, reason);
+      if (reason === "ambiguous") {
+        assert.deepEqual(JSON.parse(JSON.stringify(result)),
+          { ok: false, reason: "ambiguous", message: null });
+      }
+    });
+  }
 });
 
-test("redemption methods accept complete canonical success objects", async () => {
+test("redemption accepts the complete canonical success object", async () => {
   const timestamp = "2026-08-17T12:05:00.000Z";
   const h = loadRewardV2({ rpc(name, args) {
-    if (name === "open_redemption") return ok({
+    if (name === "redeem_reward") return ok({
       ok: true,
-      code: "ABC234",
-      expires_at: timestamp,
-      server_time: timestamp,
       partner_name: "U Tea",
       offer_text: "10% off",
-      offer_version: 1,
       cashier_note: "Show before paying",
       bar_minutes: 240,
-    });
-    if (name === "check_code") return ok({
-      ok: true,
-      reason: null,
-      partner_name: "U Tea",
-      offer_text: "10% off",
-      cashier_note: "Show before paying",
-      server_time: timestamp,
-      expires_at: timestamp,
-    });
-    if (name === "redeem_by_code") return ok({
-      ok: true,
-      partner_name: "U Tea",
-      offer_text: "10% off",
-      cashier_note: "Show before paying",
       redeemed_at: timestamp,
       server_time: timestamp,
     });
     return responseFor(name, args);
   } });
 
-  assert.equal((await h.reward.openRedemption("reward", "u-tea")).code, "ABC234");
-  assert.equal((await h.reward.checkCode("ABC234")).ok, true);
-  assert.equal((await h.reward.redeemByCode("ABC234")).ok, true);
+  const spent = await h.reward.redeem("reward", "u-tea");
+  assert.equal(spent.ok, true);
+  assert.equal(spent.partner_name, "U Tea");
+  assert.equal(spent.offer_text, "10% off");
+  assert.equal(spent.cashier_note, "Show before paying");
+  // bar_minutes reaches the client here and nowhere else, and the post-redemption
+  // share card refuses to render without it.
+  assert.equal(spent.bar_minutes, 240);
+  assert.equal(spent.redeemed_at, timestamp);
+  // A spend changes the ledger, so the success path refreshes before it returns.
   assert.equal(h.reward.ready, true);
+  assert.deepEqual(h.calls.map((call) => call.name),
+    ["redeem_reward", "issue_my_rewards", "my_reward_state"]);
 });
 
-test("open redemption requires its own canonical issuance-time bar and publishes no malformed payload", async (t) => {
-  const missing = openRow();
+test("redemption requires its own canonical issuance-time bar and publishes no malformed payload", async (t) => {
+  const missing = redeemRow();
   delete missing.bar_minutes;
   const invalid = [
     ["missing", missing],
-    ["null", openRow({ bar_minutes: null })],
-    ["string", openRow({ bar_minutes: "240" })],
-    ["fraction", openRow({ bar_minutes: 240.5 })],
-    ["below minimum", openRow({ bar_minutes: 14 })],
-    ["above maximum", openRow({ bar_minutes: 1441 })],
+    ["null", redeemRow({ bar_minutes: null })],
+    ["string", redeemRow({ bar_minutes: "240" })],
+    ["fraction", redeemRow({ bar_minutes: 240.5 })],
+    ["below minimum", redeemRow({ bar_minutes: 14 })],
+    ["above maximum", redeemRow({ bar_minutes: 1441 })],
   ];
 
   for (const [label, value] of invalid) {
     await t.test(label, async () => {
       const h = loadRewardV2({ rpc(name, args) {
-        if (name === "open_redemption") return ok(value);
+        if (name === "redeem_reward") return ok(value);
         if (name === "my_reward_state") return ok(rewardState(25));
         return responseFor(name, args);
       } });
@@ -1272,7 +1335,7 @@ test("open redemption requires its own canonical issuance-time bar and publishes
       const beforeRewards = h.reward.rewards;
       const beforePolicies = h.reward.policies;
 
-      const result = await h.reward.openRedemption("reward", "partner");
+      const result = await h.reward.redeem("reward", "partner");
 
       assert.deepEqual(JSON.parse(JSON.stringify(result)), {
         ok: false, reason: "ambiguous", message: null,
@@ -1286,7 +1349,7 @@ test("open redemption requires its own canonical issuance-time bar and publishes
 
   await t.test("accessor", async () => {
     let reads = 0;
-    const value = openRow();
+    const value = redeemRow();
     Object.defineProperty(value, "bar_minutes", {
       enumerable: true,
       get() {
@@ -1295,7 +1358,7 @@ test("open redemption requires its own canonical issuance-time bar and publishes
       },
     });
     const h = loadRewardV2({ rpc(name, args) {
-      if (name === "open_redemption") return ok(value);
+      if (name === "redeem_reward") return ok(value);
       if (name === "my_reward_state") return ok(rewardState(25));
       return responseFor(name, args);
     } });
@@ -1303,7 +1366,7 @@ test("open redemption requires its own canonical issuance-time bar and publishes
     const beforeRewards = h.reward.rewards;
     const beforePolicies = h.reward.policies;
 
-    const result = await h.reward.openRedemption("reward", "partner");
+    const result = await h.reward.redeem("reward", "partner");
 
     assert.deepEqual(JSON.parse(JSON.stringify(result)), {
       ok: false, reason: "ambiguous", message: null,
@@ -1316,21 +1379,106 @@ test("open redemption requires its own canonical issuance-time bar and publishes
   });
 });
 
-test("open redemption snapshots the canonical issuance-time bar", async () => {
-  const live = openRow({ bar_minutes: 240 });
+test("redemption snapshots the canonical issuance-time bar", async () => {
+  const live = redeemRow({ bar_minutes: 240 });
   const h = loadRewardV2({ rpc(name, args) {
-    if (name === "open_redemption") return ok(live);
+    if (name === "redeem_reward") return ok(live);
     return responseFor(name, args);
   } });
 
-  const opened = await h.reward.openRedemption("reward", "partner");
+  const spent = await h.reward.redeem("reward", "partner");
   live.bar_minutes = 60;
   live.offer_text = "forged later";
 
-  assert.notEqual(opened, live);
-  assert.equal(opened.bar_minutes, 240);
-  assert.equal(opened.offer_text, "10% off");
-  assert.equal(Object.prototype.hasOwnProperty.call(opened, "bar_minutes"), true);
+  assert.notEqual(spent, live);
+  assert.equal(spent.bar_minutes, 240);
+  assert.equal(spent.offer_text, "10% off");
+  assert.equal(Object.prototype.hasOwnProperty.call(spent, "bar_minutes"), true);
+});
+
+test("redeeming without an account never dispatches and never claims a spend", async () => {
+  const h = loadRewardV2({
+    squadClientReturnsNull: true,
+    ownClientResolvesNull: true,
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.redeem("reward", "u-tea"))),
+    { ok: false, reason: "ambiguous", message: null });
+  assert.deepEqual(h.calls, []);
+  assert.equal(h.reward.lastError.code, "no_client");
+  assert.equal(h.ownClientLoads(), 0, "Reward V2 must not create its own anonymous replacement");
+});
+
+test("an account rotated while the redeem RPC is in flight never publishes the spend", async () => {
+  let h;
+  h = loadRewardV2({ rpc(name, args) {
+    if (name === "redeem_reward") {
+      // The anonymous account underneath us is replaced while the tap is on the
+      // wire. Whatever comes back was earned by an account we no longer are, and
+      // publishing it would spend one student's reward onto another's ledger.
+      h.setSquadClient({ async rpc() { return ok(null); } });
+      return ok(redeemRow());
+    }
+    return responseFor(name, args);
+  } });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.redeem("reward", "u-tea"))),
+    { ok: false, reason: "ambiguous", message: null });
+  assert.equal(h.reward.lastError.code, "account_changed");
+  assert.deepEqual(h.calls.map((call) => call.name), ["redeem_reward"]);
+});
+
+test("an account rotated during the post-redemption refresh never publishes the spend", async () => {
+  let h;
+  h = loadRewardV2({ rpc(name, args) {
+    // The spend itself lands, then the account rotates inside the refresh the
+    // success path awaits. The refresh is exactly the await that made the extra
+    // lease checks necessary: without them the card would report a drink bought
+    // on an account that no longer exists.
+    if (name === "my_reward_state") h.setSquadClient({ async rpc() { return ok(null); } });
+    return responseFor(name, args);
+  } });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.redeem("reward", "u-tea"))),
+    { ok: false, reason: "ambiguous", message: null });
+  assert.equal(h.reward.ready, false);
+  assert.deepEqual(h.calls.map((call) => call.name),
+    ["redeem_reward", "issue_my_rewards", "my_reward_state"]);
+});
+
+test("a rotated account is refused at every lease checkpoint redeem owns", async (t) => {
+  // A spend re-checks the lease four times: after the dispatch, before the refresh
+  // it awaits, after that refresh, and once more before the value is handed back.
+  // A refusal never refreshes, so it re-checks three times. These counts are
+  // asserted, not derived, because a deleted check is invisible any other way.
+  const paths = [
+    ["a spend", () => ok(redeemRow()), 4],
+    ["a refusal", () => ok({ ok: false, reason: "failed_capped" }), 3],
+  ];
+
+  for (const [label, payload, checkpoints] of paths) {
+    await t.test(label, async () => {
+      const build = () => loadRewardV2({ rpc(name, args) {
+        if (name === "redeem_reward") return payload();
+        return responseFor(name, args);
+      } });
+
+      const baseline = build();
+      const counted = redeemLeaseChecks(baseline, null);
+      assert.notEqual((await baseline.reward.redeem("reward", "u-tea")).reason, "ambiguous");
+      assert.equal(counted(), checkpoints);
+
+      // One checkpoint at a time, with the account current on either side of it,
+      // so each line is proven to be the one that catches its own moment.
+      for (let nth = 1; nth <= checkpoints; nth++) {
+        const h = build();
+        redeemLeaseChecks(h, nth);
+        assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.redeem("reward", "u-tea"))),
+          { ok: false, reason: "ambiguous", message: null },
+          `a rotation seen only at lease check ${nth} must not publish a result`);
+      }
+    });
+  }
 });
 
 test("a canonical void reward remains valid history without becoming available", async () => {
@@ -1411,7 +1559,7 @@ test("the real client uses the Supabase-shaped reference adapter for start, clos
   });
 
   assert.deepEqual(
-    JSON.parse(JSON.stringify(await h.reward.openRedemption("missing-reward", "missing-partner"))),
+    JSON.parse(JSON.stringify(await h.reward.redeem("missing-reward", "missing-partner"))),
     { ok: false, reason: "failed_not_found" },
     "JSON RPC results must retain the canonical ok/refusal discriminator",
   );
@@ -1751,7 +1899,7 @@ test("strict state validation matches canonical policy fields and relationships"
   }
 });
 
-test("timestamps must be owned PostgREST strings and check success requires null reason", async (t) => {
+test("timestamps must be owned PostgREST strings and a redeem success must be complete", async (t) => {
   await t.test("numeric reward timestamp", async () => {
     const h = loadRewardV2({ rpc(name, args) {
       if (name === "my_reward_state") return ok({
@@ -1767,28 +1915,31 @@ test("timestamps must be owned PostgREST strings and check success requires null
   await t.test("inherited refusal fields", async () => {
     const inherited = Object.create({ ok: false, reason: "failed_not_found" });
     const h = loadRewardV2({ rpc(name, args) {
-      if (name === "check_code") return ok(inherited);
+      if (name === "redeem_reward") return ok(inherited);
       return responseFor(name, args);
     } });
-    assert.equal((await h.reward.checkCode("ABC234")).reason, "ambiguous");
+    assert.equal((await h.reward.redeem("reward", "partner")).reason, "ambiguous");
   });
 
-  for (const invalidReason of [undefined, "failed_not_found"]) {
-    await t.test(`check ok reason ${String(invalidReason)}`, async () => {
-      const value = {
-        ok: true,
-        partner_name: "U Tea",
-        offer_text: "10% off",
-        cashier_note: "Show before paying",
-        server_time: "2026-08-17T12:00:00.000Z",
-        expires_at: "2026-08-17T12:05:00.000Z",
-      };
-      if (invalidReason !== undefined) value.reason = invalidReason;
+  // A success is trusted only when every field of the contract is present and of
+  // the right type. The old check_code carried its own "reason must be null" rule;
+  // with that endpoint gone, the same principle lives here as the rule that a
+  // spend is never half-read.
+  const incomplete = redeemRow();
+  delete incomplete.cashier_note;
+  const badSuccesses = [
+    ["numeric redeemed_at", redeemRow({ redeemed_at: Date.parse("2026-08-17T12:05:00.000Z") })],
+    ["null server_time", redeemRow({ server_time: null })],
+    ["numeric partner name", redeemRow({ partner_name: 12 })],
+    ["missing cashier note", incomplete],
+  ];
+  for (const [label, value] of badSuccesses) {
+    await t.test(label, async () => {
       const h = loadRewardV2({ rpc(name, args) {
-        if (name === "check_code") return ok(value);
+        if (name === "redeem_reward") return ok(value);
         return responseFor(name, args);
       } });
-      assert.equal((await h.reward.checkCode("ABC234")).reason, "ambiguous");
+      assert.equal((await h.reward.redeem("reward", "partner")).reason, "ambiguous");
     });
   }
 });
@@ -1929,7 +2080,7 @@ test("RewardMock Supabase adapter projects the canonical issue and state JSON fi
   ]);
 });
 
-test("RewardMock Supabase open contract preserves the issuance bar after a policy change", async () => {
+test("RewardMock Supabase redeem contract preserves the issuance bar after a policy change", async () => {
   const backend = RewardMock.createBackend({ now: Date.parse("2026-08-17T12:00:00.000Z") });
   backend.loadConfig({
     policies: [{
@@ -1946,13 +2097,15 @@ test("RewardMock Supabase open contract preserves the issuance bar after a polic
       cashier_note: "Show before paying",
     }],
   });
+  // 480 minutes at a 240 bar mints two rewards, because redeeming is now the same
+  // call that spends: proving the bar twice needs two rewards to spend.
   backend.rpc.start_reward_session({
     session_id: "00000000-0000-4000-8000-000000000503",
-    planned_minutes: 240,
+    planned_minutes: 480,
     platform: "ios",
     shield_claimed: true,
   });
-  backend.advance(240 * 60 * 1000);
+  backend.advance(480 * 60 * 1000);
   backend.rpc.complete_reward_session({
     session_id: "00000000-0000-4000-8000-000000000503",
     shield_held: true,
@@ -1961,10 +2114,10 @@ test("RewardMock Supabase open contract preserves the issuance bar after a polic
   const issue = await client.rpc("issue_my_rewards", {});
   assert.equal(issue.error, null);
   assert.equal(issue.status, 200);
-  assert.equal(issue.data.length, 1);
+  assert.equal(issue.data.length, 2);
   backend.db.policies.get("historical-open-bar").required_minutes = 60;
 
-  const direct = await client.rpc("open_redemption", {
+  const direct = await client.rpc("redeem_reward", {
     p_reward_id: issue.data[0].id,
     p_partner_id: "adapter-shop",
   });
@@ -1974,16 +2127,73 @@ test("RewardMock Supabase open contract preserves the issuance bar after a polic
   assert.equal(direct.data.bar_minutes, 240);
 
   const h = loadRewardV2({ clientOverride: client });
-  const opened = await h.reward.openRedemption(issue.data[0].id, "adapter-shop");
-  assert.equal(opened.ok, true);
-  assert.equal(opened.bar_minutes, 240);
+  const spent = await h.reward.redeem(issue.data[1].id, "adapter-shop");
+  assert.equal(spent.ok, true);
+  assert.equal(spent.bar_minutes, 240);
   assert.deepEqual(h.calls[0], {
-    name: "open_redemption",
+    name: "redeem_reward",
     args: {
-      p_reward_id: issue.data[0].id,
+      p_reward_id: issue.data[1].id,
       p_partner_id: "adapter-shop",
     },
   });
+});
+
+test("another account's reward id is refused as failed_not_found and spends nothing", async () => {
+  const { backend, reward } = redeemableBackend({ user: "user-owner" });
+  // A real signed-in account holding a real reward id that is simply not theirs.
+  // Ownership is checked FIRST and answers 'not found', because "already redeemed"
+  // or "wrong partner" would both confirm that someone else's id is real.
+  backend.setUser("user-stranger");
+  const h = loadRewardV2({ clientOverride: RewardMock.createSupabaseClient(backend) });
+
+  const result = await h.reward.redeem(reward.id, "tap-shop");
+
+  assert.deepEqual(JSON.parse(JSON.stringify(result)), { ok: false, reason: "failed_not_found" });
+  assert.equal(backend.db.rewards.length, 1);
+  assert.equal(backend.db.rewards[0].status, "issued");
+  assert.equal(backend.db.rewards[0].redeemed_at, null);
+  assert.equal(backend.db.rewards[0].redeemed_partner_id, null);
+});
+
+test("two concurrent redeems of one reward resolve to exactly one spend", async () => {
+  const { backend, reward } = redeemableBackend();
+  const h = loadRewardV2({ clientOverride: RewardMock.createSupabaseClient(backend) });
+
+  // A double tap, or the same reward tapped on two devices. The check and the
+  // write are one indivisible step, so the second arrival finds 'redeemed' and is
+  // refused instead of buying a second drink. This is the property the six-digit
+  // code was wrongly credited with protecting.
+  const results = await Promise.all([
+    h.reward.redeem(reward.id, "tap-shop"),
+    h.reward.redeem(reward.id, "tap-shop"),
+  ]);
+
+  assert.equal(results.filter((result) => result.ok === true).length, 1);
+  assert.deepEqual(results.filter((result) => result.ok !== true).map((result) => result.reason),
+    ["failed_already_redeemed"]);
+  assert.equal(backend.db.rewards.filter((row) => row.status === "redeemed").length, 1);
+  assert.equal(backend.db.events.filter((event) => event.outcome === "completed").length, 1);
+});
+
+test("a redemption refusal carries the reason and never the shop's wording", async () => {
+  const { backend, reward } = redeemableBackend();
+  backend.db.partners.get("tap-shop").active = false;
+  const client = RewardMock.createSupabaseClient(backend);
+
+  const direct = await client.rpc("redeem_reward", {
+    p_reward_id: reward.id,
+    p_partner_id: "tap-shop",
+  });
+  // The old redeem_by_code answered a refusal with partner_name and offer_text.
+  // Tightened deliberately in 1.2.0: a tap that was never valid at this shop must
+  // not read back the shop's offer, its cashier note, or the reward's own bar.
+  assert.deepEqual(Object.keys(direct.data).sort(), ["ok", "reason"]);
+  assert.deepEqual(direct.data, { ok: false, reason: "failed_partner_paused" });
+
+  const h = loadRewardV2({ clientOverride: client });
+  assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.redeem(reward.id, "tap-shop"))),
+    { ok: false, reason: "failed_partner_paused" });
 });
 
 test("a state lease is revalidated synchronously after payload validation and before publication", async () => {
@@ -2297,53 +2507,37 @@ test("state validation enforces authoritative accounting and cross-row invariant
   });
 });
 
-test("redemption refusal reasons are restricted to each canonical SQL endpoint", async (t) => {
-  const contracts = [
-    {
-      name: "open_redemption",
-      invoke: (reward) => reward.openRedemption("reward", "partner"),
-      allowed: ["failed_not_found", "failed_partner_paused", "failed_already_redeemed",
-        "failed_expired", "failed_wrong_partner", "failed_offer_changed", "failed_capped",
-        "failed_outside_window", "failed_code_unavailable"],
-      impossible: ["failed_code_expired"],
-    },
-    {
-      name: "redeem_by_code",
-      invoke: (reward) => reward.redeemByCode("ABC234"),
-      allowed: ["failed_not_found", "failed_already_redeemed", "failed_code_expired",
-        "failed_partner_paused", "failed_expired", "failed_offer_changed", "failed_capped",
-        "failed_outside_window"],
-      impossible: ["failed_wrong_partner", "failed_code_unavailable"],
-    },
-    {
-      name: "check_code",
-      invoke: (reward) => reward.checkCode("ABC234"),
-      allowed: ["failed_not_found", "failed_already_redeemed", "failed_code_expired",
-        "failed_partner_paused", "failed_expired", "failed_offer_changed", "failed_capped",
-        "failed_outside_window"],
-      impossible: ["failed_wrong_partner", "failed_code_unavailable"],
-    },
-  ];
+test("redemption refusal reasons are restricted to the canonical redeem_reward endpoint", async (t) => {
+  // The whole reachable set, and nothing else. failed_wrong_partner is on this
+  // list now: with no separate open step, a reward tied to another shop is first
+  // refused at the tap. failed_code_expired and failed_code_unavailable are off
+  // it for good, because 1.2.0 deleted the handoff code they described.
+  const contract = {
+    name: "redeem_reward",
+    invoke: (reward) => reward.redeem("reward", "partner"),
+    allowed: ["failed_not_found", "failed_partner_paused", "failed_already_redeemed",
+      "failed_expired", "failed_wrong_partner", "failed_offer_changed", "failed_capped",
+      "failed_outside_window"],
+    impossible: ["failed_code_expired", "failed_code_unavailable"],
+  };
 
-  for (const contract of contracts) {
-    for (const reason of contract.allowed) {
-      await t.test(`${contract.name} accepts ${reason}`, async () => {
-        const h = loadRewardV2({ rpc(name, args) {
-          if (name === contract.name) return ok({ ok: false, reason });
-          return responseFor(name, args);
-        } });
-        assert.equal((await contract.invoke(h.reward)).reason, reason);
-      });
-    }
-    for (const reason of contract.impossible) {
-      await t.test(`${contract.name} rejects ${reason}`, async () => {
-        const h = loadRewardV2({ rpc(name, args) {
-          if (name === contract.name) return ok({ ok: false, reason });
-          return responseFor(name, args);
-        } });
-        assert.equal((await contract.invoke(h.reward)).reason, "ambiguous");
-      });
-    }
+  for (const reason of contract.allowed) {
+    await t.test(`${contract.name} accepts ${reason}`, async () => {
+      const h = loadRewardV2({ rpc(name, args) {
+        if (name === contract.name) return ok({ ok: false, reason });
+        return responseFor(name, args);
+      } });
+      assert.equal((await contract.invoke(h.reward)).reason, reason);
+    });
+  }
+  for (const reason of contract.impossible) {
+    await t.test(`${contract.name} rejects ${reason}`, async () => {
+      const h = loadRewardV2({ rpc(name, args) {
+        if (name === contract.name) return ok({ ok: false, reason });
+        return responseFor(name, args);
+      } });
+      assert.equal((await contract.invoke(h.reward)).reason, "ambiguous");
+    });
   }
 });
 
@@ -2698,7 +2892,7 @@ test("the RPC method getter is consulted exactly once after account-lease captur
       if (armed) getterReads++;
       return function (name) {
         dispatches++;
-        if (name === "check_code") return ok({ ok: false, reason: "failed_not_found" });
+        if (name === "redeem_reward") return ok({ ok: false, reason: "failed_not_found" });
         return responseFor(name);
       };
     },
@@ -2711,7 +2905,7 @@ test("the RPC method getter is consulted exactly once after account-lease captur
     return lease;
   };
 
-  assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.checkCode("ABC234"))), {
+  assert.deepEqual(JSON.parse(JSON.stringify(await h.reward.redeem("reward", "partner"))), {
     ok: false,
     reason: "failed_not_found",
   });
@@ -2745,9 +2939,10 @@ test("a throwing RPC getter after lease capture resolves as ambiguous instead of
 
   let result;
   await assert.doesNotReject(async () => {
-    result = await h.reward.checkCode("ABC234");
+    result = await h.reward.redeem("reward", "partner");
   });
-  assert.deepEqual(JSON.parse(JSON.stringify(result)), { ok: false, reason: "ambiguous" });
+  assert.deepEqual(JSON.parse(JSON.stringify(result)),
+    { ok: false, reason: "ambiguous", message: null });
   assert.equal(h.reward.lastError.code, "rpc_getter_failed");
   assert.equal(h.reward.lastError.status, 0);
 });
@@ -3051,8 +3246,8 @@ test("post-dispatch lease checks never reacquire Squad or RPC properties", async
     },
   };
   const h = loadRewardV2({ clientOverride: client, trackClientOverride: false });
-  const checking = h.reward.checkCode("ABC234");
-  await waitFor(() => dispatches === 1, "code check did not dispatch");
+  const spending = h.reward.redeem("reward", "partner");
+  await waitFor(() => dispatches === 1, "redeem did not dispatch");
   Object.defineProperty(client, "rpc", {
     configurable: true,
     get() {
@@ -3069,7 +3264,7 @@ test("post-dispatch lease checks never reacquire Squad or RPC properties", async
   });
   response.resolve(ok({ ok: false, reason: "failed_not_found" }));
 
-  const result = await checking;
+  const result = await spending;
   assert.equal(result.ok, false);
   assert.equal(result.reason, "failed_not_found");
   assert.equal(rpcGetterReads, 0);

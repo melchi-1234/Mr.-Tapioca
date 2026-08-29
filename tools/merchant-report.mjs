@@ -42,13 +42,13 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 // ── plain-English labels for the machine reason codes ────────────────────────
-// Keys are the exact `outcome` strings written by redeem_by_code() /
-// open_redemption() in both implementations. A shop owner should never be shown
-// `failed_code_expired`. Anything unknown falls through to a de-slugged label
+// Keys are the exact `outcome` strings written by redeem_reward() in both
+// implementations. A shop owner should never be shown a raw slug like
+// `failed_offer_changed`. Anything unknown falls through to a de-slugged label
 // rather than being dropped, so a new reason code cannot silently vanish from a
 // report a merchant is reading.
 const REASON_LABELS = {
-  failed_code_expired: "The code ran out before it reached the counter",
+
   failed_already_redeemed: "The reward had already been used",
   failed_expired: "The reward itself had expired",
   failed_partner_paused: "The offer was paused at that moment",
@@ -61,7 +61,7 @@ const REASON_LABELS = {
 // Short "so what" line per reason. Kept separate from the label so the table can
 // stay scannable and the explanation can be honest about the boring cause.
 const REASON_NOTES = {
-  failed_code_expired: "Codes are good for five minutes. A long line is the usual cause.",
+
   failed_already_redeemed: "A second attempt on a reward that was already spent. It was refused.",
   failed_expired: "The reward passed its own expiry date before it was used.",
   failed_partner_paused: "The shop was paused in the app, so nothing could be redeemed.",
@@ -822,22 +822,23 @@ function demoReport() {
     }
   }
 
-  function openCode(user, whenMs) {
+  // Pick the reward this student is about to spend. There is no separate open step
+  // any more (1.2.0 removed the handoff code), so this only resolves the id that
+  // the one-tap spend will name.
+  function heldReward(user, whenMs) {
     b.setUser(user);
     b.setNow(whenMs);
     b.rpc.issue_my_rewards();
     const held = b.rpc.my_reward_state().rewards.find((x) => x.status === "issued");
     if (!held) throw new Error("fixture: " + user + " has no issued reward to spend");
-    const opened = b.rpc.open_redemption({ reward_id: held.id, partner_id: U_TEA });
-    if (!opened.ok) throw new Error("fixture: open_redemption refused: " + opened.reason);
-    return opened.code;
+    return held;
   }
 
   function redeem(user, whenMs) {
-    const code = openCode(user, whenMs);
-    const done = b.rpc.redeem_by_code({ code });
-    if (!done.ok) throw new Error("fixture: redeem_by_code refused: " + done.reason);
-    return code;
+    const held = heldReward(user, whenMs);
+    const done = b.rpc.redeem_reward({ reward_id: held.id, partner_id: U_TEA });
+    if (!done.ok) throw new Error("fixture: redeem_reward refused: " + done.reason);
+    return held;
   }
 
   function expectRefused(res, reason) {
@@ -856,33 +857,52 @@ function demoReport() {
   bank(STUDENTS[2], 4, at(1, 18, 30));
   redeem(STUDENTS[2], at(1, 22, 45));
 
-  // Wed Aug 5 — one student's code times out in the queue, then they retry and it
-  // works. This is the ordinary reason an attempt fails, and the sample should
-  // show it rather than only showing clean days.
+  // Wed Aug 5 — the shop had itself paused in the app for half an hour (a rush, a
+  // staffing gap, whatever it was), so the tap is refused and the student comes
+  // back once it is live again. A sample report should show a real refusal day
+  // rather than only clean ones: "did anything go wrong at the counter" is the
+  // first question a shop asks. (This used to be a timed-out handoff code, which is
+  // no longer a thing that can happen.)
+  //
+  // NOTE for anyone tempted to make this a reworded-offer refusal instead: it will
+  // not fire here. U Tea's policy is a global_passport, so its rewards carry a NULL
+  // offer_version and the failed_offer_changed rung never applies to them. That is
+  // a real property of the passport model, not a bug in this fixture.
   bank(STUDENTS[3], 4, at(2, 13));
-  const staleCode = openCode(STUDENTS[3], at(2, 18));
-  b.advance(6 * 60000);
-  expectRefused(b.rpc.redeem_by_code({ code: staleCode }), "failed_code_expired");
+  const paused = heldReward(STUDENTS[3], at(2, 18));
+  const uTea = b.db.partners.get(U_TEA);
+  uTea.active = false;
+  expectRefused(b.rpc.redeem_reward({ reward_id: paused.id, partner_id: U_TEA }),
+                "failed_partner_paused");
+  uTea.active = true;
   redeem(STUDENTS[3], at(2, 18, 30));
 
   // Thu Aug 6 — the first student's second reward.
   redeem(STUDENTS[0], at(3, 20));
 
-  // Fri Aug 7 — a spent code is presented a second time and is refused. This is
-  // the screenshot-replay case the whole server ledger exists to stop.
+  // Fri Aug 7 — a reward already spent is tapped a second time and is refused.
+  // This is the double-spend case the whole server ledger exists to stop.
   bank(STUDENTS[4], 4, at(4, 12));
-  const spentCode = redeem(STUDENTS[4], at(4, 20));
+  const spent = redeem(STUDENTS[4], at(4, 20));
   b.setNow(at(4, 20, 5));
-  expectRefused(b.rpc.redeem_by_code({ code: spentCode }), "failed_already_redeemed");
+  expectRefused(b.rpc.redeem_reward({ reward_id: spent.id, partner_id: U_TEA }),
+                "failed_already_redeemed");
 
   // Sat Aug 8 — nothing. Left empty on purpose so the sample exercises the
   // chart's zero-fill instead of only ever showing consecutive busy days.
 
-  // Sun Aug 9 — another timed-out code, then a successful retry.
+  // Sun Aug 9 — a student taps outside the hours the shop agreed to, then comes
+  // back inside them. The window is the other refusal a shop actually cares about.
   bank(STUDENTS[5], 4, at(6, 12));
-  const stale2 = openCode(STUDENTS[5], at(6, 18));
-  b.advance(7 * 60000);
-  expectRefused(b.rpc.redeem_by_code({ code: stale2 }), "failed_code_expired");
+  const early = heldReward(STUDENTS[5], at(6, 6));
+  const shop = b.db.partners.get(U_TEA);
+  const fromWas = shop.valid_from_minute, toWas = shop.valid_to_minute;
+  shop.valid_from_minute = 10 * 60;   // 10:00
+  shop.valid_to_minute = 22 * 60;     // 22:00
+  expectRefused(b.rpc.redeem_reward({ reward_id: early.id, partner_id: U_TEA }),
+                "failed_outside_window");
+  shop.valid_from_minute = fromWas;
+  shop.valid_to_minute = toWas;
   redeem(STUDENTS[5], at(6, 18, 20));
 
   // Mon Aug 10 — a returning student's second reward, a week after their first.

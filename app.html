@@ -533,6 +533,18 @@
 
           <!-- ── Your progress (stats / streaks / collection) ──────────── -->
           <h3 class="settings-section-title">Your Progress</h3>
+          <!-- Same reward bar as the drink-complete card. It used to live only
+               inside the Boba Map sheet, which meant the single number that makes
+               this app different from every other timer was three taps deep. -->
+          <div id="settingsRewardProgress" class="reward-progress settings-reward-progress" hidden>
+            <div class="reward-progress-top">
+              <span class="reward-progress-label">Next real-shop reward</span>
+              <span id="settingsRewardProgressCount" class="reward-progress-count"></span>
+            </div>
+            <div class="reward-progress-track" role="img" aria-labelledby="settingsRewardProgressCount">
+              <div id="settingsRewardProgressFill" class="reward-progress-fill"></div>
+            </div>
+          </div>
           <div class="stats-card">
             <div class="stat-block stat-streak">
               <span class="stat-value" id="statStreak">0</span>
@@ -762,6 +774,23 @@
           <span id="rewardPearls">+0 pearls</span>
         </div>
         <div id="partnerReward" class="partner"></div>
+        <!-- Real-shop reward progress. The bar and the "3h 40m of 4h" are the same
+             number the Boba Map sheet shows, surfaced here because the drink-complete
+             screen is the one moment a student is definitely looking. Hidden entirely
+             (not shown at zero) when there is no progress to state: server mode that
+             has not synced yet genuinely does not know, and inventing a number there
+             would be the one thing this whole system exists not to do.
+             [hidden] is restated because this rule sets its own display. -->
+        <div id="rewardProgress" class="reward-progress" hidden>
+          <div class="reward-progress-top">
+            <span class="reward-progress-label">Next real-shop reward</span>
+            <span id="rewardProgressCount" class="reward-progress-count"></span>
+          </div>
+          <div class="reward-progress-track" role="img" aria-labelledby="rewardProgressCount">
+            <div id="rewardProgressFill" class="reward-progress-fill"></div>
+          </div>
+        </div>
+        
         <div class="dialog-actions">
           <!-- Share generates a cute card (native share sheet on iOS, download on
                desktop). It sits OUTSIDE the method=dialog form so tapping it does
@@ -776,24 +805,31 @@
     </dialog>
 
     <!-- Shown to a barista across the counter. Big shop name, big perk, and a
-         ticking clock so a screenshot cannot stand in for the live app. -->
+         ticking clock so a screenshot cannot stand in for the live app.
+         One tap spends it and the card flips, in place, to a stamped face the
+         barista reads. There is no code to type and nothing for the shop to
+         install: that was the promise the partnership pitch made. -->
     <dialog id="redeemDialog">
       <div class="reward-card redeem-card">
-        <div class="redeem-star" aria-hidden="true"><svg class="ico-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.7l6.1-.9L12 3.2Z"/></svg></div>
-        <p class="eyebrow">Show this at the counter</p>
+        <div id="redeemStar" class="redeem-star" aria-hidden="true">
+          <svg class="ico-lg redeem-ico-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.7l6.1-.9L12 3.2Z"/></svg>
+          <svg class="ico-lg redeem-ico-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.6l5.2 5.2L20 6.9"/></svg>
+        </div>
+        <p id="redeemEyebrow" class="eyebrow">Show this at the counter</p>
         <h2 id="redeemShop">Partner shop</h2>
         <p id="redeemAddress" class="redeem-address"></p>
         <div id="redeemPerk" class="redeem-perk"></div>
-        <!-- Server-issued handoff code. Hidden entirely unless Reward V2 is on
-             and the server actually returned one, so with the flag down this
-             element never renders and the card is exactly the v1 card. -->
-        <p id="redeemCode" class="redeem-code hidden" aria-live="polite"></p>
+        <!-- The stamped face. Empty (and display:none) until the reward is spent,
+             so an unspent card is exactly the card it has always been. It sets its
+             own display, so it carries its own :empty rule in styles.css rather
+             than relying on the global .hidden, which loses to a later display. -->
+        <p id="redeemUsed" class="redeem-used" aria-live="polite"></p>
         <p id="redeemStamp" class="redeem-stamp"></p>
         <p id="redeemNote" class="redeem-note"></p>
         <div class="dialog-actions">
-          <button id="redeemConfirmBtn" type="button" class="primary">Use one reward</button>
+          <button id="redeemConfirmBtn" type="button" class="primary">Use this reward</button>
           <form method="dialog">
-            <button class="secondary" value="cancel">Not now</button>
+            <button id="redeemDismissBtn" class="secondary" value="cancel">Not now</button>
           </form>
         </div>
       </div>

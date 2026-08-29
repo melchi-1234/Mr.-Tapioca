@@ -158,7 +158,7 @@ the below. Nothing is used for tracking.
 - Linked to identity: **No** (its row carries no name or account) / Tracking: **No**
 
 **3. Usage Data > Product Interaction**
-- Collected: Yes. (a) The drink counter sends size + minutes + platform on every finished drink (unlinked, Analytics). (b) The Study Squad profile sends focus minutes, drinks, streak, skin (linked to the account). (c) Partner rewards send planned session minutes, platform, blocking-on flags, session start/stop timing, the chosen partner shop, and redemption codes (linked to the account).
+- Collected: Yes. (a) The drink counter sends size + minutes + platform on every finished drink (unlinked, Analytics). (b) The Study Squad profile sends focus minutes, minutes focused this calendar week, drinks, streak, skin (linked to the account). (c) Partner rewards send planned session minutes, platform, blocking-on flags, session start/stop timing, the chosen partner shop, and the moment a reward was used (linked to the account). (d) **New in 1.2.0:** if and only if the user turns on "Let friends see when I'm brewing", the profile also carries a live status of focusing / break / idle and the time it last changed. It is OPT-IN and **off by default**; while it is off the record stores "idle" and no timing.
 - Purpose: App Functionality + Analytics
 - Linked to identity: **Yes** (App Store Connect takes one linked answer per type; the squad + reward portions tie it to the account) / Tracking: **No**
 
@@ -177,6 +177,14 @@ the below. Nothing is used for tracking.
 **6. Purchases > Purchase History** — answer **Not collected**.
 - The six cosmetic IAPs are pure Apple StoreKit 2. No purchase, transaction, receipt, or Apple ID is ever sent to our backend. Apple handles it under its own terms.
 
+**7. Presence — declared under Usage Data > Product Interaction above, not as its own type.**
+- New in 1.2.0. Apple has no "presence" data type; a focusing/break/idle flag with a timestamp is
+  Product Interaction, and it is linked to the account, so it rides on entry 3.
+- It is opt-in and off by default, but the App Privacy questionnaire asks whether data CAN be
+  collected, not whether it usually is. Answer yes.
+- Matching disclosure lives in privacy.html section 2 and in ios/App/App/PrivacyInfo.xcprivacy
+  (NSPrivacyCollectedDataTypeProductInteraction). All three have to agree.
+
 ### The big one
 
 **"Do you or your third-party partners use data for tracking?" No.** No third-party ads, no ad SDKs, no analytics brokers, no IDFA, no data sold, ever. There is no "Data Used to Track You" section.
@@ -186,6 +194,10 @@ the below. Nothing is used for tracking.
 - **Data Linked to You:** User ID, User Content (display name), Usage Data.
 - **Data Not Linked to You:** Device ID, Usage Data (the drink-counter portion), Precise Location.
 - **No "Data Used to Track You" section.**
+
+⚠️ Updated Aug 29 2026 for 1.2.0: opt-in Study Squad presence and the weekly leaderboard total were
+added to entry 3, and the handoff redemption code was removed from it (1.2.0 deleted the code
+entirely; redemption is now one authenticated tap, so no code is minted, stored or transmitted).
 
 ⚠️ Rewritten Aug 25 2026 after a verified data-flow audit. The earlier version was WRONG: it omitted
 the drink counter (Device ID + Usage Data, on by default) and claimed the account, display name, and

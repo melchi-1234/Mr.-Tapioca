@@ -3448,6 +3448,8 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 /* ── Redeem card (the screen a barista reads) ─────────────────────────────── */
 .redeem-card { text-align: center; }
 .redeem-star { color: var(--gold); margin-bottom: 2px; }
+/* Overridden below once the card is spent; kept here so the unspent card is
+   unchanged from what shipped. */
 .redeem-address { font-size: 0.8rem; font-weight: 800; color: var(--bark-mid); margin-top: 2px; }
 .redeem-perk {
   margin: 13px 0 9px;
@@ -3461,11 +3463,6 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   line-height: 1.25;
 }
 /* Tabular figures so the ticking seconds do not jiggle the line width. */
-/* The server-issued handoff code, in SERVER mode only. It has to be readable
-   across a counter at arm's length and unambiguous when read aloud, so it is
-   large, wide-tracked and tabular. The alphabet already drops 0/O and 1/I; the
-   spacing is what stops "8" and "B" blurring together at a glance.
-   .hidden needs restating because this rule sets its own display. */
 /* Notification settings rows. Reuses the existing .toggle switch and the
    --ui-* material; only the layout of each line is new. */
 .notify-line {
@@ -3525,21 +3522,49 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   color: inherit;
 }
 
-.redeem-code {
+/* The stamped face, shown only after the reward is actually spent. It has to
+   read across a counter at arm's length, which is why it is large and wide
+   rather than a quiet confirmation line.
+
+   :empty rather than .hidden. This rule sets its own display, and the global
+   `.hidden { display:none }` sits ABOVE the component rules in this file, so a
+   later display would silently defeat it (the same trap documented in
+   CLAUDE.md). Keying off :empty means the element cannot be shown blank at all:
+   the content IS the switch. */
+.redeem-used {
   display: block;
-  margin: 10px auto 2px;
-  padding: 10px 14px;
+  margin: 12px auto 2px;
+  padding: 10px 16px;
   max-width: max-content;
-  font-size: 34px;
+  font-size: 1.05rem;
   font-weight: 900;
-  letter-spacing: .16em;
-  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
   color: var(--bark, #3c2018);
   background: rgba(255, 255, 255, .72);
   border: 2px solid rgba(60, 32, 24, .18);
   border-radius: 14px;
 }
-.redeem-code.hidden { display: none; }
+.redeem-used:empty { display: none; }
+
+/* The star and the tick share one slot and cross-fade, so the card changes face
+   without the layout jumping under the barista's eyes. */
+.redeem-star { position: relative; display: inline-flex; }
+.redeem-star .redeem-ico-check { position: absolute; inset: 0; opacity: 0; }
+#redeemDialog.is-used .redeem-star { color: var(--teal, #2f8f83); }
+#redeemDialog.is-used .redeem-ico-star { opacity: 0; }
+#redeemDialog.is-used .redeem-ico-check { opacity: 1; }
+.redeem-star svg { transition: opacity 220ms ease; }
+@media (prefers-reduced-motion: reduce) { .redeem-star svg { transition: none; } }
+
+/* A spent card stops advertising itself as spendable: the perk goes quiet and
+   the primary button steps out of the way of the stamp. */
+#redeemDialog.is-used .redeem-perk {
+  border-style: solid;
+  border-color: var(--line);
+  background: rgba(60,32,24,0.05);
+  color: var(--bark-mid);
+}
+#redeemDialog.is-used #redeemConfirmBtn { display: none; }
 
 .redeem-stamp {
   font-size: 0.78rem;
@@ -3570,6 +3595,63 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
 }
 #redeemDialog.not-ready .redeem-perk { border-color: var(--line); background: rgba(60,32,24,0.05); color: var(--bark-mid); }
 #redeemConfirmBtn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Real-shop reward progress bar ───────────────────────────────────────────
+   One component, two homes: the drink-complete card and the Settings sheet. Built
+   from the shared --ui-* material rather than a one-off gradient, so it belongs to
+   the same UI as everything else.
+
+   [hidden] is restated because this rule sets its own display, and the global
+   `.hidden`/[hidden] handling sits above the component rules in this file. */
+.reward-progress {
+  display: block;
+  margin: 10px 0 2px;
+  padding: 10px 12px 11px;
+  border-radius: 14px;
+  border: var(--ui-edge, 2px solid rgba(60,32,24,.18));
+  background: rgba(255,255,255,.55);
+  text-align: left;
+}
+.reward-progress[hidden] { display: none; }
+.settings-reward-progress { margin: 0 0 12px; background: var(--ui-paper, rgba(255,255,255,.55)); }
+
+.reward-progress-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+.reward-progress-label {
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--bark-mid);
+}
+.reward-progress-count {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: var(--bark, #3c2018);
+  font-variant-numeric: tabular-nums;   /* the number changes; the line must not jiggle */
+}
+.reward-progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(60,32,24,.12);
+  overflow: hidden;
+}
+.reward-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--teal, #2f8f83), var(--gold, #f0b429));
+  transition: width 520ms cubic-bezier(.22,.9,.3,1);
+}
+@media (prefers-reduced-motion: reduce) { .reward-progress-fill { transition: none; } }
+/* A full bar is a reward in hand, so let it read as gold rather than a gradient
+   that happens to end there. */
+.reward-progress.is-full .reward-progress-fill { background: var(--gold, #f0b429); }
 
 /* ── Pearl economy info card (Settings sheet) ───────────────────────────── */
 .pearl-info-card {

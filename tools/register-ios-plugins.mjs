@@ -17,6 +17,11 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 const CONFIG = "ios/App/App/capacitor.config.json";
 const LOCAL_PLUGIN_CLASSES = [
   "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+  // WidgetStats writes the Home Screen widget's three numbers into the App Group.
+  // Missing from this list, the class is never instantiated and
+  // window.Capacitor.Plugins.WidgetStats is undefined with no error anywhere —
+  // the widget would just sit on placeholders forever.
+  "WidgetStatsPlugin",
   "LocalNotificationsPlugin",
 ];
 

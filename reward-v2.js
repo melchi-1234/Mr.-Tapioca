@@ -26,14 +26,18 @@
   const SET_CLEAR = Set.prototype.clear;
   const SET_DELETE = Set.prototype.delete;
   const SET_HAS = Set.prototype.has;
-  const OPEN_REFUSALS = new Set([
+  // Every refusal the single redeem_reward RPC can return, and nothing else. An
+  // unlisted reason is treated as a malformed response rather than passed through,
+  // so a server that starts saying something new is caught here instead of putting
+  // an untranslated slug in front of a student at a counter.
+  //
+  // The 1.2.0 handoff-code removal took two reasons with it: failed_code_expired
+  // (there is no five-minute code to time out) and failed_code_unavailable (nothing
+  // is minted). failed_wrong_partner moves the other way — with no separate open
+  // step it is now reachable at the tap.
+  const REDEEM_REFUSALS = new Set([
     "failed_not_found", "failed_partner_paused", "failed_already_redeemed",
     "failed_expired", "failed_wrong_partner", "failed_offer_changed",
-    "failed_capped", "failed_outside_window", "failed_code_unavailable",
-  ]);
-  const CODE_REFUSALS = new Set([
-    "failed_not_found", "failed_already_redeemed", "failed_code_expired",
-    "failed_partner_paused", "failed_expired", "failed_offer_changed",
     "failed_capped", "failed_outside_window",
   ]);
 
@@ -833,33 +837,26 @@
       typeof value.reason === "string" && allowed.has(value.reason);
   }
 
-  function validOpen(value) {
-    if (domainRefusal(value, OPEN_REFUSALS)) return true;
-    return owns(value, ["ok", "code", "expires_at", "server_time", "partner_name",
-      "offer_text", "offer_version", "cashier_note", "bar_minutes"]) &&
-      value.ok === true && typeof value.code === "string" &&
-      /^[A-Z2-9]{6}$/.test(value.code) && validDate(value.expires_at, false) &&
-      validDate(value.server_time, false) && typeof value.partner_name === "string" &&
-      typeof value.offer_text === "string" && finiteInteger(value.offer_version, 1) &&
-      typeof value.cashier_note === "string" && finiteInteger(value.bar_minutes, 15) &&
-      value.bar_minutes <= 1440;
-  }
-
+  // The one redemption response shape.
+  //
+  // exactOwnKeys, NOT owns. owns() only checks the listed keys are PRESENT, so a
+  // refusal carrying an extra partner_name and offer_text would sail through it —
+  // which is precisely the leak the server was tightened to stop, and a rule
+  // enforced only on the server is a rule the client is not actually holding.
+  // Exact keys in both directions means a server that starts adding a field is
+  // caught here rather than half-trusted.
+  //
+  // bar_minutes is required on success and is the reason this validator cares: it
+  // is the reward's own issuance bar, it reaches the client ONLY here, and the
+  // post-redemption share card refuses to render without a finite positive number.
   function validRedeem(value) {
-    if (domainRefusal(value, CODE_REFUSALS)) return true;
-    return owns(value, ["ok", "partner_name", "offer_text", "cashier_note", "redeemed_at",
-      "server_time"]) && value.ok === true && typeof value.partner_name === "string" &&
+    if (exactOwnKeys(value, ["ok", "reason"]) && domainRefusal(value, REDEEM_REFUSALS)) return true;
+    return exactOwnKeys(value, ["ok", "partner_name", "offer_text", "cashier_note", "bar_minutes",
+      "redeemed_at", "server_time"]) && value.ok === true &&
+      typeof value.partner_name === "string" &&
       typeof value.offer_text === "string" && typeof value.cashier_note === "string" &&
+      finiteInteger(value.bar_minutes, 15) && value.bar_minutes <= 1440 &&
       validDate(value.redeemed_at, false) && validDate(value.server_time, false);
-  }
-
-  function validCheck(value) {
-    if (domainRefusal(value, CODE_REFUSALS)) return true;
-    return owns(value, ["ok", "reason", "partner_name", "offer_text", "cashier_note",
-      "server_time", "expires_at"]) && value.ok === true && value.reason === null &&
-      typeof value.partner_name === "string" && typeof value.offer_text === "string" &&
-      typeof value.cashier_note === "string" && validDate(value.server_time, false) &&
-      validDate(value.expires_at, false);
   }
 
   function validRpcData(fn, data, args) {
@@ -867,9 +864,7 @@
     if (fn === "complete_reward_session" || fn === "abandon_reward_session") return validClose(data, args);
     if (fn === "issue_my_rewards") return Array.isArray(data) && data.every(validIssueRow);
     if (fn === "my_reward_state") return validState(data);
-    if (fn === "open_redemption") return validOpen(data);
-    if (fn === "redeem_by_code") return validRedeem(data);
-    if (fn === "check_code") return validCheck(data);
+    if (fn === "redeem_reward") return validRedeem(data);
     return false;
   }
 
@@ -1667,53 +1662,32 @@
     return { ok: false, reason: "ambiguous", message: message || null };
   }
 
-  RewardV2.openRedemption = async function (rewardId, partnerId) {
-    const result = await rpc("open_redemption", {
+  // ONE call. 1.2.0 collapsed openRedemption + redeemByCode + checkCode into this,
+  // and with them the six-character cashier handoff. There is nothing to open and
+  // nothing to check: the reward's owner taps once and the server either spends it
+  // or says why not, in a single transaction.
+  //
+  // Every lease re-check below is load-bearing and is copied deliberately from the
+  // old redeemByCode. `refresh()` awaits, and an await is exactly where the
+  // anonymous account underneath us can be replaced (account deletion, a sign-out).
+  // Publishing a success against a replaced account would credit the wrong person's
+  // ledger, so the lease is re-checked before the refresh, after it, and again
+  // before the value is handed back.
+  RewardV2.redeem = async function (rewardId, partnerId) {
+    const result = await rpc("redeem_reward", {
       p_reward_id: rewardId,
       p_partner_id: partnerId,
     });
-    if (result.lease && !requireRpcLease(result.lease, "open_redemption", !!result.attempted)) {
+    if (result.lease && !requireRpcLease(result.lease, "redeem_reward", !!result.attempted)) {
       return ambiguousRedemption(null);
     }
     if (!result.ok) return ambiguousRedemption(null);
-    if (!requireRpcLease(result.lease, "open_redemption", true)) return ambiguousRedemption(null);
-    return result.data;
-  };
-
-  RewardV2.redeemByCode = async function (code) {
-    const result = await rpc("redeem_by_code", {
-      p_code: String(code || "").trim().toUpperCase(),
-    });
-    if (result.lease && !requireRpcLease(result.lease, "redeem_by_code", !!result.attempted)) {
-      return { ok: false, reason: "ambiguous" };
-    }
-    if (!result.ok) return { ok: false, reason: "ambiguous" };
-    if (!requireRpcLease(result.lease, "redeem_by_code", true)) {
-      return { ok: false, reason: "ambiguous" };
-    }
+    if (!requireRpcLease(result.lease, "redeem_reward", true)) return ambiguousRedemption(null);
     if (result.data.ok) {
       await RewardV2.refresh();
-      if (!requireRpcLease(result.lease, "redeem_by_code", true)) {
-        return { ok: false, reason: "ambiguous" };
-      }
+      if (!requireRpcLease(result.lease, "redeem_reward", true)) return ambiguousRedemption(null);
     }
-    if (!requireRpcLease(result.lease, "redeem_by_code", true)) {
-      return { ok: false, reason: "ambiguous" };
-    }
-    return result.data;
-  };
-
-  RewardV2.checkCode = async function (code) {
-    const result = await rpc("check_code", {
-      p_code: String(code || "").trim().toUpperCase(),
-    });
-    if (result.lease && !requireRpcLease(result.lease, "check_code", !!result.attempted)) {
-      return { ok: false, reason: "ambiguous" };
-    }
-    if (!result.ok) return { ok: false, reason: "ambiguous" };
-    if (!requireRpcLease(result.lease, "check_code", true)) {
-      return { ok: false, reason: "ambiguous" };
-    }
+    if (!requireRpcLease(result.lease, "redeem_reward", true)) return ambiguousRedemption(null);
     return result.data;
   };
 

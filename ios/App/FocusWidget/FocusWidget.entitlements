@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The App Group, and ONLY the App Group. Every other target in this project
+	     also carries com.apple.developer.family-controls; this one deliberately does
+	     not. The widget reads three numbers out of shared UserDefaults and has no
+	     business touching Screen Time. The archive verifier enforces that asymmetry
+	     rather than trusting it. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.melchior.mrtapioca</string>
+	</array>
+</dict>
+</plist>

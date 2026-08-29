@@ -21,27 +21,51 @@
 // to the invariant it now defends, and strike the finding here — keeping the
 // finding number in the test's comment so the history stays traceable.
 //
-// CLOSED since the red-team pass: 1, 2 (mid-handoff half), 4, 5, 6, 7, 8, 9, 10,
-// 11, 12, 13, 14 and 15. Each has a test above renamed to the invariant it now
-// defends, keeping its finding number in the comment so the history stays
-// traceable. Twelve of the fourteen original holes are shut.
+// ── WHAT 1.2.0 DID TO THIS FILE ──────────────────────────────────────────────
+// The six-character cashier handoff is gone: open_redemption, check_code and
+// redeem_by_code went with the redemption_handoffs table and the cashier page, and
+// public.redeem_reward(reward_id, partner_id) is the only consuming call left. It
+// is authenticated-only, and rendering the card now touches no server at all.
 //
-// STILL OPEN. Both are BUSINESS CALLS, not code defects, which is why they are
-// still here: closing either one decides something about the product that is not
-// mine to decide. Each has a green test asserting the true current behaviour, so
-// closing one will turn its test red on purpose.
+// Whole attacks in here existed ONLY because a code existed: a five-minute window
+// a reward could die inside, two screens both reading VALID, a code colliding with
+// a consumed row, the read-only check disagreeing with the spend. Those are struck.
+// Every attack that was about the REWARD — caps, windows, the wrong shop, a paused
+// shop, a reworded offer, expiry, ownership, double spend — survives here re-aimed
+// at redeem_reward, because not one of them ever depended on the code.
 //
-//   FINDING 2  (RESIDUE ONLY) the mid-handoff half is FIXED: the handoff pins the
-//              shop's offer_version at open and spend checks it, so a shop that
-//              changes its offer while a card is live is caught. A passport reward
-//              still carries offer_version NULL of its own, so an offer changed
-//              BEFORE the card is opened is honoured at the NEW wording.
-//              THE QUESTION: a global passport promises "a perk at any partner",
-//              not "this exact perk". If that is the intent, this is correct
-//              behaviour and not a bug. If a passport should freeze the wording it
-//              was earned against, issue_my_rewards has to record a version, and
-//              then it needs a shop, which a passport does not have until the card
-//              is opened. That is a product decision.
+// And the merge OPENS surface, which is the more interesting half. The tap now
+// carries a reward id and a partner id, both attacker-chosen, over the caller's own
+// authenticated session. Ownership and the shop match are the only things between
+// a signed-in stranger and somebody else's drink, so they are attacked below from
+// every direction: a stolen id, an invented id, a friend reading a shared screen, a
+// partner id that names another shop, and a partner id that names nothing.
+//
+// CLOSED since the red-team pass: 1, 4, 5, 6, 7, 8, 9, 10, 11, 13 and 14. Each has
+// a test above renamed to the invariant it now defends, keeping its finding number
+// in the comment so the history stays traceable.
+//
+// STRUCK BY THE MERGE rather than fixed: 12 (a handoff code colliding with a
+// consumed row) and 15 (the read-only check disagreeing with the spend). Both were
+// properties of the code table. There is no code table. Finding 15's successor is
+// the completeness guard in section 5: one refusal ladder, all eight reasons.
+//
+// STILL OPEN. All three are BUSINESS CALLS, not code defects, which is why they are
+// still here: closing any one of them decides something about the product that is
+// not mine to decide. Each has a green test asserting the true current behaviour,
+// so closing one will turn its test red on purpose.
+//
+//   FINDING 2  a passport reward carries offer_version NULL of its own, so it is
+//              honoured at whatever wording the shop's row says AT THE TAP. The
+//              mid-handoff half of this finding is not so much fixed as gone: the
+//              shop row is read under the same lock as the write, so there is no
+//              gap left for a reword to land in. What survives is the original
+//              question. A global passport promises "a perk at any partner", not
+//              "this exact perk". If that is the intent, this is correct behaviour
+//              and not a bug. If a passport should freeze the wording it was earned
+//              against, issue_my_rewards has to record a version, and then it needs
+//              a shop, which a passport does not have until the tap. That is a
+//              product decision.
 //
 //   FINDING 3  a shop joining a passport policy is instantly liable for every
 //              reward every existing user has already banked. There is no join
@@ -53,6 +77,16 @@
 //              friendlier to students and riskier for the shop. It is the same
 //              decision as global_passport vs partner_specific, which is
 //              LEDGER.md's open decision 1, and it should be answered once.
+//
+//   FINDING 16 FOUND BY THIS SUITE DURING THE MERGE, AND FIXED. The first version
+//              of redeem_reward logged every refusal against the partner the tap
+//              named, including a refusal for a reward id that resolved to nothing,
+//              so a signed-in account could push failed_not_found rows into one
+//              shop's rejection list by tapping garbage at it. Nothing of value
+//              moved, but the merchant report is the one artifact a shop is handed
+//              as a factual account of its own counter. A refusal is now attributed
+//              to a shop only when the tap actually reached one of its offers;
+//              unresolvable taps are still logged, with no partner attached.
 //
 // HOW TO READ A RED TEST HERE: a failing test in this file usually means somebody
 // CLOSED a hole, not that they broke something. Do not "fix the test" by weakening
@@ -70,6 +104,11 @@ const RC = require("../reward-config.js");
 // actually signed before it is checked against anything invented.
 const LIVE_PARTNERS = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "partners.json"), "utf8"));
+// Read for ONE assertion, in the racing test below. reward-mock.js is
+// single-threaded, so it cannot execute the thing that decides a real race; the
+// conditional UPDATE that does is a database guarantee and lives only here.
+const REWARD_SQL = fs.readFileSync(
+  path.join(__dirname, "..", "supabase-reward-v2.sql"), "utf8");
 
 const T0 = Date.UTC(2026, 7, 12, 14, 0, 0);   // 2026-08-12 14:00 UTC, a Wednesday
 const MIN = 60000;
@@ -158,73 +197,100 @@ test("a completion that lands before its start is refused, and the later start s
   assert.equal(b.rpc.start_reward_session({ session_id: id, planned_minutes: 60, platform: "ios" }).ok, true);
 });
 
-test("a reward minted while a code is live does not ride that code to the counter", () => {
-  // Issue lands BETWEEN open and redeem. The handoff names one reward id, so the
-  // spend must consume that one and leave the new one in hand.
+test("a reward minted between the card opening and the tap is not the one spent", () => {
+  // Issue lands BETWEEN the card being rendered and the tap. A redemption is
+  // addressed by reward id, so the tap must consume the id the card was built from
+  // and leave the new one in hand. This attack used to ride a live handoff code;
+  // the code is gone and the id it named is passed directly now, which is the same
+  // attack with one fewer indirection.
   //
   // The second reward has to be REAL for this to test anything. It comes from a
-  // second honest 240 minutes banked but not yet issued when the card is opened,
-  // so issue_my_rewards mints it mid-handoff. (This setup used to lower the
-  // policy bar to 120 to conjure the extra reward out of the same 240 minutes.
-  // That was FINDING 4 and it is fixed, so it conjures nothing now.)
+  // second honest 240 minutes banked but not yet issued when the card opens, so
+  // issue_my_rewards mints it while the student is still walking to the counter.
+  // (This setup used to lower the policy bar to 120 to conjure the extra reward out
+  // of the same 240 minutes. That was FINDING 4 and it is fixed, so it conjures
+  // nothing now.)
   const b = backend();
   const first = earn(b, 1)[0];
   creditMinutes(b, 240);                                         // banked, deliberately not issued yet
-  const open = b.rpc.open_redemption({ reward_id: first.id, partner_id: U_TEA });
+  const held = first.id;                                         // what the open card is holding
+  assert.equal(b.db.events.length, 0,
+    "openRedeem makes no network call, so there is no pre-tap server state to race");
   const all = b.rpc.issue_my_rewards();                          // a second reward appears
-  assert.equal(all.length, 2, "the setup needs a genuinely new reward mid-handoff");
+  assert.equal(all.length, 2, "the setup needs a genuinely new reward mid-walk");
   b.advance(MIN);
-  assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
+  assert.equal(b.rpc.redeem_reward({ reward_id: held, partner_id: U_TEA }).ok, true);
   assert.equal(b.db.rewards.filter((r) => r.status === "redeemed").length, 1);
   assert.equal(b.db.rewards.filter((r) => r.status === "issued").length, 1);
   assert.equal(b.db.rewards.find((r) => r.status === "redeemed").id, first.id,
-    "the code spent the reward it names, not the one minted after it");
+    "the tap spent the reward the card named, not the one minted after it");
 });
 
-test("one reward opened at two shops at once still buys exactly one drink", () => {
-  // Two live codes, two counters, both reading VALID at the same instant. This is
-  // the queue-jumping attack: get both baristas to look at a valid screen, then
-  // hope both honour it. Exactly one spend may succeed.
+test("one reward tapped at two shops still buys exactly one drink", () => {
+  // The queue-jumping attack: get two counters to honour one reward. It used to
+  // need two live codes and two baristas looking at a valid screen at the same
+  // instant; now the app can simply be pointed at the second shop after the first
+  // tap, which is easier to do by accident, not harder. Exactly one spend may win.
   const b = backend();
   const r = earn(b, 1)[0];
-  const atUTea = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  const atDream = b.rpc.open_redemption({ reward_id: r.id, partner_id: DREAM });
-  assert.notEqual(atUTea.code, atDream.code, "a different shop gets its own code");
-  assert.equal(b.rpc.check_code({ code: atUTea.code }).ok, true);
-  assert.equal(b.rpc.check_code({ code: atDream.code }).ok, true, "both screens read VALID at once");
-  assert.equal(b.rpc.redeem_by_code({ code: atUTea.code }).ok, true);
-  const second = b.rpc.redeem_by_code({ code: atDream.code });
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true);
+  const second = b.rpc.redeem_reward({ reward_id: r.id, partner_id: DREAM });
   assert.equal(second.ok, false);
   assert.equal(second.reason, "failed_already_redeemed");
+  assert.deepEqual(Object.keys(second).sort(), ["ok", "reason"],
+    "and the second shop's own wording is not read back to a tap it refused");
   assert.equal(b.db.rewards.filter((r2) => r2.status === "redeemed").length, 1);
+  assert.equal(b.db.rewards[0].redeemed_partner_id, U_TEA, "the first shop is the one on the ledger");
 });
 
-test("eight racing spends of two live codes for one reward resolve to one redemption", () => {
+test("eight racing taps of one reward, alternating shops, resolve to one redemption", () => {
+  // Two taps landing in the same instant is exactly what the conditional UPDATE is
+  // for: `where r.id = ... and r.status = 'issued'` with `get diagnostics row_count`
+  // deciding which caller actually wrote (supabase-reward-v2.sql section 9; the
+  // status re-read in reward-mock.js redeemReward). Eight of them, alternating
+  // shops, so a per-partner lock cannot be what is saving it.
   const b = backend();
   const r = earn(b, 1)[0];
-  const a = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  const c = b.rpc.open_redemption({ reward_id: r.id, partner_id: DREAM });
-  const codes = [a.code, c.code, a.code, c.code, a.code, c.code, a.code, c.code];
-  const wins = codes.map((code) => b.rpc.redeem_by_code({ code })).filter((x) => x.ok);
-  assert.equal(wins.length, 1);
+  const shops = [U_TEA, DREAM, U_TEA, DREAM, U_TEA, DREAM, U_TEA, DREAM];
+  const results = shops.map((partner_id) => b.rpc.redeem_reward({ reward_id: r.id, partner_id }));
+  assert.equal(results.filter((x) => x.ok).length, 1);
+  assert.equal(results.filter((x) => x.reason === "failed_already_redeemed").length, 7,
+    "every loser is told the same true thing, not a different story per shop");
+  assert.equal(b.db.rewards.filter((x) => x.status === "redeemed").length, 1);
+
+  // HONEST SCOPE, and it is worth being blunt about here of all places: the eight
+  // taps above ran one after another, because JS is single-threaded. The mock
+  // re-reads the status before writing purely to MIRROR the SQL, and deleting that
+  // re-read does not redden a single test in this file, because validateFor has
+  // already seen 'redeemed' by then. Eight genuinely simultaneous taps are decided
+  // by Postgres, so the guarantee is asserted against the statement that carries
+  // it: the write is conditional on the row still being 'issued', and row_count
+  // tells the loser it lost.
+  const spend = REWARD_SQL.slice(
+    REWARD_SQL.indexOf("create or replace function public.redeem_reward("));
+  assert.match(spend, /update\s+public\.reward_instances\s+r[\s\S]*?where\s+r\.id\s*=\s*p_reward_id\s+and\s+r\.status\s*=\s*'issued'/i,
+    "the spend must be conditional on the reward still being issued");
+  assert.match(spend, /get\s+diagnostics\s+v_hit\s*=\s*row_count[\s\S]*?if\s+v_hit\s*=\s*0\s+then[\s\S]*?'failed_already_redeemed'/i,
+    "and the caller that wrote nothing must be told it redeemed nothing");
 });
 
-test("a reward that expires between opening the card and paying is refused at the counter", () => {
-  // The handoff code is only five minutes old and perfectly valid. The reward
-  // behind it is not. Checking only the code is how a cashier honours a dead reward.
+test("a reward that expires between the card opening and the tap is refused at the counter", () => {
+  // The card is rendered from the local partner snapshot with no network call, so
+  // it can sit on a screen in a queue while the reward behind it dies. The tap is
+  // the only thing that talks to the server, so the tap is where expiry has to be
+  // caught. (Before 1.2.0 the same test read "the handoff code is only five minutes
+  // old and perfectly valid; the reward behind it is not".)
   const b = backend({
     policies: [{ id: "short", kind: "global_passport", required_minutes: 240, expires_days: 1 }],
     partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink", policy_id: "short" }],
   });
   const r = earn(b, 1, 240)[0];
   assert.ok(r.expires_at, "the setup needs an expiring policy");
-  b.setNow(r.expires_at - 60000);                       // one minute of life left
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  assert.equal(open.ok, true);
-  b.advance(2 * MIN);                                   // reward dies, code does not
-  assert.ok(open.expires_at > b.now(), "the code must still be inside its own window");
-  assert.equal(b.rpc.check_code({ code: open.code }).reason, "failed_expired");
-  assert.equal(b.rpc.redeem_by_code({ code: open.code }).reason, "failed_expired");
+  b.setNow(r.expires_at - 60000);                       // one minute of life left, card goes on screen
+  b.advance(2 * MIN);                                   // the queue is slow and the reward dies in it
+  const late = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  assert.equal(late.ok, false);
+  assert.equal(late.reason, "failed_expired");
   assert.equal(b.db.rewards[0].status, "issued", "a refusal must not burn the reward");
 });
 
@@ -244,16 +310,25 @@ test("minutes still inside an unfinished session cannot be spent", () => {
   assert.equal(b.rpc.issue_my_rewards().length, 1);
 });
 
-test("reopening after a refusal does not resurrect the old code", () => {
+test("a refusal is not sticky: the reward still spends once the reason for it clears", () => {
+  // What survives of "a dead code must not be handed back as live". The five-minute
+  // code that test was about is gone, so the attack is now the other shape: a
+  // refusal must not quietly consume, poison or half-spend the reward, and the same
+  // reward id must work again the moment the reason goes away. A shop pausing for
+  // an hour must not cost a student the reward.
   const b = backend();
   const r = earn(b, 1)[0];
-  const first = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.advance(6 * MIN);
-  assert.equal(b.rpc.redeem_by_code({ code: first.code }).reason, "failed_code_expired");
-  const second = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  assert.notEqual(second.code, first.code, "a dead code must not be handed back as live");
-  assert.equal(b.rpc.redeem_by_code({ code: first.code }).reason, "failed_code_expired");
-  assert.equal(b.rpc.redeem_by_code({ code: second.code }).ok, true);
+  b.db.partners.get(U_TEA).active = false;
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).reason,
+    "failed_partner_paused");
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).reason,
+    "failed_partner_paused", "and hammering it changes nothing");
+  assert.equal(b.db.rewards[0].status, "issued");
+
+  b.db.partners.get(U_TEA).active = true;
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true);
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).reason,
+    "failed_already_redeemed", "and once it is spent it stays spent");
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -262,29 +337,63 @@ test("reopening after a refusal does not resurrect the old code", () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 test("a stolen reward id and an invented one produce byte-identical refusals", () => {
-  // The oracle test. If refusing someone else's real reward looks different from
-  // refusing a uuid that never existed, an attacker can enumerate which ids are
-  // real, and a real id plus a shop name is enough to tell a barista a story.
+  // The oracle test, and it matters MORE since 1.2.0 than it did before. The spend
+  // is addressed by reward id over the caller's own authenticated session, so
+  // naming somebody else's id is the first thing anyone will try. If refusing a
+  // real id looked different from refusing a uuid that never existed, an attacker
+  // could enumerate which ids are real, and a real id plus a shop name is enough to
+  // tell a barista a story.
   const b = backend();
   const r = earn(b, 1)[0];
   b.setUser("attacker");
-  const stolen = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  const invented = b.rpc.open_redemption({ reward_id: uuid(), partner_id: U_TEA });
+  const stolen = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  const invented = b.rpc.redeem_reward({ reward_id: uuid(), partner_id: U_TEA });
   assert.equal(stolen.ok, false);
   assert.deepEqual(stolen, invented, "a real id must be indistinguishable from a fake one");
   assert.equal(stolen.reason, "failed_not_found");
+  // And the probe spends nothing: ownership is checked before anything is written
+  // (supabase-reward-v2.sql section 9, `if not found or v_r.user_id <> v_me`).
+  assert.equal(b.db.rewards[0].status, "issued");
+  assert.equal(b.db.rewards[0].user_id, "user-anon-1");
 });
 
-test("a refusal carries no shop name, offer text or expiry to learn from", () => {
+test("a refusal carries no shop name or offer text, and a success carries exactly seven fields", () => {
+  // The old redeem_by_code answered some refusals with partner_name and offer_text
+  // still attached, which handed a shop's wording to a tap that was never valid
+  // there. redeem_reward returns the reason and nothing else
+  // (supabase-reward-v2.sql section 9, the jsonb_build_object on the refusal path;
+  // `return fail(reason)` in reward-mock.js redeemReward), and that tightening is
+  // deliberate, so a test asserting the old leak would now be asserting a bug.
   const b = backend();
   const r = earn(b, 1)[0];
   b.setUser("attacker");
-  const stolen = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  assert.deepEqual(Object.keys(stolen).sort(), ["ok", "reason"]);
+  assert.deepEqual(Object.keys(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA })).sort(),
+    ["ok", "reason"], "someone else's reward teaches the attacker nothing about the shop");
+
   b.setUser("user-anon-1");
   b.db.partners.get(U_TEA).active = false;
-  const paused = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
+  const paused = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
   assert.deepEqual(Object.keys(paused).sort(), ["ok", "reason"], "even our own refusal stays terse");
+
+  // The riskiest refusal of the lot: one that happens AFTER the partner row has
+  // been read and locked, so the shop's wording is sitting right there in a
+  // variable, one careless jsonb_build_object away from the response.
+  b.db.partners.get(U_TEA).active = true;
+  b.db.partners.get(DREAM).policy_id = "some-other-policy";
+  const wrong = b.rpc.redeem_reward({ reward_id: r.id, partner_id: DREAM });
+  assert.equal(wrong.reason, "failed_wrong_partner");
+  assert.deepEqual(Object.keys(wrong).sort(), ["ok", "reason"]);
+  assert.equal(JSON.stringify(wrong).indexOf("Dream"), -1, "not even the shop's name");
+
+  // The contrast, and the whole input to the share card: a SUCCESS carries the shop
+  // details and the minutes, and only those. Nothing here identifies the student.
+  const ok = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  assert.equal(ok.ok, true);
+  assert.deepEqual(Object.keys(ok).sort(),
+    ["bar_minutes", "cashier_note", "offer_text", "ok", "partner_name", "redeemed_at", "server_time"]);
+  assert.equal(ok.partner_name, "U Tea");
+  assert.equal(ok.offer_text, "10% off your drink");
+  assert.equal(JSON.stringify(ok).indexOf("user-anon-1"), -1);
 });
 
 test("another account sees nothing of ours in my_reward_state", () => {
@@ -298,7 +407,7 @@ test("another account sees nothing of ours in my_reward_state", () => {
   assert.equal(JSON.stringify(theirs).indexOf("user-anon-1"), -1, "no other account id leaks");
 });
 
-test("switching users between issue and open cannot move a reward", () => {
+test("switching users between issue and redeem cannot move a reward", () => {
   const b = backend();
   creditMinutes(b, 240);
   b.setUser("attacker");
@@ -307,20 +416,39 @@ test("switching users between issue and open cannot move a reward", () => {
   const mine = b.rpc.issue_my_rewards();
   assert.equal(mine.length, 1);
   assert.equal(mine[0].user_id, "user-anon-1");
+
+  // And they cannot spend it either. That half used to be structurally
+  // uncheckable, because redeem_by_code was anon and the code was the credential.
+  b.setUser("attacker");
+  assert.equal(b.rpc.redeem_reward({ reward_id: mine[0].id, partner_id: U_TEA }).reason,
+    "failed_not_found");
+  assert.equal(b.db.rewards[0].status, "issued");
 });
 
-test("a friend holding the six-character code CAN spend it, and it is still one drink", () => {
-  // Documented, not a defect: supabase-reward-v2.sql's closing block says a live
-  // screen share inside the five minutes works. redeem_by_code is deliberately
-  // callable by anon, because the cashier has no account and installs nothing.
-  // Pinned here so nobody later "fixes" it by adding an auth check that would
-  // break every real counter.
+test("a friend who can see the card CANNOT spend it any more, and that is the 1.2.0 change", () => {
+  // THIS TEST USED TO ASSERT THE OPPOSITE, and it was right then:
+  // supabase-reward-v2.sql's closing block said a live screen share inside the five
+  // minutes worked, redeem_by_code was deliberately anon-callable because the
+  // cashier has no account and installs nothing, and holding the code WAS the
+  // credential. Ownership could not be checked on that path at all.
+  //
+  // Removing the code made the system stricter, not looser: the spend runs over the
+  // owner's own authenticated session and `v_r.user_id <> v_me` is the first thing
+  // redeem_reward looks at. Anyone reading a shared screen now sees a card they
+  // cannot spend. Pinned here so the inversion is a decision on the record rather
+  // than something that quietly happened.
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
   b.setUser("some-friend");
-  assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
-  assert.equal(b.db.rewards[0].user_id, "user-anon-1", "it is still the owner's reward that burned");
+  const shared = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  assert.equal(shared.ok, false);
+  assert.equal(shared.reason, "failed_not_found");
+  assert.equal(b.db.rewards[0].status, "issued", "the owner still has their reward");
+  assert.equal(b.db.rewards[0].user_id, "user-anon-1");
+
+  b.setUser("user-anon-1");
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true,
+    "and the owner can still spend it, so this refuses the friend and not the reward");
   assert.equal(b.db.rewards.filter((x) => x.status === "redeemed").length, 1);
 });
 
@@ -330,8 +458,7 @@ test("one account's spend does not touch another account's identical reward", ()
   b.setUser("student-2");
   const theirs = earn(b, 1)[0];
   b.setUser("user-anon-1");
-  const open = b.rpc.open_redemption({ reward_id: mine.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: mine.id, partner_id: U_TEA });
   assert.equal(b.db.rewards.find((r) => r.id === mine.id).status, "redeemed");
   assert.equal(b.db.rewards.find((r) => r.id === theirs.id).status, "issued");
 });
@@ -536,8 +663,7 @@ test("issuing after a redemption does not refill the slot that was spent", () =>
   // its own replacement and one threshold would buy unlimited drinks.
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
   for (let i = 0; i < 10; i++) b.rpc.issue_my_rewards();
   assert.equal(b.db.rewards.length, 1);
   assert.equal(b.db.rewards.filter((x) => x.status === "issued").length, 0);
@@ -549,7 +675,7 @@ test("a voided reward is not reissued and cannot be spent", () => {
   b.db.rewards[0].status = "void";
   const after = b.rpc.issue_my_rewards();
   assert.equal(after.length, 1, "void still occupies its seq, so no replacement is minted");
-  assert.equal(b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA }).reason, "failed_not_found");
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).reason, "failed_not_found");
 });
 
 test("web minutes cannot be laundered into a reward by mixing them with native ones", () => {
@@ -580,8 +706,7 @@ test("lowering a policy's bar cannot re-mint rewards out of minutes already spen
   // Every minute is spent exactly once, whatever the bar was at the time.
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
   assert.equal(b.eligibleMinutes(), 240);
 
   b.db.policies.get("ithaca-passport").required_minutes = 60;
@@ -611,7 +736,8 @@ test("raising a policy's bar never revokes a reward already in hand", () => {
   assert.equal(after.length, 1);
   assert.equal(after[0].id, before.id);
   assert.equal(after[0].status, "issued");
-  assert.equal(b.rpc.open_redemption({ reward_id: before.id, partner_id: U_TEA }).ok, true);
+  assert.equal(b.rpc.redeem_reward({ reward_id: before.id, partner_id: U_TEA }).ok, true,
+    "and it is still spendable at the bar it was earned at");
 });
 
 test("a policy added later issues against minutes banked before it existed", () => {
@@ -627,6 +753,31 @@ test("a policy added later issues against minutes banked before it existed", () 
     "the new policy pays out on history from day one");
 });
 
+test("the minutes on the share card are the reward's own bar, not today's policy bar", () => {
+  // bar_minutes reaches the client exactly once, in the success payload of the one
+  // spend (supabase-reward-v2.sql section 9, `'bar_minutes', v_r.bar_minutes`;
+  // the same field in reward-mock.js redeemReward), and the share card renders its
+  // headline off it. It is read from the REWARD, never from the policy, so a bar
+  // that moves cannot retroactively relabel what an old reward was worth: a card
+  // claiming one hour of focus for something that took four is a lie a shop's own
+  // customers can read.
+  //
+  // This is also the same defence as FINDING 4 one layer along. That one stopped a
+  // lowered bar re-minting rewards; this one stops it rewriting their history.
+  const b = backend();
+  const r = earn(b, 1)[0];
+  assert.equal(r.bar_minutes, 240);
+  b.db.policies.get("ithaca-passport").required_minutes = 60;    // the founder signs a cheaper shop
+  const spend = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  assert.equal(spend.ok, true);
+  assert.equal(spend.bar_minutes, 240, "the bar this reward was actually bought at");
+  assert.ok(Number.isInteger(spend.bar_minutes), "and a whole number of minutes");
+  // The client validates this to 15..1440 and drops anything outside, so a bar the
+  // config can legally produce has to land inside that range or the share card
+  // loses its headline number with no error anywhere.
+  assert.ok(spend.bar_minutes >= RC.MIN_BAR && spend.bar_minutes <= RC.MAX_BAR);
+});
+
 // ═════════════════════════════════════════════════════════════════════════════
 // 5. POLICY CONFUSION
 // A reward presented under terms that no longer describe it.
@@ -636,10 +787,11 @@ test("a passport reward is refused at a shop moved onto a different policy", () 
   const b = backend();
   const r = earn(b, 1)[0];
   b.db.partners.get(DREAM).policy_id = "some-other-policy";
-  const bad = b.rpc.open_redemption({ reward_id: r.id, partner_id: DREAM });
+  const bad = b.rpc.redeem_reward({ reward_id: r.id, partner_id: DREAM });
   assert.equal(bad.ok, false);
   assert.equal(bad.reason, "failed_wrong_partner");
-  assert.equal(b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA }).ok, true,
+  assert.equal(b.db.rewards[0].status, "issued", "and the refusal did not burn it");
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true,
     "the shop still on the policy is unaffected");
 });
 
@@ -654,7 +806,43 @@ test("a partner-scoped reward survives its shop being moved to another policy", 
   const r = earn(b, 1)[0];
   assert.equal(r.partner_id, U_TEA);
   b.db.partners.get(U_TEA).policy_id = "a-completely-different-policy";
-  assert.equal(b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA }).ok, true);
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true);
+});
+
+test("a partner id that does not match the reward buys nothing, whatever it names", () => {
+  // NEW SURFACE IN 1.2.0. The tap carries BOTH ids and both are attacker-chosen, so
+  // every way of pairing them has to have an answer. A partner_specific reward is
+  // good at its own shop and nowhere else, not even at a shop sharing its policy,
+  // and a partner id that names nothing at all must refuse rather than throw or
+  // reveal which ids are real. (The mock used to dereference an absent partner and
+  // crash the cashier page; see FINDING 5 in section 6.)
+  const b = backend({
+    policies: [{ id: "u-tea-only", kind: "partner_specific", required_minutes: 240, partner_id: U_TEA }],
+    partners: [
+      { id: U_TEA, name: "U Tea", offer_text: "10% off your drink", policy_id: "u-tea-only" },
+      { id: DREAM, name: "Dream Tea & Poké", offer_text: "5% off your drink", policy_id: "u-tea-only" },
+    ],
+  });
+  const r = earn(b, 1)[0];
+  assert.equal(r.partner_id, U_TEA, "the reward is bound to one shop");
+
+  const elsewhere = b.rpc.redeem_reward({ reward_id: r.id, partner_id: DREAM });
+  assert.equal(elsewhere.reason, "failed_wrong_partner", "even a shop on the same policy");
+
+  for (const nonsense of ["", "not-a-shop", "__proto__", "constructor", null, undefined, 0]) {
+    const out = b.rpc.redeem_reward({ reward_id: r.id, partner_id: nonsense });
+    assert.equal(out.ok, false, "partner_id " + String(nonsense) + " must refuse");
+    assert.equal(out.reason, "failed_not_found", "and must not say which shops exist");
+  }
+  for (const nonsense of [null, undefined, "", "__proto__", 0, {}]) {
+    const out = b.rpc.redeem_reward({ reward_id: nonsense, partner_id: U_TEA });
+    assert.equal(out.ok, false, "reward_id " + String(nonsense) + " must refuse");
+    assert.equal(out.reason, "failed_not_found");
+  }
+
+  assert.equal(b.db.rewards[0].status, "issued", "nothing was burned along the way");
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true,
+    "and the one correct pairing still works");
 });
 
 test("a retired policy is still honoured, and a held reward can still describe itself", () => {
@@ -679,41 +867,39 @@ test("a retired policy is still honoured, and a held reward can still describe i
   assert.equal(state.policies[0].required_minutes, 240, "the bar is still readable");
   assert.equal(b.rpc.issue_my_rewards().length, 1, "no NEW rewards are issued");
 
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  assert.equal(open.ok, true, "and the held reward is still spendable at the counter");
-  assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true,
+    "and the held reward is still spendable at the counter");
 
   // Once it is spent, the retired policy drops out again: nothing is held under it.
   assert.equal(b.rpc.my_reward_state().policies.length, 0);
 });
 
-test("STILL OPEN — FINDING 2 residue: an offer changed BEFORE the card is opened is honoured", () => {
-  // FINDING 2 IS ONLY HALF CLOSED, so this test still asserts the broken half as
-  // it stands today.
+test("STILL OPEN — FINDING 2: a passport reward is honoured at whatever the offer says at the tap", () => {
+  // THIS IS THE HALF OF FINDING 2 THAT SURVIVED THE MERGE, so the test still
+  // asserts the behaviour as it stands today.
   //
   // The original finding: issue_my_rewards only records an offer_version when the
   // POLICY names a partner (supabase-reward-v2.sql section 7), so every
-  // global_passport reward is issued with offer_version NULL, and every version
-  // check is guarded by `if offer_version is not null`. The check was dead code
+  // global_passport reward is issued with offer_version NULL and every version
+  // check is guarded by `if offer_version is not null`. The check is dead code
   // under the passport model.
   //
-  // WHAT IS FIXED: the handoff now pins the shop's offer_version at open, and
-  // redeem_by_code checks it, so a shop that changes its offer while a card is
-  // live is protected. The test below that one proves it.
+  // WHAT USED TO PATCH IT: the handoff pinned the shop's offer_version at open, so
+  // a reword landing DURING the five minutes was caught. That mechanism is gone
+  // with the handoff, and it is not missed, because the gap it covered is gone too:
+  // the shop row is read under the same lock as the write. What it never covered,
+  // and what is still true, is a reword landing BEFORE the tap.
   //
-  // WHAT IS NOT: the reward itself still carries offer_version NULL, so a change
-  // that lands BEFORE the card is opened is invisible. U Tea changes its offer,
-  // bumps offer_version to be careful, and every reward every student is already
-  // holding is honoured against the NEW wording. Below, a reward earned when the
-  // offer was "10% off your drink" is spent as "one free large drink" and the
-  // ledger records the shop as having agreed to give one away.
+  // So U Tea changes its offer, bumps offer_version to be careful, and every reward
+  // every student is already holding is honoured at the NEW wording. Below, a
+  // reward earned when the offer read "10% off your drink" is spent as "one free
+  // large drink" and the ledger records the shop as having agreed to give one away.
   //
   // Whether that is a HOLE or the intended meaning of a passport is a business
   // question, not a code one: a passport promises "a perk at any partner", not
-  // "this exact perk". It is recorded here either way, because it is the version
-  // of the finding that survives the fix, and it matters NOW — global_passport is
-  // one of the two models the founder is being asked to choose between
-  // (docs/network-v1/LEDGER.md, open decision 1) and the one matching v1 today.
+  // "this exact perk". It is recorded here either way, and it matters NOW, because
+  // global_passport is one of the two models the founder is being asked to choose
+  // between (docs/network-v1/LEDGER.md, open decision 1) and the one matching v1.
   const b = backend();
   const r = earn(b, 1)[0];
   assert.equal(r.offer_version, null, "the passport reward carries no version of its own");
@@ -722,11 +908,11 @@ test("STILL OPEN — FINDING 2 residue: an offer changed BEFORE the card is open
   uTea.offer_text = "one free large drink";
   uTea.offer_version = 9;
 
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  assert.equal(open.ok, true, "the bump landed before the open, so the handoff pins 9 and agrees");
-  assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
+  const spend = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  assert.equal(spend.ok, true, "nothing on the reward can refuse a version it never recorded");
   assert.equal(b.db.rewards[0].redeemed_offer_text, "one free large drink",
     "the shop is recorded as honouring an offer this reward never earned");
+  assert.equal(b.db.rewards[0].redeemed_offer_version, 9);
 
   // The contrast that proves it is the passport model and not a general failure:
   // the identical move under a partner_specific policy is correctly refused.
@@ -734,102 +920,155 @@ test("STILL OPEN — FINDING 2 residue: an offer changed BEFORE the card is open
   const pr = earn(p, 1)[0];
   assert.equal(pr.offer_version, 1);
   p.db.partners.get(U_TEA).offer_version = 2;
-  assert.equal(p.rpc.open_redemption({ reward_id: pr.id, partner_id: U_TEA }).reason, "failed_offer_changed");
+  assert.equal(p.rpc.redeem_reward({ reward_id: pr.id, partner_id: U_TEA }).reason,
+    "failed_offer_changed");
+  assert.equal(p.db.rewards[0].status, "issued", "and the student keeps the reward");
 });
 
-test("a passport shop that changes its offer mid-handoff is protected too", () => {
-  // The half of FINDING 2 that IS closed, and the reason the fix exists: a
-  // passport reward carries offer_version NULL, so before this the shop had no
-  // moment at which a change could be caught at all. The handoff now pins the
-  // shop's offer_version AT OPEN (supabase-reward-v2.sql section 9, the
-  // redemption_handoffs insert; `offer_version: partner.offer_version` in
-  // reward-mock.js openRedemption) and redeem_by_code compares against it.
+test("what is honoured is the wording read at the tap, never the wording the card showed", () => {
+  // The half of FINDING 2 that IS closed, and 1.2.0 closed it by construction
+  // rather than by pinning. The handoff used to snapshot the shop's offer_version
+  // at open so the spend could compare against it. There is no gap left to snapshot
+  // across: the partner row is read FOR UPDATE in the same transaction that writes
+  // (supabase-reward-v2.sql section 9), so the wording honoured is by construction
+  // the wording current at the tap.
   //
-  // The attack: open the card while the offer reads "10% off your drink", then
-  // change the offer and bump the version before walking to the counter. The
-  // student would otherwise be handed a free large drink the reward never earned.
+  // Why it still needs a test, and a sharper one than before: openRedeem() renders
+  // the card from the LOCAL partner snapshot with zero network calls, so the perk
+  // on screen can be hours or days stale. What the shop is recorded as having
+  // honoured, and what the client is handed to put on the share card, must both
+  // come from the server read. Neither may come from the card.
   const b = backend();
   const r = earn(b, 1)[0];
-  assert.equal(r.offer_version, null, "still no version on the reward itself");
-
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  assert.equal(open.offer_version, 1, "the card was opened against version 1");
+  const cardSaid = b.db.partners.get(U_TEA).offer_text;      // what the student is looking at
+  assert.equal(cardSaid, "10% off your drink");
 
   const uTea = b.db.partners.get(U_TEA);
   uTea.offer_text = "one free large drink";
   uTea.offer_version = 9;
 
-  const spend = b.rpc.redeem_by_code({ code: open.code });
-  assert.equal(spend.ok, false, "the pinned version catches the change");
-  assert.equal(spend.reason, "failed_offer_changed");
-  assert.equal(b.db.rewards[0].status, "issued", "and the student keeps the reward");
-  assert.equal(b.db.rewards[0].redeemed_offer_text, null,
-    "nothing is recorded against an offer the shop did not agree to honour here");
+  const spend = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  assert.equal(spend.ok, true);
+  assert.equal(spend.offer_text, "one free large drink", "the payload is the wording at the tap");
+  assert.notEqual(spend.offer_text, cardSaid, "and never the stale wording the card was built from");
+  assert.equal(spend.partner_name, "U Tea");
+  // The ledger and the payload have to agree, or the shop's report and the
+  // student's share card describe two different drinks.
+  assert.equal(b.db.rewards[0].redeemed_offer_text, spend.offer_text);
+  assert.equal(b.db.rewards[0].redeemed_offer_version, uTea.offer_version);
 });
 
-test("check_code refuses everything redeem_by_code refuses, so no cashier is surprised", () => {
-  // CLOSED — was FINDING 15, found while flipping FINDINGS 1, 2, 7 and 8 and
-  // caused by those very fixes.
+test("every refusal the contract documents is reachable, and no retired one is", () => {
+  // CLOSED BY REMOVAL — was FINDING 15. The finding was that check_code, the
+  // read-only cashier peek, had not learned three refusals redeem_by_code had, so
+  // the verification page read VALID on cards the spend was about to refuse and the
+  // cashier found out in front of a queue. Both functions are gone. There is one
+  // consuming call and no second surface left to disagree with it, which is a
+  // better fix than parity ever was.
   //
-  // Both implementations state the invariant in a comment above the function:
-  // "Every refusal redeem_by_code can raise must be reachable here too. If the
-  // read-only check says VALID and the spend then refuses, the cashier finds out
-  // in front of a queue." (reward-mock.js checkCode; the same words at
-  // supabase-reward-v2.sql section 9.)
-  //
-  // Moving caps and the window into the shared gate, and pinning offer_version on
-  // the handoff, added THREE refusals to redeem_by_code. check_code had learned
-  // none of them, so the verification page read VALID on cards the spend was
-  // about to refuse. Both now call redemption_gate() and compare the handoff's
-  // pinned version.
-  //
-  // This test is the standing guard on that parity: any future refusal added to
-  // the spend path and not to the check will redden it.
-
-  // (a) failed_capped
-  const capped = backend({
+  // What replaces the parity guard is a COMPLETENESS guard, because the failure it
+  // was really protecting against is a refusal nobody has thought about. These
+  // eight reasons are the whole documented set: each one is reachable, each one is
+  // terse, and none of them changes what the reward is worth. A ninth reason
+  // appearing without a test here is what this is watching for, and the two
+  // code-era reasons must never come back at all.
+  const CAPPED = {
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
     partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink",
                  policy_id: "ithaca-passport", per_user_limit: 1 }],
-  });
-  const two = earn(capped, 2);
-  const capA = capped.rpc.open_redemption({ reward_id: two[0].id, partner_id: U_TEA });
-  const capB = capped.rpc.open_redemption({ reward_id: two[1].id, partner_id: U_TEA });
-  assert.equal(capped.rpc.redeem_by_code({ code: capA.code }).ok, true);
-  const cappedPeek = capped.rpc.check_code({ code: capB.code });
-  assert.equal(cappedPeek.ok, false, "the cap is visible BEFORE the cashier acts");
-  assert.equal(cappedPeek.reason, "failed_capped");
-  assert.equal(capped.rpc.redeem_by_code({ code: capB.code }).reason, "failed_capped",
-    "and the spend agrees with the check");
-
-  // (b) failed_outside_window
-  const shut = backend({
+  };
+  const WINDOWED = {
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
     partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink", policy_id: "ithaca-passport",
                  valid_from_minute: 14 * 60, valid_to_minute: 17 * 60 }],
-  });
-  const sr = earn(shut, 1)[0];
-  const at1658 = new Date(shut.now());
-  at1658.setHours(16, 58, 0, 0);
-  shut.setNow(at1658.getTime());
-  const late = shut.rpc.open_redemption({ reward_id: sr.id, partner_id: U_TEA });
-  shut.advance(4 * MIN);                                    // 17:02, past the cutoff
-  const shutPeek = shut.rpc.check_code({ code: late.code });
-  assert.equal(shutPeek.ok, false, "the closed window is visible at 17:02");
-  assert.equal(shutPeek.reason, "failed_outside_window");
-  assert.equal(shut.rpc.redeem_by_code({ code: late.code }).reason, "failed_outside_window",
-    "and the spend agrees with the check");
+  };
+  const EXPIRING = {
+    policies: [{ id: "short", kind: "global_passport", required_minutes: 240, expires_days: 1 }],
+    partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink", policy_id: "short" }],
+  };
 
-  // (c) failed_offer_changed, via the newly pinned handoff version
-  const moved = backend();
-  const mr = earn(moved, 1)[0];
-  const mopen = moved.rpc.open_redemption({ reward_id: mr.id, partner_id: U_TEA });
-  moved.db.partners.get(U_TEA).offer_version = 9;
-  const peek = moved.rpc.check_code({ code: mopen.code });
-  assert.equal(peek.ok, false, "the moved offer is visible via the handoff's pinned version");
-  assert.equal(peek.reason, "failed_offer_changed");
-  assert.equal(moved.rpc.redeem_by_code({ code: mopen.code }).reason, "failed_offer_changed",
-    "and the spend agrees with the check");
+  const cases = [
+    ["failed_not_found", () => {                       // a reward that is not the caller's
+      const b = backend();
+      const r = earn(b, 1)[0];
+      b.setUser("attacker");
+      return [b, r.id, U_TEA];
+    }],
+    ["failed_partner_paused", () => {
+      const b = backend();
+      const r = earn(b, 1)[0];
+      b.db.partners.get(U_TEA).active = false;
+      return [b, r.id, U_TEA];
+    }],
+    ["failed_already_redeemed", () => {
+      const b = backend();
+      const r = earn(b, 1)[0];
+      b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+      return [b, r.id, U_TEA];
+    }],
+    ["failed_expired", () => {
+      const b = backend(EXPIRING);
+      const r = earn(b, 1)[0];
+      b.setNow(r.expires_at + MIN);
+      return [b, r.id, U_TEA];
+    }],
+    ["failed_wrong_partner", () => {
+      const b = backend();
+      const r = earn(b, 1)[0];
+      b.db.partners.get(DREAM).policy_id = "some-other-policy";
+      return [b, r.id, DREAM];
+    }],
+    ["failed_offer_changed", () => {
+      const b = backend(PARTNER_ONLY());
+      const r = earn(b, 1)[0];
+      b.db.partners.get(U_TEA).offer_version = 2;
+      return [b, r.id, U_TEA];
+    }],
+    ["failed_capped", () => {
+      const b = backend(CAPPED);
+      const two = earn(b, 2);
+      b.rpc.redeem_reward({ reward_id: two[0].id, partner_id: U_TEA });
+      return [b, two[1].id, U_TEA];
+    }],
+    ["failed_outside_window", () => {
+      const b = backend(WINDOWED);
+      const r = earn(b, 1)[0];
+      const shut = new Date(b.now());
+      shut.setHours(3, 0, 0, 0);                       // the shop opens at 14:00
+      b.setNow(shut.getTime());
+      return [b, r.id, U_TEA];
+    }],
+  ];
+
+  const seen = [];
+  for (const [reason, build] of cases) {
+    const [b, rewardId, partnerId] = build();
+    const before = b.db.rewards.find((r) => r.id === rewardId).status;
+    const out = b.rpc.redeem_reward({ reward_id: rewardId, partner_id: partnerId });
+    assert.equal(out.ok, false, reason + " must refuse");
+    assert.equal(out.reason, reason);
+    assert.deepEqual(Object.keys(out).sort(), ["ok", "reason"], reason + " must stay terse");
+    assert.equal(b.db.rewards.find((r) => r.id === rewardId).status, before,
+      reason + " must leave the reward exactly as it found it");
+    seen.push(out.reason);
+  }
+  assert.deepEqual(seen.slice().sort(), [
+    "failed_already_redeemed", "failed_capped", "failed_expired", "failed_not_found",
+    "failed_offer_changed", "failed_outside_window", "failed_partner_paused", "failed_wrong_partner",
+  ], "the documented set, all of it and nothing else");
+
+  // The two reasons that died with the handoff. Neither is reachable any more, and
+  // 'failed_code_unavailable' was never even a legal redemption_events.outcome
+  // (supabase-reward-v2.sql section 6's CHECK), which was its own quiet divergence.
+  const live = backend();
+  const lr = earn(live, 1)[0];
+  live.rpc.redeem_reward({ reward_id: lr.id, partner_id: U_TEA });
+  live.rpc.redeem_reward({ reward_id: lr.id, partner_id: U_TEA });
+  live.rpc.redeem_reward({ reward_id: uuid(), partner_id: U_TEA });
+  const outcomes = live.db.events.map((e) => e.outcome);
+  assert.equal(outcomes.indexOf("failed_code_expired"), -1);
+  assert.equal(outcomes.indexOf("failed_code_unavailable"), -1);
+  assert.ok(outcomes.indexOf("completed") >= 0, "and the log still records what did happen");
 });
 
 test("FINDING 3: a shop joining a passport is instantly liable for everyone's banked rewards", () => {
@@ -856,8 +1095,7 @@ test("FINDING 3: a shop joining a passport is instantly liable for everyone's ba
 
   let honoured = 0;
   for (const r of rewards) {
-    const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: "newcomer-tea" });
-    if (open.ok && b.rpc.redeem_by_code({ code: open.code }).ok) honoured++;
+    if (b.rpc.redeem_reward({ reward_id: r.id, partner_id: "newcomer-tea" }).ok) honoured++;
     b.advance(MIN);
   }
   assert.equal(honoured, 3, "day one at the new shop, three drinks it never earned the traffic for");
@@ -868,24 +1106,21 @@ test("FINDING 3: a shop joining a passport is instantly liable for everyone's ba
 // The only thing bounding a pilot shop's exposure.
 // ═════════════════════════════════════════════════════════════════════════════
 
-test("per_user_limit holds even when every card is opened before any is spent", () => {
+test("per_user_limit holds when a second reward is tapped at the same shop", () => {
   // THE ATTACK (was FINDING 1, the highest-severity finding in this file): the cap
-  // used to be counted in open_redemption ONLY, from rows that were ALREADY
-  // status='redeemed'. redeem_by_code never looked at per_user_limit or pilot_cap:
-  // its refusal ladder was consumed_at, code expiry, partner active, reward status,
-  // reward expiry, offer_version, and that was the complete list.
+  // used to be counted in open_redemption ONLY, and from rows that were ALREADY
+  // status='redeemed'. redeem_by_code never looked at per_user_limit or pilot_cap
+  // at all: its refusal ladder was consumed_at, code expiry, partner active, reward
+  // status, reward expiry, offer_version, and that was the complete list. So the
+  // check and the write were separated by the whole life of a handoff code. Open
+  // one card per reward first, while the redeemed count is still zero, every one
+  // passes the cap, then spend them all and nothing recounts.
   //
-  // So the check and the write were separated by the whole life of a handoff code.
-  // Open one card per reward FIRST, while the redeemed count is still zero, every
-  // one passes the cap, then spend them all and nothing recounts. No tooling
-  // needed: tapping "show at the counter" on two rewards before paying for either
-  // is a thing an ordinary student does by accident.
-  //
-  // NOW REFUSED. Caps live in the shared redemption_gate() (supabase-reward-v2.sql
-  // section 9; `gate` in reward-mock.js), called by BOTH open and spend, so the
-  // count happens under the same row lock that already makes double redemption
-  // impossible. The attack still gets two live codes; the second one is refused
-  // at the counter, which is where value actually moves.
+  // 1.2.0 removed the separation along with the code, but the cap is the thing that
+  // matters and it is still counted inside the one call, by the shared
+  // redemption_gate(), under the partner row lock that is taken before it
+  // (supabase-reward-v2.sql section 9; `gate` in reward-mock.js). This is the same
+  // attack in the only order left: spend, then spend again with the second reward.
   const b = backend({
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
     partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink",
@@ -894,27 +1129,34 @@ test("per_user_limit holds even when every card is opened before any is spent", 
   const rewards = earn(b, 2);
   assert.equal(rewards.length, 2);
 
-  const first = b.rpc.open_redemption({ reward_id: rewards[0].id, partner_id: U_TEA });
-  const second = b.rpc.open_redemption({ reward_id: rewards[1].id, partner_id: U_TEA });
-  assert.equal(first.ok, true);
-  assert.equal(second.ok, true, "both opens still pass, because nothing is redeemed yet");
-
-  assert.equal(b.rpc.redeem_by_code({ code: first.code }).ok, true);
-  const twice = b.rpc.redeem_by_code({ code: second.code });
-  assert.equal(twice.ok, false, "the spend recounts the cap");
+  assert.equal(b.rpc.redeem_reward({ reward_id: rewards[0].id, partner_id: U_TEA }).ok, true);
+  const twice = b.rpc.redeem_reward({ reward_id: rewards[1].id, partner_id: U_TEA });
+  assert.equal(twice.ok, false, "the second spend recounts the cap");
   assert.equal(twice.reason, "failed_capped");
 
   const usedHere = b.db.rewards.filter((r) => r.status === "redeemed" && r.redeemed_partner_id === U_TEA);
   assert.equal(usedHere.length, 1, "the shop agreed to one per user and honoured one");
   assert.equal(b.db.rewards.filter((r) => r.status === "issued").length, 1,
     "and the refused reward is still in hand, not burned");
+
+  // The other side of the count, and the reason the gate takes an exclude argument:
+  // the reward being spent must not count itself toward the cap it is about to
+  // fill. Raise the cap to two and the same tap goes through, so this refuses the
+  // cap and not the second reward.
+  b.db.partners.get(U_TEA).per_user_limit = 2;
+  assert.equal(b.rpc.redeem_reward({ reward_id: rewards[1].id, partner_id: U_TEA }).ok, true);
 });
 
-test("pilot_cap holds against the same open-everything-first order, across accounts", () => {
-  // The pilot-wide cap is the number a shop is told bounds the whole trial. Same
-  // attack shape as above (was FINDING 1): both students open their card while the
-  // redeemed total is still zero, so both opens pass. The second SPEND is refused,
-  // because redemption_gate() counts across every account, not just the caller's.
+test("pilot_cap holds across accounts, not just within one", () => {
+  // The pilot-wide cap is the number a shop is told bounds the whole trial, so it
+  // has to count every account's spends and not only the caller's. Same finding as
+  // above (was FINDING 1): the count used to happen at open, from already-redeemed
+  // rows, so two students who both had a card up before either paid both got a
+  // drink out of a pilot_cap of 1.
+  //
+  // redemption_gate() counts rows at this shop regardless of user_id, and the
+  // partner row is locked FOR UPDATE before it runs, which is what stops two
+  // simultaneous taps both reading the last slot as free.
   const b = backend({
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
     partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink",
@@ -925,43 +1167,56 @@ test("pilot_cap holds against the same open-everything-first order, across accou
   const theirs = earn(b, 1)[0];
 
   b.setUser("user-anon-1");
-  const a = b.rpc.open_redemption({ reward_id: mine.id, partner_id: U_TEA });
+  assert.equal(b.rpc.redeem_reward({ reward_id: mine.id, partner_id: U_TEA }).ok, true);
   b.setUser("student-2");
-  const c = b.rpc.open_redemption({ reward_id: theirs.id, partner_id: U_TEA });
-  assert.equal(a.ok, true);
-  assert.equal(c.ok, true);
-
-  assert.equal(b.rpc.redeem_by_code({ code: a.code }).ok, true);
-  const over = b.rpc.redeem_by_code({ code: c.code });
+  const over = b.rpc.redeem_reward({ reward_id: theirs.id, partner_id: U_TEA });
   assert.equal(over.ok, false, "the second account's spend is refused");
   assert.equal(over.reason, "failed_capped");
   assert.equal(b.db.rewards.filter((r) => r.status === "redeemed").length, 1,
     "pilot_cap was 1 and the pilot delivered 1");
+  assert.equal(b.db.rewards.find((r) => r.id === theirs.id).status, "issued",
+    "and the student who missed out still holds their reward");
 });
 
-test("caps DO hold when cards are opened one at a time, which is the honest path", () => {
+test("caps hold across a run of honest taps, and a capped reward is refused rather than eaten", () => {
   // The honest path, which was correct even before FINDING 1 was closed and must
-  // stay correct after it: open, pay, open, pay is refused at the limit, and the
-  // refusal happens at OPEN, before the student is standing at a counter. Moving
-  // the cap into the shared gate must not have cost that early warning.
+  // stay correct now the handoff is gone. It used to be worth its own test because
+  // the refusal arrived at OPEN, before the student was standing at a counter, and
+  // moving the cap into the shared gate must not cost that early warning.
+  //
+  // 1.2.0 removed the early server surface entirely: opening the card makes no
+  // network call, so the cap is answered at the tap and nowhere else. What has to
+  // survive is the arithmetic, the fact that the refused reward is not consumed,
+  // and that the cap is scoped to the shop that set it.
   const b = backend({
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
-    partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink",
-                 policy_id: "ithaca-passport", per_user_limit: 2 }],
+    partners: [
+      { id: U_TEA, name: "U Tea", offer_text: "10% off your drink",
+        policy_id: "ithaca-passport", per_user_limit: 2 },
+      { id: DREAM, name: "Dream Tea & Poké", offer_text: "5% off your drink",
+        policy_id: "ithaca-passport" },
+    ],
   });
   const rewards = earn(b, 3);
   const outcomes = rewards.map((r) => {
-    const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-    return open.ok ? (b.rpc.redeem_by_code({ code: open.code }).ok ? "spent" : "spend refused")
-                   : "open refused: " + open.reason;
+    const out = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+    return out.ok ? "spent" : "refused: " + out.reason;
   });
-  assert.deepEqual(outcomes, ["spent", "spent", "open refused: failed_capped"]);
+  assert.deepEqual(outcomes, ["spent", "spent", "refused: failed_capped"]);
+  assert.equal(b.db.rewards.filter((r) => r.status === "issued").length, 1,
+    "the third reward survives the refusal");
+  assert.equal(b.rpc.redeem_reward({ reward_id: rewards[2].id, partner_id: DREAM }).ok, true,
+    "and spends at the shop that did not set a cap, because a cap is one shop's number");
 });
 
 test("a FAILED redemption must not consume cap headroom", () => {
-  // A dead code, a paused shop or a bumped offer are all things that happen at the
-  // counter through nobody's fault. If a refusal ate a slot, one flaky moment
-  // would silently cost the student a reward the shop never gave them.
+  // A shop pausing mid-queue, a mistyped tap, somebody else probing our ids: all
+  // things that happen through nobody's fault. If a refusal ate a slot, one flaky
+  // moment would silently cost the student a reward the shop never gave them. The
+  // gate counts rows with status='redeemed' only, so a refusal is invisible to it,
+  // and that is the property under test. (The old version of this test spent its
+  // failures on an expired code and a guessed one; neither exists any more, so the
+  // failures below are the ones a one-tap redemption can actually produce.)
   const b = backend({
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
     partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink",
@@ -969,32 +1224,36 @@ test("a FAILED redemption must not consume cap headroom", () => {
   });
   const rewards = earn(b, 2);
 
-  const doomed = b.rpc.open_redemption({ reward_id: rewards[0].id, partner_id: U_TEA });
-  b.advance(6 * MIN);
-  assert.equal(b.rpc.redeem_by_code({ code: doomed.code }).reason, "failed_code_expired");
-  b.rpc.redeem_by_code({ code: "AAAAAA" });                     // a guessed code, also a failure
+  b.db.partners.get(U_TEA).active = false;                                 // paused mid-queue
+  assert.equal(b.rpc.redeem_reward({ reward_id: rewards[0].id, partner_id: U_TEA }).reason,
+    "failed_partner_paused");
+  b.db.partners.get(U_TEA).active = true;
+  b.rpc.redeem_reward({ reward_id: uuid(), partner_id: U_TEA });           // a guessed reward id
   b.setUser("attacker");
-  b.rpc.open_redemption({ reward_id: rewards[1].id, partner_id: U_TEA });   // a refused probe
+  b.rpc.redeem_reward({ reward_id: rewards[1].id, partner_id: U_TEA });    // a refused probe
   b.setUser("user-anon-1");
 
   for (const r of rewards) {
-    const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-    assert.equal(open.ok, true, "headroom must be intact after three failures");
-    assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
+    assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true,
+      "headroom must be intact after three failures");
   }
   assert.equal(b.db.rewards.filter((r) => r.status === "redeemed").length, 2);
 });
 
-test("a code opened inside the window cannot be spent after the window closes", () => {
+test("a card rendered inside the window cannot be spent after the window closes", () => {
   // THE ATTACK (was FINDING 7, smaller than the cap hole but the same shape):
   // valid_days and the valid_from/valid_to window used to be checked ONLY in
-  // open_redemption. Open a card at 16:58 and the five-minute code carried it to
-  // 17:03, past the 17:00 the shop agreed to, so "afternoons only" was not what it
-  // said on the tin and a shop that set a window for a staffing reason would notice.
+  // open_redemption, and the five-minute code carried a 16:58 open through to
+  // 17:03, past the 17:00 the shop agreed to. "Afternoons only" was not what it
+  // said on the tin, and a shop that set a window for a staffing reason would
+  // notice.
   //
-  // NOW REFUSED. The window is inside the shared redemption_gate()
-  // (supabase-reward-v2.sql section 9; `gate` in reward-mock.js), so it is
-  // re-checked at spend with a reason that names the clock.
+  // The code is gone; the gap is not, and it is wider. openRedeem() renders the
+  // card from the local snapshot with NO network call, so a card put on screen at
+  // 16:58 can be tapped at any hour at all, five minutes later or the next morning.
+  // The window is only meaningful where value moves, which is the shared
+  // redemption_gate() inside the one spend (supabase-reward-v2.sql section 9;
+  // `gate` in reward-mock.js).
   const b = backend({
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
     partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink", policy_id: "ithaca-passport",
@@ -1003,24 +1262,22 @@ test("a code opened inside the window cannot be spent after the window closes", 
   const r = earn(b, 1)[0];
   const inside = new Date(b.now());
   inside.setHours(16, 58, 0, 0);
-  b.setNow(inside.getTime());
+  b.setNow(inside.getTime());                          // the card goes on screen, inside the hours
 
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  assert.equal(open.ok, true, "16:58 is inside the agreed window");
   b.advance(4 * MIN);
   assert.equal(new Date(b.now()).getHours(), 17);
   assert.equal(new Date(b.now()).getMinutes(), 2, "17:02, outside the window");
-  const late = b.rpc.redeem_by_code({ code: open.code });
-  assert.equal(late.ok, false, "the still-live code does not outlive the window");
+  const late = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  assert.equal(late.ok, false, "a card that was opened in time does not outlive the window");
   assert.equal(late.reason, "failed_outside_window");
   assert.equal(b.db.rewards[0].status, "issued", "and the student keeps the reward for tomorrow");
 
-  // The same code inside the hours still works, so this refuses the clock and not
-  // the code: 16:59 is one minute before the cutoff.
+  // The same tap inside the hours still works, so this refuses the clock and not
+  // the reward: 16:59 is one minute before the cutoff.
   const ok = new Date(b.now());
   ok.setHours(16, 59, 0, 0);
   b.setNow(ok.getTime());
-  assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA }).ok, true);
 });
 
 test("an overnight window wraps past midnight instead of refusing every hour", () => {
@@ -1034,58 +1291,69 @@ test("an overnight window wraps past midnight instead of refusing every hour", (
   // NOW HANDLED. The wrapping pair is its own branch (supabase-reward-v2.sql
   // section 9; `gate` in reward-mock.js), and every window refusal returns the
   // distinct failed_outside_window.
+  //
+  // The probe used to be open_redemption, which read the window without consuming
+  // anything. There is no read-only surface left, so the shut hours are probed with
+  // one reward (a refusal spends nothing, which is itself asserted) and the open
+  // hours get one banked reward each.
   const b = backend({
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
     partners: [{ id: U_TEA, name: "U Tea", offer_text: "10% off your drink", policy_id: "ithaca-passport",
                  valid_from_minute: 22 * 60, valid_to_minute: 2 * 60 }],
   });
-  const r = earn(b, 1)[0];
+  const rewards = earn(b, 4);
   const at = (hour) => {
     const t = new Date(b.now());
     t.setHours(hour, 30, 0, 0);
     b.setNow(t.getTime());
-    return b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
   };
-  for (const hour of [22, 23, 0, 1]) {
-    assert.equal(at(hour).ok, true, hour + ":30 is inside the 22:00-to-02:00 window");
-  }
+
   for (const hour of [2, 12, 21]) {
-    const shut = at(hour);
+    at(hour);
+    const shut = b.rpc.redeem_reward({ reward_id: rewards[0].id, partner_id: U_TEA });
     assert.equal(shut.ok, false, hour + ":30 is outside the window and must be refused");
     assert.equal(shut.reason, "failed_outside_window", "and the reason names the clock, not caps");
   }
-  // End to end at an hour the shop is actually open.
-  const open = at(23);
-  assert.equal(b.rpc.redeem_by_code({ code: open.code }).ok, true);
+  assert.equal(b.db.rewards.filter((r) => r.status === "issued").length, 4,
+    "three refusals cost the student nothing");
+
+  const open = [22, 23, 0, 1];
+  open.forEach((hour, i) => {
+    at(hour);
+    assert.equal(b.rpc.redeem_reward({ reward_id: rewards[i].id, partner_id: U_TEA }).ok, true,
+      hour + ":30 is inside the 22:00-to-02:00 window");
+  });
+  assert.equal(b.db.rewards.filter((r) => r.status === "redeemed").length, 4);
 });
 
-test("pulling a shop refuses cleanly at every surface, and never crashes the counter", () => {
+test("pulling a shop refuses cleanly instead of crashing, and never burns a reward", () => {
   // CLOSED — was FINDING 5, which contradicted the operating instructions.
   //
   // CLAUDE.md documents removal as the kill switch: "Pulling a shop is the same
   // edit in reverse, which is what lets us keep the promise the pitch makes: they
-  // come off the app the day they ask." Under Reward V2 that used to break twice:
+  // come off the app the day they ask." Under Reward V2 that used to break twice.
   //
   //   Server side: redemption_handoffs.partner_id referenced partners(id) with no
   //   ON DELETE, so once anybody had opened a card there the DELETE failed on a
-  //   foreign key violation and the shop could not be removed at all. It now
-  //   CASCADEs: a handoff lives five minutes and must never be the reason a shop
-  //   cannot be pulled.
+  //   foreign key violation and the shop could not be removed at all. That half is
+  //   not fixed so much as deleted: 1.2.0 dropped the table, so no five-minute row
+  //   can be the reason a shop cannot be pulled.
   //
-  //   Mock side: a vanished partner left the handoff dangling, and check_code and
-  //   redeem_by_code dereferenced an undefined partner and THREW, so a cashier
-  //   page showed a crash rather than "this shop is no longer a partner". Both now
-  //   refuse with failed_not_found.
+  //   Mock side, and this half is still live: a vanished partner used to be
+  //   dereferenced and THROW, so a cashier saw a crash rather than "this shop is no
+  //   longer a partner". It refuses with failed_not_found. It matters more now, not
+  //   less, because the client renders the card from a local snapshot that can be a
+  //   day old, so tapping a shop the config no longer has is an ordinary thing to
+  //   do and must never be a crash in front of a queue.
   //
-  // STILL TRUE BY DESIGN, and it is the right trade: a shop that has actually had
-  // a redemption cannot be DELETEd, because reward_instances.redeemed_partner_id
-  // is deliberately not cascaded. Deleting it would erase the merchant report that
+  // STILL TRUE BY DESIGN, and it is the right trade: a shop that has actually had a
+  // redemption cannot be DELETEd, because reward_instances.redeemed_partner_id is
+  // deliberately not cascaded. Deleting it would erase the merchant report that
   // proves what was honoured. active = false is the correct pull for a shop that
   // has traded, it refuses cleanly, it keeps the history, and it is reversible.
   // reward-config.js already models it that way ("active:false is a PAUSE").
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
 
   b.loadConfig({
     policies: [{ id: "ithaca-passport", kind: "global_passport", required_minutes: 240 }],
@@ -1093,71 +1361,20 @@ test("pulling a shop refuses cleanly at every surface, and never crashes the cou
                  policy_id: "ithaca-passport" }],
   });
 
-  // Every surface refuses, and nothing throws.
-  const gone = b.rpc.check_code({ code: open.code });
-  assert.equal(gone.ok, false, "the cashier's read-only check refuses instead of crashing");
+  const gone = b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  assert.equal(gone.ok, false, "the tap refuses instead of crashing");
   assert.equal(gone.reason, "failed_not_found");
-  const spend = b.rpc.redeem_by_code({ code: open.code });
-  assert.equal(spend.ok, false, "and so does the spend");
-  assert.equal(spend.reason, "failed_not_found");
   assert.equal(b.db.rewards[0].status, "issued", "and the reward is not burned by a pulled shop");
-  assert.equal(b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA }).reason, "failed_not_found");
+  assert.equal(b.rpc.redeem_reward({ reward_id: r.id, partner_id: DREAM }).ok, true,
+    "the shop still on the policy is unaffected");
 
-  // The safe pull, for contrast: everything refuses with a reason a human can read.
+  // The safe pull, for contrast: a pause refuses with a reason a human can read.
   const paused = backend();
   const pr = earn(paused, 1)[0];
-  const popen = paused.rpc.open_redemption({ reward_id: pr.id, partner_id: U_TEA });
   paused.db.partners.get(U_TEA).active = false;
-  assert.equal(paused.rpc.check_code({ code: popen.code }).reason, "failed_partner_paused");
-  assert.equal(paused.rpc.redeem_by_code({ code: popen.code }).reason, "failed_partner_paused");
+  assert.equal(paused.rpc.redeem_reward({ reward_id: pr.id, partner_id: U_TEA }).reason,
+    "failed_partner_paused");
   assert.equal(paused.db.rewards[0].status, "issued", "and the student keeps the reward");
-});
-
-test("a consumed handoff code is never minted again, and exhaustion fails cleanly", () => {
-  // THE ATTACK (was FINDING 12, vanishingly unlikely but unhandled in both
-  // implementations): gen_handoff_code used to loop until the candidate was not an
-  // UNCONSUMED, UNEXPIRED handoff. Consumed and expired rows are invisible to that
-  // test but still present, because `code` is the table's PRIMARY KEY and the
-  // section 12 cleanup only deletes rows expired more than seven days ago. So a
-  // collision with a consumed row returned happily and then exploded on the INSERT
-  // with an unhandled unique_violation; the mock was worse in its own way, because
-  // Map.set silently OVERWROTE the consumed row and destroyed the audit trail of
-  // the redemption it had recorded.
-  //
-  // NOW REFUSED, and the loop is BOUNDED at 60 tries (supabase-reward-v2.sql
-  // section 9 gen_handoff_code; the same 60 in reward-mock.js openRedemption), so
-  // a degenerate RNG fails cleanly instead of spinning forever inside a
-  // transaction. This test forces exactly that: random() is pinned to 0, so every
-  // one of the 60 draws is "AAAAAA", the taken code is correctly rejected all 60
-  // times, and the open returns failed_code_unavailable.
-  const b = createBackend({ now: T0, random: () => 0 });   // every draw is "A"
-  b.loadConfig(PASSPORT());
-  creditMinutes(b, 480);
-  const rewards = b.rpc.issue_my_rewards();
-
-  const first = b.rpc.open_redemption({ reward_id: rewards[0].id, partner_id: U_TEA });
-  assert.equal(first.code, "AAAAAA");
-  assert.equal(b.rpc.redeem_by_code({ code: first.code }).ok, true);
-  assert.ok(b.db.handoffs.get("AAAAAA").consumed_at, "the row is consumed, not gone");
-
-  const second = b.rpc.open_redemption({ reward_id: rewards[1].id, partner_id: U_TEA });
-  assert.equal(second.ok, false, "the taken code is not handed out a second time");
-  assert.equal(second.reason, "failed_code_unavailable");
-  assert.equal(b.db.handoffs.size, 1, "and the consumed audit row survives untouched");
-  assert.equal(b.db.handoffs.get("AAAAAA").reward_id, rewards[0].id);
-  assert.ok(b.db.handoffs.get("AAAAAA").consumed_at);
-  assert.equal(b.db.rewards.find((r) => r.id === rewards[1].id).status, "issued",
-    "the second reward is untouched, so a working RNG spends it later");
-
-  // NOTE — the mock and the SQL do NOT agree on the SHAPE of this refusal. The
-  // mock returns { ok:false, reason:'failed_code_unavailable' } and logs an event
-  // with that outcome; supabase-reward-v2.sql raises errcode P0004 out of
-  // gen_handoff_code with no handler in open_redemption, and
-  // 'failed_code_unavailable' is not one of the values redemption_events.outcome's
-  // CHECK constraint allows (section 6). Both refuse rather than re-mint, which is
-  // the invariant under test and is what this test pins, but the client sees a
-  // reason string in one and a raised exception in the other. Recorded here as a
-  // STILL-OPEN mock/SQL divergence rather than silently asserted away.
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1380,7 +1597,7 @@ test("a half-set redemption window is refused rather than treated as no restrict
   const threeAm = new Date(half.now());
   threeAm.setHours(3, 0, 0, 0);
   half.setNow(threeAm.getTime());
-  const night = half.rpc.open_redemption({ reward_id: hr.id, partner_id: U_TEA });
+  const night = half.rpc.redeem_reward({ reward_id: hr.id, partner_id: U_TEA });
   assert.equal(night.ok, false, "from=14:00 with no to= must not redeem at 3am");
   assert.equal(night.reason, "failed_outside_window");
 
@@ -1389,8 +1606,9 @@ test("a half-set redemption window is refused rather than treated as no restrict
   const threePm = new Date(half.now());
   threePm.setHours(15, 0, 0, 0);
   half.setNow(threePm.getTime());
-  assert.equal(half.rpc.open_redemption({ reward_id: hr.id, partner_id: U_TEA }).reason,
+  assert.equal(half.rpc.redeem_reward({ reward_id: hr.id, partner_id: U_TEA }).reason,
     "failed_outside_window", "a half-set window is refused at every hour, on purpose");
+  assert.equal(half.db.rewards[0].status, "issued", "and failing shut never burns the reward");
 
   // The mirror: the other half missing is refused the same way.
   const other = backend({
@@ -1399,7 +1617,7 @@ test("a half-set redemption window is refused rather than treated as no restrict
                  policy_id: "ithaca-passport", valid_from_minute: null, valid_to_minute: 17 * 60 }],
   });
   const or = earn(other, 1)[0];
-  assert.equal(other.rpc.open_redemption({ reward_id: or.id, partner_id: U_TEA }).reason,
+  assert.equal(other.rpc.redeem_reward({ reward_id: or.id, partner_id: U_TEA }).reason,
     "failed_outside_window");
 
   // A fully-set window is unaffected, so this is not a blanket refusal.
@@ -1412,7 +1630,7 @@ test("a half-set redemption window is refused rather than treated as no restrict
   const inside = new Date(whole.now());
   inside.setHours(15, 0, 0, 0);
   whole.setNow(inside.getTime());
-  assert.equal(whole.rpc.open_redemption({ reward_id: wr.id, partner_id: U_TEA }).ok, true);
+  assert.equal(whole.rpc.redeem_reward({ reward_id: wr.id, partner_id: U_TEA }).ok, true);
 });
 
 test("unicode and bidi text in a shop name survives parsing without throwing", () => {
@@ -1461,18 +1679,15 @@ test("the live partners.json parses clean and matches what the shops were told",
 test("no operation walks a redeemed reward back to issued", () => {
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
   assert.equal(b.db.rewards[0].status, "redeemed");
 
   // Everything the contract exposes, fired at the spent reward.
   for (let i = 0; i < 5; i++) {
     b.rpc.issue_my_rewards();
     b.rpc.my_reward_state();
-    b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-    b.rpc.open_redemption({ reward_id: r.id, partner_id: DREAM });
-    b.rpc.check_code({ code: open.code });
-    b.rpc.redeem_by_code({ code: open.code });
+    b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+    b.rpc.redeem_reward({ reward_id: r.id, partner_id: DREAM });
     b.rpc.partner_report({ partner_id: U_TEA, days: 30 });
     creditMinutes(b, 240);
     b.rpc.issue_my_rewards();
@@ -1487,8 +1702,7 @@ test("redeemed_offer_text is never rewritten after the fact", () => {
   // history with the current offer.
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
   const snapshot = JSON.stringify(b.db.rewards.find((x) => x.id === r.id));
 
   const uTea = b.db.partners.get(U_TEA);
@@ -1498,9 +1712,8 @@ test("redeemed_offer_text is never rewritten after the fact", () => {
   b.advance(30 * DAY);
   creditMinutes(b, 480);
   b.rpc.issue_my_rewards();
-  b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
-  b.rpc.check_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: DREAM });
 
   assert.equal(JSON.stringify(b.db.rewards.find((x) => x.id === r.id)), snapshot,
     "the whole redeemed row is frozen");
@@ -1510,11 +1723,11 @@ test("redeemed_offer_text is never rewritten after the fact", () => {
 test("a failed second spend does not overwrite when or where the first one happened", () => {
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
   const at = b.db.rewards[0].redeemed_at;
   b.advance(2 * DAY);
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: DREAM });
   assert.equal(b.db.rewards[0].redeemed_at, at, "the timestamp is the first spend, not the last attempt");
   assert.equal(b.db.rewards[0].redeemed_partner_id, U_TEA);
   assert.equal(b.db.rewards[0].redeemed_offer_version, 1);
@@ -1544,14 +1757,12 @@ test("a session's credited minutes are frozen once it completes", () => {
 test("the report carries no account id, no reward id and no revenue vocabulary", () => {
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
   const report = b.rpc.partner_report({ partner_id: U_TEA, days: 30 });
   const serialised = JSON.stringify(report);
 
   assert.equal(serialised.indexOf("user-anon-1"), -1, "no account id reaches a shop");
   assert.equal(serialised.indexOf(r.id), -1, "no reward id either");
-  assert.equal(serialised.indexOf(open.code), -1, "and no handoff code");
   for (const banned of ["revenue", "sales", "order_value", "average_order", "first_visit",
                         "first_time", "new_customer", "roi", "incremental", "verified"]) {
     assert.equal(serialised.toLowerCase().indexOf(banned), -1, "the report must never claim " + banned);
@@ -1563,8 +1774,7 @@ test("the report carries no account id, no reward id and no revenue vocabulary",
 test("a hostile days argument cannot widen the report or crash it", () => {
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
   for (const days of [NaN, Infinity, -Infinity, -1, 0, null, undefined, "30", 1e9, 365, 366]) {
     const report = b.rpc.partner_report({ partner_id: U_TEA, days });
     assert.ok(report.window_days >= 1 && report.window_days <= 365,
@@ -1575,11 +1785,9 @@ test("a hostile days argument cannot widen the report or crash it", () => {
 test("one shop's report never counts another shop's redemptions or refusals", () => {
   const b = backend();
   const rewards = earn(b, 2);
-  const atUTea = b.rpc.open_redemption({ reward_id: rewards[0].id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: atUTea.code });
-  const atDream = b.rpc.open_redemption({ reward_id: rewards[1].id, partner_id: DREAM });
-  b.rpc.redeem_by_code({ code: atDream.code });
-  b.rpc.redeem_by_code({ code: atDream.code });        // a refusal, at Dream only
+  b.rpc.redeem_reward({ reward_id: rewards[0].id, partner_id: U_TEA });
+  b.rpc.redeem_reward({ reward_id: rewards[1].id, partner_id: DREAM });
+  b.rpc.redeem_reward({ reward_id: rewards[1].id, partner_id: DREAM });   // a refusal, at Dream only
 
   const uTea = b.rpc.partner_report({ partner_id: U_TEA, days: 30 });
   const dream = b.rpc.partner_report({ partner_id: DREAM, days: 30 });
@@ -1589,16 +1797,61 @@ test("one shop's report never counts another shop's redemptions or refusals", ()
   assert.equal(dream.rejected.find((x) => x.reason === "failed_already_redeemed").n, 1);
 });
 
-test("guessing codes at random cannot pollute a specific shop's report", () => {
-  // redeem_by_code is anon-callable by design, so anyone can hammer it. A miss
-  // logs with no partner_id, so a shop's rejection list stays a record of what
-  // happened at ITS counter rather than of internet noise.
+test("FINDING 16: guessing reward ids at a shop stays OUT of that shop's rejection list", () => {
+  // THIS TEST ASSERTED THE OPPOSITE TWICE, and the history is the point.
+  //
+  // Before 1.2.0 a guessed six-character code resolved to no handoff and therefore
+  // to no partner, so the miss was logged with partner_id NULL and a shop's
+  // rejection list stayed a record of what happened at ITS counter.
+  //
+  // The merge briefly broke that. Every tap now names a partner id directly, and
+  // the first version of redeem_reward logged its refusal against that partner
+  // whatever the reward id turned out to be, so a signed-in account could push
+  // failed_not_found rows into one shop's report by tapping garbage at it. Nothing
+  // of value moved, but the merchant report is the one artifact a shop is handed as
+  // a factual account of its own counter, and noise in it is a lie of exactly the
+  // kind the report exists to prevent.
+  //
+  // The rule now: a refusal is attributed to a shop only when the tap actually
+  // reached one of ITS offers. An unknown reward id, somebody else's reward id, and
+  // an unknown partner id are all logged with partner_id NULL — the event is still
+  // recorded, it is simply not blamed on a business that had nothing to do with it.
+  // (supabase-reward-v2.sql section 9, `case when v_p.id is null then null else
+  // p_partner_id end`; mirrored by `attributable` in reward-mock.js redeemReward.)
   const b = backend();
   const r = earn(b, 1)[0];
-  const open = b.rpc.open_redemption({ reward_id: r.id, partner_id: U_TEA });
-  b.rpc.redeem_by_code({ code: open.code });
-  for (let i = 0; i < 200; i++) b.rpc.redeem_by_code({ code: "ZZZZZ" + "23456789"[i % 8] });
+  b.rpc.redeem_reward({ reward_id: r.id, partner_id: U_TEA });
+  for (let i = 0; i < 200; i++) b.rpc.redeem_reward({ reward_id: uuid(), partner_id: U_TEA });
+
   const report = b.rpc.partner_report({ partner_id: U_TEA, days: 30 });
-  assert.equal(report.redemptions, 1);
-  assert.deepEqual(report.rejected, []);
+  assert.equal(report.redemptions, 1, "the noise buys nothing");
+  assert.equal(report.unique_redeemers, 1);
+  assert.deepEqual(report.rejected, [],
+    "and it does not reach the shop's report at all");
+
+  // The events are still recorded — they are simply unattributed. Losing them
+  // outright would blind us to someone actually probing the system.
+  const misses = b.db.events.filter((e) => e.outcome === "failed_not_found");
+  assert.equal(misses.length, 200, "every refusal is still logged");
+  assert.ok(misses.every((e) => e.partner_id === null),
+    "every one of them with no partner attached");
+
+  const serialised = JSON.stringify(report);
+  assert.equal(serialised.indexOf("user-anon-1"), -1, "no account id rides along with it");
+  assert.equal(serialised.indexOf(r.id), -1, "and no reward id");
+  assert.equal(b.db.rewards.length, 1, "no reward was created or destroyed by the noise");
+  assert.equal(b.rpc.partner_report({ partner_id: DREAM, days: 30 }).rejected.length, 0,
+    "and nothing lands at any other shop either");
+
+  // A REAL refusal at a real shop still reaches that shop, or the report would be
+  // useless in the other direction: a paused offer or an exhausted cap is exactly
+  // what a shop needs to see.
+  const b2 = backend();
+  const r2 = earn(b2, 1)[0];
+  b2.db.partners.get(U_TEA).active = false;
+  assert.equal(b2.rpc.redeem_reward({ reward_id: r2.id, partner_id: U_TEA }).reason,
+    "failed_partner_paused");
+  assert.deepEqual(b2.rpc.partner_report({ partner_id: U_TEA, days: 30 }).rejected,
+    [{ reason: "failed_partner_paused", n: 1 }],
+    "a refusal of a REAL reward at a REAL shop is still that shop's business");
 });

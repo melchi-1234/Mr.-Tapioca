@@ -25,10 +25,35 @@ create table if not exists public.profiles (
   drinks        integer     not null default 0  check (drinks between 0 and 100000),
   streak        integer     not null default 0  check (streak between 0 and 100000),
   status        text        not null default 'idle' check (status in ('idle','focusing','break')),
+  -- Presence is OPT-IN and defaults OFF, and the flag lives HERE rather than only
+  -- on the device. A client-side-only opt-out would be worthless: set_my_profile
+  -- leaves the previous status in place when it is handed a null, so switching
+  -- the broadcast off on the phone would freeze a 'focusing' in this row forever
+  -- and friends would see a permanently studying ghost.
+  share_presence boolean    not null default false,
+  -- WHEN the status last actually changed, which updated_at cannot tell you:
+  -- the touch trigger below bumps updated_at on any write at all, so a routine
+  -- pearls sync would keep refreshing the 'freshness' of a status set hours ago.
+  status_at     timestamptz not null default now(),
+  -- The leaderboard resets weekly, so it needs its own counter. focus_minutes is
+  -- monotonic by construction (set_my_profile clamps it so it can only grow), and
+  -- that is deliberate, so a resettable number cannot be carved out of it.
+  -- week_start is the Monday of the week week_minutes belongs to; the rollover
+  -- happens on write in set_my_profile rather than in a cron job, so a push that
+  -- lands mid-sweep cannot be credited to the week that just ended.
+  week_minutes  integer     not null default 0  check (week_minutes between 0 and 100000000),
+  week_start    date        not null default (date_trunc('week', now() at time zone 'utc'))::date,
   friend_code   text        not null unique     check (friend_code ~ '^[A-Z2-9]{6}$'),
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
+-- Re-runnable: the columns above are new in 1.2.0 and `create table if not exists`
+-- is a no-op on a database that already has this table.
+alter table public.profiles add column if not exists share_presence boolean not null default false;
+alter table public.profiles add column if not exists status_at timestamptz not null default now();
+alter table public.profiles add column if not exists week_minutes integer not null default 0;
+alter table public.profiles add column if not exists week_start date not null
+  default (date_trunc('week', now() at time zone 'utc'))::date;
 
 -- 2. FRIENDSHIPS (directed follow: follower sees friend's stats) --------------
 create table if not exists public.friendships (
@@ -127,6 +152,10 @@ create policy "profiles_insert_self" on public.profiles
 revoke select, insert, update, delete on public.profiles from authenticated, anon;
 grant select (id, display_name, skin, focus_minutes, drinks, streak, created_at, updated_at)
   on public.profiles to authenticated;
+-- share_presence, status, status_at, week_minutes and week_start are all absent
+-- from the UPDATE grant on purpose. Every one of them is either a privacy switch
+-- or a leaderboard number, so each may only move through the clamped
+-- set_my_profile() RPC and never through a direct write.
 grant update (display_name, skin, drinks, streak) on public.profiles to authenticated;
 grant insert (id) on public.profiles to authenticated;
 
@@ -181,16 +210,32 @@ revoke all on function public.add_friend_by_code(text) from public, anon;
 grant execute on function public.add_friend_by_code(text) to authenticated;
 
 -- 13. RPC: leaderboard = self + everyone I follow (single RLS-safe call) ------
+-- The board is ordered by THIS WEEK, not by lifetime. A lifetime leaderboard is
+-- decided in its first fortnight and then never changes, which is exactly why
+-- nobody opens it twice. week_minutes is zeroed here for any row whose week_start
+-- has rolled over but which has not pushed since, so a friend who has not opened
+-- the app this week reads as 0 rather than as last week's champion.
+--
+-- Presence is filtered SERVER-SIDE. A row that has not opted in reports 'idle' and
+-- a null status_at no matter what is stored, so a client bug cannot leak a status
+-- its owner never agreed to broadcast, and neither can anyone reading the wire.
 create or replace function public.get_my_friends()
 returns table (id uuid, display_name text, skin text, focus_minutes integer,
-               drinks integer, streak integer, status text, is_me boolean, updated_at timestamptz)
+               drinks integer, streak integer, week_minutes integer, status text,
+               status_at timestamptz, is_me boolean, updated_at timestamptz)
 language sql security definer stable set search_path = public as $$
-  select pr.id, pr.display_name, pr.skin, pr.focus_minutes, pr.drinks, pr.streak, pr.status,
+  select pr.id, pr.display_name, pr.skin, pr.focus_minutes, pr.drinks, pr.streak,
+         case when pr.week_start = (date_trunc('week', now() at time zone 'utc'))::date
+              then pr.week_minutes else 0 end as week_minutes,
+         case when pr.share_presence then pr.status else 'idle' end as status,
+         case when pr.share_presence then pr.status_at else null end as status_at,
          (pr.id = auth.uid()) as is_me, pr.updated_at
   from public.profiles pr
   where pr.id = auth.uid()
      or pr.id in (select f.friend_id from public.friendships f where f.follower_id = auth.uid())
-  order by pr.focus_minutes desc, pr.display_name asc;
+  order by (case when pr.week_start = (date_trunc('week', now() at time zone 'utc'))::date
+                 then pr.week_minutes else 0 end) desc,
+           pr.focus_minutes desc, pr.display_name asc;
 $$;
 revoke all on function public.get_my_friends() from public, anon;
 grant execute on function public.get_my_friends() to authenticated;
@@ -199,15 +244,43 @@ grant execute on function public.get_my_friends() to authenticated;
 --   focus_minutes: seeds from the device on first sync (when 0), then may only
 --   grow by at most one day (1440 min) per call — a sanity clamp, not anti-forgery
 --   (see FUTURE HARDENING). drinks/streak are clamped to sane growth too.
+--   p_share_presence: the opt-in switch, and it is enforced here rather than only
+--   read here. Turning it OFF forces status back to 'idle' in the same statement,
+--   because `status` only ever moves when it is handed a recognised value: a user
+--   who opts out mid-session would otherwise leave 'focusing' frozen in their row
+--   for good. Turning it off is therefore always immediate and always complete.
+--
+--   p_week_minutes: this calendar week's total, and the only number here that may
+--   go DOWN. It rolls over on write: if the stored week_start is not the current
+--   Monday, the incoming figure replaces the old one outright instead of being
+--   clamped against it. Doing the rollover on write rather than in a cron job is
+--   what stops a push that lands during a sweep being credited to the week that
+--   just ended.
 create or replace function public.set_my_profile(
   p_display_name text default null, p_skin text default null,
   p_focus_minutes integer default null, p_drinks integer default null, p_streak integer default null,
-  p_status text default null
+  p_status text default null, p_share_presence boolean default null,
+  p_week_minutes integer default null
 ) returns void language plpgsql security definer set search_path = public as $$
-declare v_me uuid := auth.uid(); v_fm int; v_dr int; v_st int;
+declare
+  v_me uuid := auth.uid();
+  v_fm int; v_dr int; v_st int; v_wm int; v_ws date; v_share boolean; v_status text;
+  v_week constant date := (date_trunc('week', now() at time zone 'utc'))::date;
+  v_next_share boolean;
+  v_next_status text;
 begin
   if v_me is null then raise exception 'not authenticated' using errcode='28000'; end if;
-  select focus_minutes, drinks, streak into v_fm, v_dr, v_st from public.profiles where id = v_me;
+  select focus_minutes, drinks, streak, week_minutes, week_start, share_presence, status
+    into v_fm, v_dr, v_st, v_wm, v_ws, v_share, v_status
+    from public.profiles where id = v_me;
+
+  v_next_share := coalesce(p_share_presence, v_share);
+  -- Opted out means 'idle', full stop, whatever the client sent alongside it.
+  v_next_status := case
+    when not v_next_share then 'idle'
+    when p_status in ('idle','focusing','break') then p_status
+    else v_status end;
+
   update public.profiles set
     display_name  = coalesce(nullif(trim(p_display_name), ''), display_name),
     skin          = coalesce(p_skin, skin),
@@ -217,11 +290,28 @@ begin
                       v_fm),
     drinks        = coalesce(least(greatest(p_drinks, v_dr), v_dr + 100), v_dr),
     streak        = coalesce(greatest(0, least(p_streak, 100000)), v_st),
-    status        = case when p_status in ('idle','focusing','break') then p_status else status end
+    share_presence = v_next_share,
+    status        = v_next_status,
+    -- Only move the freshness stamp when the status actually changed. Otherwise a
+    -- routine pearls sync would keep a stale 'focusing' looking a second old.
+    status_at     = case when v_next_status <> v_status then now() else status_at end,
+    -- Same one-day sanity clamp as focus_minutes WITHIN a week; across a week
+    -- boundary the number is simply replaced, which is the reset.
+    week_minutes  = case
+                      when v_ws <> v_week then greatest(0, least(coalesce(p_week_minutes, 0), 10080))
+                      else coalesce(least(greatest(p_week_minutes, v_wm), v_wm + 1440), v_wm)
+                    end,
+    week_start    = v_week
   where id = v_me;
 end; $$;
 revoke all on function public.set_my_profile(text,text,integer,integer,integer,text) from public, anon;
-grant execute on function public.set_my_profile(text,text,integer,integer,integer,text) to authenticated;
+revoke all on function public.set_my_profile(text,text,integer,integer,integer,text,boolean,integer)
+  from public, anon;
+-- The five-and-six-argument form from before 1.2.0 is dropped by name: leaving it
+-- executable would let a client keep pushing a status with no share_presence gate.
+drop function if exists public.set_my_profile(text,text,integer,integer,integer,text);
+grant execute on function public.set_my_profile(text,text,integer,integer,integer,text,boolean,integer)
+  to authenticated;
 
 -- 15. RPC: rotate my friend code / remove a follower -------------------------
 create or replace function public.rotate_friend_code()
@@ -258,6 +348,25 @@ select cron.schedule('prune_dead_anon', '17 4 * * *', $cron$
 $cron$);
 select cron.schedule('prune_add_rate', '23 * * * *', $cron$
   delete from public.add_rate where window_start < now() - interval '1 day';
+$cron$);
+-- The weekly board resets on write (set_my_profile rolls week_minutes over when it
+-- sees a new week_start), so this sweep is a BACKSTOP, not the mechanism. It exists
+-- for the person who stops opening the app: without it their stale week_minutes
+-- would sit at the top of their friends' board forever. get_my_friends already
+-- zeroes a stale row when it reads, so a missed run is cosmetic, not wrong.
+select cron.schedule('reset_week_minutes', '3 0 * * 1', $cron$
+  update public.profiles
+     set week_minutes = 0, week_start = (date_trunc('week', now() at time zone 'utc'))::date
+   where week_start < (date_trunc('week', now() at time zone 'utc'))::date;
+$cron$);
+-- Presence has to expire on the server too. A phone that dies, loses signal or is
+-- force-quit mid-session never sends its 'idle', and without this its owner shows
+-- as focusing to their friends indefinitely. The client also treats anything older
+-- than a few minutes as stale, but a client-side-only rule is not a guarantee: the
+-- row itself is what other people read.
+select cron.schedule('expire_stale_presence', '*/5 * * * *', $cron$
+  update public.profiles set status = 'idle', status_at = now()
+   where status <> 'idle' and status_at < now() - interval '20 minutes';
 $cron$);
 
 -- ════════════════════════════════════════════════════════════════════════════

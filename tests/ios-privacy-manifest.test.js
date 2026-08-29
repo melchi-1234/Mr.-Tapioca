@@ -65,7 +65,7 @@ function xmlEscape(value) {
     .replaceAll(">", "&gt;");
 }
 
-function writeBundleInfo(bundlePath, fixture, build = "12", liveActivities = true) {
+function writeBundleInfo(bundlePath, fixture, build = "13", liveActivities = true) {
   const extension = fixture.extensionPoint
     ? `<key>NSExtension</key><dict><key>NSExtensionPointIdentifier</key><string>${xmlEscape(fixture.extensionPoint)}</string></dict>`
     : "";
@@ -79,7 +79,7 @@ function writeBundleInfo(bundlePath, fixture, build = "12", liveActivities = tru
     `<key>CFBundleExecutable</key><string>${xmlEscape(fixture.executable)}</string>`,
     `<key>CFBundleIdentifier</key><string>${xmlEscape(fixture.id)}</string>`,
     `<key>CFBundlePackageType</key><string>${xmlEscape(fixture.packageType)}</string>`,
-    '<key>CFBundleShortVersionString</key><string>1.1.1</string>',
+    '<key>CFBundleShortVersionString</key><string>1.2.0</string>',
     `<key>CFBundleVersion</key><string>${xmlEscape(build)}</string>`,
     liveActivitySupport,
     extension,
@@ -97,8 +97,8 @@ function writeArchiveInfo(archive, { creationDate = true } = {}) {
     '<key>ApplicationProperties</key><dict>',
     '<key>ApplicationPath</key><string>Applications/App.app</string>',
     '<key>CFBundleIdentifier</key><string>com.melchior.mrtapioca</string>',
-    '<key>CFBundleShortVersionString</key><string>1.1.1</string>',
-    '<key>CFBundleVersion</key><string>12</string>',
+    '<key>CFBundleShortVersionString</key><string>1.2.0</string>',
+    '<key>CFBundleVersion</key><string>13</string>',
     '</dict></dict></plist>',
   ].join(""));
 }
@@ -552,7 +552,7 @@ test("archive verifier requires valid manifests in the app and monitor extension
     }));
     signBundle(appBundle, appFixtureEntitlements);
 
-    writeBundleInfo(appBundle, bundleFixtures[0], "12", false);
+    writeBundleInfo(appBundle, bundleFixtures[0], "13", false);
     signBundle(appBundle, appFixtureEntitlements);
     const liveActivitiesDisabled = childProcess.spawnSync(process.execPath, [verifierPath, archive], {
       encoding: "utf8",
@@ -562,12 +562,12 @@ test("archive verifier requires valid manifests in the app and monitor extension
     writeBundleInfo(appBundle, bundleFixtures[0]);
     signBundle(appBundle, appFixtureEntitlements);
 
-    writeBundleInfo(appBundle, bundleFixtures[0], "8");
+    writeBundleInfo(appBundle, bundleFixtures[0], "12");
     const wrongBuild = childProcess.spawnSync(process.execPath, [verifierPath, archive], {
       encoding: "utf8",
     });
     assert.notEqual(wrongBuild.status, 0);
-    assert.match(wrongBuild.stderr, /build 12|version/i);
+    assert.match(wrongBuild.stderr, /build 13|version/i);
     writeBundleInfo(appBundle, bundleFixtures[0]);
 
     fs.writeFileSync(path.join(appBundle, "capacitor.config.json"), JSON.stringify({

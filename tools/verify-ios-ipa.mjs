@@ -14,8 +14,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { PUBLIC_ASSET_DIRECTORY, PUBLIC_ROOT_FILES, PUBLIC_ENTRY } from "./public-bundle-manifest.mjs";
 
-const expectedVersion = "1.1.1";
-const expectedBuild = "12";
+const expectedVersion = "1.2.0";
+const expectedBuild = "13";
 const expectedTeam = "T6235QVFYG";
 const expectedAppGroup = "group.com.melchior.mrtapioca";
 const toolPath = fileURLToPath(import.meta.url);
@@ -31,7 +31,8 @@ const bundleDefinitions = [
     packageType: "APPL",
     executable: "App",
     privacyManifest: true,
-    screenTimeEntitlements: true,
+    familyControls: true,
+    appGroup: true,
   },
   {
     name: "DeviceActivityMonitor",
@@ -41,7 +42,8 @@ const bundleDefinitions = [
     executable: "DeviceActivityMonitor",
     extensionPoint: "com.apple.deviceactivity.monitor-extension",
     privacyManifest: true,
-    screenTimeEntitlements: true,
+    familyControls: true,
+    appGroup: true,
   },
   {
     name: "ShieldAction",
@@ -50,7 +52,8 @@ const bundleDefinitions = [
     packageType: "XPC!",
     executable: "ShieldAction",
     extensionPoint: "com.apple.ManagedSettings.shield-action-service",
-    screenTimeEntitlements: true,
+    familyControls: true,
+    appGroup: true,
   },
   {
     name: "ShieldConfiguration",
@@ -59,7 +62,8 @@ const bundleDefinitions = [
     packageType: "XPC!",
     executable: "ShieldConfiguration",
     extensionPoint: "com.apple.ManagedSettingsUI.shield-configuration-service",
-    screenTimeEntitlements: true,
+    familyControls: true,
+    appGroup: true,
   },
   {
     name: "FocusWidgetExtension",
@@ -68,7 +72,11 @@ const bundleDefinitions = [
     packageType: "XPC!",
     executable: "FocusWidgetExtension",
     extensionPoint: "com.apple.widgetkit-extension",
-    screenTimeEntitlements: false,
+    // 1.2.0: the Home Screen widget reads the App Group and must NOT have Family
+    // Controls. The two flags are separate so that asymmetry is actually enforced
+    // rather than collapsed into one "Screen Time stuff" boolean.
+    familyControls: false,
+    appGroup: true,
   },
 ];
 
@@ -219,11 +227,17 @@ function verifyDistributionEntitlements(bundle, entitlements) {
   const familyControls = entitlements["com.apple.developer.family-controls"] === true;
   const appGroups = entitlements["com.apple.security.application-groups"];
   const hasAppGroup = Array.isArray(appGroups) && appGroups.includes(expectedAppGroup);
-  if (bundle.screenTimeEntitlements && (!familyControls || !hasAppGroup)) {
-    throw new Error(`${bundle.name} is missing signed Family Controls or App Group entitlements`);
+  if (bundle.familyControls && !familyControls) {
+    throw new Error(`${bundle.name} is missing the signed Family Controls entitlement`);
   }
-  if (!bundle.screenTimeEntitlements && (familyControls || hasAppGroup)) {
-    throw new Error(`${bundle.name} carries unnecessary Screen Time entitlements`);
+  if (!bundle.familyControls && familyControls) {
+    throw new Error(`${bundle.name} carries an unnecessary Family Controls entitlement`);
+  }
+  if (bundle.appGroup && !hasAppGroup) {
+    throw new Error(`${bundle.name} is missing the signed App Group entitlement`);
+  }
+  if (!bundle.appGroup && hasAppGroup) {
+    throw new Error(`${bundle.name} carries an unnecessary App Group entitlement`);
   }
 }
 
@@ -272,11 +286,17 @@ function verifyProvisioningProfile(bundle, profile, now, signedEntitlements) {
   const familyControls = entitlements["com.apple.developer.family-controls"] === true;
   const appGroups = entitlements["com.apple.security.application-groups"];
   const hasAppGroup = Array.isArray(appGroups) && appGroups.includes(expectedAppGroup);
-  if (bundle.screenTimeEntitlements && (!familyControls || !hasAppGroup)) {
-    throw new Error(`${bundle.name} provisioning profile is missing Family Controls or App Group access`);
+  if (bundle.familyControls && !familyControls) {
+    throw new Error(`${bundle.name} provisioning profile is missing Family Controls access`);
   }
-  if (!bundle.screenTimeEntitlements && (familyControls || hasAppGroup)) {
-    throw new Error(`${bundle.name} provisioning profile carries unnecessary Screen Time access`);
+  if (!bundle.familyControls && familyControls) {
+    throw new Error(`${bundle.name} provisioning profile carries unnecessary Family Controls access`);
+  }
+  if (bundle.appGroup && !hasAppGroup) {
+    throw new Error(`${bundle.name} provisioning profile is missing App Group access`);
+  }
+  if (!bundle.appGroup && hasAppGroup) {
+    throw new Error(`${bundle.name} provisioning profile carries unnecessary App Group access`);
   }
 
   const profileKeychainGroups = entitlements["keychain-access-groups"];

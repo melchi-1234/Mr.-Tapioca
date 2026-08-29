@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#3c2018">
+<title>Join a Study Squad on Mr. Tapioca</title>
+<meta name="description" content="Someone invited you to their Study Squad. Focus together, brew boba, earn real perks at partner shops.">
+<meta property="og:title" content="Join my Study Squad on Mr. Tapioca">
+<meta property="og:description" content="A cozy focus timer that blocks distracting apps and brews you a boba while you study.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<!--
+  THE INVITE LANDING PAGE (1.2.0).
+
+  Before this existed the "invite" was a six-character code pasted into a message
+  as prose, next to a link that did not carry it. Nothing was tappable. A friend
+  who wanted in had to install the app, find the Squad sheet, and retype a code
+  they had to scroll back up for.
+
+  Two things worth knowing about how this is built:
+
+  1. It is served from GitHub Pages with NO server and NO 404 rewrite, so the URL
+     is /squad/?c=ABC234 rather than a pretty /squad/ABC234. A pretty path would
+     need a repo-root 404.html, which Pages serves with an HTTP 404 status, and
+     most link-preview crawlers refuse to render a card for a 404. A shared link
+     that renders no preview is a worse invite than an ugly query string.
+
+  2. The inviter's NAME comes from the link, not from a lookup. Resolving a code
+     to a display name server-side would need an RPC callable by anonymous
+     visitors, which turns the friend code from a write-only token into an
+     enumerable handle to somebody's name. The person doing the sharing is already
+     choosing to tell the recipient who they are, so their own app puts the name
+     in the URL and nothing new is exposed. No name in the link just means the
+     page says "a friend" instead.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1.1rem; padding: 2.25rem 1.5rem; text-align: center;
+    font: 500 17px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: #fdf6ec; color: #3c2018;
+  }
+  .cup { width: 92px; height: 92px; }
+  h1 { margin: 0; font-size: 1.4rem; font-weight: 800; letter-spacing: -0.01em; max-width: 20rem; }
+  p  { margin: 0; color: #8a6a55; font-size: 0.95rem; max-width: 23rem; }
+  .code {
+    display: inline-block; padding: 0.5rem 1rem;
+    border-radius: 12px; border: 2px solid rgba(60,32,24,0.18);
+    background: rgba(255,255,255,0.65);
+    font-size: 1.5rem; font-weight: 900; letter-spacing: 0.16em;
+    font-variant-numeric: tabular-nums;
+  }
+  .code-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+  .code-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  a.btn {
+    display: inline-block; margin-top: 0.35rem;
+    padding: 0.95rem 1.8rem; border-radius: 999px;
+    background: #3c2018; color: #fdf6ec; text-decoration: none; font-weight: 800;
+    min-height: 44px;
+  }
+  a.btn:active { opacity: 0.85; }
+  a.quiet { color: #8a6a55; font-size: 0.85rem; font-weight: 700; }
+  ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.4rem; max-width: 23rem; }
+  li { color: #8a6a55; font-size: 0.9rem; }
+  footer { margin-top: 0.75rem; font-size: 0.78rem; color: #a98d79; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #241310; color: #fdf6ec; }
+    p, li, a.quiet { color: #c2a290; }
+    .code { border-color: rgba(253,246,236,0.22); background: rgba(255,255,255,0.06); }
+    a.btn { background: #fdf6ec; color: #3c2018; }
+    footer { color: #9a7d6b; }
+  }
+</style>
+</head>
+<body>
+  <svg class="cup" viewBox="0 0 120 170" fill="none" aria-hidden="true">
+    <path d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58 Z" fill="#f6d9b0"/>
+    <path d="M26,96 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L94,96 Z" fill="#c98b5e"/>
+    <circle cx="44" cy="140" r="7" fill="#3c2018"/><circle cx="62" cy="147" r="7" fill="#3c2018"/>
+    <circle cx="78" cy="138" r="7" fill="#3c2018"/><circle cx="56" cy="128" r="7" fill="#3c2018"/>
+    <path d="M22,58 L30,154 Q31,160 37,160 L83,160 Q89,160 90,154 L98,58" fill="none" stroke="#3c2018" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M18,58 L18,53 Q18,50 21,50 L99,50 Q102,50 102,53 L102,58 Z" fill="#3c2018"/>
+    <path d="M71,9 L80,11 L70,120 L61,118 Z" fill="#e8a0b8" stroke="#3c2018" stroke-width="3" stroke-linejoin="round"/>
+  </svg>
+
+  <h1 id="headline">You have been invited to a Study Squad</h1>
+  <p id="sub">Mr. Tapioca is a cozy focus timer. Set a cup, put your phone down, and a
+     little tapioca pearl brews your boba while you work.</p>
+
+  <div class="code-wrap" id="codeWrap" hidden>
+    <span class="code-label">Their squad code</span>
+    <span class="code" id="code"></span>
+  </div>
+
+  <a class="btn" id="get" href="/get?src=squad_invite">Get the app</a>
+  <a class="quiet" id="already" href="/app.html" hidden>Already have it? Open Mr. Tapioca</a>
+
+  <ul>
+    <li>See when a friend is brewing right now, if you both turn it on.</li>
+    <li>A weekly board that starts fresh every Monday.</li>
+    <li>Free. No ads, no subscription.</li>
+  </ul>
+
+  <footer>mrtapioca.me</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var params = new URLSearchParams(location.search);
+
+  // The same alphabet and shape the server mints. Anything else is treated as no
+  // code at all rather than shown: a malformed code in a headline reads as a bug,
+  // and a code echoed without validation is a small XSS surface for nothing.
+  var raw = String(params.get("c") || "").trim().toUpperCase();
+  var code = /^[A-Z2-9]{6}$/.test(raw) ? raw : "";
+
+  // The inviter's own name, from their own share. Kept short and inserted as TEXT,
+  // never as markup: it is a string from a URL, so it is untrusted by definition
+  // even though the person who put it there was the one doing the inviting.
+  var who = String(params.get("n") || "").trim().slice(0, 24);
+
+  if (who) {
+    document.getElementById("headline").textContent =
+      who + " invited you to their Study Squad";
+  }
+
+  if (code) {
+    document.getElementById("code").textContent = code;
+    document.getElementById("codeWrap").hidden = false;
+    // Carry the code into the app for anyone who already has it. app.js reads
+    // ?c= / #c= on load and offers to add the friend behind a confirm, so a
+    // crafted link can never silently follow somebody on your behalf.
+    var already = document.getElementById("already");
+    already.href = "/app.html?c=" + encodeURIComponent(code);
+    already.hidden = false;
+  }
+
+  // /get already handles breaking out of the Instagram and Facebook in-app
+  // browsers, which swallow App Store links. Send the code along so a fresh
+  // install can pick it up, and keep the attribution tag it expects.
+  var get = "/get?src=squad_invite";
+  if (code) get += "&c=" + encodeURIComponent(code);
+  document.getElementById("get").href = get;
+})();
+</script>
+</body>
+</html>

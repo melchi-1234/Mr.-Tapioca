@@ -31,6 +31,7 @@ const bundleFixtures = [
     packageType: "XPC!",
     extensionPoint: "com.apple.deviceactivity.monitor-extension",
     screenTime: true,
+    appGroup: true,
   },
   {
     directory: "ShieldAction.appex",
@@ -39,6 +40,7 @@ const bundleFixtures = [
     packageType: "XPC!",
     extensionPoint: "com.apple.ManagedSettings.shield-action-service",
     screenTime: true,
+    appGroup: true,
   },
   {
     directory: "ShieldConfiguration.appex",
@@ -47,6 +49,7 @@ const bundleFixtures = [
     packageType: "XPC!",
     extensionPoint: "com.apple.ManagedSettingsUI.shield-configuration-service",
     screenTime: true,
+    appGroup: true,
   },
   {
     directory: "FocusWidgetExtension.appex",
@@ -54,7 +57,11 @@ const bundleFixtures = [
     id: "com.melchior.mrtapioca.FocusWidget",
     packageType: "XPC!",
     extensionPoint: "com.apple.widgetkit-extension",
+    // 1.2.0: the Home Screen widget reads shared UserDefaults, so it has the App
+    // Group but deliberately NOT Family Controls. The two are separate flags here
+    // for the same reason they are separate in the verifiers.
     screenTime: false,
+    appGroup: true,
   },
 ];
 
@@ -76,8 +83,8 @@ function xmlEscape(value) {
 }
 
 function writeInfo(bundlePath, fixture, {
-  version = "1.1.1",
-  build = "12",
+  version = "1.2.0",
+  build = "13",
   supportsLiveActivities = true,
 } = {}) {
   const extension = fixture.extensionPoint
@@ -102,13 +109,16 @@ function writeInfo(bundlePath, fixture, {
 }
 
 function writeEntitlements(entitlementsPath, fixture, teamId = "T6235QVFYG", getTaskAllow = false) {
-  const screenTime = fixture.screenTime
+  const familyControls = fixture.screenTime
+    ? '<key>com.apple.developer.family-controls</key><true/>'
+    : "";
+  const appGroup = (fixture.appGroup ?? fixture.screenTime)
     ? [
-      '<key>com.apple.developer.family-controls</key><true/>',
       '<key>com.apple.security.application-groups</key>',
       '<array><string>group.com.melchior.mrtapioca</string></array>',
     ].join("")
     : "";
+  const screenTime = familyControls + appGroup;
   fs.writeFileSync(entitlementsPath, [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -146,12 +156,12 @@ function signBundle(bundlePath, entitlementsPath) {
 }
 
 function makeTestProvisioningProfile(bundle, overrides = {}) {
-  const screenTimeEntitlements = bundle.screenTimeEntitlements
-    ? {
-      "com.apple.developer.family-controls": true,
-      "com.apple.security.application-groups": ["group.com.melchior.mrtapioca"],
-    }
-    : {};
+  const screenTimeEntitlements = {
+    ...(bundle.familyControls ? { "com.apple.developer.family-controls": true } : {}),
+    ...(bundle.appGroup
+      ? { "com.apple.security.application-groups": ["group.com.melchior.mrtapioca"] }
+      : {}),
+  };
   const profile = {
     TeamIdentifier: ["T6235QVFYG"],
     ApplicationIdentifierPrefix: ["T6235QVFYG"],
@@ -190,8 +200,8 @@ function makeIpaFixture(t, {
   teamId = "T6235QVFYG",
   getTaskAllow = false,
   extraExtension = false,
-  version = "1.1.1",
-  build = "12",
+  version = "1.2.0",
+  build = "13",
   tamperPublic = false,
   extraPublic = false,
   duplicatePlugin = false,
@@ -291,8 +301,8 @@ test("controlled export verifies the exact archive, exports without uploading, v
   const { exportIosRelease } = await import(exporterUrl);
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "mrtap-export-workflow-"));
   t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
-  const archivePath = path.join(fixture, "Mr-Tapioca-1.1.1-12.xcarchive");
-  const outputPath = path.join(fixture, "Mr-Tapioca-1.1.1-12.ipa");
+  const archivePath = path.join(fixture, "Mr-Tapioca-1.2.0-13.xcarchive");
+  const outputPath = path.join(fixture, "Mr-Tapioca-1.2.0-13.ipa");
   fs.mkdirSync(archivePath);
 
   const commands = [];
@@ -338,7 +348,7 @@ test("controlled export verifies the exact archive, exports without uploading, v
   assert.match(result.sha256, /^[a-f0-9]{64}$/);
 });
 
-test("IPA verifier accepts a signed 1.1.1 build 12 package with the canonical app payload", async (t) => {
+test("IPA verifier accepts a signed 1.2.0 build 13 package with the canonical app payload", async (t) => {
   const { verifyIpaFile } = await import(ipaVerifierUrl);
   const ipaPath = makeIpaFixture(t);
   assert.doesNotThrow(() => verifyWithTestProfiles(verifyIpaFile, ipaPath));
@@ -434,12 +444,12 @@ test("IPA verifier rejects any extension beyond the four release extensions", as
   );
 });
 
-test("IPA verifier rejects any app or extension outside version 1.1.1 build 12", async (t) => {
+test("IPA verifier rejects any app or extension outside version 1.2.0 build 13", async (t) => {
   const { verifyIpaFile } = await import(ipaVerifierUrl);
   const ipaPath = makeIpaFixture(t, { build: "8" });
   assert.throws(
     () => verifyWithTestProfiles(verifyIpaFile, ipaPath),
-    /version 1\.1\.1 build 12/,
+    /version 1\.2\.0 build 13/,
   );
 });
 
@@ -566,6 +576,9 @@ test("IPA verifier validates profile team, app identity, expiration, and distrib
       message: /keychain access group/i,
     },
     {
+      // Stripping Family Controls must be caught on the four bundles that need it.
+      // The widget legitimately has none, so this mutation is a no-op there and the
+      // failure has to come from one of the others.
       mutate(profile) {
         return {
           ...profile,
@@ -575,7 +588,19 @@ test("IPA verifier validates profile team, app identity, expiration, and distrib
           },
         };
       },
-      message: /profile.*Family Controls|App Group/i,
+      message: /profile.*Family Controls/i,
+    },
+    {
+      // And the new half: a bundle that is supposed to reach the App Group must be
+      // rejected when its profile does not authorize it. Without this the widget
+      // could ship signed for a group it cannot actually open, and the only symptom
+      // would be a widget stuck on placeholders.
+      mutate(profile) {
+        const next = { ...profile.Entitlements };
+        delete next["com.apple.security.application-groups"];
+        return { ...profile, Entitlements: next };
+      },
+      message: /profile is missing App Group access/i,
     },
   ];
 

@@ -98,15 +98,16 @@ not archive or upload manually from Xcode Organizer:
 
 1. Run `npm run ios:release-setup`, review the synchronized native files, and
    commit the exact release state.
-2. Run `npm run ios:archive-release -- /absolute/path/Mr-Tapioca-1.1.1-9.xcarchive`.
-3. Run `npm run ios:export-release -- /absolute/path/Mr-Tapioca-1.1.1-9.xcarchive /absolute/path/Mr-Tapioca-1.1.1-9.ipa`.
-4. Run `npm run ios:upload-release -- /absolute/path/Mr-Tapioca-1.1.1-9.ipa`.
+2. Run `npm run ios:archive-release -- /absolute/path/Mr-Tapioca-1.2.0-13.xcarchive`.
+3. Run `npm run ios:export-release -- /absolute/path/Mr-Tapioca-1.2.0-13.xcarchive /absolute/path/Mr-Tapioca-1.2.0-13.ipa`.
+4. Run `npm run ios:upload-release -- /absolute/path/Mr-Tapioca-1.2.0-13.ipa`.
 5. Install the processed build from TestFlight on a real iPhone. Recheck the
    Angel, full focus layout, Screen Time blocking, notification completion, and
    a real 15-minute Reward V2 session before submitting for App Review.
 
-Build 8 is a rejected TestFlight candidate and must never be submitted. The next
-candidate is version 1.1.1 build 9.
+Build 8 is a rejected TestFlight candidate and must never be submitted, and
+builds 9, 10 and 11 are superseded. 1.1.1 / build 12 is approved and live. The
+next candidate is version 1.2.0 build 13.
 
 ---
 

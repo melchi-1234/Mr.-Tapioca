@@ -12,7 +12,6 @@ python3 -m http.server $PORT >/dev/null 2>&1 &
 SERVER=$!
 sleep 1
 open "http://127.0.0.1:$PORT/"                                   # the app
-open "http://127.0.0.1:$PORT/verify/index.html?demo=1"           # the cashier page
 open "http://127.0.0.1:$PORT/docs/network-v1/site/index.html"    # new website idea
 open "http://127.0.0.1:$PORT/docs/network-v1/sample-pilot-report.html"  # shop report
 trap "kill $SERVER 2>/dev/null" EXIT

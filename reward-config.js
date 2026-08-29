@@ -112,7 +112,6 @@
         ? Math.floor(p.validToMinute) : null,
       terms: isStr(p.terms, 400) ? p.terms.trim() : "",
       cashierNote: isStr(p.cashierNote, 300) ? p.cashierNote.trim() : "",
-      verification: isStr(p.verification) ? p.verification : "code",
       since: isStr(p.since) ? p.since : "",
       updatedAt: isStr(p.updatedAt) ? p.updatedAt : "",
     };

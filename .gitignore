@@ -52,3 +52,7 @@ docs/qa-screenshots-network-v1/
 
 # Isolated agent worktrees are local scratch and must never enter the public repo.
 .worktrees/
+
+# The pglast venv for tools/check-sql.py. Local dev tooling, never shipped, and
+# the archive wrapper refuses ANY untracked file in the tree.
+.sqlvenv/

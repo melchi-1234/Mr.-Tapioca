@@ -17,7 +17,8 @@
 --   CAN: that a session was opened and closed against the SERVER's clock, with the
 --        elapsed wall-clock time between them; that a reward was issued exactly
 --        once per completed threshold; that a reward was redeemed exactly once,
---        even under simultaneous requests.
+--        even under simultaneous requests (the guarantee is the conditional UPDATE
+--        in §9, re-checking `status = 'issued'` under Postgres's own row lock).
 --   CANNOT: that a human was studying, that a phone was face-down, or that Screen
 --        Time was actually shielding anything. `platform` and `shield_claimed` are
 --        CLIENT ASSERTIONS. A scripted client can open a session claiming ios and
@@ -200,44 +201,17 @@ create index if not exists reward_instances_user_idx
 create index if not exists reward_instances_partner_idx
   on public.reward_instances (redeemed_partner_id, redeemed_at);
 
--- 5. REDEMPTION HANDOFFS ------------------------------------------------------
--- The cashier-facing half. A student about to pay opens a handoff, which mints a
--- short code that lives for a few minutes. The code is what makes the screen hard
--- to fake with a screenshot: it is issued by the server, it is different every
--- time, and it stops working on its own.
+-- 5. REDEMPTION HANDOFFS — REMOVED IN 1.2.0 -----------------------------------
+-- There used to be a table here holding six-character cashier codes, each alive
+-- for five minutes. §9 explains why it went: the code was friction at the counter
+-- and it was never what made a redemption safe. Redemption is now a single
+-- authenticated call by the reward's own owner.
 --
--- A handoff is NOT a redemption. Redemption happens when the code is spent, which
--- is a single atomic statement in §8.
-create table if not exists public.redemption_handoffs (
-  code        text        primary key check (code ~ '^[A-Z2-9]{6}$'),
-  reward_id   uuid        not null references public.reward_instances (id) on delete cascade,
-  user_id     uuid        not null references auth.users (id) on delete cascade,
-  -- CASCADE, because a handoff lives five minutes and must never be the reason a
-  -- shop cannot be pulled. Without it this FK silently made DELETE FROM partners
-  -- fail the moment anyone had opened a card there, and deletion is what CLAUDE.md
-  -- documents as the kill switch.
-  --
-  -- reward_instances.redeemed_partner_id is deliberately NOT cascaded: a shop with
-  -- redemption history cannot be deleted, and should not be, because deleting it
-  -- would erase the merchant report that proves what was honoured. Pausing
-  -- (active = false) is the correct pull for a shop that has traded, and it is
-  -- also the reversible one.
-  partner_id  text        not null references public.partners (id) on delete cascade,
-  created_at  timestamptz not null default now(),
-  expires_at  timestamptz not null,
-  consumed_at timestamptz,
-  -- The shop's offer version AT THE MOMENT THE CARD WAS OPENED.
-  --
-  -- reward_instances.offer_version is only set for partner_specific policies, so
-  -- under a global_passport it is NULL and every `offer_version is not null` guard
-  -- was dead code: a shop could change its offer between a student opening the card
-  -- and paying, and the spend went through against the NEW wording. A passport
-  -- reward is not tied to a shop until the shop is chosen, which is exactly here,
-  -- so this is where its version has to be captured.
-  offer_version integer
-);
-alter table public.redemption_handoffs enable row level security;
-create index if not exists redemption_handoffs_reward_idx on public.redemption_handoffs (reward_id);
+-- Explicit DROP, not a silent omission. `create table if not exists` cannot remove
+-- a table, so on a database this migration has already touched, the handoffs table
+-- and the anon-callable spender that read it would simply persist. CASCADE takes
+-- the index and the foreign keys with it.
+drop table if exists public.redemption_handoffs cascade;
 
 -- 6. REDEMPTION ATTEMPT LOG (what the merchant report is built from) ----------
 -- Every outcome, including the failures. A pilot report that only counts successes
@@ -251,6 +225,11 @@ create table if not exists public.redemption_events (
   partner_id  text,
   reward_id   uuid,
   offer_version integer,
+  -- Three of these are no longer WRITTEN by anything as of 1.2.0: 'opened' (there
+  -- is no separate open step to log), 'failed_code_expired' and
+  -- 'failed_code_unavailable' (there are no codes). They stay in the CHECK on
+  -- purpose. Narrowing it would invalidate any historical row that already carries
+  -- one, and the merchant report reads this column back.
   outcome     text        not null check (outcome in
                 ('opened','completed','failed_not_found','failed_already_redeemed',
                  'failed_expired','failed_wrong_partner','failed_partner_paused',
@@ -591,8 +570,11 @@ grant execute on function public.my_reward_state() to authenticated;
 -- 9. REDEMPTION ---------------------------------------------------------------
 
 -- ── THE SHARED GATE ──────────────────────────────────────────────────────────
--- Caps and the agreed redemption window, in ONE function, because they were
--- previously checked only in open_redemption and never in redeem_by_code.
+-- Caps and the agreed redemption window, in ONE function. It is kept as its own
+-- function even though 1.2.0 collapsed open+spend into a single caller, because the
+-- reason it exists has not changed: these two rules must be evaluated in exactly one
+-- place. They were once checked at open and not at spend, and that gap was
+-- exploitable without any tooling.
 --
 -- That gap was exploitable without any tooling. Caps are counted from rows that
 -- are already `redeemed`, so opening every card FIRST, while that count is still
@@ -660,75 +642,72 @@ begin
 end; $$;
 revoke all on function public.redemption_gate(uuid,text,uuid) from public, anon, authenticated;
 
--- Short code, unbiased, and with no 0/O/1/I to misread across a counter.
+-- ── THE ONE-TAP SPEND ────────────────────────────────────────────────────
+-- ONE TAP. There used to be two steps here: open_redemption minted a six-character
+-- handoff code, and redeem_by_code spent it from the cashier's own browser. Both
+-- are gone, along with the redemption_handoffs table and the cashier page.
 --
--- NOTE — this deliberately does NOT copy gen_friend_code()'s arithmetic, because
--- that function has an off-by-one. Its alphabet is 32 characters, not the 31 its
--- comment claims (24 letters after dropping I and O, plus 2-9), so `b % 31`
--- can never reach position 32 and NO FRIEND CODE HAS EVER CONTAINED A '9'.
--- Harmless in practice (it costs 17% of a 1.07-billion keyspace) but it is real;
--- the one-line fix for the live Squad schema is in §13 below, unapplied.
+-- Why they went (1.2.0): the code was friction at the worst possible moment. A
+-- student standing in a line watched the card say "Getting your code…" through two
+-- network round trips before anything readable appeared, and the cashier had to be
+-- talked through a webpage nobody had ever deployed. No redemption ever ran through
+-- it. The protection it was supposed to add was never the code anyway.
 --
--- With the true count of 32 there is also nothing to reject: 256 is exactly
--- divisible by 32, so `b % 32` is already uniform and the rejection-sampling
--- loop that gen_friend_code needs is simply unnecessary here.
-create or replace function public.gen_handoff_code()
-returns text language plpgsql set search_path = public, extensions as $$
-declare
-  alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   -- 32 chars, no 0/O/1/I
-  n        constant int  := 32;
-  -- v_code, NOT `code`. redemption_handoffs HAS a column called code, and a bare
-  -- `code` inside the collision query below is ambiguous between this variable
-  -- and that column. plpgsql's default is to RAISE on that ambiguity, so every
-  -- single mint attempt threw, the retry loop burned all 60 tries, and the caller
-  -- reported "could not mint a code" -- which is a real-looking answer to a
-  -- question that was never actually asked.
-  v_code text; b int; tries int := 0;
-begin
-  loop
-    v_code := '';
-    while char_length(v_code) < 6 loop
-      b := get_byte(extensions.gen_random_bytes(1), 0);
-      v_code := v_code || substr(alphabet, (b % n) + 1, 1);
-    end loop;
-    -- Collision must be checked against EVERY row, not just live ones. The code is
-    -- the PRIMARY KEY, so one that merely happens to be consumed or expired is
-    -- still taken, and re-minting it is an unhandled unique_violation at insert.
-    exit when not exists (select 1 from public.redemption_handoffs h where h.code = v_code);
-    -- BOUNDED: never reusing a code means an exhausted keyspace has to fail
-    -- cleanly rather than loop forever inside a transaction. 60 consecutive
-    -- misses over 32^6 codes does not happen with a working RNG.
-    tries := tries + 1;
-    if tries >= 60 then
-      raise exception 'could not mint a handoff code' using errcode='P0004';
-    end if;
-  end loop;
-  return v_code;
-end; $$;
--- Internal helper for open_redemption. Direct callers must use the authenticated
--- opener so ownership, partner terms and handoff logging stay in one transaction.
-revoke all on function public.gen_handoff_code() from public, anon, authenticated;
+-- WHAT ACTUALLY MAKES THIS SAFE, unchanged and load-bearing:
+--   1. auth.uid(). The reward is spent by its OWNER, over the app's own
+--      authenticated session. redeem_by_code could not check ownership because it
+--      was anon-callable and holding the code WAS the credential. This can, and
+--      does: `v_r.user_id <> v_me` is the first thing it looks at. That is a
+--      stronger guarantee than the code ever gave, not a weaker one.
+--   2. The conditional UPDATE. `where r.id = ... and r.status = 'issued'` re-checks
+--      the status under Postgres's own row lock, and `get diagnostics row_count`
+--      proves which caller won. Of two simultaneous taps exactly one spends. This
+--      is the one-time guarantee; it never lived in the code.
+--   3. The partner row lock, taken BEFORE the shared gate and held through the
+--      spend. Per-user and pilot caps COUNT rows already redeemed at one shop, so
+--      without it two different rewards can both read the last cap slot as free.
+--
+-- Everything the two functions checked between them is checked here, in one
+-- transaction, so open and spend can no longer disagree: the reward is yours, the
+-- shop is live, the reward is issued and unexpired, the shop matches (or the
+-- passport's policy does), the offer has not been reworded, and the caps and the
+-- agreed window still allow it.
+--
+-- These four DROPs matter for a database the old migration already ran on:
+-- `create or replace` cannot remove a function, so without them redeem_by_code
+-- would stay executable BY ANON forever after the client stopped calling it.
+drop function if exists public.open_redemption(uuid,text);
+drop function if exists public.redeem_by_code(text);
+drop function if exists public.check_code(text);
+drop function if exists public.gen_handoff_code();
 
--- Step 1 at the counter: the student picks the shop and opens the card. This
--- validates everything it can BEFORE the cashier is involved, so a refusal happens
--- on the student's screen rather than in front of a queue. It does not consume
--- anything: the reward is still redeemable if the student walks away.
-create or replace function public.open_redemption(p_reward_id uuid, p_partner_id text)
-returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+create or replace function public.redeem_reward(p_reward_id uuid, p_partner_id text)
+returns jsonb language plpgsql security definer set search_path = public as $$
 declare
-  v_me     uuid := auth.uid();
-  v_r      public.reward_instances;
-  v_p      public.partners;
-  v_pol    public.reward_policies;
-  v_code   text;
-  v_fail   text;
+  -- v_-prefixed throughout, deliberately. `reward_id`, `partner_id`, `status` and
+  -- `user_id` are all real column names on the tables this touches, and plpgsql
+  -- RAISES on the ambiguity rather than guessing. That bug class has cost this
+  -- file three live round trips already (see gen_handoff_code's old comment).
+  v_me   uuid := auth.uid();
+  v_r    public.reward_instances;
+  v_p    public.partners;
+  v_hit  int;
+  v_fail text;
 begin
   if v_me is null then raise exception 'not authenticated' using errcode='28000'; end if;
 
+  -- OWNERSHIP FIRST. Without this an authenticated caller could spend any reward
+  -- id they can guess. redeem_by_code genuinely could not do this check; that is
+  -- the whole reason the code existed, and it is why removing the code makes the
+  -- system stricter rather than looser.
   select * into v_r from public.reward_instances r where r.id = p_reward_id;
-  if not found or v_r.user_id <> v_me then v_fail := 'failed_not_found';
+  if not found or v_r.user_id <> v_me then
+    v_fail := 'failed_not_found';
   else
-    select * into v_p from public.partners p where p.id = p_partner_id;
+    -- FOR UPDATE, and before the gate. redemption_gate counts redeemed rows at
+    -- this shop; serializing on the partner row is what stops two rewards both
+    -- observing the last cap slot as free.
+    select * into v_p from public.partners p where p.id = p_partner_id for update;
     if not found                              then v_fail := 'failed_not_found';
     elsif not v_p.active                      then v_fail := 'failed_partner_paused';
     elsif v_r.status = 'redeemed'             then v_fail := 'failed_already_redeemed';
@@ -743,220 +722,77 @@ begin
       and v_p.policy_id <> v_r.policy_id      then v_fail := 'failed_wrong_partner';
     -- The offer moved after this reward was earned. Honouring the new wording
     -- would hand the shop a bill it never agreed to, so refuse and explain.
+    --
+    -- The handoff row used to ALSO pin a passport reward's offer version at open,
+    -- because reward_instances.offer_version is NULL for a passport and so checked
+    -- nothing. There is no longer a gap to pin across: the shop's row is read under
+    -- the lock in the same statement that spends, so the wording that is honoured
+    -- is by construction the wording that was current at the tap.
     elsif v_r.offer_version is not null
       and v_r.offer_version <> v_p.offer_version then v_fail := 'failed_offer_changed';
     end if;
   end if;
 
-  -- Caps and window come from the shared gate, so open and spend can never
-  -- disagree about them again.
+  -- Caps and the agreed window, from the shared gate, excluding this reward so it
+  -- cannot count itself toward the cap it is about to fill.
   if v_fail is null then
     v_fail := public.redemption_gate(v_me, p_partner_id, p_reward_id);
   end if;
 
   if v_fail is not null then
+    -- Attributed to the shop ONLY when the tap actually reached one of its offers.
+    -- v_p is left unset whenever the reward id resolves to nothing, or to somebody
+    -- else's reward, or when the partner id itself is unknown, and in all three of
+    -- those cases the refusal has nothing to do with any real shop. Without this a
+    -- signed-in account could tap garbage reward ids at one partner all afternoon
+    -- and fill that shop's rejection list with refusals of rewards that never
+    -- existed. Nothing of value moves either way; the cost is a merchant report
+    -- that lies about what happened at the counter, which is the one thing the
+    -- report is for.
     insert into public.redemption_events (user_id, partner_id, reward_id, offer_version, outcome)
-      values (v_me, p_partner_id, p_reward_id, v_r.offer_version, v_fail);
+      values (v_me, case when v_p.id is null then null else p_partner_id end,
+              p_reward_id, v_r.offer_version, v_fail);
+    -- Refusals carry the reason and nothing else. A refused tap must not leak a
+    -- shop's wording or note to someone whose reward was never valid there.
     return jsonb_build_object('ok', false, 'reason', v_fail);
-  end if;
-
-  -- Reuse a live handoff rather than minting a new code every time the sheet is
-  -- reopened, so the cashier is not looking at a code that changed mid-glance.
-  select h.code into v_code from public.redemption_handoffs h
-    where h.reward_id = p_reward_id and h.partner_id = p_partner_id
-      and h.consumed_at is null and h.expires_at > now() + interval '30 seconds'
-    order by h.created_at desc limit 1;
-
-  if v_code is null then
-    -- gen_handoff_code raises P0004 if it cannot find a free code in 60 tries.
-    -- Caught here so the client gets the same {ok:false, reason} shape the mock
-    -- returns, rather than an unhandled exception. Impossible with a working RNG
-    -- over 32^6 codes; handled anyway because "impossible" is how the last two
-    -- bugs in this file got in.
-    -- Catch ONLY the exhaustion case. `when others` was here, and it turned a
-    -- plain ambiguity error inside gen_handoff_code into a confident
-    -- "failed_code_unavailable", which is a real-looking answer to a question
-    -- that was never asked. A defensive handler that swallows the diagnosis is
-    -- worse than no handler: it cost a 30-minute test run to find that out.
-    begin
-      v_code := public.gen_handoff_code();
-    exception when sqlstate 'P0004' then
-      insert into public.redemption_events (user_id, partner_id, reward_id, outcome)
-        values (v_me, p_partner_id, p_reward_id, 'failed_code_unavailable');
-      return jsonb_build_object('ok', false, 'reason', 'failed_code_unavailable');
-    end;
-    insert into public.redemption_handoffs
-      (code, reward_id, user_id, partner_id, expires_at, offer_version)
-      values (v_code, p_reward_id, v_me, p_partner_id, now() + interval '5 minutes',
-              v_p.offer_version);
-  end if;
-
-  insert into public.redemption_events (user_id, partner_id, reward_id, offer_version, outcome)
-    values (v_me, p_partner_id, p_reward_id, v_p.offer_version, 'opened');
-
-  return jsonb_build_object(
-    'ok', true, 'code', v_code,
-    'expires_at', (select h.expires_at from public.redemption_handoffs h where h.code = v_code),
-    'server_time', now(),
-    'bar_minutes', v_r.bar_minutes,
-    'partner_name', v_p.name, 'offer_text', v_p.offer_text,
-    'offer_version', v_p.offer_version, 'cashier_note', v_p.cashier_note);
-end; $$;
-revoke all on function public.open_redemption(uuid,text) from public, anon;
-grant execute on function public.open_redemption(uuid,text) to authenticated;
-
--- Step 2: SPEND IT. This is the only function in the system that consumes a
--- reward, and it consumes exactly one.
---
--- The same-reward guarantee lives in the WHERE clause of the UPDATE. Postgres
--- takes a row lock on the matching reward, and `status = 'issued'` is re-checked
--- under that lock, so of two simultaneous requests exactly one updates a row.
---
--- Different rewards need a shared lock too: per-user and pilot caps count rows
--- already redeemed at one partner. Locking that partner before the shared gate
--- serializes the count-and-spend transaction, so two distinct codes cannot both
--- observe the last cap slot as free.
---
--- It is deliberately callable with just the code, so the cashier's own device can
--- spend it from a plain webpage with nothing installed and no account.
-create or replace function public.redeem_by_code(p_code text)
-returns jsonb language plpgsql security definer set search_path = public as $$
-declare
-  v_h      public.redemption_handoffs;
-  v_p      public.partners;
-  v_r      public.reward_instances;
-  v_hit    int;
-  v_fail   text;
-begin
-  select * into v_h from public.redemption_handoffs h
-    where h.code = upper(trim(coalesce(p_code,'')));
-  if not found then
-    insert into public.redemption_events (outcome) values ('failed_not_found');
-    return jsonb_build_object('ok', false, 'reason', 'failed_not_found');
-  end if;
-
-  select * into v_r from public.reward_instances r where r.id = v_h.reward_id;
-  select * into v_p from public.partners p where p.id = v_h.partner_id for update;
-
-  if v_h.consumed_at is not null       then v_fail := 'failed_already_redeemed';
-  elsif v_h.expires_at <= now()        then v_fail := 'failed_code_expired';
-  elsif not v_p.active                 then v_fail := 'failed_partner_paused';
-  elsif v_r.status = 'redeemed'        then v_fail := 'failed_already_redeemed';
-  elsif v_r.status <> 'issued'         then v_fail := 'failed_not_found';
-  elsif v_r.expires_at is not null
-    and v_r.expires_at <= now()        then v_fail := 'failed_expired';
-  -- Two version checks, not one. The reward's own version covers partner_specific
-  -- rewards; the handoff's pinned version covers passport rewards, whose
-  -- reward_instances.offer_version is NULL and therefore checked nothing.
-  elsif v_r.offer_version is not null
-    and v_r.offer_version <> v_p.offer_version then v_fail := 'failed_offer_changed';
-  elsif v_h.offer_version is not null
-    and v_h.offer_version <> v_p.offer_version then v_fail := 'failed_offer_changed';
-  end if;
-
-  -- Caps and the agreed window, re-checked AT SPEND. Checking them only at open
-  -- meant opening every card first, while the redeemed count was still zero, beat
-  -- the cap on all of them. This is the fix for that.
-  if v_fail is null then
-    v_fail := public.redemption_gate(v_h.user_id, v_h.partner_id, v_h.reward_id);
-  end if;
-
-  if v_fail is not null then
-    insert into public.redemption_events (user_id, partner_id, reward_id, offer_version, outcome)
-      values (v_h.user_id, v_h.partner_id, v_h.reward_id, v_r.offer_version, v_fail);
-    return jsonb_build_object('ok', false, 'reason', v_fail,
-      'partner_name', v_p.name, 'offer_text', v_p.offer_text);
   end if;
 
   -- The atomic step. Nothing between the check and the write.
   update public.reward_instances r
     set status = 'redeemed', redeemed_at = now(),
-        redeemed_partner_id = v_h.partner_id, redeemed_offer_version = v_p.offer_version,
+        redeemed_partner_id = p_partner_id, redeemed_offer_version = v_p.offer_version,
         redeemed_offer_text = v_p.offer_text
-    where r.id = v_h.reward_id and r.status = 'issued';
+    where r.id = p_reward_id and r.status = 'issued';
   get diagnostics v_hit = row_count;
 
   if v_hit = 0 then
     insert into public.redemption_events (user_id, partner_id, reward_id, offer_version, outcome)
-      values (v_h.user_id, v_h.partner_id, v_h.reward_id, v_p.offer_version, 'failed_already_redeemed');
-    return jsonb_build_object('ok', false, 'reason', 'failed_already_redeemed',
-      'partner_name', v_p.name, 'offer_text', v_p.offer_text);
+      values (v_me, p_partner_id, p_reward_id, v_p.offer_version, 'failed_already_redeemed');
+    return jsonb_build_object('ok', false, 'reason', 'failed_already_redeemed');
   end if;
 
-  -- Burn the code too, so the same slip of paper cannot be presented twice even
-  -- if a second reward exists on the account.
-  update public.redemption_handoffs set consumed_at = now() where code = v_h.code;
-
   insert into public.redemption_events (user_id, partner_id, reward_id, offer_version, outcome)
-    values (v_h.user_id, v_h.partner_id, v_h.reward_id, v_p.offer_version, 'completed');
+    values (v_me, p_partner_id, p_reward_id, v_p.offer_version, 'completed');
 
-  return jsonb_build_object('ok', true, 'partner_name', v_p.name,
-    'offer_text', v_p.offer_text, 'cashier_note', v_p.cashier_note,
+  -- bar_minutes is the reward's OWN issuance bar, not the policy's current one: a
+  -- policy that moves its bar must not retroactively relabel what an old reward
+  -- was worth. The client renders the share card off this number.
+  return jsonb_build_object('ok', true,
+    'partner_name', v_p.name, 'offer_text', v_p.offer_text,
+    'cashier_note', v_p.cashier_note, 'bar_minutes', v_r.bar_minutes,
     'redeemed_at', now(), 'server_time', now());
 end; $$;
--- anon may execute: the cashier has no account and installs nothing. Holding an
--- unexpired 6-character code IS the credential, which is why codes live 5 minutes
--- and die on first use. Rate limiting is §10.
-revoke all on function public.redeem_by_code(text) from public;
-grant execute on function public.redeem_by_code(text) to anon, authenticated;
+-- Authenticated ONLY. There is no cashier device to authorize any more, so the
+-- anon grant that redeem_by_code and check_code carried is gone with them.
+revoke all on function public.redeem_reward(uuid,text) from public, anon, authenticated;
+grant execute on function public.redeem_reward(uuid,text) to authenticated;
 
--- Read-only peek for the verification page, so a cashier can see VALID / ALREADY
--- USED before deciding to spend it. Returns no user identity.
-create or replace function public.check_code(p_code text)
-returns jsonb language plpgsql security definer stable set search_path = public as $$
-declare v_h public.redemption_handoffs; v_p public.partners; v_r public.reward_instances;
-        v_gate text; v_reason text;
-begin
-  select * into v_h from public.redemption_handoffs h where h.code = upper(trim(coalesce(p_code,'')));
-  if not found then return jsonb_build_object('ok', false, 'reason', 'failed_not_found'); end if;
-  select * into v_p from public.partners p where p.id = v_h.partner_id;
-  select * into v_r from public.reward_instances r where r.id = v_h.reward_id;
-  -- Every refusal redeem_by_code can raise must be reachable here too, or the
-  -- cashier sees VALID, taps Mark as used, and gets a refusal in front of a
-  -- queue. The reward's OWN expiry and the offer version are easy to forget:
-  -- the handoff code can be perfectly fresh while the reward behind it is not.
-  -- The caps and the window, through the SAME gate the spend uses, plus the
-  -- handoff's pinned offer version. Leaving these out is how a cashier ends up
-  -- reading VALID and then being refused with a queue behind them: exactly the
-  -- failure the comment above this function exists to prevent. Adding a refusal
-  -- to redeem_by_code and not to check_code is always a bug.
-  v_gate := public.redemption_gate(v_h.user_id, v_h.partner_id, v_h.reward_id);
-
-  v_reason := case
-    when v_h.consumed_at is not null or v_r.status = 'redeemed' then 'failed_already_redeemed'
-    when v_h.expires_at <= now() then 'failed_code_expired'
-    when v_r.status <> 'issued' then 'failed_not_found'
-    when v_r.expires_at is not null and v_r.expires_at <= now() then 'failed_expired'
-    when v_r.offer_version is not null and v_r.offer_version <> v_p.offer_version
-         then 'failed_offer_changed'
-    when v_h.offer_version is not null and v_h.offer_version <> v_p.offer_version
-         then 'failed_offer_changed'
-    when v_gate is not null then v_gate
-    else null end;
-
-  return jsonb_build_object(
-    'ok', v_reason is null,
-    'reason', v_reason,
-    'partner_name', v_p.name, 'offer_text', v_p.offer_text,
-    'cashier_note', v_p.cashier_note, 'server_time', now(),
-    'expires_at', v_h.expires_at);
-end; $$;
-revoke all on function public.check_code(text) from public;
-grant execute on function public.check_code(text) to anon, authenticated;
-
--- 10. RATE LIMIT ON CODE GUESSING --------------------------------------------
--- 31^6 is about 887 million, and a code lives 5 minutes, so guessing is already
--- hopeless. This exists so a script cannot make the attempt cheaply, and so the
--- event log is not flooded.
-create table if not exists public.code_rate (
-  ip_key       text        primary key,
-  window_start timestamptz not null default now(),
-  count        integer     not null default 0
-);
-alter table public.code_rate enable row level security;
--- Supabase does not expose a client IP to SQL by default; enforce this in the
--- verification page's edge function or in the dashboard's API rate limits.
--- Documented rather than faked: see docs/network-v1/REWARD-V2.md.
+-- 10. RATE LIMIT ON CODE GUESSING — REMOVED IN 1.2.0 -------------------------
+-- This table existed so a script could not cheaply brute-force a six-character
+-- handoff code. There are no codes to guess any more: a redemption is addressed by
+-- a reward id that only its owner's authenticated session can spend, and an
+-- unauthenticated caller is refused at the first line of redeem_reward.
+drop table if exists public.code_rate cascade;
 
 -- 11. MERCHANT PILOT REPORT ---------------------------------------------------
 -- Everything a shop is actually owed an answer to, and nothing it is not. No
@@ -1007,16 +843,21 @@ $$;
 revoke all on function public.partner_report(text,integer) from public, anon, authenticated;
 
 -- 12. CLEANUP ------------------------------------------------------------------
-select cron.schedule('prune_handoffs', '41 * * * *', $cron$
-  delete from public.redemption_handoffs where expires_at < now() - interval '7 days';
-$cron$);
+-- prune_handoffs is gone with the table it swept. Unscheduled rather than merely
+-- deleted from this file: a job left behind on an already-migrated database would
+-- run hourly against a table that no longer exists.
+do $$ begin
+  perform cron.unschedule('prune_handoffs');
+exception when others then null;   -- never scheduled here: nothing to remove
+end $$;
 select cron.schedule('sweep_stale_sessions', '7 * * * *', $cron$
   update public.reward_sessions set state = 'abandoned', ended_at = now(), credited_minutes = 0
   where state = 'active' and started_at < now() - interval '12 hours';
 $cron$);
 
 -- 13. OPTIONAL, UNRELATED: the friend-code alphabet off-by-one ---------------
--- Found while writing gen_handoff_code. supabase-setup.sql §4 declares
+-- Found while writing the old handoff-code generator (since removed).
+-- supabase-setup.sql §4 declares
 --   alphabet := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   -- 31 chars
 -- but that string is 32 characters (24 letters after dropping I and O, plus the
 -- digits 2-9). With `n := 31` the generator can never index position 32, so no
@@ -1054,7 +895,8 @@ $cron$);
 --      Real cost per account (a threshold that takes 4 h of WALL CLOCK) is the
 --      only brake today. Per-shop caps in §2 bound the damage.
 --   3. Elapsed wall-clock is not attention. Nothing here knows a human was there.
---   4. A screenshot of a code is useless after 5 minutes, but a LIVE screen share
---      to a friend within those 5 minutes would work. The reward is still spent
---      exactly once.
+--   4. A redemption is authorised by the account's own session, so anyone the user
+--      hands their signed-in phone to can spend their reward. That is the same
+--      exposure as handing over a wallet, and it is bounded: the reward is still
+--      spent exactly once, and it is the user's own reward being spent.
 -- ════════════════════════════════════════════════════════════════════════════

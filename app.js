@@ -353,7 +353,16 @@ const els = {
   redeemShop:           document.querySelector("#redeemShop"),
   redeemAddress:        document.querySelector("#redeemAddress"),
   redeemPerk:           document.querySelector("#redeemPerk"),
-  redeemCode:           document.querySelector("#redeemCode"),
+  rewardProgress:       document.querySelector("#rewardProgress"),
+  rewardProgressCount:  document.querySelector("#rewardProgressCount"),
+  rewardProgressFill:   document.querySelector("#rewardProgressFill"),
+  settingsRewardProgress:      document.querySelector("#settingsRewardProgress"),
+  settingsRewardProgressCount: document.querySelector("#settingsRewardProgressCount"),
+  settingsRewardProgressFill:  document.querySelector("#settingsRewardProgressFill"),
+  redeemStar:           document.querySelector("#redeemStar"),
+  redeemEyebrow:        document.querySelector("#redeemEyebrow"),
+  redeemUsed:           document.querySelector("#redeemUsed"),
+  redeemDismissBtn:     document.querySelector("#redeemDismissBtn"),
   redeemStamp:          document.querySelector("#redeemStamp"),
   redeemNote:           document.querySelector("#redeemNote"),
   redeemConfirmBtn:     document.querySelector("#redeemConfirmBtn"),
@@ -2078,6 +2087,9 @@ function renderAll() {
   renderShop();
   renderQuests();
   updateQuestBadge();
+  // Cheap, and it keeps the Settings reward bar honest if the sheet happens to be
+  // open when a session lands. The sheet's own open handler still renders it too.
+  renderSettingsRewardProgress();
   // Keeps the HUD shelf count live; the sheet body itself re-renders on open.
   if (els.shelfCount) {
     const shelfN = (state.collection || []).length;
@@ -3290,6 +3302,54 @@ function renderRewardPartner(reward) {
   // app and it does not need a row of choices on it.
   const shareBtn = document.getElementById("shareRewardBtn");
   if (shareBtn) shareBtn.textContent = earned ? "Share my reward" : "Share my drink";
+
+  renderRewardProgressBar(els.rewardProgress, els.rewardProgressCount, els.rewardProgressFill);
+}
+
+// The real-shop reward bar, as a bar. One renderer, two homes: the
+// drink-complete card and the Settings sheet.
+//
+// It states BOTH halves — "3h 40m of 4h" — because "20 min to go" alone hides how
+// far you have already come, and the whole reason this number is worth surfacing
+// outside the Boba Map is that it is the one thing in the app connected to
+// something real. It is hidden outright rather than shown at zero when
+// rewardProgressNow() returns null: in server mode that means "not synced", and
+// the app must never guess at a number a shop will be asked to honour.
+function renderRewardProgressBar(wrap, countEl, fillEl) {
+  if (!wrap) return;
+  const prog = rewardProgressNow();
+  const have = rewardsInHand();
+
+  // A reward already in hand is not progress toward one, it is a full bar. Saying
+  // "0m of 4h" to someone holding a redeemable reward reads as if it were spent.
+  if (have > 0) {
+    wrap.hidden = false;
+    wrap.classList.add("is-full");
+    if (countEl) {
+      countEl.textContent = `${have} ready to use`;
+    }
+    if (fillEl) fillEl.style.width = "100%";
+    return;
+  }
+
+  if (!prog || !(prog.bar > 0)) {
+    wrap.hidden = true;
+    wrap.classList.remove("is-full");
+    return;
+  }
+
+  const done = Math.max(0, Math.min(prog.bar, prog.done));
+  wrap.hidden = false;
+  wrap.classList.remove("is-full");
+  if (countEl) countEl.textContent = `${durationLabel(done)} of ${durationLabel(prog.bar)}`;
+  if (fillEl) fillEl.style.width = `${Math.round((done / prog.bar) * 100)}%`;
+}
+
+// Settings copy of the same bar. Called when the sheet opens, so it is current
+// every time rather than whenever renderAll last ran.
+function renderSettingsRewardProgress() {
+  renderRewardProgressBar(els.settingsRewardProgress, els.settingsRewardProgressCount,
+                          els.settingsRewardProgressFill);
 }
 
 // Count the reward pearls up from 0 → N with a soft coin tick per step, so the
@@ -5558,9 +5618,10 @@ function rewardProgressNow() {
 }
 
 // True when the server is the authority right now. The UI needs to know, because
-// the two modes show DIFFERENT things at the counter: v1 shows a ticking clock
-// that proves nothing, v2 shows a short server-issued code that the shop can
-// actually verify.
+// the two modes mean DIFFERENT things at the counter. v1 (web) writes a local
+// ledger entry: it is an honest record of what the student says they did and it
+// proves nothing to a shop. v2 (native) spends a real reward row against the
+// server, once, keyed to the student's own account.
 function rewardServerMode() {
   // Authority is selected by the native V2 flag, not by current connectivity.
   // If sync is down, V2 remains authoritative and exposes nothing spendable.
@@ -6199,10 +6260,17 @@ function renderShopList(items) {
 // ticking timestamp is for (a still image freezes, this does not). There is no
 // scanner and no account on the shop's side. That was the promise made to the
 // shops: nothing to install, nothing to manage.
+//
+// ONE TAP (1.2.0). This card used to mint a six-character code: two network round
+// trips behind the words "Getting your code…", and then a cashier who was supposed
+// to type it into a page that was never deployed. It was friction at the single
+// worst moment in the product, a queue behind you at a register, and it protected
+// nothing that is not protected better now. The shop name and the perk come
+// straight out of the local cache with no network wait at all, and "Use this
+// reward" is one server-authoritative call by the reward's own signed-in owner.
+// The card then flips, in place, to a stamped "Used" face the barista can read.
 let redeemPartner = null;
 let redeemClock = null;
-let redeemCode = null;      // server-issued handoff code, server mode only
-let redeemVerifiedBar = null;
 let redeemGeneration = 0;
 let redeemShareGeneration = 0;
 let redeemContext = null;
@@ -6242,18 +6310,15 @@ function redeemUnavailableCopy() {
 
 function retireRedeemView(generation, partnerId, copy) {
   if (!redeemGenerationCurrent(generation, partnerId)) return false;
-  redeemCode = null;
-  redeemVerifiedBar = null;
+  // heldId goes too. It is the spend guard: confirmRedeem refuses without one, so
+  // clearing it here is what makes a retired card unspendable rather than merely
+  // greyed out (a disabled button is not a guarantee — a queued tap can still
+  // arrive after the disable).
   redeemContext = Object.freeze({
     ...redeemContext,
-    bar: null,
-    code: null,
+    heldId: null,
     accountLease: null,
   });
-  if (els.redeemCode) {
-    els.redeemCode.textContent = "";
-    els.redeemCode.classList.add("hidden");
-  }
   if (els.redeemConfirmBtn) els.redeemConfirmBtn.disabled = true;
   els.redeemNote.textContent = copy || redeemUnavailableCopy();
   els.redeemDialog.classList.add("not-ready");
@@ -6297,14 +6362,13 @@ function redeemFailCopy(reason) {
   switch (reason) {
     case "failed_already_redeemed": return "This reward has already been used.";
     case "failed_expired":          return "This reward has expired.";
-    case "failed_code_expired":     return "That code timed out. Close this and open it again.";
     case "failed_wrong_partner":    return "This reward is for a different shop.";
     case "failed_partner_paused":   return "This shop is not offering the reward right now.";
     case "failed_offer_changed":    return "This shop has changed its offer. Open this again for the new one.";
     case "failed_outside_window":   return "This shop's reward is not available at this time of day.";
     case "failed_capped":           return "This shop has reached its limit for now.";
     case "offline":                 return "Could not reach the server. Close this and open it again when you have a signal.";
-    default:                        return "Could not get a code. Try again in a moment.";
+    default:                        return "Couldn’t use this reward. Try again in a moment.";
   }
 }
 
@@ -6313,21 +6377,15 @@ function openRedeem(partner) {
   const shareGeneration = ++redeemShareGeneration;
   const cachedPartner = redeemPartnerSnapshot(partner);
   redeemPartner = cachedPartner;
-  redeemVerifiedBar = null;
-  redeemContext = Object.freeze({
-    generation,
-    shareGeneration,
-    partner: cachedPartner,
-    heldId: null,
-    policyId: null,
-    bar: null,
-    code: null,
-    accountLease: null,
-  });
   playSfx("tap");
   // partner_id only. The shop is not private (it is on a public map), but the
   // student's location is, so no coordinate is ever attached.
   trk("redemption_started", { partner_id: cachedPartner.id, offer_viewed: true });
+
+  // Reset the card to its unspent face. Reopening after a redemption must never
+  // show the previous card's "Used" stamp against a fresh shop.
+  setRedeemUsedFace(null);
+
   els.redeemShop.textContent   = cachedPartner.name;
   els.redeemAddress.textContent = cachedPartner.address;
   els.redeemPerk.textContent   = cachedPartner.perk;
@@ -6335,7 +6393,14 @@ function openRedeem(partner) {
   const have = rewardsInHand();
   const accountOff = cloudAccountRewardsOffCopy();
   const serverUnavailable = rewardServerMode() && !rewardServerReady();
-  const ready = !accountOff && !serverUnavailable && have > 0;
+  // In server mode a reward in hand is not enough on its own: it has to be one
+  // this shop can honour. rewardFor() is a plain in-memory lookup over rewards
+  // already synced, so asking costs nothing and happens before the card paints.
+  const held = rewardServerMode() && !accountOff && !serverUnavailable
+    ? RewardV2.rewardFor(cachedPartner.id)
+    : null;
+  const ready = !accountOff && !serverUnavailable && have > 0 &&
+    (!rewardServerMode() || !!held);
   const prog = rewardProgressNow();
   els.redeemConfirmBtn.disabled = !ready;
   // Not-ready shows how much focus is LEFT, not the whole bar. Someone three and
@@ -6346,99 +6411,34 @@ function openRedeem(partner) {
       ? "Couldn’t verify your rewards. Check your connection and try again."
     : ready
       ? `You have ${have} reward${have !== 1 ? "s" : ""} saved.`
+      : (rewardServerMode() && have > 0 && !held)
+        ? "No reward for this shop yet."
       : prog
         ? `${durationLabel(prog.left)} of focus to go.`
         : "Reward progress isn’t available right now. Try again in a moment.";
   els.redeemDialog.classList.toggle("not-ready", !ready);
 
-  // Server mode: ask for a short code the shop can actually verify. Everything
-  // that can refuse this reward is checked NOW, on the student's own screen,
-  // rather than at the counter with a queue behind them.
-  redeemCode = null;
-  if (els.redeemCode) {
-    els.redeemCode.textContent = "";
-    els.redeemCode.classList.add("hidden");
-  }
-  if (rewardServerMode() && ready) {
-    const held = RewardV2.rewardFor(cachedPartner.id);
-    if (!held) {
-      els.redeemNote.textContent = "No reward for this shop yet.";
-      els.redeemConfirmBtn.disabled = true;
-    } else {
-      const requestContext = Object.freeze({
-        generation,
-        shareGeneration,
-        partner: cachedPartner,
-        heldId: held.id,
-        policyId: held.policy_id,
-        bar: null,
-        code: null,
-        accountLease: null,
-      });
-      redeemContext = requestContext;
-      els.redeemNote.textContent = "Getting your code…";
-      els.redeemConfirmBtn.disabled = true;
-      captureRedeemAccountLease().then((accountLease) => {
-        if (!redeemGenerationCurrent(generation, cachedPartner.id)) return;
-        if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
-        const leasedContext = Object.freeze({
-          ...requestContext,
-          accountLease,
-        });
-        redeemContext = leasedContext;
-        if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
+  redeemContext = Object.freeze({
+    generation,
+    shareGeneration,
+    partner: cachedPartner,
+    heldId: held ? held.id : null,
+    policyId: held ? held.policy_id : null,
+    accountLease: null,
+  });
 
-        let opening;
-        try { opening = RewardV2.openRedemption(held.id, cachedPartner.id); }
-        catch (e) {
-          if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
-          retireRedeemView(generation, cachedPartner.id, redeemFailCopy("offline"));
-          return;
-        }
-        return Promise.resolve(opening).then((res) => {
-          // Both the dialog and the exact anonymous account must still be the
-          // ones that dispatched this request before any response can publish.
-          if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
-          if (res && res.ok) {
-            const responseBar = Number.isInteger(res.bar_minutes) &&
-              res.bar_minutes >= 15 && res.bar_minutes <= 1440
-              ? res.bar_minutes : null;
-            const authoritativePartner = redeemPartnerSnapshot({
-              ...cachedPartner,
-              name: res.partner_name,
-              perk: res.offer_text,
-            });
-            const openedContext = Object.freeze({
-              ...leasedContext,
-              partner: authoritativePartner,
-              code: res.code,
-              bar: responseBar,
-            });
-            if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
-            redeemContext = openedContext;
-            redeemPartner = authoritativePartner;
-            redeemCode = res.code;
-            redeemVerifiedBar = responseBar;
-            if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
-            els.redeemShop.textContent = res.partner_name;
-            els.redeemPerk.textContent = res.offer_text;
-            if (els.redeemCode) {
-              els.redeemCode.textContent = res.code;
-              els.redeemCode.classList.remove("hidden");
-            }
-            els.redeemNote.textContent = "Show this code to the cashier.";
-            els.redeemConfirmBtn.disabled = false;
-          } else {
-            retireRedeemView(generation, cachedPartner.id, redeemFailCopy(res && res.reason));
-          }
-        }).catch(() => {
-          if (!redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
-          retireRedeemView(generation, cachedPartner.id, redeemFailCopy("offline"));
-        });
-      }).catch(() => {
-        retireRedeemView(generation, cachedPartner.id);
-      });
-    }
+  // The account lease is the fence that stops a response publishing against an
+  // anonymous account that has since been replaced (deletion, sign-out). It is
+  // still required before a spend — it is just no longer allowed to hold up the
+  // card. Warm it in the background here so the tap is instant, and let
+  // confirmRedeem capture one inline in the rare case this has not landed yet.
+  if (rewardServerMode() && ready) {
+    captureRedeemAccountLease().then((accountLease) => {
+      if (!redeemGenerationCurrent(generation, cachedPartner.id)) return;
+      if (!redeemContext || redeemContext.generation !== generation) return;
+      if (redeemContext.accountLease) return;
+      redeemContext = Object.freeze({ ...redeemContext, accountLease });
+    }).catch(() => {});
   }
 
   if (typeof els.redeemDialog.showModal === "function") els.redeemDialog.showModal();
@@ -6447,11 +6447,17 @@ function openRedeem(partner) {
   // Tick every second while the card is open. Cleared on close so a backgrounded
   // sheet is not holding a timer forever. The generation guard also makes an
   // already-queued old tick harmless after close/reopen.
+  //
+  // With the handoff code gone this ticking stamp is the ONLY thing separating
+  // the live app from a photograph of it at a counter, so it stays. It freezes
+  // deliberately once the card is spent: a stamped card states the moment the
+  // reward was used, and a moving clock on it would be a lie.
   const tick = () => {
     if (!redeemGenerationCurrent(generation, cachedPartner.id)) return;
-    // Lease acquisition itself is asynchronous, so loading has no lease yet.
-    // Once a code has been published, its context always carries one and every
-    // tick actively retires the code if that exact account stops being current.
+    if (els.redeemDialog.classList.contains("is-used")) return;
+    // Lease acquisition is asynchronous and no longer gates the card, so an
+    // absent lease is a normal early state. Once one exists, every tick actively
+    // retires the card if that exact account stops being current.
     const accountLease = redeemContext && redeemContext.accountLease;
     if (accountLease &&
         !redeemViewCurrent(generation, cachedPartner.id, accountLease)) return;
@@ -6465,28 +6471,72 @@ function openRedeem(partner) {
   redeemClock = setInterval(tick, 1000);
 }
 
+// Flip the card between its two faces, in place. Passing null restores the
+// unspent face; passing a Date stamps it as used at that moment.
+//
+// In place, not a toast and not a close, because of where this happens: the
+// student is holding the phone out across a counter. Closing the sheet the
+// instant the reward is spent leaves the barista looking at a map, and a toast
+// is gone in three seconds. The card itself has to say it.
+function setRedeemUsedFace(usedAt) {
+  const dlg = els.redeemDialog;
+  if (!dlg) return;
+  const used = !!usedAt;
+  dlg.classList.toggle("is-used", used);
+  if (els.redeemEyebrow) {
+    els.redeemEyebrow.textContent = used ? "Redeemed" : "Show this at the counter";
+  }
+  if (els.redeemUsed) {
+    els.redeemUsed.textContent = used
+      ? `Used ${usedAt.toLocaleString(undefined, {
+          weekday: "short", month: "short", day: "numeric",
+          hour: "numeric", minute: "2-digit"
+        })}. Enjoy 🧋`
+      : "";
+  }
+  // The stamp keeps running on an unspent card and freezes on a spent one, so
+  // stop clearing it here; the tick guard above owns that.
+  if (els.redeemConfirmBtn) {
+    els.redeemConfirmBtn.disabled = used || els.redeemConfirmBtn.disabled;
+  }
+  if (els.redeemDismissBtn) els.redeemDismissBtn.textContent = used ? "Done" : "Not now";
+}
+
 function closeRedeem() {
   redeemGeneration++;
   clearInterval(redeemClock);
   redeemClock = null;
-  redeemCode = null;
-  redeemVerifiedBar = null;
   redeemPartner = null;
   redeemContext = null;
 }
 
 function confirmRedeem() {
   if (!redeemPartner) return;
-
-  // Server mode: the ONE atomic spend. Normally the cashier does this from the
-  // verification page on their own device, which is what makes it a merchant
-  // action rather than a student self-declaration. This is the fallback for a
-  // shop that would rather the student tap it, and it hits the identical RPC.
+  // Server mode: THE ONE ATOMIC SPEND, and now the only step there is. The old
+  // flow opened a handoff first and then spent the code it minted; every refusal
+  // a shop can raise was checked at the open and then re-checked at the spend,
+  // because the two could disagree across the five minutes between them. There is
+  // no between any more. One authenticated call by the reward's own owner either
+  // spends it or says why not, and the server row lock decides which.
   if (rewardServerMode()) {
     const current = redeemContext;
     if (!current) return;
-    if (!redeemViewCurrent(current.generation, current.partner.id)) return;
-    if (!redeemCode || current.code !== redeemCode) return;
+    if (!current.heldId) return;
+    // GENERATION only, not redeemViewCurrent, and this is load-bearing.
+    // redeemViewCurrent also demands a live account lease, and openRedeem now warms
+    // that lease in the BACKGROUND so the card is spendable the instant it opens.
+    // A tap that beats the warm therefore has no lease yet, and gating on one here
+    // would retire a card the student is already holding across a counter. The
+    // lease is still required before anything is spent: it is resolved (captured
+    // inline if the warm has not landed) and checked below, before the RPC.
+    if (!redeemGenerationCurrent(current.generation, current.partner.id)) return;
+    const btn = els.redeemConfirmBtn;
+    if (btn) btn.disabled = true;
+    // Clear heldId BEFORE dispatching, so a tap already queued behind this one
+    // re-enters and returns at the !current.heldId guard above instead of firing a
+    // second spend. The disabled button is not sufficient on its own — a queued
+    // tap was dispatched before the disable landed.
+    redeemContext = Object.freeze({ ...current, heldId: null });
     const spend = Object.freeze({
       generation: current.generation,
       shareGeneration: current.shareGeneration,
@@ -6495,88 +6545,113 @@ function confirmRedeem() {
       offerText: current.partner.perk,
       heldId: current.heldId,
       policyId: current.policyId,
-      bar: current.bar,
-      code: current.code,
       accountLease: current.accountLease,
     });
-    const btn = els.redeemConfirmBtn;
-    if (btn) btn.disabled = true;
-    redeemCode = null;                 // a double tap cannot fire a second spend
-    let spending;
-    try { spending = RewardV2.redeemByCode(spend.code); }
-    catch (e) {
-      retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy("offline"));
-      return;
-    }
-    Promise.resolve(spending).then((res) => {
-      if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-      if (res && res.ok) {
-        // The spend has ALREADY committed on the server. Wrap the post-success UI
-        // (render, toast, share offer) so a throw in it cannot fall through to the
-        // outer .catch() below and mislabel a completed redemption as an offline
-        // failure — the reward is spent, so telling the user it failed is wrong.
-        try {
-        const completed = Object.freeze({
-          shareGeneration: spend.shareGeneration,
-          partnerId: spend.partnerId,
-          minutes: spend.bar,
-          shopName: res.partner_name || spend.partnerName,
-          offerText: res.offer_text || spend.offerText,
-          accountLease: spend.accountLease,
-        });
-        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-        trk("redemption_completed", { partner_id: spend.partnerId });
-        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-        playSfx("success");
-        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-        showToast(`Used at ${completed.shopName}. Enjoy 🧋`);
-        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-        renderAll();
-        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-        try { els.redeemDialog.close(); } catch (e) { return; }
-        if (!(Number.isFinite(completed.minutes) && completed.minutes > 0) ||
-            completed.shareGeneration !== redeemShareGeneration ||
-            !redeemAccountLeaseCurrent(completed.accountLease)) return;
-        const shareCurrent = () => completed.shareGeneration === redeemShareGeneration &&
-          redeemAccountLeaseCurrent(completed.accountLease);
-        // Offer the card for the moment that just happened. Naming the shop is
-        // safe here and only here: the user has just stood in it. The code is
-        // never on the card.
-        askConfirm(
-          "Post the reward you just picked up. The card carries no code and no location.",
-          { eyebrow: "Nice one", title: "Share it?",
-            confirmLabel: "Make my card", cancelLabel: "Not now" }
-        ).then((yes) => {
-          if (yes && shareCurrent()) {
-            shareRewardEarned({
-              minutes: completed.minutes,
-              shopName: completed.shopName,
-              offerText: completed.offerText,
-              redeemed: true,
-            }, shareCurrent);
-          }
-        }).catch(() => {});
-        } catch (e) {
-          // Post-commit UI blew up, but the redemption itself succeeded. Swallow
-          // rather than showing the offline-failure copy. retireRedeemView clears
-          // this view so the user can't re-confirm an already-spent reward.
-          retireRedeemView(spend.generation, spend.partnerId);
-        }
-      } else {
-        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-        trk("redemption_failed", { partner_id: spend.partnerId,
-                                   reason: (res && res.reason) || "unknown" });
-        if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-        retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy(res && res.reason));
+
+    // The lease is warmed in the background by openRedeem and is almost always
+    // ready by the time anyone taps. If it is not, capture one now rather than
+    // spending unfenced.
+    const leased = spend.accountLease
+      ? Promise.resolve(spend.accountLease)
+      : captureRedeemAccountLease();
+
+    leased.then((accountLease) => {
+      if (!redeemGenerationCurrent(spend.generation, spend.partnerId)) return;
+      if (rewardServerMode() && !redeemAccountLeaseCurrent(accountLease)) {
+        retireRedeemView(spend.generation, spend.partnerId);
+        return;
       }
+      let spending;
+      try { spending = RewardV2.redeem(spend.heldId, spend.partnerId); }
+      catch (e) {
+        retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy("offline"));
+        return;
+      }
+      return Promise.resolve(spending).then((res) => {
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, accountLease)) return;
+        if (res && res.ok) {
+          // The spend has ALREADY committed on the server. Wrap the post-success UI
+          // (render, toast, share offer) so a throw in it cannot fall through to the
+          // outer .catch() below and mislabel a completed redemption as an offline
+          // failure — the reward is spent, so telling the user it failed is wrong.
+          try {
+          // bar_minutes rides back on the spend response. It is the reward's own
+          // issuance bar and it reaches the client nowhere else; the share card
+          // refuses to render without a finite positive number for it.
+          const barMinutes = Number.isInteger(res.bar_minutes) &&
+            res.bar_minutes >= 15 && res.bar_minutes <= 1440 ? res.bar_minutes : null;
+          const completed = Object.freeze({
+            shareGeneration: spend.shareGeneration,
+            partnerId: spend.partnerId,
+            minutes: barMinutes,
+            shopName: res.partner_name || spend.partnerName,
+            offerText: res.offer_text || spend.offerText,
+            accountLease: accountLease,
+          });
+          if (!redeemViewCurrent(spend.generation, spend.partnerId, accountLease)) return;
+          trk("redemption_completed", { partner_id: spend.partnerId });
+          if (!redeemViewCurrent(spend.generation, spend.partnerId, accountLease)) return;
+          playSfx("success");
+          if (!redeemViewCurrent(spend.generation, spend.partnerId, accountLease)) return;
+          // Flip the card in place instead of closing it. The barista is looking
+          // at this screen right now; that is the whole point of the moment.
+          els.redeemShop.textContent = completed.shopName;
+          els.redeemPerk.textContent = completed.offerText;
+          els.redeemNote.textContent = "";
+          setRedeemUsedFace(new Date());
+          if (!redeemViewCurrent(spend.generation, spend.partnerId, accountLease)) return;
+          renderAll();
+          if (!(Number.isFinite(completed.minutes) && completed.minutes > 0) ||
+              completed.shareGeneration !== redeemShareGeneration ||
+              !redeemAccountLeaseCurrent(completed.accountLease)) return;
+          const shareCurrent = () => completed.shareGeneration === redeemShareGeneration &&
+            redeemAccountLeaseCurrent(completed.accountLease);
+          // Offer the card for the moment that just happened. Naming the shop is
+          // safe here and only here: the user has just stood in it. Wait until the
+          // card has been closed before asking — a share prompt stacked on top of
+          // the stamp is the last thing anyone wants mid-transaction.
+          onRedeemDialogClosed(() => {
+            if (!shareCurrent()) return;
+            askConfirm(
+              "Post the reward you just picked up. The card carries no location.",
+              { eyebrow: "Nice one", title: "Share it?",
+                confirmLabel: "Make my card", cancelLabel: "Not now" }
+            ).then((yes) => {
+              if (yes && shareCurrent()) {
+                shareRewardEarned({
+                  minutes: completed.minutes,
+                  shopName: completed.shopName,
+                  offerText: completed.offerText,
+                  redeemed: true,
+                }, shareCurrent);
+              }
+            }).catch(() => {});
+          });
+          } catch (e) {
+            // Post-commit UI blew up, but the redemption itself succeeded. Swallow
+            // rather than showing the offline-failure copy. retireRedeemView clears
+            // this view so the user can't re-confirm an already-spent reward.
+            retireRedeemView(spend.generation, spend.partnerId);
+          }
+        } else {
+          if (!redeemViewCurrent(spend.generation, spend.partnerId, accountLease)) return;
+          trk("redemption_failed", { partner_id: spend.partnerId,
+                                     reason: (res && res.reason) || "unknown" });
+          if (!redeemViewCurrent(spend.generation, spend.partnerId, accountLease)) return;
+          retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy(res && res.reason));
+        }
+      }).catch(() => {
+        if (!redeemViewCurrent(spend.generation, spend.partnerId, accountLease)) return;
+        retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy("offline"));
+      });
     }).catch(() => {
-      if (!redeemViewCurrent(spend.generation, spend.partnerId, spend.accountLease)) return;
-      retireRedeemView(spend.generation, spend.partnerId, redeemFailCopy("offline"));
+      retireRedeemView(spend.generation, spend.partnerId);
     });
     return;
   }
 
-  // v1, unchanged: a local ledger entry. Live today.
+  // v1, unchanged: a local ledger entry. Live today on the web, where there is no
+  // server to be authoritative and no shield to make the minutes mean anything.
   if (earnedPerkCount() <= 0) return;
   // Capture and clear the guard first (and disable the button), so a queued
   // double-tap re-enters confirmRedeem and returns at the top !redeemPartner
@@ -6593,13 +6668,23 @@ function confirmRedeem() {
   saveState();
   trk("redemption_completed", { partner_id: partner.id || null });
   playSfx("success");
-  showToast(`Used at ${partner.name}. Enjoy 🧋`);
-  try { els.redeemDialog.close(); } catch (e) {}
+  els.redeemNote.textContent = "";
+  setRedeemUsedFace(new Date());
   renderAll();
   // The banner counts live perks, and one just stopped being live. Re-render
   // from the pins already on the map rather than re-running the whole query.
   if (mapObj) renderPerkBanner(livePartners.filter(p =>
     lastFix && haversine(lastFix.lat, lastFix.lng, p.lat, p.lng) <= 6000));
+}
+
+// Run a callback once the redeem card is actually gone from the screen. The
+// share prompt is a second dialog, and stacking one on top of an open <dialog>
+// on iOS Safari lands it behind the backdrop.
+function onRedeemDialogClosed(fn) {
+  const dlg = els.redeemDialog;
+  if (!dlg || !dlg.open) { fn(); return; }
+  const done = () => { dlg.removeEventListener("close", done); setTimeout(fn, 120); };
+  dlg.addEventListener("close", done);
 }
 
 // ── Study Squad (friends leaderboard via shareable codes — no backend) ────────
@@ -7800,7 +7885,7 @@ function wireEvents() {
 
   // ── Bottom bar sheets ────────────────────────────────────────────────────
   els.shopBtn.addEventListener("click",       () => { playSfx("open"); openSheet("shopSheet"); });
-  els.settingsBtn.addEventListener("click",   () => { playSfx("open"); renderNameRow(); renderCloudAccountSettings(); openSheet("settingsSheet"); });
+  els.settingsBtn.addEventListener("click",   () => { playSfx("open"); renderNameRow(); renderCloudAccountSettings(); renderSettingsRewardProgress(); openSheet("settingsSheet"); });
   els.mapBtn.addEventListener("click",        () => { playSfx("open"); openMap(); });
   if (els.friendsBtn) els.friendsBtn.addEventListener("click", () => { playSfx("open"); openFriends(); });
   if (els.questsBtn) els.questsBtn.addEventListener("click", () => { playSfx("open"); openQuests(); });

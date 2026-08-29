@@ -137,6 +137,7 @@
 			membershipExceptions = (
 				FocusActivityPlugin.swift,
 				Info.plist,
+				WidgetStatsPlugin.swift,
 			);
 			target = BC1112AD2FF5E8B200A82015 /* FocusWidgetExtension */;
 		};
@@ -145,6 +146,8 @@
 			membershipExceptions = (
 				FocusActivityAttributes.swift,
 				FocusActivityPlugin.swift,
+				SharedStats.swift,
+				WidgetStatsPlugin.swift,
 			);
 			target = 504EC3031FED79650016851F /* App */;
 		};
@@ -1022,6 +1025,7 @@
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_ENTITLEMENTS = FocusWidget/FocusWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = T6235QVFYG;
@@ -1068,6 +1072,7 @@
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_ENTITLEMENTS = FocusWidget/FocusWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = T6235QVFYG;

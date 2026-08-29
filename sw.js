@@ -7,7 +7,7 @@
 // and every user silently keeps the OLD cache — updates stop shipping with no
 // error anywhere. That happened: assets/Bed.png was deleted and left listed
 // here, which pinned clients to pre-rebuild art. tools/check-shell.py guards it.
-const CACHE = "mr-tapioca-v245";
+const CACHE = "mr-tapioca-v246";
 
 // Focus-tune audio lives in its OWN cache, on purpose, and is deliberately NOT
 // in SHELL below. Two reasons, both learned the hard way:
@@ -242,10 +242,19 @@ self.addEventListener("fetch", (event) => {
   // with no cache-bump dance and no stale copy pinned in the cache. Otherwise a
   // returning visitor who already cached one keeps the old text until an
   // unrelated release bumps CACHE. Same reasoning as partners.json.
+  //
+  // /get and /squad are the same category: /get is the install link every share
+  // in the app points at, and /squad is the invite page a friend lands on. Both
+  // are matched by DIRECTORY, not filename, because Pages serves them at "/get/"
+  // and "/squad/" where nothing in the URL ends in index.html. Missing that is
+  // how a share link would keep serving whichever copy the recipient happened to
+  // cache the first time somebody sent them one.
   if (url.pathname === "/" || url.pathname.endsWith("/index.html")
       || url.pathname.endsWith("/chrome.html")
       || url.pathname.endsWith("/privacy.html")
-      || url.pathname.endsWith("/support.html")) return;
+      || url.pathname.endsWith("/support.html")
+      || url.pathname === "/get" || url.pathname.startsWith("/get/")
+      || url.pathname === "/squad" || url.pathname.startsWith("/squad/")) return;
 
   // Focus tunes: cache-first out of the long-lived music cache, stored on first
   // play, so the second session onward has music with no network. Kept out of

@@ -24,6 +24,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(configureAudioSession),
             name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
+        // A COLD launch from the Home Screen widget delivers its URL here, not
+        // through application(_:open:), so it has to be caught in both places or
+        // tapping the widget from a killed app does nothing.
+        if let url = launchOptions?[.url] as? URL { _ = WidgetLaunchIntent.handle(url) }
         return true
     }
 
@@ -62,8 +66,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // Called when the app was launched with a url. Feel free to add additional processing here,
-        // but if you want the App API to support tracking app url opens, make sure to keep this call
+        // mrtapioca://start is the Home Screen widget's tap target. Handled here
+        // rather than through a JS appUrlOpen listener because @capacitor/app is not
+        // installed, and adding it would pull a Podfile change into every sync.
+        // Still forward to Capacitor afterwards: swallowing the call would break any
+        // future plugin that wants the URL.
+        _ = WidgetLaunchIntent.handle(url)
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 

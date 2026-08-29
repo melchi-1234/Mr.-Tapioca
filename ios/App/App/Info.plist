@@ -18,6 +18,19 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<!-- Tap-to-start from the Home Screen widget. A widget cannot run code on tap;
+	     opening a URL is the entire interaction it is allowed to have. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.melchior.mrtapioca</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mrtapioca</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

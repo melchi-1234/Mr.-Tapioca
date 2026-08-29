@@ -124,16 +124,19 @@ These are all things that fail *silently*. Do not rediscover them.
 this.** GitHub Pages redeploys mrtapioca.me about a minute later and every client
 picks the new list up on the next Boba Map open.
 
-⚠️ **"Every client" means every client that HAS the partner system.** The live App
-Store release was archived before the partner code existed, so it ignores
-`partners.json` entirely. Build 8 was rejected, and builds 9, 10 and 11 are
-superseded; none of them must ever be submitted. The corrected code reaches App
-Store phones with **1.1.1 / build 12** (the auto-unblock + End-spills fixes;
-uploaded to App Store Connect, not yet submitted). Until that ships, a shop added here is live
-on mrtapioca.me and invisible on the current App Store iPhone build. Do not tell anyone a new shop is on their
-phone before checking `CURRENT_PROJECT_VERSION` against the build that has partners.
-Pulling a shop is the same edit in reverse, which is what lets us keep the promise
-the pitch makes: they come off the app the day they ask.
+The App Store build HAS the partner system: the Boba Map, the bundled U Tea, and
+the live `partners.json` list all reach iPhone users. Confirmed on the owner's own
+phone (Aug 28 2026): the live App Store app shows BOTH U Tea and Dream Tea & Poké
+on the map. So do NOT claim a partner shop is "new to the app" or "was only on the
+website" — the shops have been visible in the App Store app. (A brand-new shop you
+add to `partners.json` reaches installed clients on their next Boba Map open, web
+and iPhone alike.) Builds 8-11 were superseded; 1.1.1 / build 12 is now approved
+and released (its changes were the focus/blocking fixes: auto-unblock, pause-keeps-
+locked, fewer pearls when nothing is blocked, End-spills-the-drink; none of it
+shop-facing). Build 8 was rejected and builds 9-11 are superseded; none of them
+must ever be submitted. Pulling a shop is the same `partners.json` edit in
+reverse, which is what lets us keep the pitch's promise: they come off the app
+the day they ask.
 
 - `PARTNER_SHOPS` in `app.js` is only the **bundled offline floor** for a fresh
   install with no signal. It is not the live list. `livePartners` is.
@@ -185,11 +188,9 @@ the pitch makes: they come off the app the day they ask.
 
 - **Shipped and live.** v1.0 (~Jul 30 2026), v1.0.1 (build 6) live Aug 4, v1.1.0 (build 7)
   approved. The web app is live at https://mrtapioca.me and auto-deploys from `feature-work`.
-- **1.1.1 / build 12 is SUBMITTED to App Review (Aug 25 2026), state WAITING_FOR_REVIEW.** The whole
-  submission was done headlessly via the App Store Connect API key: build uploaded + attached, the App
-  Privacy labels corrected + published, the 5 bare screenshots replaced with a new marketed set
-  (iPhone 6.5"), and the review submission created + submitted. Auto-unblock was verified on a physical
-  iPhone: a real 15-min cup, phone locked/app closed, apps freed themselves at session end. **Builds
+- **1.1.1 / build 12 is APPROVED and RELEASED (live on the App Store, ~Aug 28 2026).** Owner confirmed.
+  It was submitted Aug 25 and cleared review. Its user-facing changes were focus/blocking fixes, NOT
+  shop-facing: the partner map + shops already shipped in earlier live builds. **Builds
   8-11 are superseded and must never be submitted.** Build 11 shipped
   a real bug (the native auto-unblock never armed for a 15-min session: `scheduleAutoEnd` guarded the
   raw remaining time against exactly 15 min and lost to Capacitor-bridge epsilon), caught by an
@@ -198,9 +199,7 @@ the pitch makes: they come off the app the day they ask.
   auto-unblock at session end, ~30 review/audit fixes) PLUS three fixes: the 15-min auto-unblock guard
   now gates the back-padded scheduled span, the closed-app auto-unblock clears `webDomains` too (blocked
   websites), and ENDING a session now spills the in-progress drink (real stakes; pause still keeps it).
-  Remaining before it ships, all owner steps: install build 12 from TestFlight and run the physical-iPhone
-  gates (a 20-min cup exercises the auto-unblock), re-point the 1.1.1 version's attached build from 11 to
-  12, set the App Privacy labels, tap Submit.
+  All of that is now live (build 12 shipped). The NEXT version is what to prep from here.
 - **The release wrapper signs headlessly via the App Store Connect API key.**
   `tools/export-ios-release.mjs` passes `-authenticationKey*` read from
   `~/.appstoreconnect/config.json`, so a build exports + uploads with NO Xcode account signed in
