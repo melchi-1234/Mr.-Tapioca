@@ -1,4 +1,5 @@
 import path from "node:path";
+import { ascAuthArgs } from "./asc-auth.mjs";
 
 export async function archiveRelease({
   repositoryRoot,
@@ -39,6 +40,13 @@ export async function archiveRelease({
         "-archivePath", archivePath,
         "-derivedDataPath", derivedDataPath,
         "-allowProvisioningUpdates",
+        // Without the API key, -allowProvisioningUpdates has nothing to
+        // authenticate with and xcodebuild fails on "No Accounts: Add a new
+        // account in Accounts settings". The export step has always passed these;
+        // the archive never did, and it did not matter until a target needed a
+        // capability the cached wildcard team profile does not carry (the widget's
+        // App Group, new in 1.2.0).
+        ...ascAuthArgs(),
         "archive",
       ],
       "Signed iOS archive",

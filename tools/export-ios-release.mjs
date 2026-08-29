@@ -14,31 +14,12 @@ import {
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import os from "node:os";
+import { ascAuthArgs } from "./asc-auth.mjs";
 
 const toolPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(toolPath), "..");
 const archiveVerifierPath = path.join(repositoryRoot, "tools", "verify-ios-archive.mjs");
 const ipaVerifierPath = path.join(repositoryRoot, "tools", "verify-ios-ipa.mjs");
-
-// App Store Connect API key authentication so -allowProvisioningUpdates can
-// create/download the distribution certificate and profiles WITHOUT a signed-in
-// Xcode account (headless, CI-style signing). Reads ~/.appstoreconnect/config.json;
-// returns [] if the key isn't set up, leaving the account-based path unchanged.
-function ascAuthArgs() {
-  const cfgPath = path.join(os.homedir(), ".appstoreconnect", "config.json");
-  if (!existsSync(cfgPath)) return [];
-  const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
-  const keyPath = String(cfg.key_path || "").startsWith("~")
-    ? path.join(os.homedir(), String(cfg.key_path).slice(1).replace(/^\/+/, ""))
-    : cfg.key_path;
-  if (!cfg.key_id || !cfg.issuer_id || !keyPath || !existsSync(keyPath)) return [];
-  return [
-    "-authenticationKeyID", cfg.key_id,
-    "-authenticationKeyIssuerID", cfg.issuer_id,
-    "-authenticationKeyPath", keyPath,
-  ];
-}
 
 const exportOptionsPlist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
