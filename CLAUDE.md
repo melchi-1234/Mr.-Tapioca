@@ -16,7 +16,7 @@ feature is real app blocking during focus sessions via Apple's Screen Time
     index.html, because Capacitor loads index.html as its entry (see `tools/copy-web.mjs` +
     `PUBLIC_ENTRY` in `tools/public-bundle-manifest.mjs`; the verifiers/check-release know this
     mapping). So do NOT assume `index.html` is the app.
-  - `app.js` — ~5800 lines, all logic (timer, economy, games, squad, audio, map, poses, icons, native bridges)
+  - `app.js` — ~8900 lines, all logic (timer, economy, games, squad, audio, map, poses, icons, native bridges)
   - `styles.css` — all styling + themes + animations
   - `sw.js` — service worker (offline + install). `const CACHE = "mr-tapioca-vNN"` MUST be bumped on every release or installed users keep the old shell.
   - `config.js` — optional Supabase keys for the live Study Squad (feature-flagged; app works fully without them). The key in here is the PUBLIC anon/publishable key by design.
@@ -184,7 +184,7 @@ the day they ask.
 - Two people work on this repo (both push to `feature-work`). **Pull/rebase before you start** to avoid conflicts. If you see uncommitted changes that aren't yours (e.g. outreach tracking files), stash around them rather than committing them.
 - Prefer separate branches for big parallel work, then merge.
 
-## Current status (as of 2026-08-21)
+## Current status (as of 2026-08-29)
 
 - **Shipped and live.** v1.0 (~Jul 30 2026), v1.0.1 (build 6) live Aug 4, v1.1.0 (build 7)
   approved. The web app is live at https://mrtapioca.me and auto-deploys from `feature-work`.
@@ -199,13 +199,35 @@ the day they ask.
   auto-unblock at session end, ~30 review/audit fixes) PLUS three fixes: the 15-min auto-unblock guard
   now gates the back-padded scheduled span, the closed-app auto-unblock clears `webDomains` too (blocked
   websites), and ENDING a session now spills the in-progress drink (real stakes; pause still keeps it).
-  All of that is now live (build 12 shipped). The NEXT version is what to prep from here.
+  All of that is now live (build 12 shipped).
+- **1.2.0 / build 13 ("Brew Together") is BUILT and the WEB HALF IS LIVE.** Seven features, all in
+  `docs/1.2.0-BREW-TOGETHER-PLAN.md`: one-tap real-shop reward (the cashier handoff code is deleted end
+  to end, server, SDK, client, tests and the never-used `verify/` page), the mascot reacting to a spilled
+  drink, Study Squad Live (opt-in presence, a Monday-reset weekly board, a real invite page at
+  `/squad/?c=CODE`), a WidgetKit Home Screen widget, Weekly Wrapped, a Pomodoro auto-cycle preset, and
+  seasonal drops with a weekly quest tier and seven new badges. sw CACHE is v246; the web deployed on
+  push. 747 tests pass.
+- ⚠️ **The iOS archive for build 13 is BLOCKED on one Apple Developer account change.** The Home Screen
+  widget reads its numbers out of the App Group, so `com.melchior.mrtapioca.FocusWidget` needs the
+  **App Groups** capability with `group.com.melchior.mrtapioca` assigned. Today that App ID carries only
+  IN_APP_PURCHASE, so `xcodebuild archive` fails with "Provisioning profile … doesn't include the App
+  Groups capability". Enable it at Certificates, Identifiers & Profiles → Identifiers →
+  com.melchior.mrtapioca.FocusWidget, then re-run the archive. Nothing else about the release is waiting.
+- **The archive step now passes the App Store Connect key too, not just the export.** It always passed
+  `-allowProvisioningUpdates` and never the key, which was invisible for twelve builds because no target
+  ever needed a profile that did not already exist. `tools/asc-auth.mjs` is the one shared implementation.
+- **CocoaPods needs a UTF-8 locale on this Mac.** CocoaPods 1.16.2 on Homebrew Ruby 4.0.5 dies with
+  "Unicode Normalization not appropriate for ASCII-8BIT". Run the wrappers as
+  `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npm run ios:…`.
 - **The release wrapper signs headlessly via the App Store Connect API key.**
   `tools/export-ios-release.mjs` passes `-authenticationKey*` read from
   `~/.appstoreconnect/config.json`, so a build exports + uploads with NO Xcode account signed in
   (that is how builds 11 and 12 shipped). ⚠️ `verify-ios-archive.mjs` and `verify-ios-ipa.mjs` each hard-code
-  `expectedBuild` — bump it (and the fixtures in the ios-* tests) every build, or the archive
-  verifier rejects the new build.
+  `expectedVersion` AND `expectedBuild` — bump both (and the fixtures in the ios-* tests, plus the pinned
+  args in `package.json`'s `ios:release-setup` and the regex in `tests/ios-sync-script.test.js`) every
+  build, or the archive verifier rejects the new build. Those verifiers also now check Family Controls and
+  the App Group SEPARATELY per bundle, because the FocusWidget extension needs the group and must never
+  acquire Screen Time.
 - The generated web and iOS bundles are release inputs, not hand-edited source.
   `npm run ios:release-setup` regenerates them; the archive wrapper refuses stale
   source → www → iOS parity or a dirty worktree (untracked files included — stash them).

@@ -243,17 +243,49 @@ Notes:
 
 ---
 
-## 11. What's New in 1.0
+## 11. What's New in 1.2.0 ("Brew Together")
+
+```text
+One tap at the counter. Your partner reward used to make you wait for a code and read it out to the cashier. Now the card shows the shop and the perk instantly, you tap once, and it stamps itself. Your progress toward the next real reward shows on the finish screen and in Settings too, instead of being buried in the map.
+
+Pomodoro. A third timer preset that runs work and breaks back to back inside one session. Your blocked apps stay locked through the breaks, so a five minute rest is a rest and not an escape hatch.
+
+Study Squad went live. Turn on "let friends see when I'm brewing" and your squad can see you studying right now, and you can see them. The leaderboard resets every Monday, so a bad week is only ever a week. And sharing your code finally sends a real link your friend can just tap.
+
+Your week in boba. A share card with your hours, your best day, your streak and the shape of your week.
+
+He reacts now. End a session and your little guy is genuinely sad about the drink. Not about you.
+
+Seasonal flavours. Pumpkin spice, peppermint mocha, cherry blossom and a finals week espresso, each around for its own part of the year and yours forever once you unlock one. Plus a weekly quest and seven new badges.
+
+Thanks for using this thing. Email me if anything breaks. 🧋
+```
+
+(1,285 characters, limit is 4,000.)
+
+### What's New in 1.0 (kept for reference)
 
 ```text
 Mr. Tapioca 1.0 is here! This is the very first version, so everything is new: the timer, the real app blocking, the pearls, the boba map, the little guy himself. If something breaks, email me and I will fix it between classes. Now go start a drink. 🧋
 ```
 
-(251 characters, limit is 4,000. Short is fine for a 1.0.)
-
 ---
 
 ## Last-mile checklist before hitting Submit
+
+### 1.2.0 / build 13 only
+
+- [ ] **App Groups enabled on `com.melchior.mrtapioca.FocusWidget`** at Certificates, Identifiers &
+      Profiles, with `group.com.melchior.mrtapioca` assigned. The Home Screen widget reads its numbers
+      out of the App Group and the archive will not sign without this.
+- [ ] App Privacy answers updated: opt-in Study Squad presence and the weekly total are added to
+      Usage Data > Product Interaction, and the redemption code is removed from it (see section 8).
+- [ ] The widget added to a Home Screen on the TestFlight build, and its numbers checked against the app
+- [ ] A Pomodoro cycle run on a real iPhone with apps blocked: the apps must stay locked THROUGH a break
+      and free themselves only at the end of the cycle
+- [ ] Presence checked with a second account: off by default, and turning it off clears it
+
+### Every build
 
 - [ ] Family Controls **distribution** entitlement approved by Apple for this App ID (blocking will not pass review without it)
 - [ ] All 6 IAPs created in App Store Connect, named to match the in-app shop, and attached to the 1.0 version
