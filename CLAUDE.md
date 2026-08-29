@@ -207,12 +207,20 @@ the day they ask.
   `/squad/?c=CODE`), a WidgetKit Home Screen widget, Weekly Wrapped, a Pomodoro auto-cycle preset, and
   seasonal drops with a weekly quest tier and seven new badges. sw CACHE is v246; the web deployed on
   push. 747 tests pass.
-- ⚠️ **The iOS archive for build 13 is BLOCKED on one Apple Developer account change.** The Home Screen
+- ⚠️ **The iOS archive for build 13 is BLOCKED on one Apple Developer Portal click.** The Home Screen
   widget reads its numbers out of the App Group, so `com.melchior.mrtapioca.FocusWidget` needs the
-  **App Groups** capability with `group.com.melchior.mrtapioca` assigned. Today that App ID carries only
-  IN_APP_PURCHASE, so `xcodebuild archive` fails with "Provisioning profile … doesn't include the App
-  Groups capability". Enable it at Certificates, Identifiers & Profiles → Identifiers →
-  com.melchior.mrtapioca.FocusWidget, then re-run the archive. Nothing else about the release is waiting.
+  **App Groups** capability with `group.com.melchior.mrtapioca` assigned to it. The capability itself is
+  now enabled (done Aug 29 via the App Store Connect API, `POST /v1/bundleIdCapabilities`), but the
+  GROUP ASSOCIATION cannot be done from any API:
+    * there is no `/v1/appGroups` resource (404), and
+    * `bundleIdCapabilities.settings` rejects an APP_GROUPS key outright — Apple's own 409 says the only
+      valid setting keys are ICLOUD_VERSION, DATA_PROTECTION_PERMISSION_LEVEL and APPLE_ID_AUTH_APP_CONSENT.
+  So it is developer.apple.com → Certificates, Identifiers & Profiles → Identifiers →
+  com.melchior.mrtapioca.FocusWidget → App Groups → Edit → tick `group.com.melchior.mrtapioca` → Save.
+  Sixty seconds, once, forever. Then re-run the archive wrapper; nothing else is waiting on anything.
+  Do NOT chase the "Authentication failed: Make sure a bearer token was provided" line xcodebuild prints
+  alongside this. The key is fine (the same key authenticates `xcrun notarytool` and writes to the ASC
+  API); xcodebuild says that when it tries to fix a profile it is not allowed to fix.
 - **The archive step now passes the App Store Connect key too, not just the export.** It always passed
   `-allowProvisioningUpdates` and never the key, which was invisible for twelve builds because no target
   ever needed a profile that did not already exist. `tools/asc-auth.mjs` is the one shared implementation.
