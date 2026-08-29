@@ -1,12 +1,29 @@
 const MODES = {
-  custom: { label: "Custom Cup", duration: null },   // uses state.customDuration (15 min - 4 hr, matches GOAL_MAX)
-  goal:   { label: "Goal Cup",   duration: null }    // mirrors the preset focus goal (state.dailyGoal)
+  custom:   { label: "Custom Cup", duration: null },   // uses state.customDuration (15 min - 4 hr, matches GOAL_MAX)
+  goal:     { label: "Goal Cup",   duration: null },   // mirrors the preset focus goal (state.dailyGoal)
+  pomodoro: { label: "Pomodoro",   duration: null }    // pomoWork x pomoReps, with pomoBreak between blocks
 };
 
 const CUSTOM_MIN = 15 * 60;
 const CUSTOM_MAX = 240 * 60;
 const CUSTOM_STEP = 5 * 60;
 const DEV_MIN = 5;            // dev mode lets Custom drop to 5 seconds for quick testing
+
+// ── Pomodoro auto-cycle ──────────────────────────────────────────────────────
+// One protected session made of alternating work and break blocks. The
+// distinction that governs everything below: a Pomodoro break is INSIDE the
+// session, not after it. The post-session Chill Mode break lifts the Screen Time
+// shield on purpose (it is free time); a cycle break must not, or a five-minute
+// window would hand back TikTok four times an hour and the whole thing would be
+// worse than no pomodoro at all.
+const POMO_WORK_MIN = 10 * 60,  POMO_WORK_MAX = 60 * 60,  POMO_WORK_STEP = 5 * 60;
+const POMO_BREAK_MIN = 3 * 60,  POMO_BREAK_MAX = 15 * 60, POMO_BREAK_STEP = 60;
+const POMO_REPS_MIN = 2,        POMO_REPS_MAX = 8;
+// The floor is not arbitrary. FocusShieldPlugin's scheduleAutoEnd refuses to arm
+// for a protected span under 15 min 30 s (that guard is the build-12 fix), and a
+// cycle that never arms it only unblocks on the next foreground. The smallest
+// cycle this UI can produce is 10 + 3 + 10 = 23 minutes, comfortably clear.
+const POMO_MIN_PROTECTED = 16 * 60;
 
 function fmtDuration(seconds) {
   return seconds < 60 ? `${seconds} sec` : `${Math.round(seconds / 60)} min`;
@@ -16,11 +33,129 @@ function fmtDuration(seconds) {
 // Guarded against a corrupt/zero custom value so progress() can never divide by 0
 // or NaN (which would render NaN% and never let the session complete).
 function modeDuration() {
+  // POMODORO RETURNS WORK SECONDS ONLY, and that choice propagates everywhere.
+  // progress(), the cup fill, `minutes` on the banked drink, the pearl payout and
+  // the planned minutes sent to the reward server all read this. Returning the
+  // protected wall-clock span instead would fill the cup during breaks, bank a
+  // drink whose minutes include resting, and pay pearls for sitting still.
+  if (state.mode === "pomodoro") {
+    const total = pomoWork() * pomoReps();
+    return total > 0 ? total : 25 * 60;
+  }
   const d = state.mode === "goal" ? (state.dailyGoal || 0) * 60 : state.customDuration;
   return (typeof d === "number" && isFinite(d) && d > 0) ? d : 30 * 60;
 }
 
+// Clamped readers, so a corrupt stored value can never divide by zero or produce
+// a cycle with no blocks in it.
+function pomoWork() {
+  const v = state.pomoWork;
+  return (typeof v === "number" && isFinite(v) && v >= POMO_WORK_MIN && v <= POMO_WORK_MAX)
+    ? v : 25 * 60;
+}
+function pomoBreakLen() {
+  const v = state.pomoBreak;
+  return (typeof v === "number" && isFinite(v) && v >= POMO_BREAK_MIN && v <= POMO_BREAK_MAX)
+    ? v : 5 * 60;
+}
+function pomoReps() {
+  const v = state.pomoReps;
+  return (Number.isInteger(v) && v >= POMO_REPS_MIN && v <= POMO_REPS_MAX) ? v : 4;
+}
+
+// Which work block we are in (0-based), derived from elapsed rather than stored,
+// so it cannot drift out of sync with the thing it describes.
+function pomoBlockIndex() {
+  return Math.min(pomoReps() - 1, Math.floor(state.elapsed / pomoWork()));
+}
+// Where the current block ends, in elapsed-seconds.
+function pomoBlockEnd() {
+  return Math.min(modeDuration(), (pomoBlockIndex() + 1) * pomoWork());
+}
+function inCycleBreak() {
+  return state.mode === "pomodoro" && state.pomoBreakLeft > 0;
+}
+
+// How much longer the apps must stay blocked: the work that is left PLUS every
+// break still to come. This is the number the native auto-unblock and the "your
+// drink is ready" notification are scheduled against, and it is the only place
+// the protected span differs from modeDuration().
+function pomoProtectedSeconds() {
+  const workLeft = Math.max(0, modeDuration() - state.elapsed);
+  if (workLeft <= 0) return 0;
+  // Breaks still to come: one after each remaining block except the last.
+  const blocksLeft = Math.ceil(workLeft / pomoWork());
+  const breaksLeft = Math.max(0, blocksLeft - 1);
+  return workLeft + breaksLeft * pomoBreakLen() + Math.max(0, state.pomoBreakLeft || 0);
+}
+
+// Seconds of shield the current session still needs. Every other mode is just
+// the time left on the cup.
+function protectedSecondsLeft() {
+  return state.mode === "pomodoro"
+    ? pomoProtectedSeconds()
+    : Math.max(0, modeDuration() - state.elapsed);
+}
+
+// ── SEASONAL WINDOWS ─────────────────────────────────────────────────────────
+// A `season` on any cosmetic makes it available only between two dates, and the
+// dates are MONTH-DAY, not full dates, so a drop RECURS every year instead of
+// being a one-off that has to be re-authored each autumn. A content calendar you
+// have to remember to refill is a content calendar that stops after one season.
+//
+// Windows are inclusive at both ends and may wrap the new year
+// ({ from: "12-01", until: "01-05" }), which is the whole point of the winter one.
+//
+// Everything here is COSMETIC and pearl-priced. Nothing seasonal touches the
+// 240-minute merchant bar, and nothing seasonal is time-limited in a way that
+// takes something away: an item you already bought stays yours and stays
+// equippable after its window closes. The scarcity is on the BUYING, never on the
+// owning, because the second kind is the kind people resent.
+function seasonWindowOpen(season, now) {
+  if (!season || !season.from || !season.until) return true;
+  const d = now || new Date();
+  // Local month-day, matching localDateKey's timezone handling. new Date("MM-DD")
+  // would parse as UTC and shift the boundary by a day for anyone west of it.
+  const md = String(d.getMonth() + 1).padStart(2, "0") + "-" +
+             String(d.getDate()).padStart(2, "0");
+  return season.from <= season.until
+    ? (md >= season.from && md <= season.until)          // ordinary window
+    : (md >= season.from || md <= season.until);         // wraps past new year
+}
+
+// Days remaining, for the "3 days left" nudge. Returns null when there is no
+// window, and never a negative number.
+function seasonDaysLeft(season, now) {
+  if (!season || !season.until) return null;
+  const d = now || new Date();
+  const [m, day] = season.until.split("-").map(Number);
+  let end = new Date(d.getFullYear(), m - 1, day, 23, 59, 59, 999);
+  if (end < d) end = new Date(d.getFullYear() + 1, m - 1, day, 23, 59, 59, 999);
+  return Math.max(0, Math.ceil((end - d) / 86400000));
+}
+
+function seasonLabel(season, now) {
+  const left = seasonDaysLeft(season, now);
+  if (left === null) return "";
+  if (left <= 1) return "Last day";
+  if (left <= 14) return `${left} days left`;
+  const [m, day] = season.until.split("-").map(Number);
+  return `Until ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m - 1]} ${day}`;
+}
+
+// The student year, as a drink menu. These need no new art at all: a tea base is
+// a label, a colour and a price, which is exactly why they are the right thing to
+// put on a recurring calendar. A drawn seasonal SKIN can join this later by adding
+// one `season` field to its SHOP_ITEMS entry; the engine already handles it.
+const SEASONS = {
+  autumn:   { from: "09-20", until: "11-20" },   // pumpkin spice season, genuinely
+  winter:   { from: "12-01", until: "01-05" },   // winter break, wraps the new year
+  finals:   { from: "04-25", until: "05-15" },   // spring finals
+  spring:   { from: "03-10", until: "04-24" },
+};
+
 // Tea bases: classic is free; the rest are one-time pearl unlocks (price).
+// A `season` field makes one seasonal; see SEASONS above.
 const BASES = {
   classic:    { label: "Classic Milk Tea",     color: "#c98555", price: 0 },
   brownsugar: { label: "Brown Sugar Milk Tea", color: "#8b4513", price: 10 },
@@ -31,7 +166,12 @@ const BASES = {
   thai:       { label: "Thai Tea",              color: "#e08a3c", price: 10 },
   ube:        { label: "Ube Milk Tea",          color: "#6b3d9a", price: 10 },
   lavender:   { label: "Lavender Tea",          color: "#c4b5e8", price: 10 },
-  honeydew:   { label: "Honeydew Milk Tea",     color: "#b6d67e", price: 10 }
+  honeydew:   { label: "Honeydew Milk Tea",     color: "#b6d67e", price: 10 },
+  // Seasonal. Buyable only inside their window, yours forever once bought.
+  pumpkin:    { label: "Pumpkin Spice Latte",   color: "#d98a3c", price: 15, season: SEASONS.autumn },
+  peppermint: { label: "Peppermint Mocha",      color: "#7fbf9e", price: 15, season: SEASONS.winter },
+  cherryblossom: { label: "Cherry Blossom Tea", color: "#f4a7c0", price: 15, season: SEASONS.spring },
+  espresso:   { label: "Finals Week Espresso",  color: "#5a3520", price: 15, season: SEASONS.finals }
 };
 
 // Toppings: pearls are free (the signature); others are one-time pearl unlocks.
@@ -41,7 +181,9 @@ const TOPPINGS = {
   jelly:   { label: "Lychee Jelly",   price: 10, color: "#f3e2a8" },
   pudding: { label: "Egg Pudding",    price: 10, color: "#f2c96b" },
   foam:    { label: "Cheese Foam",    price: 10, color: "#fff6e8" },
-  coconut: { label: "Coconut Jelly",  price: 10, color: "#f4f1ea" }
+  coconut: { label: "Coconut Jelly",  price: 10, color: "#f4f1ea" },
+  cinnamon: { label: "Cinnamon Crumble", price: 15, color: "#a9713e", season: SEASONS.autumn },
+  candycane: { label: "Candy Cane Bits",  price: 15, color: "#e8556d", season: SEASONS.winter }
 };
 
 const DEFAULTS = {
@@ -196,6 +338,20 @@ const state = {
   shopTheme: "cozy",
   displayName: "",       // Study Squad profile name
   friends: [],           // Study Squad: [{id,name,mins,drinks,streak,skin,ts}]
+  // OPT-IN, and it starts off. Broadcasting "she is studying right now" to a group
+  // of classmates is a real disclosure, so it is a switch someone turns on rather
+  // than a default they discover. The server enforces the same thing: with this
+  // false, set_my_profile forces the stored status back to idle, so opting out is
+  // immediate and complete rather than just stopping the updates.
+  sharePresence: false,
+  // Pomodoro auto-cycle. pomoBreakLeft is the RUNTIME cursor: seconds remaining in
+  // the cycle break currently running, 0 when a work block is running. It is
+  // stored as a countdown rather than an absolute end instant so pausing freezes
+  // it for free, exactly the way state.elapsed does.
+  pomoWork: 25 * 60,
+  pomoBreak: 5 * 60,
+  pomoReps: 4,
+  pomoBreakLeft: 0,
   soundOn: true,
   musicOn: true,
   musicVolume: 0.8,
@@ -232,6 +388,7 @@ const state = {
                          // session that finishes while away still earns FULL pearls at boot
   gamePearls: 0,         // cumulative pearls won from break games (for the "Break Champ" badge)
   quests: null,          // daily quests: { day, active:[{key,prog,done}] }
+  weeklyQuest: null,     // the weekly tier: { week, active:[{key,prog,done}] }
   freezes: 0,            // Streak Reset consumables owned (storage key predates the rename)
   frozenDays: [],        // ordinals auto-protected by a consumed freeze (bridge streak gaps)
   renames: 0             // paid name changes done (0 = next costs 500 pearls, ≥1 = real money)
@@ -397,6 +554,15 @@ const els = {
   devToggle:            document.querySelector("#devToggle"),
   notifyRow:            document.querySelector("#notifyRow"),
   notifyNote:           document.querySelector("#notifyNote"),
+  wrappedShareBtn:      document.querySelector("#wrappedShareBtn"),
+  pomoSetup:            document.querySelector("#pomoSetup"),
+  pomoStatus:           document.querySelector("#pomoStatus"),
+  pomoWorkVal:          document.querySelector("#pomoWorkVal"),
+  pomoBreakVal:         document.querySelector("#pomoBreakVal"),
+  pomoRepsVal:          document.querySelector("#pomoRepsVal"),
+  squadPresenceRow:     document.querySelector("#squadPresenceRow"),
+  squadPresenceToggle:  document.querySelector("#squadPresenceToggle"),
+  squadPresenceNote:    document.querySelector("#squadPresenceNote"),
   notifyDoneToggle:     document.querySelector("#notifyDoneToggle"),
   notifyDailyToggle:    document.querySelector("#notifyDailyToggle"),
   notifyTimeLine:       document.querySelector("#notifyTimeLine"),
@@ -710,6 +876,7 @@ function loadState(opts) {
     state.shieldWasUp  = readJSON("bobaFocusShieldUp", false) === true;
     state.gamePearls  = readJSON("bobaFocusGamePearls", 0);
     state.quests      = readJSON("bobaFocusQuests", null);
+    state.weeklyQuest = readJSON("bobaFocusWeeklyQuest", null);
     state.freezes     = readJSON("bobaFocusFreezes", 0);
     state.frozenDays  = readJSON("bobaFocusFrozenDays", []);
     if (!Array.isArray(state.frozenDays)) state.frozenDays = [];
@@ -720,6 +887,19 @@ function loadState(opts) {
     state.skin        = localStorage.getItem("bobaFocusSkin") || "";
     state.displayName = localStorage.getItem("bobaFocusName") || "";
     state.friends     = readJSON("bobaFocusFriends", []);
+    state.sharePresence = localStorage.getItem("bobaFocusSharePresence") === "1";
+    state.pomoWork      = readJSON("bobaFocusPomoWork", 25 * 60);
+    state.pomoBreak     = readJSON("bobaFocusPomoBreak", 5 * 60);
+    state.pomoReps      = readJSON("bobaFocusPomoReps", 4);
+    state.pomoBreakLeft = readJSON("bobaFocusPomoBreakLeft", 0);
+    // Clamp through the same readers the rest of the app uses, so a corrupt value
+    // is healed once here rather than defended against at every call site.
+    state.pomoWork  = pomoWork();
+    state.pomoBreak = pomoBreakLen();
+    state.pomoReps  = pomoReps();
+    if (!(typeof state.pomoBreakLeft === "number" && isFinite(state.pomoBreakLeft) &&
+          state.pomoBreakLeft >= 0)) state.pomoBreakLeft = 0;
+    state.pomoBreakLeft = Math.min(state.pomoBreakLeft, pomoBreakLen());
     state.squadId     = localStorage.getItem("bobaFocusSquadId") || "";
     if (!Array.isArray(state.friends)) state.friends = [];
     // Drink customization + equipped background — persist so they survive reloads.
@@ -767,8 +947,26 @@ function loadState(opts) {
     if (!liveSync &&   // on a cross-tab refresh the session is LIVE elsewhere — don't consume its anchor
         typeof runningSince === "number" && isFinite(runningSince) &&
         runningSince > 0 && runningSince <= Date.now()) {
-      const extra = Math.max(0, (Date.now() - runningSince) / 1000);
-      state.elapsed = Math.min(modeDuration(), state.elapsed + extra);
+      let extra = Math.max(0, (Date.now() - runningSince) / 1000);
+      if (state.mode === "pomodoro") {
+        // Two corrections, and both are about never paying for time that was not
+        // work. First: a break that was running when the app died burns its own
+        // seconds out of the away window before any of it counts as focus.
+        if (state.pomoBreakLeft > 0) {
+          const spent = Math.min(extra, state.pomoBreakLeft);
+          state.pomoBreakLeft -= spent;
+          extra -= spent;
+        }
+        // Second: the credit stops at the end of the block that was running. Past
+        // that point the cycle would have gone into a break, and we cannot know
+        // from a single anchor how many block boundaries the away window crossed.
+        // Capping under-credits a very long absence, which is the right direction
+        // to be wrong in: it can lose focus the user was not present for, and it
+        // can never invent focus they did not do.
+        state.elapsed = Math.min(modeDuration(), pomoBlockEnd(), state.elapsed + extra);
+      } else {
+        state.elapsed = Math.min(modeDuration(), state.elapsed + extra);
+      }
       pendingResume = true;
       // CONSUME the anchor: we've credited this away-time and reconstructed the
       // session PAUSED. Leaving the anchor would re-credit the same window on the
@@ -854,12 +1052,21 @@ function saveState() {
   localStorage.setItem("bobaFocusShieldUp",     JSON.stringify(state.shieldWasUp === true));
   localStorage.setItem("bobaFocusGamePearls",   JSON.stringify(state.gamePearls));
   localStorage.setItem("bobaFocusQuests",       JSON.stringify(state.quests));
+  localStorage.setItem("bobaFocusWeeklyQuest",  JSON.stringify(state.weeklyQuest));
   localStorage.setItem("bobaFocusFreezes",      JSON.stringify(state.freezes));
   localStorage.setItem("bobaFocusFrozenDays",   JSON.stringify(state.frozenDays));
   localStorage.setItem("bobaFocusRenames",      JSON.stringify(state.renames));
   localStorage.setItem("bobaFocusSkin",         state.skin);
   localStorage.setItem("bobaFocusName",         state.displayName || "");
   localStorage.setItem("bobaFocusFriends",      JSON.stringify(state.friends || []));
+  localStorage.setItem("bobaFocusSharePresence", state.sharePresence ? "1" : "0");
+  localStorage.setItem("bobaFocusPomoWork",      JSON.stringify(state.pomoWork));
+  localStorage.setItem("bobaFocusPomoBreak",     JSON.stringify(state.pomoBreak));
+  localStorage.setItem("bobaFocusPomoReps",      JSON.stringify(state.pomoReps));
+  // The cycle cursor HAS to persist. Without it a reload mid-break reconstructs a
+  // work block, and the five minutes of rest silently becomes five minutes the
+  // user is told they focused.
+  localStorage.setItem("bobaFocusPomoBreakLeft", JSON.stringify(state.pomoBreakLeft || 0));
   if (state.squadId) localStorage.setItem("bobaFocusSquadId", state.squadId);
   localStorage.setItem("bobaFocusBase",         state.base);
   localStorage.setItem("bobaFocusTopping",      state.topping);
@@ -898,6 +1105,11 @@ function saveState() {
   try { localStorage.setItem("bobaFocusSaveStamp", String(Date.now()) + ":" + TAB_ID); } catch (e) {}
   // Mirror my stats to the cloud Squad when live (debounced, no-op offline).
   if (window.SquadCloud && SquadCloud.ready) SquadCloud.pushProfile();
+  // renderSquad is deliberately NOT in renderAll (the board is a sheet body that
+  // redraws on open), but presence is the one thing on it that changes while you
+  // are looking at it. Repaint only when the sheet is actually open, so a routine
+  // tick persist does not rebuild a leaderboard nobody is reading.
+  if (squadSheetOpen()) renderSquad();
 }
 
 function formatTime(seconds) {
@@ -982,6 +1194,9 @@ function progress() {
 function modeLabel() {
   // Belt-and-braces: never throw at banking time even if mode is somehow bad
   if (state.mode === "goal") return `Goal · ${fmtDuration((state.dailyGoal || 30) * 60)}`;
+  if (state.mode === "pomodoro") {
+    return `Pomodoro · ${Math.round(pomoWork() / 60)}/${Math.round(pomoBreakLen() / 60)} x${pomoReps()}`;
+  }
   return `Custom · ${fmtDuration(state.customDuration)}`;
 }
 
@@ -1087,6 +1302,12 @@ const TAP_LINES = {
     "Tap tap! Hi there 👋", "What are we sipping today?", "Pick a size, let's brew ✨",
     "I live for a good study sesh.", "Boba makes everything better.", "Big drinks = big rewards 🌟",
     "I believe in you, you know.", "Let's make today count!"
+  ],
+  // Tapped while he is still holding the shocked pose after a spill. Same rule as
+  // BAIL_LINES below: sad about the drink, never about you.
+  shocked: [
+    "Oh! There goes the drink.", "It's okay. We can make another.",
+    "Aw. Come back when you're ready 🧋", "That one's a loss. You're not."
   ]
 };
 
@@ -1101,6 +1322,22 @@ const MILESTONE_LINES = {
   50: ["Halfway there! 🧋", "Look at you go, halfway!", "The pearls are settling in nicely."],
   75: ["Three quarters done! ✨", "Almost there, superstar.", "Final stretch. You've got this."]
 };
+// What he says when a drink is spilled. THE RULE FOR EDITING THESE: he is allowed
+// to be sad about the DRINK and never about the person. Not one of these lines may
+// carry disappointment, a guilt trip, a streak warning, or a "but you were so
+// close" — a pet that makes you feel watched is a pet you delete. Ending a session
+// is a legitimate thing to do and this is a small "aw, come back", nothing else.
+const BAIL_LINES = [
+  "Aw, the drink! Come back soon 🧋",
+  "Oh no, my beautiful boba.",
+  "That's okay. I'll start a fresh one whenever you are.",
+  "Whoops! There it goes. See you next time 💛",
+  "Spilled. It happens to the best of us.",
+  "I'll clean this up. Come find me later!"
+];
+let lastBailLine = "";
+let bailPoseTimer = null;
+
 // Session-scoped set of milestone percents already cheered. Reset on a fresh
 // brew in beginFocus() so every session gets its own cheers.
 let firedMilestones = new Set();
@@ -1144,6 +1381,7 @@ function tapLineStateKey() {
     return TAP_LINES[currentMakerState] ? currentMakerState : "break";  // sleeping / drinking
   }
   if (state.running) {
+    if (inCycleBreak()) return "break";
     return TAP_LINES[currentMakerState] ? currentMakerState : "focus";  // mixing / walking
   }
   if (state.elapsed > 0) return "paused";
@@ -1165,6 +1403,61 @@ function showMakerLine() {
   haptic(8);
   clearTimeout(tapLineTimer);
   tapLineTimer = setTimeout(() => els.makerSpeech.classList.remove("show"), 3000);
+}
+
+// ── THE SPILLED-CUP REACTION ─────────────────────────────────────────────────
+// Ending a session tips the cup over. Until now the mascot just stood there and
+// watched it happen, which is the one moment in the app where he should visibly
+// be a character rather than a timer decoration. The 14 `-shocked` poses have been
+// drawn and sitting unused in assets/poses since August.
+//
+// It reacts to the DRINK, not to the person. See BAIL_LINES for the rule.
+//
+// Called from endFocusSession AFTER resetSession, never from resetSession itself.
+// Two reasons: four of resetSession's five callers are configuration changes
+// (changing mode, changing the custom duration) that discard a drink without
+// anyone having bailed, and firing an "aw, come back" at someone who just moved a
+// slider is nonsense; and resetSession is vm-evaluated as raw source text by
+// tests/reward-app-authority.test.js in a sandbox that stubs almost nothing, so a
+// call to playSfx or els.makerSpeech from inside it throws a ReferenceError.
+function reactToBail() {
+  clearTimeout(bailPoseTimer);
+
+  // setMakerState early-returns on an unchanged state, so the reset is required.
+  // resetSession has just set him to "idle" and state.spillPending is what told it
+  // to skip the walk home first.
+  currentMakerState = "";
+  setMakerState("shocked");
+
+  let line = BAIL_LINES[Math.floor(Math.random() * BAIL_LINES.length)];
+  if (line === lastBailLine) line = BAIL_LINES[(BAIL_LINES.indexOf(line) + 1) % BAIL_LINES.length];
+  lastBailLine = line;
+  els.makerSpeech.textContent = line;
+  els.makerSpeech.classList.add("show");
+  // "drop", not "buzz". The descending two-tone reads as an oops; the sawtooth
+  // buzz reads as a penalty, which is the one thing this must never be.
+  playSfx("drop");
+  haptic(8);
+  // The SAME timer every other line uses. A second timer here would race the tap
+  // handler and cut one of the two lines short.
+  clearTimeout(tapLineTimer);
+  tapLineTimer = setTimeout(() => els.makerSpeech.classList.remove("show"), 3400);
+
+  // maker-shock is `forwards`, so the pose HOLDS until something changes it.
+  // Nothing else will: he is idle now and nothing is ticking. Without this he
+  // stays wide-eyed on the home screen until the next session starts.
+  bailPoseTimer = setTimeout(() => {
+    bailPoseTimer = null;
+    // Only if nothing else has moved him on. Starting a new session mid-reaction
+    // is the obvious case, and stomping its "mixing" back to "idle" would be worse
+    // than leaving the shocked pose up.
+    if (currentMakerState !== "shocked") return;
+    refreshMaker();
+    // He walked nowhere during the reaction (resetSession skipped it), so send him
+    // home now that he has finished being surprised.
+    clearTimeout(walkTimer);
+    setWalk(0);
+  }, 3600);
 }
 
 // SVG interior y-range the liquid sweeps between (matches the #cupClip path).
@@ -1471,6 +1764,29 @@ function renderWeekChart() {
 
 // ── Weekly insights (narrative recap from the focus history) ──────────────────
 const WEEKDAY_FULL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Minutes focused in the CURRENT CALENDAR WEEK, Monday to Sunday in UTC.
+//
+// Deliberately not computeInsights().thisWeek, which is a rolling seven days: a
+// leaderboard that resets "weekly" has to reset for everyone at the same instant,
+// or two friends comparing numbers are reading two different windows and the
+// board means nothing. UTC because the server rolls week_minutes over on
+// date_trunc('week', now() at time zone 'utc'), and the two have to agree.
+function weekStartOrdinal() {
+  const ord = keyToOrdinal(localDateKey(new Date()));
+  // Ordinal 0 is 1970-01-01, a Thursday, so Monday is at ordinal % 7 === 4.
+  return ord - ((ord % 7) + 3) % 7;
+}
+
+function calendarWeekMinutes() {
+  const start = weekStartOrdinal();
+  let total = 0;
+  for (const d of state.collection) {
+    const o = keyToOrdinal(d.dateKey);
+    if (o >= start) total += d.minutes;
+  }
+  return total;
+}
+
 function computeInsights() {
   const todayOrd = keyToOrdinal(localDateKey(new Date()));
   const byDay = {};
@@ -1538,7 +1854,29 @@ const BADGES = [
   { id: "master",      icon: "🎓", name: "Master Student", desc: "50 hours total",        test: () => totalMinutes() >= 3000 },
   { id: "stylish",     icon: "✨", name: "Stylish",        desc: "Equip a skin",          test: () => !!state.skin },
   { id: "decorator",   icon: "🏠", name: "Decorator",      desc: "Change the background",  test: () => state.shopTheme !== "cozy" },
-  { id: "break-champ", icon: "🎮", name: "Break Champ",    desc: "Win pearls in a game",  test: () => (state.gamePearls || 0) > 0 }
+  { id: "break-champ", icon: "🎮", name: "Break Champ",    desc: "Win pearls in a game",  test: () => (state.gamePearls || 0) > 0 },
+  // 1.2.0. Every test below reads state the app already keeps, so none of them
+  // needed new instrumentation, and none of them can be earned by anything other
+  // than the thing they describe.
+  { id: "century",     icon: "💯", name: "Century",        desc: "100 hours total",       test: () => totalMinutes() >= 6000 },
+  { id: "cyclist",     icon: "🍅", name: "Full Cycle",     desc: "Finish a Pomodoro cycle",
+    test: () => state.collection.some(d => String(d.mode || "").startsWith("Pomodoro")) },
+  { id: "seasonal",    icon: "🍂", name: "In Season",      desc: "Unlock a seasonal flavour",
+    test: () => (state.unlockedBases || []).some(k => BASES[k] && BASES[k].season)
+             || (state.unlockedToppings || []).some(k => TOPPINGS[k] && TOPPINGS[k].season) },
+  { id: "squad-up",    icon: "🤝", name: "Squad Up",       desc: "Add a friend",
+    test: () => (state.friends || []).length > 0 || (squadCloudLive() && SquadCloud.friends.length > 1) },
+  { id: "real-boba",   icon: "🌟", name: "The Real Thing", desc: "Use a reward at a shop",
+    test: () => (state.perkRedemptions || []).length > 0
+             || (rewardServerMode() && rewardServerReady() &&
+                 RewardV2.rewards.some(r => r.status === "redeemed")) },
+  { id: "night-owl",   icon: "🌙", name: "Night Owl",      desc: "Finish a drink after 10pm",
+    test: () => state.collection.some(d => {
+      const t = d.at ? new Date(d.at) : null;
+      return !!t && !isNaN(t) && t.getHours() >= 22;
+    }) },
+  { id: "collector",   icon: "🎨", name: "Collector",      desc: "Own 5 cosmetics",
+    test: () => (state.owned || []).filter(id => id !== "skin-default" && id !== "theme-cozy").length >= 5 }
 ];
 
 // Returns the number of newly-unlocked badges (so callers can stagger their own toasts)
@@ -1779,7 +2117,16 @@ function isEquipped(item) {
 
 function buyItem(itemId) {
   const item = SHOP_ITEMS.find(i => i.id === itemId);
-  if (!item || isOwned(itemId) || currentPearls() < item.price) return;
+  // `currentPearls() < item.price` is FALSE when price is undefined, which is
+  // exactly what a premium (IAP) item has. Any path that reached this function
+  // with one would grant it for nothing and write NaN into state.spent, which then
+  // poisons every pearl total that reads it. Nothing reaches it today; the shop
+  // routes premium items down the StoreKit branch. Guard it anyway: seasonal items
+  // add a second way for the grid and this function to disagree about what is
+  // buyable, and a NaN pearl balance is not a failure anyone could diagnose.
+  if (!item || item.premium || !Number.isFinite(item.price)) return;
+  if (item.season && !seasonWindowOpen(item.season)) return;
+  if (isOwned(itemId) || currentPearls() < item.price) return;
   state.owned.push(itemId);
   state.spent += item.price;
   saveState();
@@ -1843,6 +2190,10 @@ function reconcileStreakFreezes() {
 // and started the idle hop, so equipping a skin mid-break woke him up and made
 // him bounce under the covers.
 function makerRestState() {
+  // A pomodoro break is still phase "focus" (the session is running and the apps
+  // are still locked), so it has to be checked before the mixing branch or he
+  // would stand at the cup stirring through his own break.
+  if (inCycleBreak()) return "sleeping";
   if (state.running && state.phase === "focus") return "mixing";
   if (state.phase === "break" || state.phase === "break-offer") return "sleeping";
   return "idle";
@@ -2110,6 +2461,50 @@ function stopTicker() {
   }
 }
 
+// A break INSIDE the session. Deliberately not startBreak(), which is the
+// post-session Chill Mode: that one calls FocusBlocker.stop() because it is free
+// time, and it also offers the mini-games. Neither belongs here. If a five-minute
+// pomodoro break lifted the shield, the feature would be a scheduled invitation to
+// open the app you asked to be protected from.
+function startCycleBreak() {
+  state.pomoBreakLeft = pomoBreakLen();
+  // He goes and sits down, but the session chrome does not change: the timer card
+  // stays, the End button stays, and the shield stays up.
+  currentMakerState = ""; setMakerState("sleeping");
+  playSfx("blip");
+  haptic(10);
+  showToast(`Block ${pomoBlockIndex()} done. ${fmtDuration(pomoBreakLen())} break, apps stay locked.`);
+  saveState();
+}
+
+function endCycleBreak() {
+  state.pomoBreakLeft = 0;
+  currentMakerState = ""; setMakerState("mixing");
+  playSfx("blip");
+  haptic([10, 40, 10]);
+  showToast(`Back to it. Block ${pomoBlockIndex() + 1} of ${pomoReps()}.`);
+  saveState();
+}
+
+// "Block 2 of 4" / "Break · 4:32" under the timer. Only rendered in pomodoro mode;
+// every other mode leaves the element empty and CSS collapses it.
+function renderPomoStatus() {
+  const el = els.pomoStatus;
+  if (!el) return;
+  if (state.mode !== "pomodoro" || (!state.running && state.elapsed <= 0)) {
+    el.textContent = "";
+    el.classList.remove("is-break");
+    return;
+  }
+  if (inCycleBreak()) {
+    el.textContent = `Break · ${formatTime(state.pomoBreakLeft)} · apps stay locked`;
+    el.classList.add("is-break");
+  } else {
+    el.textContent = `Block ${pomoBlockIndex() + 1} of ${pomoReps()}`;
+    el.classList.remove("is-break");
+  }
+}
+
 function tick() {
   if (!state.running) return;
 
@@ -2123,9 +2518,37 @@ function tick() {
   // must not DRAIN focus progress the user already earned.
   const delta = Math.max(0, (now - state.lastTick) / 1000);
   state.lastTick = now;
-  state.elapsed = Math.min(modeDuration(), state.elapsed + delta);
-  updateCup();
-  maybeCheerMilestone();   // little cheer as he crosses 25/50/75%
+
+  if (inCycleBreak()) {
+    // A cycle break burns its own clock and NOTHING else changes: the session is
+    // still running, the phase is still "focus", and the shield stays up. The one
+    // thing that must not happen here is state.elapsed moving, because elapsed IS
+    // the earned-focus number that pearls, the cup and the reward ledger read.
+    state.pomoBreakLeft = Math.max(0, state.pomoBreakLeft - delta);
+    if (state.pomoBreakLeft <= 0) endCycleBreak();
+    renderPomoStatus();
+  } else {
+    const before = state.elapsed;
+    state.elapsed = Math.min(modeDuration(), state.elapsed + delta);
+    updateCup();
+    maybeCheerMilestone();   // little cheer as he crosses 25/50/75%
+    // BLOCK BOUNDARY, tested as a CROSSING (before -> after) rather than as
+    // "elapsed has reached the end of the current block". The obvious version does
+    // not work and fails silently: pomoBlockIndex() is derived from elapsed, so the
+    // moment elapsed reaches a boundary the index has already advanced and the end
+    // of the "current" block is a boundary in the future. The condition is never
+    // true, no break ever starts, and a pomodoro is just a long timer with block
+    // labels on it. Caught by driving a real cycle in a browser, not by reading.
+    const boundary = (Math.floor(before / pomoWork()) + 1) * pomoWork();
+    if (state.mode === "pomodoro" && boundary < modeDuration() && state.elapsed >= boundary) {
+      // Park exactly on the boundary. Without this the overshoot inside this tick
+      // is carried into the next block, and over four blocks the cup quietly fills
+      // ahead of the work actually done.
+      state.elapsed = boundary;
+      startCycleBreak();
+    }
+    renderPomoStatus();
+  }
 
   // Persist progress every ~10s so a long drink survives an unexpected close
   if (now - lastPersist > 10000) {
@@ -2150,7 +2573,10 @@ function tick() {
     (async () => { await FocusBlocker.checkDefeated(); if (state.running) FocusBlocker.start(); })();
   }
 
-  if (progress() >= 1) {
+  // Not during a break: elapsed cannot reach the bar mid-break (it does not move),
+  // but the guard also documents that a cycle ends on its last WORK second and
+  // never on a break, so nobody adds a trailing break later by accident.
+  if (!inCycleBreak() && progress() >= 1) {
     completeSession();
     return;
   }
@@ -2468,12 +2894,24 @@ function beginFocus() {
   // pause at exactly 0 elapsed still reads as freshStart, so guard on a
   // session flag to avoid re-pouring on such a resume.
   if (freshStart && !pouredThisSession) { pouredThisSession = true; playBrewIntro(); }
-  walkToCupAndMix();          // glide over to the cup, then mix
+  // Resuming INTO a cycle break: he is resting, not mixing. Sending him to the cup
+  // here would have him stirring an empty pot for five minutes.
+  if (inCycleBreak()) { currentMakerState = ""; setMakerState("sleeping"); }
+  else walkToCupAndMix();     // glide over to the cup, then mix
   startAmbience();            // soundscape on while focusing
   startMusic("focus");        // lo-fi while focusing
+  // A brand-new cycle starts on block 1 with no break pending. Without this, a
+  // cycle abandoned mid-break and then restarted would resume into that break.
+  if (freshStart && state.mode === "pomodoro") state.pomoBreakLeft = 0;
   // End instant for this leg (fresh start: elapsed 0; resume: remaining time).
   // Drives BOTH the native shield auto-unblock and the "drink ready" notification.
-  const sessionEndsAt = Date.now() + (modeDuration() - state.elapsed) * 1000;
+  //
+  // For a pomodoro this is the PROTECTED span, not the remaining work: the apps
+  // have to stay locked through every break still to come, and the native
+  // auto-unblock must fire at the real end of the cycle rather than at the end of
+  // the next work block. protectedSecondsLeft() is the only place the two numbers
+  // differ, and every other mode returns exactly what it did before.
+  const sessionEndsAt = Date.now() + protectedSecondsLeft() * 1000;
   FocusBlocker.start(sessionEndsAt);   // shield + schedule the native auto-unblock at end
   FocusActivity.start();      // live countdown on the Lock Screen / Dynamic Island
   stopTicker();
@@ -2560,7 +2998,15 @@ async function endFocusSession() {
     cup.addEventListener("animationend", clearSpill);
     setTimeout(clearSpill, 1100);   // fallback if animationend never fires
   }
+  // Read by resetSession, which is about to run, so it leaves him standing at the
+  // cup instead of gliding home and snapping to idle.
+  state.spillPending = true;
   resetSession();   // discard the drink, lift the shield, abandon the reward, cancel the "drink ready" notice
+  // AFTER the teardown, or it would be immediately overwritten. Deliberately not
+  // gated on prefersReducedMotion: the pose and the line ARE the feature, and the
+  // calm-mode contract is about motion, not about the mascot going silent. The
+  // blanket 1ms animation clamp in styles.css flattens the bounce on its own.
+  reactToBail();
 }
 
 // ── App-blocking discoverability (start-focus prompt + status pill) ──────────
@@ -2730,12 +3176,28 @@ function resetSession() {
   state.elapsed = 0;
   state.lastTick = null;
   state.breakElapsed = 0;
+  state.pomoBreakLeft = 0;   // a discarded cycle keeps no pending break
   state.phase = "focus";
-  state.spillPending = false;
   els.shopScene.classList.remove("is-on-break");
   els.shopScene.classList.remove("maker-up");
-  clearTimeout(walkTimer); setWalk(0);
-  currentMakerState = ""; setMakerState("idle");
+  // state.spillPending is set by endFocusSession and read HERE, and this is the
+  // whole reason the field exists (it was declared in an earlier version and then
+  // only ever set back to false, reading nothing). A spill is about to play a
+  // reaction at the cup, so the two things that would wreck it are skipped: the
+  // glide home, which would read as him fleeing the mess, and the "idle" pose,
+  // which setMakerState would then refuse to change because it early-returns on an
+  // unchanged state. reactToBail restores both when it finishes.
+  //
+  // CONSUMED, not merely read. Clearing it here makes it a one-shot latch, so a
+  // reaction that never gets to finish (a new session started over the top of it)
+  // cannot leave the flag set and silently suppress the walk home on the NEXT
+  // unrelated reset, which is a bug you would only ever see three steps later.
+  const spilling = state.spillPending === true;
+  state.spillPending = false;
+  if (!spilling) {
+    clearTimeout(walkTimer); setWalk(0);
+    currentMakerState = ""; setMakerState("idle");
+  }
   saveState();   // persist the cleared drink so it doesn't resume on reload
   updatePhaseUI();
   updateCup();
@@ -2743,6 +3205,7 @@ function resetSession() {
 
 function completeSession(options) {
   pouredThisSession = false;   // this brew is done; the next one pours fresh
+  state.pomoBreakLeft = 0;     // a finished cycle has no pending break
   const wasRunning = state.running === true;
   // Idempotency guard: once banked, elapsed is 0 and we're not running, so a
   // second call (e.g. reload mid-reward-dialog then re-press) can't double-bank.
@@ -2805,7 +3268,13 @@ function completeSession(options) {
     color: BASES[state.base].color,
     minutes,
     sticker: state.sticker,
-    dateKey: localDateKey(now)
+    dateKey: localDateKey(now),
+    // 1.2.0. dateKey is a local YYYY-MM-DD and cannot answer "was this finished
+    // after 10pm", and nothing recorded which timer preset produced a drink. Two
+    // badges read these; drinks banked before this release simply lack them, which
+    // every reader below already handles.
+    at: now.getTime(),
+    mode: modeLabel()
   };
 
   // Anonymous counter ping (metrics.js). Fire-and-forget AFTER the drink is
@@ -2916,6 +3385,10 @@ function completeSession(options) {
   bumpQuest("focusMin", minutes);
   bumpQuest("sessions", 1);
   bumpQuest("drinks", 1);
+  // Distinct DAYS, for the weekly "focus on 4 different days" quest. firstOfDay is
+  // computed above, before this drink joins the collection, so it is true exactly
+  // once per day no matter how many sessions that day holds.
+  if (firstOfDay) bumpQuest("focusDays", 1);
   if (now.getHours() < 12) bumpQuest("earlyFocus", 1);
   sessionChime();
   haptic([14, 40, 24]);   // celebratory buzz pattern
@@ -3067,6 +3540,188 @@ async function buildShareCard(reward) {
   c.fillText("the focus timer that brews boba", W / 2, H - 52);
 
   return new Promise((resolve) => cv.toBlob(resolve, "image/png"));
+}
+
+// ── WEEKLY WRAPPED ───────────────────────────────────────────────────────────
+// "Your week in boba": hours focused, drinks brewed, the streak, and the best day.
+//
+// It exists for two reasons at once, and the second is the honest one. For the
+// student it is a small, cheap moment of "look what I did", which the app has
+// never had outside the instant a single drink finishes. For the app it is the
+// only share that makes sense to post when nothing has just happened, which is
+// most of the time.
+//
+// EVERY NUMBER ON IT IS ALREADY TRUE. It reads state.collection, the same source
+// the stats screen reads, and it says nothing it cannot show: a week with no focus
+// in it refuses to render a card rather than inventing an encouraging one.
+function weeklyWrapped() {
+  const start = weekStartOrdinal();
+  const byDay = {};
+  let minutes = 0, drinks = 0;
+  for (const d of state.collection) {
+    const o = keyToOrdinal(d.dateKey);
+    if (o < start) continue;
+    minutes += d.minutes;
+    drinks += 1;
+    byDay[o] = (byDay[o] || 0) + d.minutes;
+  }
+  let bestOrd = null, bestMin = 0;
+  for (const o of Object.keys(byDay)) {
+    if (byDay[o] > bestMin) { bestMin = byDay[o]; bestOrd = Number(o); }
+  }
+  return {
+    minutes, drinks,
+    days: Object.keys(byDay).length,
+    streak: computeStats().current || 0,
+    bestDay: bestOrd != null ? WEEKDAY_FULL[new Date(bestOrd * 86400000).getUTCDay()] : null,
+    bestMin,
+    // Monday through Sunday, in order, for the little bar row on the card.
+    bars: Array.from({ length: 7 }, (_, i) => byDay[start + i] || 0),
+    weekStart: start,
+  };
+}
+
+async function buildWrappedCard(w) {
+  const W = 1080, H = 1350;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const c = cv.getContext("2d");
+  const bark = "#3d2117", cream = "#fffaf3", muted = "#9a7c68", caramel = "#d99e5c";
+  const teal = "#2f8f83";
+
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#fceee0"); g.addColorStop(1, "#f3d9bf");
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.fillStyle = "rgba(61,33,23,0.05)";
+  [[120,180,60],[980,260,90],[940,1120,70],[110,1180,50],[860,700,40]]
+    .forEach(([x, y, r]) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); });
+
+  const pad = 64, cardY = 132, cardW = W - pad * 2, cardH = H - 264;
+  c.save();
+  c.shadowColor = "rgba(61,33,23,0.18)"; c.shadowBlur = 40; c.shadowOffsetY = 18;
+  canvasRoundRect(c, pad, cardY, cardW, cardH, 60);
+  c.fillStyle = cream; c.fill();
+  c.restore();
+  canvasRoundRect(c, pad, cardY, cardW, cardH, 60);
+  c.lineWidth = 5; c.strokeStyle = "#ecdecb"; c.stroke();
+
+  c.textAlign = "center";
+  c.fillStyle = caramel;
+  c.font = "800 34px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("MY WEEK IN BOBA", W / 2, cardY + 92);
+
+  // The headline is the hours. It is the number people actually want to post.
+  c.fillStyle = bark;
+  c.font = "900 152px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText(shareTimePhrase(w.minutes), W / 2, cardY + 234);
+  c.fillStyle = muted;
+  c.font = "600 38px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("focused this week", W / 2, cardY + 288);
+
+  // Seven bars, Monday to Sunday. A week of study has a SHAPE, and the shape is
+  // the part that makes someone look twice at their own card.
+  const barsTop = cardY + 340, barsH = 190, barW = 74, gap = 26;
+  const totalW = 7 * barW + 6 * gap, barsX = W / 2 - totalW / 2;
+  const peak = Math.max(60, ...w.bars);
+  const LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
+  for (let i = 0; i < 7; i++) {
+    const h = Math.max(6, Math.round((w.bars[i] / peak) * barsH));
+    const x = barsX + i * (barW + gap), y = barsTop + barsH - h;
+    canvasRoundRect(c, x, y, barW, h, Math.min(18, h / 2));
+    c.fillStyle = w.bars[i] > 0 ? (w.bars[i] === Math.max(...w.bars) ? caramel : "#e8cfae") : "#eee2d2";
+    c.fill();
+    c.fillStyle = muted;
+    c.font = "800 28px system-ui, -apple-system, Segoe UI, sans-serif";
+    c.fillText(LETTERS[i], x + barW / 2, barsTop + barsH + 46);
+  }
+
+  // Three stats. Drinks, streak, best day: the whole week in one glance.
+  const statY = cardY + 660;
+  const cols = [
+    [String(w.drinks), w.drinks === 1 ? "drink brewed" : "drinks brewed"],
+    [String(w.streak), "day streak"],
+    [w.bestDay || "—", "best day"],
+  ];
+  for (let i = 0; i < cols.length; i++) {
+    const x = W / 2 + (i - 1) * 268;
+    c.fillStyle = bark;
+    // The best-day column holds a word, not a number, so it gets its own size.
+    c.font = `900 ${i === 2 ? 62 : 84}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    // Same y for all three: canvas fillText draws from the BASELINE, so sharing it
+    // is what lines the three columns up. Nudging the smaller one down (which is
+    // the instinct) actually breaks the alignment.
+    c.fillText(cols[i][0], x, statY);
+    c.fillStyle = muted;
+    c.font = "600 30px system-ui, -apple-system, Segoe UI, sans-serif";
+    c.fillText(cols[i][1], x, statY + 46);
+  }
+
+  try {
+    const charSrc = (state.skin && SKIN_IMAGES[state.skin]) ? SKIN_IMAGES[state.skin] : "assets/Mr. Tapioca.png";
+    const im = await loadImage(charSrc);
+    const cs = 300;
+    c.drawImage(im, W / 2 - cs / 2, statY + 78, cs, cs);
+  } catch (e) { /* image optional — the card still reads well without it */ }
+
+  // One warm line, chosen from what the week actually was.
+  c.fillStyle = teal;
+  c.font = "800 36px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText(wrappedLine(w), W / 2, cardY + cardH - 52);
+
+  c.fillStyle = bark;
+  c.font = "900 46px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("Mr. Tapioca 🧋", W / 2, H - 96);
+  c.fillStyle = muted;
+  c.font = "600 30px system-ui, -apple-system, Segoe UI, sans-serif";
+  c.fillText("the focus timer that brews boba", W / 2, H - 52);
+
+  return new Promise((resolve) => cv.toBlob(resolve, "image/png"));
+}
+
+// Warm, and derived from the week rather than picked at random, so it never
+// congratulates someone on a week they did not have.
+function wrappedLine(w) {
+  if (w.days >= 6) return "Six days. Genuinely impressive.";
+  if (w.streak >= 7) return `${w.streak} days in a row and counting.`;
+  if (w.minutes >= 600) return "Ten hours of real focus.";
+  if (w.days >= 4) return `${w.days} days of showing up.`;
+  if (w.drinks >= 3) return "Three drinks brewed. Nice week.";
+  return "Every cup counts.";
+}
+
+async function shareWeeklyWrapped() {
+  const btn = els.wrappedShareBtn;
+  const w = weeklyWrapped();
+  if (w.minutes <= 0) {
+    showToast("No focus yet this week. Brew one and come back!");
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = "Making your card…"; }
+  try {
+    const blob = await buildWrappedCard(w);
+    if (!blob) throw new Error("no blob");
+    const file = new File([blob], "mr-tapioca-week.png", { type: "image/png" });
+    const text = `${shareTimePhrase(w.minutes)} of focus this week with Mr. Tapioca 🧋`;
+    const url = installLink("weekly_wrapped");
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: "My week in boba", text, url });
+    } else {
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl; a.download = "mr-tapioca-week.png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+      // Desktop has no share sheet, so the link has to travel with the file or it
+      // is lost. Same reasoning as shareDrink.
+      try { await navigator.clipboard.writeText(url); } catch (e) {}
+      showToast("Saved your card. The link is on your clipboard 🧋");
+    }
+    trk("weekly_wrapped_shared", { minutes: w.minutes, drinks: w.drinks });
+  } catch (e) {
+    if (!(e && e.name === "AbortError")) showToast("Couldn't make the card. Try again.");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Share my week"; }
+  }
 }
 
 function shareTimePhrase(mins) {
@@ -3584,7 +4239,49 @@ async function setMode(mode) {
     b.classList.toggle("active", b.dataset.mode === mode);
   });
   if (els.timerCard) els.timerCard.classList.toggle("custom-adjust", mode === "custom");
+  if (els.pomoSetup) els.pomoSetup.classList.toggle("hidden", mode !== "pomodoro");
+  renderPomoSetup();
   resetSession();
+  renderPomoStatus();
+}
+
+// The three steppers, and the guard every one of them shares.
+function renderPomoSetup() {
+  if (els.pomoWorkVal)  els.pomoWorkVal.textContent  = String(Math.round(pomoWork() / 60));
+  if (els.pomoBreakVal) els.pomoBreakVal.textContent = String(Math.round(pomoBreakLen() / 60));
+  if (els.pomoRepsVal)  els.pomoRepsVal.textContent  = String(pomoReps());
+}
+
+// Changing the shape of the cycle mid-cycle would change what the cup is measuring
+// under the user, so it discards the drink exactly the way adjustCustomDuration
+// does, and asks first.
+async function adjustPomo(field, delta) {
+  if (state.mode === "pomodoro" && state.elapsed > 0 && progress() < 1) {
+    if (!(await askConfirm("Your current drink's progress will be lost.",
+        { title: "Change the cycle?", eyebrow: "Heads up", confirmLabel: "Change it" }))) return;
+  }
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  if (field === "work") {
+    state.pomoWork = clamp(pomoWork() + delta * POMO_WORK_STEP, POMO_WORK_MIN, POMO_WORK_MAX);
+  } else if (field === "break") {
+    state.pomoBreak = clamp(pomoBreakLen() + delta * POMO_BREAK_STEP, POMO_BREAK_MIN, POMO_BREAK_MAX);
+  } else {
+    state.pomoReps = clamp(pomoReps() + delta, POMO_REPS_MIN, POMO_REPS_MAX);
+  }
+  // The native auto-unblock refuses to arm below ~15.5 minutes of protected span,
+  // and a cycle it never arms only frees the apps on the next foreground. The
+  // stepper minimums already make this unreachable; the check is here so a future
+  // change to those minimums fails loudly instead of shipping build 11's bug again.
+  const span = pomoWork() * pomoReps() + pomoBreakLen() * (pomoReps() - 1);
+  if (span < POMO_MIN_PROTECTED) {
+    state.pomoReps = Math.max(pomoReps(), Math.ceil(POMO_MIN_PROTECTED / (pomoWork() + pomoBreakLen())));
+  }
+  playSfx("tap");
+  saveState();
+  renderPomoSetup();
+  updateCustomDisplay();
+  if (state.mode === "pomodoro") resetSession();
+  renderPomoStatus();
 }
 
 async function adjustCustomDuration(delta) {
@@ -3691,36 +4388,62 @@ function isToppingUnlocked(key) {
 // BASES/TOPPINGS source of truth, rendered as literal shop cards (same
 // classes = same fonts/colors): color-swatch preview tile, name, and a
 // Default badge / Equipped badge / dark price pill on the right.
-function customizeCard(attr, key, label, color, locked, price, isDefault, isActive) {
+function customizeCard(attr, key, label, color, locked, price, isDefault, isActive, season) {
   const tag = isDefault ? `<span class="shop-equipped-badge">Default</span>`
     : isActive ? `<span class="shop-equipped-badge">Equipped</span>`
     : locked ? `<span class="shop-buy-btn as-price">${ICON.pearl}${price}</span>` : "";
-  return `<button class="shop-card option-row${isActive ? " active" : ""}${locked ? " locked" : ""}" ${attr}="${key}" aria-label="${label}${locked ? `, ${price} pearls to unlock` : ""}">
+  // The countdown only appears while the window is OPEN and the item is still
+  // locked. Telling someone who already owns the pumpkin base that it has three
+  // days left would read as a threat to take it away, which is the opposite of
+  // what the window means.
+  const note = (season && locked && seasonWindowOpen(season))
+    ? `<small class="season-note">${escapeHtml(seasonLabel(season))}</small>` : "";
+  return `<button class="shop-card option-row${isActive ? " active" : ""}${locked ? " locked" : ""}${season ? " is-seasonal" : ""}" ${attr}="${key}" aria-label="${label}${locked ? `, ${price} pearls to unlock` : ""}">
     <!-- Was a flat colour square, so every tea base and topping was sold as a
          swatch: Classic Milk Tea was an orange square, Taro a purple one. This
          is the app's core personalisation surface and each option costs pearls,
          so people were buying a colour chip. Reuses the same tinted mini cup the
          shelf uses, which is what the option actually produces. -->
     <div class="shop-preview"><div class="coll-cup" style="--drink-color:${color}"><span class="coll-cup-liquid"></span><span class="coll-cup-lid"></span></div></div>
-    <div><strong>${label}</strong></div>
+    <div><strong>${label}</strong>${note}</div>
     <div class="shop-card-action">${tag}</div>
   </button>`;
 }
+// Out-of-season items are hidden UNLESS you already own one (yours stays yours and
+// stays equippable) or it is the one currently equipped (nothing may vanish out
+// from under a drink that is already using it).
+function seasonVisible(key, item, unlocked, equipped) {
+  return !item.season || seasonWindowOpen(item.season) || unlocked || equipped;
+}
+
 function renderCustomizeOptions() {
   if (els.baseGrid) {
-    els.baseGrid.innerHTML = Object.entries(BASES).map(([key, b]) =>
-      customizeCard("data-base", key, b.label, b.color, !isBaseUnlocked(key), b.price, key === "classic", state.base === key)
-    ).join("");
+    els.baseGrid.innerHTML = Object.entries(BASES)
+      .filter(([key, b]) => seasonVisible(key, b, isBaseUnlocked(key), state.base === key))
+      .map(([key, b]) =>
+        customizeCard("data-base", key, b.label, b.color, !isBaseUnlocked(key), b.price, key === "classic", state.base === key, b.season)
+      ).join("");
   }
   if (els.toppingRow) {
-    els.toppingRow.innerHTML = Object.entries(TOPPINGS).map(([key, t]) =>
-      customizeCard("data-topping", key, t.label, t.color, !isToppingUnlocked(key), t.price, key === "pearls", state.topping === key)
-    ).join("");
+    els.toppingRow.innerHTML = Object.entries(TOPPINGS)
+      .filter(([key, t]) => seasonVisible(key, t, isToppingUnlocked(key), state.topping === key))
+      .map(([key, t]) =>
+        customizeCard("data-topping", key, t.label, t.color, !isToppingUnlocked(key), t.price, key === "pearls", state.topping === key, t.season)
+      ).join("");
   }
 }
 
 // Buy a locked customization with pearls. Returns true if it's now usable.
 async function tryUnlock(kind, key, label, price) {
+  // The window is re-checked HERE, not only in the renderer. A card can be on
+  // screen when a window closes at midnight, and the tap that follows must not go
+  // through: the render is a view, and this is the transaction.
+  const item = (kind === "base" ? BASES : TOPPINGS)[key];
+  if (item && item.season && !seasonWindowOpen(item.season)) {
+    playSfx("tap");
+    showToast(`${label} is out of season. It comes back every year 🧋`);
+    return false;
+  }
   if (currentPearls() < price) {
     playSfx("tap"); haptic(8);
     showToast(`Need ${price - currentPearls()} more pearls for ${label} 🧋`);
@@ -6720,7 +7443,28 @@ const QUEST_POOL = {
     { key: "map1",     title: "Peek at the boba map",      target: 1,  reward: 2, track: "mapOpen" },
   ],
 };
-const ALL_QUESTS = [...QUEST_POOL.focus, ...QUEST_POOL.make, ...QUEST_POOL.play];
+// ── THE WEEKLY TIER ──────────────────────────────────────────────────────────
+// One bigger goal that runs Monday to Sunday alongside the three dailies.
+//
+// It is a SEPARATE pool and a separate state slot rather than a fourth daily
+// draw, for a reason that is not obvious: the dailies reset every midnight, so a
+// weekly living in the same object would reset with them. Its keys are globally
+// unique and it is folded into ALL_QUESTS, which is what lets questDef() resolve
+// every key and lets bumpQuest feed both tiers from the SAME existing call sites
+// with no new instrumentation anywhere in the app.
+//
+// PAID IN PEARLS ONLY, like every other quest. Nothing here credits the
+// 240-minute merchant bar: that number comes from real focus minutes and nothing
+// else, or the reward stops meaning what the shops were told it means.
+const WEEKLY_QUEST_POOL = [
+  { key: "wkFocus300",  title: "Focus 5 hours this week",     target: 300, reward: 15, track: "focusMin", unit: "m" },
+  { key: "wkDrinks5",   title: "Brew 5 drinks this week",     target: 5,   reward: 15, track: "drinks" },
+  { key: "wkDays4",     title: "Focus on 4 different days",   target: 4,   reward: 18, track: "focusDays" },
+  { key: "wkSessions8", title: "Finish 8 focus sessions",     target: 8,   reward: 15, track: "sessions" },
+  { key: "wkEarly3",    title: "Focus before noon, 3 times",  target: 3,   reward: 15, track: "earlyFocus" },
+];
+
+const ALL_QUESTS = [...QUEST_POOL.focus, ...QUEST_POOL.make, ...QUEST_POOL.play, ...WEEKLY_QUEST_POOL];
 function questDef(key) { return ALL_QUESTS.find((q) => q.key === key); }
 function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
@@ -6741,12 +7485,29 @@ function ensureTodayQuests() {
   saveState();
 }
 
+// Make sure state.weeklyQuest holds a valid quest for THIS calendar week.
+// weekStartOrdinal() is the same Monday boundary the Study Squad leaderboard
+// resets on, so "this week" means one thing across the whole app.
+function ensureThisWeekQuests() {
+  const week = weekStartOrdinal();
+  const q = state.weeklyQuest;
+  const valid = q && q.week === week && Array.isArray(q.active) && q.active.length === 1
+    && q.active.every((a) => questDef(a.key) && Number.isFinite(a.prog) && typeof a.done === "boolean");
+  if (valid) return;
+  state.weeklyQuest = {
+    week,
+    active: [pickOne(WEEKLY_QUEST_POOL)].map((def) => ({ key: def.key, prog: 0, done: false })),
+  };
+  saveState();
+}
+
 // Advance any active quest tracking `track`. amount is added (or maxed for combo).
 function bumpQuest(track, amount = 1) {
   if (!amount && amount !== 0) return;
   ensureTodayQuests();
+  ensureThisWeekQuests();
   let completedAny = false;
-  for (const a of state.quests.active) {
+  for (const a of state.quests.active.concat(state.weeklyQuest.active)) {
     const def = questDef(a.key);
     if (!def || def.track !== track || a.done) continue;
     if (def.mode === "max") a.prog = Math.max(a.prog, amount);
@@ -6771,8 +7532,11 @@ function onQuestComplete(def) {
 }
 
 function questsRemaining() {
-  if (!state.quests || state.quests.day !== localDateKey(new Date())) return 3;
-  return state.quests.active.filter((a) => !a.done).length;
+  const daily = (!state.quests || state.quests.day !== localDateKey(new Date()))
+    ? 3 : state.quests.active.filter((a) => !a.done).length;
+  const weekly = (!state.weeklyQuest || state.weeklyQuest.week !== weekStartOrdinal())
+    ? 1 : state.weeklyQuest.active.filter((a) => !a.done).length;
+  return daily + weekly;
 }
 
 // Little count badge on the nav Quests pill. Suppressed on the very first
@@ -6791,6 +7555,7 @@ function renderQuests() {
   const list = document.querySelector("#questsList");
   if (!list) return;
   ensureTodayQuests();
+  ensureThisWeekQuests();
   // Swap the intro copy once every quest is done — the invite-to-earn line
   // stayed put and read as a stale prompt with no acknowledgement of
   // completion or when the next set unlocks.
@@ -6801,12 +7566,12 @@ function renderQuests() {
       ? "All done today. New set opens tomorrow!"
       : "Three fresh challenges to earn pearls every day!";
   }
-  const cards = state.quests.active.map((a) => {
+  const card = (a, weekly) => {
     const def = questDef(a.key);
     if (!def) return "";   // defensive: skip a quest whose key no longer exists
     const pct = Math.min(100, Math.round((a.prog / def.target) * 100));
     const sub = a.done ? "Done!" : `${a.prog} / ${def.target}${def.unit || ""}`;
-    return `<div class="quest-card${a.done ? " done" : ""}">` +
+    return `<div class="quest-card${a.done ? " done" : ""}${weekly ? " weekly" : ""}">` +
       `<span class="quest-info">` +
         `<span class="quest-title">${escapeHtml(def.title)}</span>` +
         `<span class="quest-track"><span class="quest-fill" style="width:${pct}%"></span></span>` +
@@ -6814,12 +7579,18 @@ function renderQuests() {
       `</span>` +
       `<span class="quest-reward${a.done ? " claimed" : ""}">+${def.reward}</span>` +
     `</div>`;
-  }).join("");
-  list.innerHTML = cards;
+  };
+  // The weekly sits under its own heading rather than mixed into the dailies: it
+  // pays three to five times as much and it does not reset tomorrow, and a card
+  // that looks identical to a daily would be read as one and ignored.
+  list.innerHTML = state.quests.active.map((a) => card(a, false)).join("")
+    + `<div class="quest-tier-head">This week</div>`
+    + state.weeklyQuest.active.map((a) => card(a, true)).join("");
 }
 
 function openQuests() {
   ensureTodayQuests();
+  ensureThisWeekQuests();
   renderQuests();
   // First-open of the panel graduates the user out of "day 1 unseen"; from
   // this point the count badge is legitimate feedback, not a stray alert.
@@ -6836,13 +7607,36 @@ function mySquadId() {
   if (!state.squadId) { state.squadId = "s" + Math.random().toString(36).slice(2, 10); saveState(); }
   return state.squadId;
 }
+// What friends see next to your name, and the ONE producer of it. It reports
+// "idle" whenever the switch is off, so the neutral value is produced here rather
+// than being a fallback squad-cloud guesses at.
+function myStatusKey() {
+  if (!state.sharePresence) return "idle";
+  if (state.running && state.phase === "focus") return "focusing";
+  if (state.phase === "break" || state.phase === "break-offer") return "break";
+  return "idle";
+}
+
 function mySquadStats() {
   const st = computeStats();
-  // No live-status field: activity presence is deliberately NOT broadcast
-  // (privacy); squad-cloud falls back to a neutral "idle" for its RPC param.
-  return { name: myDisplayName(), mins: st.totalMin, drinks: state.collection.length, streak: st.current, skin: state.skin || "" };
+  return {
+    name: myDisplayName(),
+    mins: st.totalMin,
+    weekMins: calendarWeekMinutes(),
+    drinks: state.collection.length,
+    streak: st.current,
+    skin: state.skin || "",
+    status: myStatusKey(),
+    // Sent on every push so turning the switch off reaches the server on the next
+    // sync, not on the next status change.
+    sharePresence: state.sharePresence === true,
+  };
 }
 function squadCloudLive() { return !!(window.SquadCloud && SquadCloud.enabled && SquadCloud.ready); }
+function squadSheetOpen() {
+  const sheet = document.querySelector("#friendsSheet");
+  return !!(sheet && !sheet.classList.contains("hidden"));
+}
 function encodeMyCode() {
   // Live backend: share the short server friend-code. Offline: a base64 snapshot.
   if (squadCloudLive() && SquadCloud.myCode()) return SquadCloud.myCode();
@@ -6852,7 +7646,9 @@ function encodeMyCode() {
 function parseSquadCode(raw) {
   if (!raw) return null;
   let str = String(raw).trim();
-  const m = str.match(/sq=([A-Za-z0-9+/_=-]+)/);   // accept a full share link too
+  // Accept a pasted share link in any of the shapes shareSquadCode has ever
+  // produced, plus a bare code, which is what most people actually paste.
+  const m = str.match(/[?&#]c=([A-Za-z0-9+/_=-]+)/) || str.match(/sq=([A-Za-z0-9+/_=-]+)/);
   if (m) str = m[1];
   else {
     // People paste the WHOLE share message ("Add me on Mr. Tapioca! …<code>"),
@@ -6941,6 +7737,34 @@ function squadRelative(ts) {
   if (days < 7) return days + " days ago";
   const w = Math.floor(days / 7); return w === 1 ? "1 week ago" : w + " weeks ago";
 }
+// "Brewing now" next to a friend's name, or nothing at all.
+//
+// FRESHNESS IS THE WHOLE PROBLEM. A status is a claim about RIGHT NOW, and the
+// server only hears from a phone when that phone pushes. A dead battery, a lost
+// signal or a force-quit mid-session leaves 'focusing' sitting in the row, and a
+// board that says your friend has been studying since Tuesday is worse than a
+// board with no presence on it: it is confidently wrong, and it makes every other
+// number on the screen look like a guess too. So anything older than the window
+// below reads as nothing, and the server independently expires a stale status
+// after twenty minutes. Two mechanisms because one of them is a client.
+//
+// statusAt is null for anyone who has not opted in, which is also how a
+// not-sharing friend and an idle friend look identical from here: the server never
+// tells us which, on purpose.
+const PRESENCE_FRESH_MS = 8 * 60 * 1000;
+const PRESENCE_DOT = '<svg class="squad-pres-dot" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="3.2" fill="currentColor"/></svg>';
+
+function squadPresence(status, statusAt, isMe) {
+  if (status !== "focusing" && status !== "break") return "";
+  // Our own row is always current: we are the thing generating it.
+  if (!isMe) {
+    const t = statusAt ? Date.parse(statusAt) : 0;
+    if (!t || Date.now() - t > PRESENCE_FRESH_MS) return "";
+  }
+  const label = status === "focusing" ? "Brewing now" : "On a break";
+  return `<span class="squad-pres squad-pres-${status}">${PRESENCE_DOT}${label}</span>`;
+}
+
 function renderSquad() {
   const me = mySquadStats();
   const av = document.querySelector("#squadMeAvatar"); if (av) av.src = squadAvatar(me.skin);
@@ -6951,22 +7775,36 @@ function renderSquad() {
   const live = squadCloudLive();
   let rows;
   if (live) {
-    // Server returns self + everyone I follow (already RLS-scoped).
-    rows = SquadCloud.friends.map((f) => ({ id: f.id, name: f.name, mins: f.mins, drinks: f.drinks, streak: f.streak, skin: f.skin, ts: f.ts, me: !!f.me }));
-    if (!rows.some((r) => r.me)) rows.unshift({ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, ts: Date.now(), me: true });
+    // Server returns self + everyone I follow (already RLS-scoped), with
+    // week_minutes already zeroed for anyone whose week has rolled over.
+    rows = SquadCloud.friends.map((f) => ({ id: f.id, name: f.name, mins: f.mins,
+      weekMins: f.weekMins || 0, drinks: f.drinks, streak: f.streak, skin: f.skin,
+      ts: f.ts, status: f.status, statusAt: f.statusAt, me: !!f.me }));
+    if (!rows.some((r) => r.me)) rows.unshift({ id: "me", name: me.name, mins: me.mins,
+      weekMins: me.weekMins, drinks: me.drinks, streak: me.streak, skin: me.skin,
+      ts: Date.now(), status: me.status, statusAt: new Date().toISOString(), me: true });
   } else {
-    rows = [{ id: "me", name: me.name, mins: me.mins, drinks: me.drinks, streak: me.streak, skin: me.skin, me: true }]
-      .concat(state.friends.map((f) => ({ ...f, me: false })));
+    // Offline snapshots carry no week total and no presence: they are a base64
+    // blob someone pasted, which is a photograph of a moment, not a live feed.
+    rows = [{ id: "me", name: me.name, mins: me.mins, weekMins: me.weekMins, drinks: me.drinks,
+              streak: me.streak, skin: me.skin, status: me.status,
+              statusAt: new Date().toISOString(), me: true }]
+      .concat(state.friends.map((f) => ({ ...f, weekMins: 0, status: "idle", statusAt: null, me: false })));
   }
-  rows.sort((a, b) => b.mins - a.mins);
+  // THIS WEEK decides the board. A lifetime leaderboard is settled in its first
+  // fortnight and then never changes again, which is exactly why nobody opens one
+  // twice; a week is short enough that a newcomer can win it. Lifetime is the
+  // tiebreak so the order stays stable at the bottom, where everyone is on zero.
+  rows.sort((a, b) => (b.weekMins - a.weekMins) || (b.mins - a.mins));
   board.innerHTML = rows.map((r, i) => {
     const rank = `<span class="squad-rank-num">${i + 1}</span>`;
+    const presence = live ? squadPresence(r.status, r.statusAt, r.me) : "";
     return `<div class="squad-row${r.me ? " me" : ""}">` +
       `<span class="squad-rank">${rank}</span>` +
       `<img class="squad-row-avatar" src="${squadAvatar(r.skin)}" alt="">` +
       `<span class="squad-row-info">` +
         `<span class="squad-row-name">${escapeHtml(r.name)}${r.me ? ' <span class="squad-you">YOU</span>' : ""}</span>` +
-        `<span class="squad-row-sub">${formatFocusTotal(r.mins)}</span>` +
+        `<span class="squad-row-sub">${formatFocusTotal(r.weekMins)} this week${presence}</span>` +
       `</span>` +
       `<span class="squad-row-stats">${r.streak}${ICON.flame}</span>` +
       (r.me ? "" : `<button class="squad-remove" data-id="${r.id}" aria-label="Remove ${escapeHtml(r.name)}">✕</button>`) +
@@ -6976,18 +7814,78 @@ function renderSquad() {
     if (live) SquadCloud.unfollow(b.dataset.id); else removeFriend(b.dataset.id);
   }));
 }
+// A real, tappable invite.
+//
+// What this used to send: the six-character code as prose, next to
+// installLink("squad_invite"), which is a link to the App Store that does not
+// carry the code. So the recipient had to install the app, find the Squad sheet,
+// scroll back up the conversation for the code, and type it in. Every step of
+// that lost people, and the receiver in this very file matched a `#sq=` URL shape
+// that nothing anywhere ever produced.
+//
+// What it sends now: mrtapioca.me/squad/?c=CODE, a page that names who invited
+// them, shows the code, and has one button. The name rides in the URL rather than
+// being looked up, deliberately: a server lookup would turn the friend code from a
+// write-only token into an enumerable handle to somebody's display name, and the
+// person sharing is already choosing to say who they are.
+function squadInviteUrl(code) {
+  const params = new URLSearchParams({ c: code, src: "squad_invite" });
+  const name = myDisplayName();
+  if (name && name !== "You") params.set("n", name.slice(0, 24));
+  return "https://mrtapioca.me/squad/?" + params.toString();
+}
+
+// The presence switch. Hidden entirely when the cloud is off: with no server
+// there is nobody to broadcast to, and a dead toggle is worse than no toggle.
+function renderSquadPresence() {
+  const live = squadCloudLive();
+  if (els.squadPresenceRow) els.squadPresenceRow.classList.toggle("hidden", !live);
+  if (els.squadPresenceNote) els.squadPresenceNote.classList.toggle("hidden", !live);
+  if (!els.squadPresenceToggle) return;
+  const on = state.sharePresence === true;
+  els.squadPresenceToggle.classList.toggle("on", on);
+  els.squadPresenceToggle.setAttribute("aria-checked", String(on));
+}
+
+function toggleSquadPresence() {
+  state.sharePresence = !state.sharePresence;
+  playSfx("tap");
+  saveState();          // saveState is also what triggers the debounced push
+  renderSquadPresence();
+  renderSquad();        // our own row's status changes immediately
+  // Turning it OFF is the case that must not wait. saveState's push is debounced
+  // 1500ms and only fires while the cloud is ready; push straight away too so the
+  // stored status is reset to idle now rather than at some later sync.
+  if (!state.sharePresence && squadCloudLive() &&
+      typeof SquadCloud.pushProfileNow === "function") {
+    Promise.resolve(SquadCloud.pushProfileNow()).catch(() => {});
+  }
+  showToast(state.sharePresence
+    ? "Your squad can see when you're brewing."
+    : "Your squad can't see your sessions any more.");
+}
+
 function shareSquadCode() {
   const code = encodeMyCode();
   playSfx("open");
-  // The code AND a way to get the app. A friend code is useless to someone who
-  // does not have the app yet, which is most people you would send one to.
-  const text = `Add me on Mr. Tapioca! My Study Squad code is ${code}. ` +
-    `Get the app, then open Squad and tap Add.`;
-  const url = installLink("squad_invite");
+  // A server friend code is six characters and safe in a URL. An offline base64
+  // snapshot is neither: it is long, it carries stats, and the landing page has no
+  // way to act on it. Offline keeps the old paste-the-code flow.
+  const serverCode = squadCloudLive() && SquadCloud.myCode() ? SquadCloud.myCode() : null;
+  const url = serverCode ? squadInviteUrl(serverCode) : installLink("squad_invite");
+  const text = serverCode
+    ? `Brew with me on Mr. Tapioca! Tap to join my Study Squad (code ${serverCode}).`
+    : `Add me on Mr. Tapioca! My Study Squad code is ${code}. ` +
+      `Get the app, then open Squad and tap Add.`;
   if (navigator.share) {
     navigator.share({ title: "Mr. Tapioca Study Squad", text, url }).catch(() => {});
   } else if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code).then(() => showToast("Code copied, send it to a friend!"), () => showToast("Couldn't copy. Long-press to select."));
+    // Copy the LINK when there is one. Copying a bare code was the old behaviour
+    // and it is the thing that made the invite unusable on desktop.
+    const copy = serverCode ? url : code;
+    navigator.clipboard.writeText(copy).then(
+      () => showToast(serverCode ? "Invite link copied, send it to a friend!" : "Code copied, send it to a friend!"),
+      () => showToast("Couldn't copy. Long-press to select."));
   } else {
     showToast("Sharing isn't available here.");
   }
@@ -7074,9 +7972,12 @@ function openFriends() {
     // …then keep refreshing while the sheet is open, so a friend who finishes a
     // drink while you are looking moves up without you reopening the sheet.
     //
-    // This is TOTALS, not presence. There is no live status: mySquadStats() sends
-    // no status field and squad-cloud.js therefore always pushes "idle", so
-    // nothing anywhere knows who is focusing right now. Cleared in closeSheets.
+    // Now that presence is live this poll is what makes "brewing now" true rather
+    // than "was brewing when you opened the sheet". Twelve seconds is a deliberate
+    // compromise: the client treats a status older than eight minutes as nothing
+    // and the server expires one after twenty, so a slower poll would still be
+    // correct, only staler-feeling while somebody sits on this screen watching a
+    // friend study. Cleared in closeSheets.
     clearInterval(squadPollId);
     squadPollId = setInterval(() => {
       if (window.SquadCloud && SquadCloud.ready) SquadCloud.fetchFriends();
@@ -7769,6 +8670,16 @@ function wireEvents() {
   els.customMinus.addEventListener("click", async () => { playSfx("select"); await adjustCustomDuration(-CUSTOM_STEP); });
   els.customPlus.addEventListener("click",  async () => { playSfx("select"); await adjustCustomDuration(CUSTOM_STEP); });
 
+  // ── Pomodoro cycle steppers ───────────────────────────────────────────────
+  for (const [id, field, delta] of [
+    ["#pomoWorkMinus", "work", -1], ["#pomoWorkPlus", "work", 1],
+    ["#pomoBreakMinus", "break", -1], ["#pomoBreakPlus", "break", 1],
+    ["#pomoRepsMinus", "reps", -1], ["#pomoRepsPlus", "reps", 1],
+  ]) {
+    const btn = document.querySelector(id);
+    if (btn) btn.addEventListener("click", async () => { playSfx("select"); await adjustPomo(field, delta); });
+  }
+
   // ── Daily goal stepper (Settings) ─────────────────────────────────────────
   els.goalMinus.addEventListener("click", () => { playSfx("select"); haptic(4); adjustDailyGoal(-GOAL_STEP); });
   els.goalPlus.addEventListener("click",  () => { playSfx("select"); haptic(4); adjustDailyGoal(GOAL_STEP); });
@@ -8367,6 +9278,8 @@ async function toggleNotifyPref(key) {
 
 function wireNotifySettings() {
   if (!els.notifyRow) return;
+  if (els.wrappedShareBtn) els.wrappedShareBtn.addEventListener("click", shareWeeklyWrapped);
+  if (els.squadPresenceToggle) els.squadPresenceToggle.addEventListener("click", toggleSquadPresence);
   els.notifyDoneToggle.addEventListener("click", () => toggleNotifyPref("done"));
   els.notifyDailyToggle.addEventListener("click", () => toggleNotifyPref("daily"));
   els.notifyTime.addEventListener("change", async () => {
@@ -8390,6 +9303,10 @@ document.querySelectorAll(".size-btn").forEach(b => {
   b.classList.toggle("active", b.dataset.mode === state.mode);
 });
 if (els.timerCard) els.timerCard.classList.toggle("custom-adjust", state.mode === "custom");
+if (els.pomoSetup) els.pomoSetup.classList.toggle("hidden", state.mode !== "pomodoro");
+renderPomoSetup();
+renderPomoStatus();
+renderSquadPresence();
 renderVolumeControls();
 renderDevToggle();
 renderAmbiencePicker();
@@ -8458,17 +9375,34 @@ if (!state.running) {
 if (FocusBlocker.available()) { FocusBlocker.refreshStatus().then(renderBlockPill); }
 renderBlockPill();
 
-// If opened from a friend's shared Squad link (…#sq=CODE), add them, then clean
-// the URL so a refresh doesn't re-add.
+// Opened from a friend's invite. Three shapes are accepted, and the first is the
+// only one anything actually produces any more:
+//   ?c=ABC234   the 1.2.0 invite (mrtapioca.me/squad/ hands it over on this key)
+//   #c=ABC234   the same, for anywhere a hash survives where a query string does not
+//   #sq=BLOB    the historical shape, kept so an old share still works
+//
+// The old code matched ONLY the third, which nothing in the repo ever built. The
+// invite was dead at both ends.
 (function () {
-  const m = location.hash && location.hash.match(/sq=([A-Za-z0-9+/_=-]+)/);
+  const hash = location.hash || "";
+  const search = location.search || "";
+  const m = search.match(/[?&]c=([A-Za-z0-9+/_=-]+)/)
+         || hash.match(/[#&]c=([A-Za-z0-9+/_=-]+)/)
+         || hash.match(/sq=([A-Za-z0-9+/_=-]+)/);
   if (m) {
     // Ask first — a link click must not silently mutate the Squad (a crafted
     // link could overwrite a friend's stats or burn cloud follow-rate slots).
     askConfirm("Someone shared their Study Squad code with you.",
       { title: "Add this friend?", eyebrow: "Study Squad", confirmLabel: "Add them" })
       .then((yes) => { if (yes) addFriendByCode(m[1]); });
-    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { location.hash = ""; }
+    // Strip the code from BOTH halves of the URL, or a refresh re-offers it.
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete("c");
+      url.searchParams.delete("src");
+      url.hash = "";
+      history.replaceState(null, "", url.pathname + (url.search || ""));
+    } catch (e) { location.hash = ""; }
   }
 })();
 

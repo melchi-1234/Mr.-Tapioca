@@ -275,6 +275,30 @@
           <button class="size-btn" data-mode="goal">
             Goal
           </button>
+          <button class="size-btn" data-mode="pomodoro">
+            Pomodoro
+          </button>
+        </div>
+        <!-- The cycle shape, shown only in Pomodoro mode. Three steppers rather
+             than fixed presets because 25/5 is a convention, not a law, and the
+             people who want this feature are exactly the people who already know
+             what length works for them. -->
+        <div id="pomoSetup" class="pomo-setup hidden">
+          <div class="pomo-stepper">
+            <button id="pomoWorkMinus" class="adj-btn" aria-label="Shorter work blocks">−</button>
+            <span class="pomo-stepper-val"><strong id="pomoWorkVal">25</strong><span class="pomo-stepper-unit">min work</span></span>
+            <button id="pomoWorkPlus" class="adj-btn" aria-label="Longer work blocks">+</button>
+          </div>
+          <div class="pomo-stepper">
+            <button id="pomoBreakMinus" class="adj-btn" aria-label="Shorter breaks">−</button>
+            <span class="pomo-stepper-val"><strong id="pomoBreakVal">5</strong><span class="pomo-stepper-unit">min break</span></span>
+            <button id="pomoBreakPlus" class="adj-btn" aria-label="Longer breaks">+</button>
+          </div>
+          <div class="pomo-stepper">
+            <button id="pomoRepsMinus" class="adj-btn" aria-label="Fewer blocks">−</button>
+            <span class="pomo-stepper-val"><strong id="pomoRepsVal">4</strong><span class="pomo-stepper-unit">blocks</span></span>
+            <button id="pomoRepsPlus" class="adj-btn" aria-label="More blocks">+</button>
+          </div>
         </div>
         <div class="timer-card" id="timerCard">
           <!-- In Custom mode the −/+ flank the time IN-CARD, so picking Custom adds
@@ -288,6 +312,9 @@
             <span id="sessionLabel">Custom Cup</span>
             <button id="customizeDrinkBtn" class="customize-inline-btn">Customize</button>
           </div>
+          <!-- "Block 2 of 4" / "Break · 4:32 · apps stay locked". Empty in every
+               other mode, and :empty collapses it so no layout moves. -->
+          <p id="pomoStatus" class="pomo-status" aria-live="polite"></p>
           <div class="progress-track"><span id="progressBar"></span></div>
         </div>
         <!-- Reset rides ALONGSIDE the primary button, not under it. It used to own
@@ -569,6 +596,10 @@
           </div>
           <div id="weekChart" class="week-chart" aria-label="Focus minutes for the last 7 days"></div>
           <div id="weekInsights" class="insights-card"></div>
+          <!-- Weekly Wrapped. It sits under the week chart because that is where
+               someone is already looking at their own week; a share button on the
+               home screen would be an ask, and this is an offer. -->
+          <button id="wrappedShareBtn" class="secondary wrapped-share">Share my week</button>
 
           <div class="pearl-info-card">
             <h3>How Do Pearls Work?</h3>
@@ -634,7 +665,21 @@
             <input id="squadCodeInput" class="squad-input" placeholder="Paste a friend's code here" autocomplete="off" autocapitalize="off" spellcheck="false">
             <button id="squadAddBtn" class="squad-add-btn">Add</button>
           </div>
-          <div class="squad-board-head"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H4.5A2.5 2.5 0 0 0 7 9M17 5.5h2.5A2.5 2.5 0 0 1 17 9M12 14v3M8.5 20h7l-.7-3h-5.6l-.7 3Z"/></svg>Leaderboard</div>
+          <!-- Presence. OFF unless someone turns it on: telling a group of
+               classmates that you are studying right now is a real disclosure, not
+               a default. Only people who already have your code and added you can
+               see it, and the server forces the stored status back to idle the
+               moment this goes off. -->
+          <div id="squadPresenceRow" class="notify-line squad-presence-row hidden">
+            <span>Let friends see when I'm brewing</span>
+            <button id="squadPresenceToggle" class="toggle" role="switch" aria-checked="false"
+                    aria-label="Let friends see when I'm brewing">
+              <span class="toggle-knob"></span>
+            </button>
+          </div>
+          <p id="squadPresenceNote" class="settings-note hidden">Your squad sees "Brewing now" while a session is running. Nothing else, and only the friends who added your code.</p>
+          <div class="squad-board-head"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H4.5A2.5 2.5 0 0 0 7 9M17 5.5h2.5A2.5 2.5 0 0 1 17 9M12 14v3M8.5 20h7l-.7-3h-5.6l-.7 3Z"/></svg>This Week</div>
+          <p class="squad-board-note">Resets every Monday, so a bad week is only ever a week.</p>
           <div id="squadBoard" class="squad-board"></div>
         </div>
       </div>

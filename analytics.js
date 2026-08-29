@@ -167,6 +167,7 @@
     // growth
     focus_card_shared: "growth",
     reward_card_shared: "growth",
+    weekly_wrapped_shared: "growth",
     squad_invite_shared: "growth",
     install_link_opened: "growth",
     // commerce
@@ -197,6 +198,8 @@
     actual_minutes:      { min: 0, max: 1440 },
     apps_selected_count: { min: 0, max: 500 },   // COUNT ONLY — never which apps
     streak_days:         { min: 0, max: 100000 },
+    minutes:             { min: 0, max: 100000 },   // weekly-wrapped total
+    drinks:              { min: 0, max: 10000 },
   };
   const BOOL_PROPS = ["native_blocking_enabled"];
   const SLUG_PROPS = {
@@ -206,6 +209,10 @@
     source:     24,   // aggregate install attribution slug, e.g. "share_reward"
   };
   const ENUM_PROPS = {
+    // Which timer preset a session used. Without this the allowlist silently drops
+    // `mode` (app.js already passes it to session_started), so there would be no
+    // way to tell whether anyone adopted the pomodoro cycle.
+    mode:          ["custom", "goal", "pomodoro"],
     block_failure: ["none", "not_authorized", "no_apps_picked", "shield_not_applied", "ignore_limit", "unknown"],
     reason:        ["no_reward", "expired", "already_used", "wrong_shop", "network", "cancelled", "unknown"],
   };

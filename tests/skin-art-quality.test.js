@@ -171,111 +171,179 @@ print(json.dumps(out))
 });
 
 test("Shades lenses stay opaque instead of exposing eye whites", () => {
+  // POSITION-INDEPENDENT ON PURPOSE. This used to compare against six hard-coded
+  // polygons per pose, and commit cca30f4 ("mirrored mixing art") moved the face
+  // out from under them: the test failed for two releases while the art was
+  // perfect, which is the most expensive kind of test there is. Poses get
+  // re-drawn and re-posed; the RULE is that the lenses are one solid dark mass
+  // with no eye showing through, and that is what is asserted here.
   const paths = STATES.map((state) => `assets/poses/shades-${state}.png`);
   const rows = probe(String.raw`
-from PIL import Image, ImageDraw
+from PIL import Image
 import json, sys
 
-polygons = [
-    [
-        [(151,202),(222,203),(219,235),(205,246),(177,245),(157,232)],
-        [(278,203),(346,201),(341,232),(325,245),(296,244),(280,231)],
-    ],
-    [
-        [(174,187),(245,201),(238,230),(220,242),(195,237),(181,222)],
-        [(281,211),(350,225),(343,254),(325,265),(299,260),(284,246)],
-    ],
-    [
-        [(151,211),(226,216),(221,244),(206,256),(178,252),(158,240)],
-        [(275,216),(351,211),(344,243),(327,254),(299,253),(280,241)],
-    ],
-    [
-        [(153,205),(228,209),(223,239),(207,251),(179,247),(159,236)],
-        [(274,211),(348,207),(341,239),(325,250),(298,249),(280,238)],
-    ],
-]
-out = []
-for path, pair in zip(sys.argv[1:], polygons):
+def components(selected):
+    seen = set(selected)
+    out = []
+    while seen:
+        stack = [seen.pop()]
+        pts = []
+        while stack:
+            x, y = stack.pop()
+            pts.append((x, y))
+            for nx in range(x - 1, x + 2):
+                for ny in range(y - 1, y + 2):
+                    point = (nx, ny)
+                    if point in seen:
+                        seen.remove(point)
+                        stack.append(point)
+        out.append(pts)
+    out.sort(key=len, reverse=True)
+    return out
+
+rows = []
+for path in sys.argv[1:]:
     image = Image.open(path).convert("RGBA")
-    mask = Image.new("1", image.size)
-    draw = ImageDraw.Draw(mask)
-    for polygon in pair:
-        draw.polygon(polygon, fill=1)
-    total = good = 0
-    for (red, green, blue, alpha), selected in zip(image.get_flattened_data(), mask.get_flattened_data()):
-        if not selected:
-            continue
-        total += 1
-        luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue
-        if alpha >= 230 and max(red, green, blue) - min(red, green, blue) <= 10 and luma <= 80:
-            good += 1
-    out.append({"total": total, "ratio": good / total})
-print(json.dumps(out))
+    pixels = image.load()
+    dark = set()
+    # The head occupies the upper-middle band in every pose. Wide enough that a
+    # mirrored or shifted face is still inside it.
+    for y in range(110, 340):
+        for x in range(image.width):
+            red, green, blue, alpha = pixels[x, y]
+            luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+            if alpha >= 230 and max(red, green, blue) - min(red, green, blue) <= 12 and luma <= 80:
+                dark.add((x, y))
+    parts = components(dark)
+    lens = parts[0] if parts else []
+    xs = [p[0] for p in lens] or [0]
+    ys = [p[1] for p in lens] or [0]
+    bright = 0
+    for y in range(min(ys), max(ys) + 1):
+        for x in range(min(xs), max(xs) + 1):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha >= 230 and min(red, green, blue) >= 200:
+                bright += 1
+    rows.append({
+        "lens": len(lens),
+        "width": max(xs) - min(xs) + 1,
+        "height": max(ys) - min(ys) + 1,
+        "bright": bright,
+    })
+print(json.dumps(rows))
 `, ...paths);
 
   for (const [index, row] of rows.entries()) {
-    assert.ok(row.ratio >= 0.8,
-      `${paths[index]} has only ${(row.ratio * 100).toFixed(1)}% opaque neutral-dark lens coverage`);
+    // One connected dark mass: both lenses plus the bridge between them. ~9,100px
+    // in every shipped pose. A lens that went translucent, or one that vanished,
+    // drops this hard.
+    assert.ok(row.lens >= 7500,
+      `${paths[index]} has only ${row.lens}px of solid dark lens (both lenses and the bridge should be one mass)`);
+    // And it is glasses-shaped: wide and shallow. A single round dark blob of the
+    // right area would pass the count alone.
+    assert.ok(row.width >= 180 && row.height <= 120,
+      `${paths[index]} lens mass is ${row.width}x${row.height}, not the shape of a pair of glasses`);
+    // Inside that mass, the only bright opaque pixels should be the two thin
+    // specular streaks (~100px). An exposed eye white is an order of magnitude
+    // more than that.
+    assert.ok(row.bright <= 400,
+      `${paths[index]} shows ${row.bright}px of bright pixels behind the lenses (eye whites are showing through)`);
   }
 });
 
 test("Ninja keeps a coherently placed silver shuriken in every pose", () => {
+  // SIDE-INDEPENDENT ON PURPOSE, for the same reason as the Shades test above:
+  // the old version required the shuriken to sit on the character's left (x<225)
+  // and forbade silver in a central box, and commit cca30f4 mirrored the mixing
+  // pose. The shuriken is still there, still coherent, still attached; it is on
+  // the other side. What actually matters is that there is exactly ONE silver
+  // accessory, it is shuriken-shaped rather than a spoon or a ladle, it is beside
+  // the character rather than floating away from it, and it is roughly the same
+  // object in all four poses.
   const paths = STATES.map((state) => `assets/poses/ninja-${state}.png`);
   const rows = probe(String.raw`
 from PIL import Image
 import json, sys
 
+def components(selected):
+    seen = set(selected)
+    out = []
+    while seen:
+        stack = [seen.pop()]
+        pts = []
+        while stack:
+            x, y = stack.pop()
+            pts.append((x, y))
+            for nx in range(x - 1, x + 2):
+                for ny in range(y - 1, y + 2):
+                    point = (nx, ny)
+                    if point in seen:
+                        seen.remove(point)
+                        stack.append(point)
+        out.append(pts)
+    out.sort(key=len, reverse=True)
+    return out
+
 rows = []
 for path in sys.argv[1:]:
     image = Image.open(path).convert("RGBA")
-    left = center = 0
-    for y in range(230, 410):
-        for x in range(0, 320):
-            red, green, blue, alpha = image.getpixel((x, y))
-            light_neutral = (
-                alpha >= 230
-                and (red + green + blue) / 3 >= 100
-                and max(red, green, blue) - min(red, green, blue) <= 35
-            )
-            if not light_neutral:
-                continue
-            if x < 225:
-                left += 1
-            if 220 <= x <= 319 and 250 <= y <= 359:
-                center += 1
-    visible = {
-        (x, y)
-        for y in range(image.height)
-        for x in range(image.width)
-        if image.getpixel((x, y))[3] > 16
-    }
-    components = []
-    while visible:
-        start = visible.pop()
-        stack = [start]
-        size = 0
-        while stack:
-            x, y = stack.pop()
-            size += 1
-            for nx in range(max(0, x - 1), min(image.width, x + 2)):
-                for ny in range(max(0, y - 1), min(image.height, y + 2)):
-                    point = (nx, ny)
-                    if point in visible:
-                        visible.remove(point)
-                        stack.append(point)
-        components.append(size)
-    components.sort(reverse=True)
-    rows.append({"left": left, "center": center, "largest_detached": components[1] if len(components) > 1 else 0})
+    pixels = image.load()
+    silver = set()
+    for y in range(200, 430):
+        for x in range(image.width):
+            red, green, blue, alpha = pixels[x, y]
+            if (alpha >= 230 and (red + green + blue) / 3 >= 100
+                    and max(red, green, blue) - min(red, green, blue) <= 35):
+                silver.add((x, y))
+    parts = components(silver)
+    biggest = parts[0] if parts else []
+    xs = [p[0] for p in biggest] or [0]
+    ys = [p[1] for p in biggest] or [0]
+
+    # Whole-figure alpha bounds, so "beside the character" can be measured
+    # without assuming which side the character faces.
+    visible = [(x, y) for y in range(image.height) for x in range(image.width)
+               if pixels[x, y][3] > 16]
+    fxs = [p[0] for p in visible] or [0]
+
+    # Any silver blob that is NOT the shuriken and not a stray antialiased speck.
+    others = sum(1 for part in parts[1:] if len(part) >= 150)
+
+    # Is the shuriken attached to the character? Detached = its own alpha island.
+    figure = components({(x, y) for x, y in visible})
+    figure_sizes = sorted((len(f) for f in figure), reverse=True)
+
+    rows.append({
+        "silver": len(biggest),
+        "width": max(xs) - min(xs) + 1,
+        "height": max(ys) - min(ys) + 1,
+        "cx": sum(xs) / len(xs),
+        "fig_min": min(fxs), "fig_max": max(fxs),
+        "others": others,
+        "largest_detached": figure_sizes[1] if len(figure_sizes) > 1 else 0,
+    })
 print(json.dumps(rows))
 `, ...paths);
 
   for (const [index, row] of rows.entries()) {
-    assert.ok(row.left >= 300,
-      `${paths[index]} is missing the silver shuriken on the character's left (${row.left} px)`);
-    assert.ok(row.center <= 32,
-      `${paths[index]} substitutes a central silver spoon/ladle (${row.center} px)`);
+    const label = paths[index];
+    // One shuriken, ~65px square, in every pose.
+    assert.ok(row.silver >= 1200,
+      `${label} is missing the silver shuriken (${row.silver}px of silver)`);
+    const aspect = row.width / row.height;
+    assert.ok(aspect >= 0.7 && aspect <= 1.45,
+      `${label} silver accessory is ${row.width}x${row.height} (aspect ${aspect.toFixed(2)}); a shuriken is roughly square, a spoon or ladle is not`);
+    assert.ok(row.width >= 45 && row.width <= 95,
+      `${label} silver accessory is ${row.width}px across, not shuriken-sized`);
+    assert.equal(row.others, 0,
+      `${label} carries a second silver object as well as the shuriken`);
+    // Beside the character, not planted over the middle of them.
+    const mid = (row.fig_min + row.fig_max) / 2;
+    const halfWidth = (row.fig_max - row.fig_min) / 2;
+    assert.ok(Math.abs(row.cx - mid) >= halfWidth * 0.25,
+      `${label} puts the shuriken over the character's centre line rather than beside them`);
     assert.ok(row.largest_detached <= 100,
-      `${paths[index]} leaves a ${row.largest_detached}px accessory floating away from the character`);
+      `${label} leaves a ${row.largest_detached}px accessory floating away from the character`);
   }
 });
 

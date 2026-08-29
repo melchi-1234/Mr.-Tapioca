@@ -2204,8 +2204,23 @@ body {
   }
   .scene-wrap.has-native-blocking .scene {
     /* Lift the artwork enough for the taller native stack, then absorb up to
-       18px of home-indicator growth so the counter and timer move together. */
-    --floor-rest: calc(clamp(308px, 41.5vh, 348px) + min(18px, env(safe-area-inset-bottom)));
+       18px of home-indicator growth so the counter and timer move together.
+
+       THE MINIMUM IS LOAD-BEARING, and it was 308px. The clearance between the
+       counter and the timer card is exactly `--floor-y - 328px` here: the
+       controls sit 114px off the bottom and the running stack is 214px tall, so
+       the two numbers subtract to a constant. A 308px floor is therefore a 20px
+       OVERLAP, and 41.5vh only rescues it above ~790px of viewport. On a 375x812
+       phone 41.5vh resolves to 336.98px, which clears by 8.98px and misses the
+       9.5px the layout test requires by half a pixel; between 721px and 790px the
+       clamp bottoms out and the timer card cuts into the counter outright.
+
+       338px makes the clearance structural instead of coincidental: every height
+       this query covers now clears by at least 10px, and 41.5vh still gives taller
+       phones the roomier composition it was added for. If the control stack is
+       ever re-tuned, re-derive this number from its height rather than nudging it
+       until the test passes. */
+    --floor-rest: calc(clamp(338px, 41.5vh, 348px) + min(18px, env(safe-area-inset-bottom)));
   }
 }
 
@@ -4737,6 +4752,162 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
 .insight-line { margin: 9px 0 0; font-size: 0.76rem; font-weight: 800; color: var(--bark-mid); line-height: 1.4; }
 .insight-line strong { color: var(--bark); }
 .squad-row-stats { flex-shrink: 0; font-size: 0.82rem; font-weight: 950; color: var(--bark); }
+/* ── Weekly quest tier + seasonal notes ──────────────────────────────────────
+   The weekly quest reads as its own thing rather than a fourth daily: same card,
+   warmer edge, and a heading above it. A card that looked identical to a daily
+   would be read as one and skipped. */
+.quest-tier-head {
+  margin: 14px 0 6px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--bark-mid);
+}
+.quest-card.weekly {
+  border-color: var(--teal, #2f8f83);
+  background: linear-gradient(135deg, #f2fbf8 0%, #e7f5f0 100%);
+}
+.quest-card.weekly .quest-fill { background: var(--teal, #2f8f83); }
+.quest-card.weekly.done { border-color: var(--line); }
+
+/* "3 days left" under a seasonal flavour's name. Small and warm, never a
+   countdown-timer red: the item comes back every year, so this is a nudge and
+   not a threat. */
+.season-note {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--teal, #2f8f83);
+}
+.shop-card.is-seasonal { border-color: rgba(47, 143, 131, 0.45); }
+
+/* Weekly Wrapped share button. Full width under the week chart, quiet enough
+   that it reads as an offer rather than a demand. */
+.wrapped-share {
+  display: block;
+  width: 100%;
+  margin: 10px 0 4px;
+  min-height: 44px;
+}
+
+/* ── Pomodoro auto-cycle ─────────────────────────────────────────────────────
+   Three steppers and one status line. The steppers only exist in Pomodoro mode,
+   so they are a sibling of the size picker rather than another row inside the
+   timer card: the card is already the tightest thing on a short phone. */
+.pomo-setup {
+  display: flex;
+  gap: 6px;
+  margin: 2px 0 6px;
+}
+.pomo-setup.hidden { display: none; }
+.pomo-stepper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 3px 4px;
+  border-radius: 12px;
+  border: var(--ui-edge, 2px solid rgba(60,32,24,.18));
+  background: var(--ui-paper, rgba(255,255,255,.6));
+  box-shadow: var(--ui-lift, none);
+}
+.pomo-stepper .adj-btn {
+  /* 44px of hit area without 44px of ink: the visible control is small because
+     three of these share one phone-width row, but the tap target is not. */
+  position: relative;
+  width: 26px; height: 26px;
+  min-width: 0; min-height: 0;
+  font-size: 1rem;
+  flex: none;
+}
+.pomo-stepper .adj-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 44px; height: 44px;
+  transform: translate(-50%, -50%);
+}
+.pomo-stepper-val {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+  min-width: 0;
+}
+.pomo-stepper-val strong {
+  font-size: 0.98rem;
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+  color: var(--bark, #3c2018);
+}
+.pomo-stepper-unit {
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--bark-mid);
+  white-space: nowrap;
+}
+
+.pomo-status {
+  display: block;
+  margin: 4px 0 0;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--bark-mid);
+  font-variant-numeric: tabular-nums;
+}
+/* :empty rather than .hidden, for the reason CLAUDE.md gives: this rule sets its
+   own display and the global .hidden sits above it. */
+.pomo-status:empty { display: none; }
+/* A break is the one time the shield claim matters most, so it reads warm rather
+   than as a greyed-out disabled state. */
+.pomo-status.is-break { color: var(--teal, #2f8f83); }
+
+/* ── Study Squad presence ────────────────────────────────────────────────────
+   The dot is an inline SVG rather than a coloured emoji. The design system bans
+   emoji as icons, and the earlier presence implementation used exactly that,
+   which is why it was deleted in the de-emoji pass rather than kept. */
+.squad-pres {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-weight: 900;
+}
+.squad-pres::before {
+  content: "";
+  width: 1px;
+  height: 9px;
+  margin-right: 6px;
+  background: rgba(60,32,24,0.22);
+}
+.squad-pres-dot { width: 8px; height: 8px; flex: none; }
+.squad-pres-focusing { color: #2f9e6e; }
+.squad-pres-break    { color: #d06fa0; }
+/* A live status should feel live. Slow enough not to be a distraction on a board
+   somebody is reading, and gone entirely in calm mode. */
+.squad-pres-focusing .squad-pres-dot { animation: squad-pulse 2.2s ease-in-out infinite; }
+@keyframes squad-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .squad-pres-focusing .squad-pres-dot { animation: none !important; }
+}
+
+.squad-presence-row { margin-top: 12px; }
+.squad-board-note {
+  margin: 2px 0 8px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--bark-mid);
+}
+
 .squad-remove {
   flex-shrink: 0; width: 26px; height: 26px; margin-left: 2px;
   border: none; border-radius: 50%; background: rgba(60,32,24,0.08);
@@ -4829,6 +5000,11 @@ dialog[open] .reward-confetti span:nth-child(7) { animation-delay: 0.02s; }
   .maker-img[data-state="walking"]  { animation-duration: 0.52s !important; animation-iteration-count: infinite !important; }
   .maker-img[data-state="mixing"]   { animation-duration: 0.9s !important; animation-iteration-count: infinite !important; }
   .maker-img[data-state="sleeping"] { animation-duration: 3.6s !important; animation-iteration-count: infinite !important; }
+  /* "shocked" is deliberately NOT exempt, and that is a decision rather than an
+     oversight. maker-shock is a one-shot with `forwards`, so the 1ms clamp lands
+     him straight on the held end frame: calm mode still gets the reaction (the
+     pose changes and he says his line) with none of the bounce. Exempting it
+     would reintroduce the exact jolt someone asked the OS to stop doing. */
   /* The wrap's walk glide is a transition, not a keyframe — keep it. */
   .maker-wrap { transition-duration: 1050ms !important; }
 }

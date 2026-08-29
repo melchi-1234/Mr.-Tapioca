@@ -55,6 +55,12 @@ const bundleFixtures = [
     id: "com.melchior.mrtapioca.FocusWidget",
     packageType: "XPC!",
     extensionPoint: "com.apple.widgetkit-extension",
+    // 1.2.0: the Home Screen widget reads the shared App Group and must NOT carry
+    // Family Controls. The two are separate fixture flags for the same reason they
+    // are separate in the verifier: one combined "Screen Time stuff" boolean could
+    // not express an extension that needs exactly one of them.
+    entitlements: path.join(root, "ios", "App", "FocusWidget", "FocusWidget.entitlements"),
+    appGroupOnly: true,
   },
 ];
 
@@ -111,14 +117,14 @@ function signBundle(bundlePath, entitlements) {
   assert.equal(signed.status, 0, signed.stdout + signed.stderr);
 }
 
-function writeFixtureEntitlements(pathname, screenTime) {
-  const screenTimeEntries = screenTime
-    ? [
-      '<key>com.apple.developer.family-controls</key><true/>',
+function writeFixtureEntitlements(pathname, familyControls, appGroup = familyControls) {
+  const screenTimeEntries = [
+    ...(familyControls ? ['<key>com.apple.developer.family-controls</key><true/>'] : []),
+    ...(appGroup ? [
       '<key>com.apple.security.application-groups</key>',
       '<array><string>group.com.melchior.mrtapioca</string></array>',
-    ]
-    : [];
+    ] : []),
+  ];
   fs.writeFileSync(pathname, [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -138,6 +144,13 @@ function writeProfiledAdHocEntitlements(pathname, fixture) {
     `<string>T6235QVFYG.${xmlEscape(fixture.id)}</string>`,
     '<key>com.apple.developer.team-identifier</key><string>T6235QVFYG</string>',
     '<key>get-task-allow</key><true/>',
+    // The entitlement check runs before the ad-hoc-signature check, so this has to
+    // carry whatever the bundle legitimately needs or the test asserts on the wrong
+    // failure. The widget needs the App Group.
+    ...(fixture.appGroupOnly ? [
+      '<key>com.apple.security.application-groups</key>',
+      '<array><string>group.com.melchior.mrtapioca</string></array>',
+    ] : []),
     '</dict></plist>',
   ].join(""));
 }
@@ -409,7 +422,9 @@ test("archive verifier requires valid manifests in the app and monitor extension
     const fixtureEntitlements = new Map();
     for (const fixture of bundleFixtures) {
       const fixturePath = path.join(archive, `${fixture.executable}.fixture.entitlements`);
-      writeFixtureEntitlements(fixturePath, !!fixture.entitlements);
+      writeFixtureEntitlements(fixturePath,
+        !!fixture.entitlements && !fixture.appGroupOnly,
+        !!fixture.entitlements);
       fixtureEntitlements.set(fixture.id, fixturePath);
     }
     const appFixtureEntitlements = fixtureEntitlements.get(bundleFixtures[0].id);
@@ -475,7 +490,20 @@ test("archive verifier requires valid manifests in the app and monitor extension
 
     const widgetFixture = bundleFixtures.at(-1);
     const widgetBundle = path.join(plugInsBundle, widgetFixture.directory);
-    signBundle(widgetBundle, emptyEntitlements);
+    // App Group but NO fixture marker and no profile. This case is about detecting
+    // an unmarked ad-hoc signature, so the bundle has to be otherwise legitimate:
+    // signed with truly empty entitlements it now fails the App Group check first
+    // and the assertion below would be reading the wrong failure.
+    const groupOnlyEntitlements = path.join(archive, "group-only.entitlements");
+    fs.writeFileSync(groupOnlyEntitlements, [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+      '<plist version="1.0"><dict>',
+      '<key>com.apple.security.application-groups</key>',
+      '<array><string>group.com.melchior.mrtapioca</string></array>',
+      '</dict></plist>',
+    ].join(""));
+    signBundle(widgetBundle, groupOnlyEntitlements);
     signBundle(appBundle, appFixtureEntitlements);
     const unmarkedAdHoc = childProcess.spawnSync(process.execPath, [verifierPath, archive], {
       encoding: "utf8",
