@@ -207,20 +207,33 @@ the day they ask.
   `/squad/?c=CODE`), a WidgetKit Home Screen widget, Weekly Wrapped, a Pomodoro auto-cycle preset, and
   seasonal drops with a weekly quest tier and seven new badges. sw CACHE is v246; the web deployed on
   push. 747 tests pass.
-- ⚠️ **The iOS archive for build 13 is BLOCKED on one Apple Developer Portal click.** The Home Screen
-  widget reads its numbers out of the App Group, so `com.melchior.mrtapioca.FocusWidget` needs the
-  **App Groups** capability with `group.com.melchior.mrtapioca` assigned to it. The capability itself is
-  now enabled (done Aug 29 via the App Store Connect API, `POST /v1/bundleIdCapabilities`), but the
-  GROUP ASSOCIATION cannot be done from any API:
-    * there is no `/v1/appGroups` resource (404), and
-    * `bundleIdCapabilities.settings` rejects an APP_GROUPS key outright — Apple's own 409 says the only
-      valid setting keys are ICLOUD_VERSION, DATA_PROTECTION_PERMISSION_LEVEL and APPLE_ID_AUTH_APP_CONSENT.
-  So it is developer.apple.com → Certificates, Identifiers & Profiles → Identifiers →
-  com.melchior.mrtapioca.FocusWidget → App Groups → Edit → tick `group.com.melchior.mrtapioca` → Save.
-  Sixty seconds, once, forever. Then re-run the archive wrapper; nothing else is waiting on anything.
+- **Build 13 is UPLOADED to App Store Connect** (Aug 29 2026, from commit `c944ad7`, delivery UUID
+  e7d6b879-0b44-4595-8204-f0e95ce54aed). Owner's remaining steps: install it from TestFlight, run the
+  1.2.0 gates in APP_STORE_LISTING.md's last-mile checklist, set the App Privacy answers, tap Submit.
+- ⚠️ **APP GROUPS ON A NEW EXTENSION IS A THREE-PART PROBLEM. Read this before adding another one.**
+  The Home Screen widget needed `group.com.melchior.mrtapioca` on
+  `com.melchior.mrtapioca.FocusWidget`, and getting there cost most of an afternoon:
+    1. **Enabling the capability** is possible from the App Store Connect API
+       (`POST /v1/bundleIdCapabilities`, capabilityType APP_GROUPS).
+    2. **Assigning the actual group to it is NOT possible from any API.** There is no `/v1/appGroups`
+       resource (404) and `bundleIdCapabilities.settings` rejects an APP_GROUPS key outright: Apple's own
+       409 lists ICLOUD_VERSION, DATA_PROTECTION_PERMISSION_LEVEL and APPLE_ID_AUTH_APP_CONSENT as the
+       only valid setting keys. It is developer.apple.com → Certificates, Identifiers & Profiles →
+       Identifiers → the App ID → App Groups → Configure → tick the group → Continue → Save → Confirm.
+       Until that is done, a generated profile carries `application-groups` as an EMPTY array, which is
+       exactly as useless as not having it.
+    3. **The profile then has to exist locally.** Xcode's automatic signing could not create it, because
+       `-allowProvisioningUpdates` cannot authenticate here. Mint it with `POST /v1/profiles`
+       (IOS_APP_DEVELOPMENT, the bundleId, the development certificate, the registered device) and drop
+       it in `~/Library/Developer/Xcode/UserData/Provisioning Profiles/<uuid>.mobileprovision`.
+       ⚠️ Xcode 16+ moved that directory: it is NOT `~/Library/MobileDevice/Provisioning Profiles`, which
+       does not exist on this Mac at all.
+  Also worth knowing: the ARCHIVE is development-signed (`get-task-allow=true`) and the EXPORT step is
+  what re-signs it for distribution, which is why the export could always mint what it needed and the
+  archive could not.
   Do NOT chase the "Authentication failed: Make sure a bearer token was provided" line xcodebuild prints
-  alongside this. The key is fine (the same key authenticates `xcrun notarytool` and writes to the ASC
-  API); xcodebuild says that when it tries to fix a profile it is not allowed to fix.
+  alongside all of this. The key is fine: the same key authenticates `xcrun notarytool` and writes to the
+  ASC API. xcodebuild says that whenever it tries to repair a profile it is not able to repair.
 - **The archive step now passes the App Store Connect key too, not just the export.** It always passed
   `-allowProvisioningUpdates` and never the key, which was invisible for twelve builds because no target
   ever needed a profile that did not already exist. `tools/asc-auth.mjs` is the one shared implementation.
