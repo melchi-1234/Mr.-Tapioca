@@ -389,8 +389,14 @@ function verifyPluginRegistry() {
     throw new Error("archived Capacitor config contains a server block (live reload must not ship)");
   }
   const classes = Array.isArray(config.packageClassList) ? config.packageClassList : [];
+  // EXACTLY these, in both directions. A missing class is a silently dead bridge
+  // (Capacitor 6 leaves packageClassList empty for in-app plugins, which is what
+  // tools/register-ios-plugins.mjs exists to repair); an unexpected one is a class
+  // nobody decided to ship. WidgetStatsPlugin joined in 1.2.0 for the Home Screen
+  // widget.
   const required = [
     "LocalNotificationsPlugin", "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+    "WidgetStatsPlugin",
   ].sort();
   if (new Set(classes).size !== classes.length) {
     throw new Error("archived Capacitor plugin registry contains duplicate entries");
@@ -403,7 +409,8 @@ function verifyPluginRegistry() {
   const executablePath = path.join(appBundle, "App");
   if (!existsSync(executablePath)) throw new Error("App executable is missing");
   const executable = readFileSync(executablePath);
-  for (const className of ["FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin"]) {
+  for (const className of ["FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+                          "WidgetStatsPlugin"]) {
     if (!executable.includes(Buffer.from(className))) {
       throw new Error(`App executable does not contain required local plugin ${className}`);
     }

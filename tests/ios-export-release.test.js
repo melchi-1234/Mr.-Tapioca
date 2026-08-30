@@ -137,6 +137,7 @@ function makeExecutable(pathname, includePlugins = false) {
       '__attribute__((used)) static const char focus_shield[] = "FocusShieldPlugin";',
       '__attribute__((used)) static const char focus_activity[] = "FocusActivityPlugin";',
       '__attribute__((used)) static const char iap[] = "IAPPlugin";',
+      '__attribute__((used)) static const char widget_stats[] = "WidgetStatsPlugin";',
     ].join("\n")
     : "";
   const built = childProcess.spawnSync(
@@ -244,6 +245,7 @@ function makeIpaFixture(t, {
     appId: "com.melchior.mrtapioca",
     packageClassList: [
       "LocalNotificationsPlugin", "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+        "WidgetStatsPlugin",
     ],
   };
   if (duplicatePlugin) capacitorConfig.packageClassList.push("IAPPlugin");

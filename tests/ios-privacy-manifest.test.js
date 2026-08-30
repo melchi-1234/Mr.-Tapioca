@@ -161,6 +161,7 @@ function makeFixtureExecutable(pathname, includePlugins = false) {
       '__attribute__((used)) static const char focus_shield[] = "FocusShieldPlugin";',
       '__attribute__((used)) static const char focus_activity[] = "FocusActivityPlugin";',
       '__attribute__((used)) static const char iap[] = "IAPPlugin";',
+      '__attribute__((used)) static const char widget_stats[] = "WidgetStatsPlugin";',
     ].join("\n")
     : "";
   const built = childProcess.spawnSync("/usr/bin/xcrun", ["clang", "-Os", "-x", "c", "-", "-o", pathname], {
@@ -411,6 +412,7 @@ test("archive verifier requires valid manifests in the app and monitor extension
       appId: "com.melchior.mrtapioca",
       packageClassList: [
         "LocalNotificationsPlugin", "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+        "WidgetStatsPlugin",
       ],
     }));
     const emptyEntitlements = path.join(archive, "empty.entitlements");
@@ -543,6 +545,7 @@ test("archive verifier requires valid manifests in the app and monitor extension
       server: { url: "https://example.invalid" },
       packageClassList: [
         "LocalNotificationsPlugin", "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+        "WidgetStatsPlugin",
       ],
     }));
     signBundle(appBundle, appFixtureEntitlements);
@@ -555,6 +558,7 @@ test("archive verifier requires valid manifests in the app and monitor extension
       appId: "com.melchior.mrtapioca",
       packageClassList: [
         "LocalNotificationsPlugin", "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+        "WidgetStatsPlugin",
       ],
     }));
     signBundle(appBundle, appFixtureEntitlements);
@@ -563,6 +567,7 @@ test("archive verifier requires valid manifests in the app and monitor extension
       appId: "com.melchior.mrtapioca",
       packageClassList: [
         "LocalNotificationsPlugin", "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+        "WidgetStatsPlugin",
         "IAPPlugin",
       ],
     }));
@@ -576,6 +581,7 @@ test("archive verifier requires valid manifests in the app and monitor extension
       appId: "com.melchior.mrtapioca",
       packageClassList: [
         "LocalNotificationsPlugin", "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+        "WidgetStatsPlugin",
       ],
     }));
     signBundle(appBundle, appFixtureEntitlements);
@@ -611,6 +617,7 @@ test("archive verifier requires valid manifests in the app and monitor extension
       appId: "com.melchior.mrtapioca",
       packageClassList: [
         "LocalNotificationsPlugin", "FocusShieldPlugin", "FocusActivityPlugin", "IAPPlugin",
+        "WidgetStatsPlugin",
       ],
     }));
 
