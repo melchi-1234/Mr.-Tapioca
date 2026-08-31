@@ -1105,6 +1105,8 @@ function saveState() {
   try { localStorage.setItem("bobaFocusSaveStamp", String(Date.now()) + ":" + TAB_ID); } catch (e) {}
   // Mirror my stats to the cloud Squad when live (debounced, no-op offline).
   if (window.SquadCloud && SquadCloud.ready) SquadCloud.pushProfile();
+  // Keep the Home Screen widget's three numbers current. Debounced inside.
+  WidgetStats.push();
   // renderSquad is deliberately NOT in renderAll (the board is a sheet body that
   // redraws on open), but presence is the one thing on it that changes while you
   // are looking at it. Repaint only when the sheet is actually open, so a routine
@@ -2714,6 +2716,70 @@ const FocusActivity = {
   async stop() {
     this._want = false;
     const p = this.plugin(); if (!p) return; try { await p.stop(); } catch (e) {}
+  }
+};
+
+// ── Home Screen widget data (native only) ────────────────────────────────────
+// The widget lives in its own process and can only read what we put in the App
+// Group, so this is the entire supply line: no push, no widget.
+//
+// DEBOUNCED, because the call site is saveState(), which runs on a timer during a
+// session. Reloading a widget timeline every ten seconds would spend the widget's
+// whole refresh budget redrawing numbers that had not moved.
+const WidgetStats = {
+  _plugin: null,
+  _timer: null,
+  _last: "",
+  plugin() {
+    if (this._plugin) return this._plugin;
+    const cap = window.Capacitor;
+    this._plugin = (cap && cap.Plugins && cap.Plugins.WidgetStats) || null;
+    return this._plugin;
+  },
+  available() { return !!this.plugin(); },
+  snapshot() {
+    // rewardProgressNow() returns null whenever Reward V2 is enabled but has not
+    // synced. That is "we do not know", and it has to survive the bridge as
+    // unknown: a widget confidently telling someone they are 0 minutes from a free
+    // drink is the one promise this app must never make by accident. Omitting the
+    // key is how the native side receives nil.
+    const prog = rewardProgressNow();
+    const out = {
+      streak: Math.max(0, (computeStats().current) || 0),
+      pearls: Math.max(0, currentPearls() || 0),
+    };
+    if (prog && Number.isFinite(prog.left)) out.rewardLeftMinutes = Math.max(0, Math.round(prog.left));
+    return out;
+  },
+  push() {
+    const p = this.plugin(); if (!p) return;
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      let data;
+      try { data = this.snapshot(); } catch (e) { return; }
+      // Skip a reload when nothing actually changed. saveState fires constantly.
+      const key = JSON.stringify(data);
+      if (key === this._last) return;
+      this._last = key;
+      try { Promise.resolve(p.update(data)).catch(() => {}); } catch (e) {}
+    }, 1200);
+  },
+  // Tapping the widget opens mrtapioca://start. AppDelegate stashes that as a
+  // one-shot flag (a cold launch delivers the URL before the web view exists, so
+  // there is nobody listening yet) and also posts a notification for a warm open.
+  init() {
+    const p = this.plugin(); if (!p) return;
+    const open = () => {
+      // Only offer to start when nothing is running, and never interrupt a session.
+      if (state.running || state.elapsed > 0) return;
+      startPause();
+    };
+    try {
+      Promise.resolve(p.consumeLaunchIntent()).then((r) => { if (r && r.start) open(); }).catch(() => {});
+    } catch (e) {}
+    try { p.addListener("widgetStart", () => { open(); }); } catch (e) {}
+    this.push();
   }
 };
 
@@ -9358,6 +9424,10 @@ if (IAP.available()) {
   IAP.init();
   IAP.restoreAll(false);
 }
+
+// Home Screen widget: seed its numbers on launch and drain any pending
+// tap-to-start. Native only; no-ops everywhere else.
+if (WidgetStats.available()) WidgetStats.init();
 
 // Safety: heal the stuck-shield / stale Live Activity cases where iOS killed the
 // app mid-session and the block or countdown outlived it. BUT a PAUSED in-progress

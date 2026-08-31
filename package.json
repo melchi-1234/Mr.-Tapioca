@@ -8,7 +8,7 @@
     "test": "node --test tests/*.test.js",
     "ios:register": "node tools/register-ios-plugins.mjs",
     "ios:sync": "node tools/check-capacitor-versions.mjs && node tools/patch-capacitor-tar.mjs && npm run copyweb && node_modules/.bin/cap sync ios && node tools/register-ios-plugins.mjs",
-    "ios:release-setup": "npm ci --ignore-scripts && npm run ios:sync && node tools/set-ios-version.mjs 1.2.0 13",
+    "ios:release-setup": "npm ci --ignore-scripts && npm run ios:sync && node tools/set-ios-version.mjs 1.2.0 14",
     "ios:archive-release": "npm run ios:release-setup && node tools/archive-ios-release.mjs",
     "ios:export-release": "node tools/export-ios-release.mjs",
     "ios:upload-release": "node tools/upload-ios-release.mjs",

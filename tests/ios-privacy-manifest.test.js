@@ -71,7 +71,7 @@ function xmlEscape(value) {
     .replaceAll(">", "&gt;");
 }
 
-function writeBundleInfo(bundlePath, fixture, build = "13", liveActivities = true) {
+function writeBundleInfo(bundlePath, fixture, build = "14", liveActivities = true) {
   const extension = fixture.extensionPoint
     ? `<key>NSExtension</key><dict><key>NSExtensionPointIdentifier</key><string>${xmlEscape(fixture.extensionPoint)}</string></dict>`
     : "";
@@ -104,7 +104,7 @@ function writeArchiveInfo(archive, { creationDate = true } = {}) {
     '<key>ApplicationPath</key><string>Applications/App.app</string>',
     '<key>CFBundleIdentifier</key><string>com.melchior.mrtapioca</string>',
     '<key>CFBundleShortVersionString</key><string>1.2.0</string>',
-    '<key>CFBundleVersion</key><string>13</string>',
+    '<key>CFBundleVersion</key><string>14</string>',
     '</dict></dict></plist>',
   ].join(""));
 }
@@ -586,7 +586,7 @@ test("archive verifier requires valid manifests in the app and monitor extension
     }));
     signBundle(appBundle, appFixtureEntitlements);
 
-    writeBundleInfo(appBundle, bundleFixtures[0], "13", false);
+    writeBundleInfo(appBundle, bundleFixtures[0], "14", false);
     signBundle(appBundle, appFixtureEntitlements);
     const liveActivitiesDisabled = childProcess.spawnSync(process.execPath, [verifierPath, archive], {
       encoding: "utf8",
@@ -596,12 +596,12 @@ test("archive verifier requires valid manifests in the app and monitor extension
     writeBundleInfo(appBundle, bundleFixtures[0]);
     signBundle(appBundle, appFixtureEntitlements);
 
-    writeBundleInfo(appBundle, bundleFixtures[0], "12");
+    writeBundleInfo(appBundle, bundleFixtures[0], "13");
     const wrongBuild = childProcess.spawnSync(process.execPath, [verifierPath, archive], {
       encoding: "utf8",
     });
     assert.notEqual(wrongBuild.status, 0);
-    assert.match(wrongBuild.stderr, /build 13|version/i);
+    assert.match(wrongBuild.stderr, /build 14|version/i);
     writeBundleInfo(appBundle, bundleFixtures[0]);
 
     fs.writeFileSync(path.join(appBundle, "capacitor.config.json"), JSON.stringify({

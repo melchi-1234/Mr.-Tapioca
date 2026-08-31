@@ -200,16 +200,24 @@ the day they ask.
   now gates the back-padded scheduled span, the closed-app auto-unblock clears `webDomains` too (blocked
   websites), and ENDING a session now spills the in-progress drink (real stakes; pause still keeps it).
   All of that is now live (build 12 shipped).
-- **1.2.0 / build 13 ("Brew Together") is BUILT and the WEB HALF IS LIVE.** Seven features, all in
+- **1.2.0 / build 14 ("Brew Together") is BUILT and the WEB HALF IS LIVE.** Seven features, all in
   `docs/1.2.0-BREW-TOGETHER-PLAN.md`: one-tap real-shop reward (the cashier handoff code is deleted end
   to end, server, SDK, client, tests and the never-used `verify/` page), the mascot reacting to a spilled
   drink, Study Squad Live (opt-in presence, a Monday-reset weekly board, a real invite page at
   `/squad/?c=CODE`), a WidgetKit Home Screen widget, Weekly Wrapped, a Pomodoro auto-cycle preset, and
-  seasonal drops with a weekly quest tier and seven new badges. sw CACHE is v246; the web deployed on
+  seasonal drops with a weekly quest tier and seven new badges. sw CACHE is v247; the web deployed on
   push. 747 tests pass.
-- **Build 13 is UPLOADED to App Store Connect** (Aug 29 2026, from commit `c944ad7`, delivery UUID
-  e7d6b879-0b44-4595-8204-f0e95ce54aed). Owner's remaining steps: install it from TestFlight, run the
-  1.2.0 gates in APP_STORE_LISTING.md's last-mile checklist, set the App Privacy answers, tap Submit.
+- ⚠️ **BUILD 13 IS UPLOADED BUT ITS WIDGET IS DEAD. Ship build 14 instead.** Build 13 (Aug 29, delivery
+  UUID e7d6b879-0b44-4595-8204-f0e95ce54aed) carries the WidgetStatsPlugin, the App Group and the widget
+  UI, but NOTHING IN app.js EVER CALLED THE PLUGIN. The widget would have sat on placeholders forever with
+  no error anywhere, which is precisely the silent-failure shape the plugin registration itself is famous
+  for. It was caught by running the thing in a Simulator rather than by reading the diff, and it is the
+  argument for doing that on every native feature: the whole native path was green in tests.
+- **The widget is now VERIFIED END TO END on an iOS 26 Simulator** (build 14): the JS bridge writes
+  `widgetStats` into the App Group (confirmed by reading the container plist off disk), the widget renders
+  on a real Home Screen, unknown reward progress renders as "Reward progress syncing" rather than a
+  fabricated 0, and tapping it opens the app straight into the start-focus flow via `mrtapioca://start`.
+  Screen Time blocking still cannot be exercised in a Simulator; that one is genuinely device-only.
 - ⚠️ **APP GROUPS ON A NEW EXTENSION IS A THREE-PART PROBLEM. Read this before adding another one.**
   The Home Screen widget needed `group.com.melchior.mrtapioca` on
   `com.melchior.mrtapioca.FocusWidget`, and getting there cost most of an afternoon:

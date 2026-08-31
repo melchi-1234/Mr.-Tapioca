@@ -258,10 +258,15 @@ He reacts now. End a session and your little guy is genuinely sad about the drin
 
 Seasonal flavours. Pumpkin spice, peppermint mocha, cherry blossom and a finals week espresso, each around for its own part of the year and yours forever once you unlock one. Plus a weekly quest and seven new badges.
 
-Thanks for using this thing. Email me if anything breaks. 🧋
+Thanks for using this thing. Email me if anything breaks.
 ```
 
-(1,285 characters, limit is 4,000.)
+(1,283 characters, limit is 4,000.)
+
+⚠️ **No 🧋 in this field.** App Store Connect rejects the bubble tea emoji in
+"What's New in This Version" outright: `ENTITY_ERROR.ATTRIBUTE.INVALID.INVALID_CHARACTERS`,
+naming U+1F9CB. It is fine in the description and in the promo text; it is only this field.
+Verified against the live API on 2026-08-29 while publishing 1.2.0.
 
 ### What's New in 1.0 (kept for reference)
 

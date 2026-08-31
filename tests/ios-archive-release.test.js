@@ -15,7 +15,7 @@ function harness(failingLabel = "") {
     events,
     dependencies: {
       repositoryRoot: root,
-      archivePath: "/tmp/Mr-Tapioca-1.2.0-13.xcarchive",
+      archivePath: "/tmp/Mr-Tapioca-1.2.0-14.xcarchive",
       capture(command, args, label) {
         events.push(label);
         if (label === "Git release-state check") return "";
