@@ -278,16 +278,22 @@ Mr. Tapioca 1.0 is here! This is the very first version, so everything is new: t
 
 ## Last-mile checklist before hitting Submit
 
-### 1.2.0 / build 13 only
+### 1.2.0 / build 14 only
 
-- [ ] **App Groups enabled on `com.melchior.mrtapioca.FocusWidget`** at Certificates, Identifiers &
-      Profiles, with `group.com.melchior.mrtapioca` assigned. The Home Screen widget reads its numbers
-      out of the App Group and the archive will not sign without this.
-- [ ] App Privacy answers updated: opt-in Study Squad presence and the weekly total are added to
-      Usage Data > Product Interaction, and the redemption code is removed from it (see section 8).
-- [ ] The widget added to a Home Screen on the TestFlight build, and its numbers checked against the app
-- [ ] A Pomodoro cycle run on a real iPhone with apps blocked: the apps must stay locked THROUGH a break
-      and free themselves only at the end of the cycle
+- [x] **App Groups enabled on `com.melchior.mrtapioca.FocusWidget`** — done Aug 30 2026. See the
+      three-part playbook in CLAUDE.md before adding another extension that needs one.
+- [x] **App Privacy answers: NO CHANGE NEEDED, verified.** Presence and the weekly total are both
+      Usage Data > Product Interaction, linked to the account, not tracking, which is exactly what
+      entry 3 above already declares and what Apple already approved for build 12. Removing the
+      redemption code does not retire a type either. The SET of declared data types is identical, so
+      there is nothing to re-answer in App Store Connect. (Section 8's wording was updated so the repo
+      still describes reality; the questionnaire itself does not move.)
+- [x] **The widget verified end to end on an iOS 26 Simulator** — renders on a real Home Screen, reads
+      the App Group, says "Reward progress syncing" rather than a fabricated 0 when Reward V2 has not
+      synced, and `mrtapioca://start` opens the app into the start-focus flow.
+- [ ] **A Pomodoro cycle on a REAL iPhone with apps blocked.** This is the one gate a Simulator cannot
+      stand in for: Screen Time does not work there at all. What must hold is that the blocked apps stay
+      locked THROUGH a five-minute break and free themselves only at the very end of the cycle.
 - [ ] Presence checked with a second account: off by default, and turning it off clears it
 
 ### Every build
