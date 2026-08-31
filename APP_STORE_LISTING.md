@@ -278,7 +278,7 @@ Mr. Tapioca 1.0 is here! This is the very first version, so everything is new: t
 
 ## Last-mile checklist before hitting Submit
 
-### 1.2.0 / build 14 only
+### 1.2.0 / build 14 — SUBMITTED Aug 31 2026, WAITING_FOR_REVIEW
 
 - [x] **App Groups enabled on `com.melchior.mrtapioca.FocusWidget`** — done Aug 30 2026. See the
       three-part playbook in CLAUDE.md before adding another extension that needs one.

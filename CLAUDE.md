@@ -207,7 +207,16 @@ the day they ask.
   `/squad/?c=CODE`), a WidgetKit Home Screen widget, Weekly Wrapped, a Pomodoro auto-cycle preset, and
   seasonal drops with a weekly quest tier and seven new badges. sw CACHE is v247; the web deployed on
   push. 747 tests pass.
-- ⚠️ **BUILD 13 IS UPLOADED BUT ITS WIDGET IS DEAD. Ship build 14 instead.** Build 13 (Aug 29, delivery
+- **1.2.0 / build 14 IS SUBMITTED TO APP REVIEW** (Aug 31 2026, state WAITING_FOR_REVIEW, delivery UUID
+  ea83d581-ff8c-4a09-ba9d-5cf5a35ca15e, releaseType AFTER_APPROVAL so it goes live on its own). The whole
+  submission was done headlessly through the ASC API: version record created, build attached, release
+  notes set, reviewSubmission created and submitted. App Privacy answers were NOT touched, deliberately:
+  presence and the weekly total are Usage Data > Product Interaction, which build 12 already declared and
+  Apple already approved, so the set of declared types is unchanged.
+  ⚠️ One gate is still unrun and only Melchior can run it: a Pomodoro cycle on a PHYSICAL iPhone with
+  apps blocked. Screen Time does not exist in a Simulator. If the apps do NOT stay locked through a break,
+  that is a 1.2.1 fix, not a reason to pull the submission (pulling costs the review slot).
+- ⚠️ **BUILD 13 IS UPLOADED BUT ITS WIDGET IS DEAD. Never submit build 13.** Build 13 (Aug 29, delivery
   UUID e7d6b879-0b44-4595-8204-f0e95ce54aed) carries the WidgetStatsPlugin, the App Group and the widget
   UI, but NOTHING IN app.js EVER CALLED THE PLUGIN. The widget would have sat on placeholders forever with
   no error anywhere, which is precisely the silent-failure shape the plugin registration itself is famous
