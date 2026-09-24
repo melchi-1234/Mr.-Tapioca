@@ -54,6 +54,17 @@
       "minMinutes": 240,
       "since": "2026-08-10",
       "policyId": "ithaca-passport"
+    },
+    {
+      "id": "uni-uni-jersey-city",
+      "name": "Uni Uni",
+      "address": "485 Marin Blvd, Jersey City",
+      "lat": 40.72669,
+      "lng": -74.04031,
+      "perk": "1 free standard topping with any regular-priced drink (1 per day, not combinable with other promotions)",
+      "minMinutes": 240,
+      "since": "2026-09-03",
+      "policyId": "ithaca-passport"
     }
   ],
   "rewardPolicy": {
