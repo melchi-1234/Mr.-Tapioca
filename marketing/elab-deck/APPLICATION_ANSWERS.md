@@ -29,7 +29,7 @@ Our discovery so far has come from shipping to real users, and it has changed th
 
 **How do customers currently solve this problem?**
 
-Students use Forest, Flora, or Opal, or just put the phone in another room. Those apps either charge subscriptions or pay out in virtual coins and trees, and the reward loses its pull once the novelty fades. Nothing they earn exists outside the screen. Shops, on the other side, buy Instagram ads, run punch cards, and pay delivery-app fees, none of which reach a student at the exact moment they have earned a treat and are deciding where to take a study break. The two sides are solving their halves of the problem separately; nobody connects them.
+Students use Forest, Flora, or Opal, or just put the phone in another room. Those apps either charge subscriptions or pay out in virtual coins and trees, and the reward loses its pull once the novelty fades. Nothing they earn exists outside the screen. Shops, on the other side, buy Instagram ads, run punch cards, and pay delivery-app fees, none of which reach a student at the exact moment they have earned a treat and are deciding where to take a study break. The two sides are solving their halves of the problem separately; nobody connects them. And boba is just the start. The same loop works for coffee shops and other treats students already buy, and the plan is to partner with shops across the U.S.
 
 **Have you formed an entity, raised capital, or generated revenue?**
 
@@ -43,7 +43,7 @@ None yet; this is our first. I started with Launchpad Ezra this summer: I have a
 
 **Prerequisites completed by your team**
 
-I have not taken one of the listed courses yet; I am a sophomore. When I emailed eLab in June, Jenna Rice let me know sophomores can be considered with demonstrated commitment to customer discovery or customer-centric product development, which I hope the work above shows. I am glad to enroll in one of the listed courses this fall alongside eLab if that is the right path.
+I have not taken one of the listed courses yet; I am a sophomore, and I am planning to enroll in one of the listed courses this fall alongside eLab (or the NSF I-Corps course if that fits better). When I emailed eLab in June, Jenna Rice let me know sophomores can be considered with demonstrated commitment to customer discovery or customer-centric product development, which I hope the work above shows.
 
 ---
 

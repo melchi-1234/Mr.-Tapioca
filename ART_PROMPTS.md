@@ -622,4 +622,4 @@ Generate top-down. Each group is ordered by how much visible improvement it unlo
 - **Mascot description normalized** to one canonical sentence (see "The mascot" block) and the "the exact same…" lead-in is consistent across animation and skin prompts.
 - A shared **Negative Prompt** was authored (the draft JSON had none) and the **Style Anchor** was lifted out so it's stated once and appended to every prompt.
 
-This document is the source of truth — file paths above are the intended output filenames under `/Users/melchiorgoldfarb/Documents/Mr. Tapioca/assets/`.
+This document is the source of truth — file paths above are the intended output filenames under `/Users/melchiorgoldfarb/Documents/Apps (paused)/Mr. Tapioca/assets/`.
