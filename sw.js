@@ -236,7 +236,7 @@ self.addEventListener("fetch", (event) => {
   // Leave it to the network (GitHub Pages serves it with max-age=600).
   if (url.pathname.endsWith("/partners.json")) return;
 
-  // The landing + download pages are marketing, and privacy.html / support.html
+  // The landing, download and shops pages are marketing, and privacy.html / support.html
   // are legal pages that MUST match the published App Privacy labels. None are
   // app shell, so serve them fresh from the network so edits appear immediately,
   // with no cache-bump dance and no stale copy pinned in the cache. Otherwise a
@@ -251,6 +251,7 @@ self.addEventListener("fetch", (event) => {
   // cache the first time somebody sent them one.
   if (url.pathname === "/" || url.pathname.endsWith("/index.html")
       || url.pathname.endsWith("/chrome.html")
+      || url.pathname.endsWith("/shops.html")
       || url.pathname.endsWith("/privacy.html")
       || url.pathname.endsWith("/support.html")
       || url.pathname === "/get" || url.pathname.startsWith("/get/")

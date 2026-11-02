@@ -156,14 +156,30 @@
     .mini p{font-size:.96rem;color:#5a3d2f}
 
     /* ── partners ── */
-    .partners{max-width:720px;margin:0 auto;background:var(--ui-paper);border:1.5px solid var(--line);
+    .partners{max-width:900px;margin:0 auto;background:var(--ui-paper);border:1.5px solid var(--line);
       border-radius:26px;padding:30px 26px;box-shadow:var(--lift);text-align:center}
-    .prow{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:18px}
-    .pcard{flex:1 1 240px;background:#fff;border:1.5px solid var(--line);border-radius:18px;padding:18px 20px;text-align:left}
-    .pcard .name{font-weight:800;font-size:1.05rem}
-    .pcard .perk{color:var(--teal);font-weight:800;margin-top:2px}
-    .pcard .loc{color:var(--bark-mid);font-size:.9rem;margin-top:2px}
-    .pnote{font-size:.9rem;color:var(--bark-mid);margin-top:16px}
+    .partners h2{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:900;margin:12px 0 6px}
+    .prule{color:#5a3d2f;max-width:50ch;margin:0 auto;font-size:1.04rem}
+    .prow{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:20px;text-align:left}
+    .pcard{background:#fff;border:1.5px solid var(--line);border-top:4px solid var(--gold);border-radius:18px;padding:16px 18px 18px}
+    .pcard .name{font-weight:800;font-size:1.08rem;line-height:1.25}
+    .pcard .perk{color:var(--teal);font-weight:800;margin-top:6px;line-height:1.35}
+    .pcard .loc{display:flex;gap:6px;align-items:flex-start;color:var(--bark-mid);font-size:.9rem;margin-top:8px;line-height:1.35}
+    .pcard .loc svg{flex:0 0 auto;width:15px;height:15px;margin-top:2px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .pcard .bar{color:var(--bark-mid);font-size:.84rem;font-weight:700;margin-top:6px}
+    .pcard.skeleton{min-height:118px;background:linear-gradient(90deg,#fff 0%,#fbf3e7 50%,#fff 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;border-top-color:var(--line)}
+    @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+    @media (prefers-reduced-motion:reduce){.pcard.skeleton{animation:none}}
+    .pempty{grid-column:1/-1;text-align:center;color:var(--bark-mid);font-weight:600;padding:8px 0}
+    .pnote{font-size:.92rem;color:var(--bark-mid);margin:18px auto 0;max-width:56ch}
+    .pshops{display:inline-block;margin-top:14px;font-weight:800;color:var(--teal);line-height:1.35;
+      padding:11px 4px;text-wrap:balance;text-decoration:underline;text-decoration-color:transparent;
+      text-underline-offset:4px;text-decoration-thickness:2px;transition:text-decoration-color .16s ease}
+    .pshops:hover{text-decoration-color:var(--teal)}
+    @media (max-width:520px){
+      .partners{padding:24px 16px;border-radius:22px}
+      .prule{font-size:1rem}
+    }
 
     /* ── final CTA ── */
     .final{margin:40px auto;max-width:var(--maxw)}
@@ -183,7 +199,8 @@
     /* ── footer ── */
     footer{border-top:1px solid var(--line);padding:34px 0 46px;margin-top:20px}
     footer .wrap{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between;align-items:center}
-    footer .links{display:flex;flex-wrap:wrap;gap:18px;font-weight:600;color:var(--bark-mid)}
+    footer .links{display:flex;flex-wrap:wrap;gap:0 18px;font-weight:600;color:var(--bark-mid)}
+    footer .links a{display:inline-flex;align-items:center;min-height:44px}
     footer .links a:hover{color:var(--bark)}
     footer .made{color:var(--bark-mid);font-size:.9rem}
 
@@ -342,26 +359,22 @@
     </div>
   </section>
 
-  <!-- Partner rewards, told honestly -->
+  <!-- Partner rewards, told honestly. The shop cards are built from
+       partners.json at load time, the same file the app reads, so this list
+       can never disagree with the Boba Map or outlive a shop that leaves. -->
   <section class="block" id="partners">
     <div class="wrap">
       <div class="partners">
         <span class="chip gold">Partner rewards</span>
-        <h2 style="font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:900;margin:12px 0 6px">Real focus, real boba</h2>
-        <p style="color:#5a3d2f;max-width:48ch;margin:0 auto">Study four cumulative hours and earn a one-time perk you can redeem in person at a partner shop. These are our first two partners, and the list grows from here.</p>
-        <div class="prow">
-          <div class="pcard">
-            <div class="name">U Tea</div>
-            <div class="perk">10% off your drink</div>
-            <div class="loc">Collegetown, Ithaca NY</div>
-          </div>
-          <div class="pcard">
-            <div class="name">Dream Tea &amp; Poké</div>
-            <div class="perk">5% off your drink</div>
-            <div class="loc">The Commons, Ithaca NY</div>
-          </div>
+        <h2>Real focus, real boba</h2>
+        <p class="prule">Every <span data-bar>4 hours</span> of focus, added up across as many sessions as you like, earns one perk to use in person at any partner shop.</p>
+        <div class="prow" id="partnerCards" aria-live="polite">
+          <div class="pcard skeleton" aria-hidden="true"></div>
+          <div class="pcard skeleton" aria-hidden="true"></div>
+          <div class="pcard skeleton" aria-hidden="true"></div>
         </div>
-        <p class="pnote">Partner rewards are available in the iPhone app and use verified focus time. Nothing changes at the shop's register; you just show your perk at the counter.</p>
+        <p class="pnote">Find them on the Boba Map in the app. At the counter you show a live card with the shop's name, your perk and a ticking clock, and the barista honours it.</p>
+        <a class="pshops" href="shops.html">Run a boba shop? See how partnering works&nbsp;<span aria-hidden="true">→</span></a>
       </div>
     </div>
   </section>
@@ -387,10 +400,79 @@
       <div class="links">
         <a href="https://apps.apple.com/app/id6786023560" target="_blank" rel="noopener noreferrer">App Store</a>
         <a href="app.html">Web app</a>
+        <a href="shops.html">For boba shops</a>
         <a href="support.html">Support</a>
         <a href="privacy.html">Privacy</a>
       </div>
     </div>
   </footer>
+
+  <script>
+  // Partner cards, built from partners.json: the same file the app's Boba Map
+  // reads, so a shop that joins or leaves changes here with no edit to this page.
+  // Text only goes in through textContent (the file is ours, but it is data).
+  // A malformed entry is skipped, never guessed at, matching validPartner() in app.js.
+  (function () {
+    var box = document.getElementById("partnerCards");
+    if (!box) return;
+    var PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+    function hours(m) {
+      if (m < 60) return m + " minutes";
+      var h = m / 60;
+      return (h % 1 ? h.toFixed(1) : h) + (h === 1 ? " hour" : " hours");
+    }
+    function valid(p) {
+      return p && typeof p.name === "string" && p.name.trim() &&
+        typeof p.perk === "string" && p.perk.trim() &&
+        typeof p.minMinutes === "number" && isFinite(p.minMinutes) &&
+        p.minMinutes >= 15 && p.minMinutes <= 1440;
+    }
+    function div(cls, text) {
+      var d = document.createElement("div");
+      d.className = cls;
+      if (text != null) d.textContent = text;
+      return d;
+    }
+    function fail(msg) {
+      box.innerHTML = "";
+      box.appendChild(div("pempty", msg));
+    }
+    fetch("partners.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (data) {
+        var shops = (data && Array.isArray(data.shops) ? data.shops : []).filter(valid);
+        if (!shops.length) return fail("No partner shops are listed right now.");
+        var bars = shops.map(function (p) { return p.minMinutes; });
+        var same = bars.every(function (b) { return b === bars[0]; });
+        // One shared bar is the deal the shops were given. If that ever stops
+        // being true, say so per card rather than quoting one number for all.
+        if (same) {
+          document.querySelectorAll("[data-bar]").forEach(function (el) { el.textContent = hours(bars[0]); });
+        } else {
+          var rule = document.querySelector(".prule");
+          if (rule) rule.textContent = "Focus time adds up across as many sessions as you like. Each shop's perk unlocks after the time shown on its card.";
+        }
+        box.innerHTML = "";
+        shops.forEach(function (p) {
+          var card = div("pcard");
+          card.appendChild(div("name", p.name));
+          card.appendChild(div("perk", p.perk));
+          if (p.address) {
+            var loc = div("loc");
+            loc.innerHTML = PIN;
+            var span = document.createElement("span");
+            span.textContent = p.address;
+            loc.appendChild(span);
+            card.appendChild(loc);
+          }
+          if (!same) card.appendChild(div("bar", "After " + hours(p.minMinutes) + " of focus"));
+          box.appendChild(card);
+        });
+      })
+      .catch(function () {
+        fail("The partner list didn't load. You can also find it on the Boba Map in the app.");
+      });
+  })();
+  </script>
 </body>
 </html>

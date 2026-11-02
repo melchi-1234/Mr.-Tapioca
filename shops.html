@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mr. Tapioca for boba shops: students study, then come to you</title>
+  <meta name="description" content="Mr. Tapioca is a free study timer for students. After 4 hours of focus a student earns a perk at a partner boba shop, and the shop chooses the perk. Free to join, and you can leave any day.">
+  <link rel="icon" href="assets/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+  <meta property="og:title" content="Mr. Tapioca for boba shops">
+  <meta property="og:description" content="Students study for 4 hours, then walk in with a perk your shop chose. Free to join, and you can leave any day.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://mrtapioca.me/shops.html">
+  <meta property="og:image" content="https://mrtapioca.me/assets/landing/01-home-cozy.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#fdf5ec">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Same tokens as index.html, so the two pages read as one site. Phone first:
+       this is the page Melchi pulls up across a table, so every rule below is
+       written for ~390px and widened at the end. -->
+  <style>
+    :root{
+      --bark:#3c2018; --bark-mid:#8b5e4a; --bark-light:#c4956a;
+      --cream:#fdf5ec; --card:#fffaf2; --line:rgba(60,32,24,.12);
+      --rose:#ef6f8d; --teal:#158f92; --mint:#d9f3ea; --gold:#f0bb4f;
+      --ui-paper:linear-gradient(180deg,#fffbf3 0%,#fdf4e6 58%,#f8ecda 100%);
+      --lift:0 1px 0 rgba(96,58,36,.10), 0 10px 22px -10px rgba(60,32,24,.28), 0 26px 50px -30px rgba(60,32,24,.38);
+      --maxw:1040px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      color:var(--bark);
+      background:
+        radial-gradient(900px 520px at 90% -10%, #fff6e6 0%, rgba(255,246,230,0) 55%),
+        radial-gradient(700px 480px at -20% 6%, #ffeef2 0%, rgba(255,238,242,0) 55%),
+        var(--cream);
+      line-height:1.55; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+    }
+    a{color:inherit}
+    .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+    .eyebrow{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:.74rem;color:var(--teal)}
+    .ico{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+
+    /* ── buttons ── */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:48px;
+      padding:12px 22px;border-radius:999px;font-weight:800;font-size:1rem;text-decoration:none;
+      transition:transform .16s ease;text-align:center}
+    .btn:hover{transform:translateY(-2px)}
+    .btn.dark{background:var(--bark);color:#fff7ee;box-shadow:var(--lift)}
+    .btn.light{background:rgba(255,255,255,.6);border:2px solid var(--line);color:var(--bark)}
+    .btn .ico{font-size:1.1rem}
+
+    /* ── nav ── */
+    nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+      background:rgba(253,245,236,.78);border-bottom:1px solid var(--line)}
+    nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;gap:12px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.05rem;text-decoration:none;min-height:44px}
+    .brand img{width:32px;height:32px;border-radius:9px;box-shadow:0 4px 10px -4px rgba(60,32,24,.4)}
+    nav .btn{min-height:44px;padding:8px 16px;font-size:.9rem}
+
+    /* ── hero ── */
+    .hero{padding:30px 0 10px;text-align:center}
+    .hero .mascot{width:104px;height:104px;object-fit:contain;filter:drop-shadow(0 12px 16px rgba(60,32,24,.25));
+      animation:bob 4.6s ease-in-out infinite}
+    @keyframes bob{0%,100%{transform:translateY(0) rotate(2deg)}50%{transform:translateY(-8px) rotate(-2deg)}}
+    @media (prefers-reduced-motion:reduce){.hero .mascot{animation:none}}
+    .hero h1{font-size:clamp(1.9rem,7.6vw,3.1rem);line-height:1.08;font-weight:900;letter-spacing:-.02em;margin:10px auto 14px;max-width:18ch;text-wrap:balance}
+    .hero h1 em{font-style:normal;color:var(--teal)}
+    .hero .lede{font-size:1.08rem;color:#5a3d2f;max-width:36ch;margin:0 auto}
+    .hero .actions{display:flex;flex-direction:column;gap:10px;margin:22px auto 0;max-width:340px}
+
+    /* ── sections ── */
+    section{padding:34px 0}
+    .head{margin-bottom:18px}
+    .head h2{font-size:clamp(1.45rem,5.6vw,2.1rem);font-weight:900;letter-spacing:-.01em;line-height:1.15;margin-top:6px}
+    .head p{color:#5a3d2f;margin-top:8px;font-size:1.02rem;max-width:56ch}
+    .panel{background:var(--ui-paper);border:1.5px solid var(--line);border-radius:22px;padding:20px 18px;box-shadow:var(--lift)}
+
+    /* what it is */
+    .what{display:grid;gap:18px;align-items:center}
+    .what p{color:#5a3d2f;font-size:1.02rem}
+    .what p + p{margin-top:10px}
+    .what .facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+    .fact{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1.5px solid var(--line);border-radius:999px;
+      padding:7px 12px;font-weight:700;font-size:.86rem;color:var(--bark)}
+    .fact .ico{color:var(--teal)}
+    .phone{width:200px;margin:0 auto;border-radius:38px;padding:9px;background:linear-gradient(160deg,#4a2c20,#2c1710);
+      box-shadow:0 30px 60px -28px rgba(60,32,24,.6), 0 8px 18px -10px rgba(60,32,24,.5);transform:rotate(-3deg)}
+    .phone img{display:block;width:100%;border-radius:30px}
+
+    /* steps */
+    .steps{list-style:none;display:grid;gap:12px;counter-reset:step}
+    .step{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:start;background:#fff;border:1.5px solid var(--line);
+      border-radius:18px;padding:16px}
+    .step::before{counter-increment:step;content:counter(step);display:grid;place-items:center;width:40px;height:40px;border-radius:50%;
+      background:var(--mint);color:var(--teal);font-weight:900;font-size:1.05rem}
+    .step h3{font-size:1.04rem;font-weight:800;line-height:1.3}
+    .step p{color:#5a3d2f;font-size:.96rem;margin-top:4px}
+
+    /* the sample counter card: built to look like the app's redeem card */
+    .sample{margin-top:22px;display:grid;gap:12px;justify-items:center}
+    .sample-cap{font-size:.9rem;color:var(--bark-mid);font-weight:600;text-align:center;max-width:36ch}
+    .counter{position:relative;width:min(340px,100%);text-align:center;padding:22px 20px 20px;border:3px solid var(--bark);border-radius:26px;
+      background:linear-gradient(180deg,#fff6e6 0%,var(--cream) 46%);overflow:hidden;
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.9), 0 6px 0 rgba(60,32,24,.85), 0 26px 50px -24px rgba(60,32,24,.45)}
+    .counter .ribbon{position:absolute;top:16px;right:-38px;transform:rotate(38deg);background:var(--rose);color:#fff;
+      font-weight:900;font-size:.72rem;letter-spacing:.14em;padding:5px 44px;text-transform:uppercase}
+    .counter .star{font-size:2.4rem;color:var(--gold);line-height:1}
+    .counter .star .ico{stroke-width:1.8}
+    .counter .star .check{display:none;color:var(--teal)}
+    .counter .eyebrow{margin-top:6px}
+    .counter h3{font-size:1.5rem;font-weight:900;margin-top:4px;line-height:1.15}
+    .counter .addr{color:var(--bark-mid);font-weight:700;font-size:.9rem;margin-top:2px}
+    .counter .perk{margin:13px 0 9px;padding:14px 12px;border:2.5px dashed var(--teal);border-radius:16px;background:var(--mint);
+      font-size:1.12rem;font-weight:900;line-height:1.25}
+    .counter .stamp{font-size:.84rem;font-weight:800;color:var(--bark-mid);font-variant-numeric:tabular-nums;min-height:1.3em}
+    .counter .used{display:none;margin-top:4px;padding:10px 12px;border:2px solid var(--line);border-radius:14px;background:#fff;font-weight:900}
+    .counter button{display:block;width:100%;min-height:48px;margin-top:14px;border-radius:999px;font:inherit;font-weight:900;font-size:1rem;cursor:pointer}
+    .counter .use{background:var(--gold);border:2.5px solid var(--bark);color:var(--bark);box-shadow:0 3px 0 rgba(60,32,24,.85)}
+    .counter .again{display:none;background:transparent;border:2px solid var(--line);color:var(--bark-mid)}
+    .counter.is-used .star .sparkle{display:none}
+    .counter.is-used .star .check{display:inline}
+    .counter.is-used .perk{border-style:solid;border-color:var(--line);background:rgba(60,32,24,.05);color:var(--bark-mid)}
+    .counter.is-used .stamp, .counter.is-used .use{display:none}
+    .counter.is-used .used, .counter.is-used .again{display:block}
+
+    /* cost */
+    .cost{display:grid;gap:12px}
+    .nothing{font-size:clamp(2.2rem,10vw,3.4rem);font-weight:900;letter-spacing:-.02em;line-height:1;color:var(--teal)}
+    .points{list-style:none;display:grid;gap:10px;margin-top:14px}
+    .points li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;color:#5a3d2f;font-size:1rem}
+    .points li .ico{font-size:1.25rem;margin-top:2px;color:var(--teal)}
+    .points b{color:var(--bark)}
+
+    /* partners */
+    .plist{display:grid;gap:12px}
+    .pcard{background:#fff;border:1.5px solid var(--line);border-top:4px solid var(--gold);border-radius:18px;padding:16px 16px 14px}
+    .pcard .name{font-weight:900;font-size:1.12rem;line-height:1.25}
+    .pcard .perk{color:var(--teal);font-weight:800;margin-top:5px;line-height:1.35}
+    .pcard .meta{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:9px;color:var(--bark-mid);font-size:.88rem;font-weight:600}
+    .pcard .meta span{display:inline-flex;align-items:center;gap:6px}
+    .pcard.skeleton{min-height:120px;border-top-color:var(--line);background:linear-gradient(90deg,#fff 0%,#fbf3e7 50%,#fff 100%);
+      background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite}
+    @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+    @media (prefers-reduced-motion:reduce){.pcard.skeleton{animation:none}}
+    .pempty{color:var(--bark-mid);font-weight:600;text-align:center;padding:8px 0}
+    .pfoot{color:var(--bark-mid);font-size:.92rem;margin-top:14px}
+
+    /* contact */
+    .contact{text-align:center;background:linear-gradient(160deg,#4a2c20,#301810);color:#fff7ee;border-radius:26px;
+      padding:30px 20px;box-shadow:var(--lift)}
+    .contact h2{font-size:clamp(1.5rem,6vw,2.2rem);font-weight:900;line-height:1.15}
+    .contact p{opacity:.9;margin:8px auto 18px;max-width:36ch}
+    .contact .btn{background:#fff7ee;color:var(--bark);max-width:100%;word-break:break-word}
+
+    footer{border-top:1px solid var(--line);padding:22px 0 40px;margin-top:30px}
+    footer .wrap{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;align-items:center}
+    footer .links{display:flex;flex-wrap:wrap;gap:0 18px;font-weight:600;color:var(--bark-mid)}
+    footer .links a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none}
+    footer .links a:hover{color:var(--bark)}
+    footer .made{color:var(--bark-mid);font-size:.88rem}
+
+    /* ── wider screens ── */
+    @media (min-width:560px){
+      .hero .actions{flex-direction:row;justify-content:center;max-width:none}
+      .panel{padding:26px 26px}
+    }
+    @media (min-width:820px){
+      .wrap{padding:0 28px}
+      .hero{padding:56px 0 20px}
+      .hero .mascot{width:128px;height:128px}
+      section{padding:46px 0}
+      .head{text-align:center;margin-bottom:26px}
+      .head p{margin-left:auto;margin-right:auto}
+      .what{grid-template-columns:1.3fr .7fr;gap:36px}
+      .phone{width:230px}
+      .how{display:grid;grid-template-columns:1.2fr .8fr;gap:30px;align-items:start}
+      .sample{margin-top:0;position:sticky;top:84px}
+      .plist{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+      .contact{padding:44px 28px}
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="wrap">
+      <a class="brand" href="./"><img src="assets/icon-192.png" alt=""><span>Mr. Tapioca</span></a>
+      <a class="btn dark" href="#contact">Get in touch</a>
+    </div>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="wrap">
+        <img class="mascot" src="assets/landing/hero-base.png" alt="The Mr. Tapioca mascot, a round tapioca pearl" width="128" height="128">
+        <div class="eyebrow">For boba shops</div>
+        <h1>Students study for <span data-bar>4 hours</span>. Then they <em>come to you</em>.</h1>
+        <p class="lede">Mr. Tapioca is a free study timer for students. After <span data-bar>4 hours</span> of focus, a student earns a perk at a partner boba shop, and the shop chooses what that perk is.</p>
+        <div class="actions">
+          <a class="btn dark" href="#how">See how it works</a>
+          <a class="btn light" href="#partners">Current partner shops</a>
+        </div>
+      </div>
+    </header>
+
+    <section id="what">
+      <div class="wrap">
+        <div class="panel what">
+          <div>
+            <div class="eyebrow">What it is</div>
+            <div class="head" style="text-align:left;margin-bottom:10px"><h2>A cozy focus timer with a boba mascot</h2></div>
+            <p>A student starts a study session and a little tapioca pearl brews them a bubble tea while they work. On iPhone it can lock their most distracting apps with Apple's Screen Time until the session ends.</p>
+            <p>Their focus time adds up, and every <span data-bar>4 hours</span> of it earns one perk at a partner shop. That is the part that brings them through your door.</p>
+            <div class="facts">
+              <span class="fact"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Free, no ads</span>
+              <span class="fact"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M11 18.5h2"/></svg>On the App Store</span>
+              <span class="fact"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>On the web at mrtapioca.me</span>
+            </div>
+          </div>
+          <div class="phone">
+            <img src="assets/landing/02-session-running.jpg" alt="A focus session in Mr. Tapioca, the drink filling as time passes" width="220" height="478" loading="lazy">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="wrap">
+        <div class="head">
+          <div class="eyebrow">How it works for your shop</div>
+          <h2>From a study session to your counter</h2>
+        </div>
+        <div class="how">
+          <ol class="steps">
+            <li class="step"><div>
+              <h3>A student studies <span data-bar>4 hours</span> in total</h3>
+              <p>Across any number of sittings. One long afternoon or a week of short sessions both count.</p>
+            </div></li>
+            <li class="step"><div>
+              <h3>They walk in and show a counter card</h3>
+              <p>They open your shop on the app's Boba Map. The card shows your shop's name and the perk in big type.</p>
+            </div></li>
+            <li class="step"><div>
+              <h3>The clock on it ticks every second</h3>
+              <p>A screenshot freezes, so a still image is easy to spot. The live card keeps counting.</p>
+            </div></li>
+            <li class="step"><div>
+              <h3>Your barista honours the perk you chose</h3>
+              <p>The student taps "Use this reward" and the card is stamped Redeemed with the time, so it can't be shown twice.</p>
+            </div></li>
+          </ol>
+
+          <div class="sample">
+            <div class="counter" id="sampleCard" aria-label="A sample counter card">
+              <span class="ribbon" aria-hidden="true">Sample</span>
+              <div class="star" aria-hidden="true">
+                <svg class="ico sparkle" viewBox="0 0 24 24"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.7l6.1-.9L12 3.2Z"/></svg>
+                <svg class="ico check" viewBox="0 0 24 24"><path d="M4 12.6l5.2 5.2L20 6.9"/></svg>
+              </div>
+              <div class="eyebrow" id="sampleEyebrow">Show this at the counter</div>
+              <h3>Your shop</h3>
+              <div class="addr">Your address</div>
+              <div class="perk">The perk you choose, in your words</div>
+              <div class="stamp" id="sampleStamp" aria-live="off"></div>
+              <div class="used" id="sampleUsed"></div>
+              <button type="button" class="use" id="sampleUse">Use this reward</button>
+              <button type="button" class="again" id="sampleAgain">Show the card again</button>
+            </div>
+            <p class="sample-cap">A sample of what your barista sees. Tap the button to see the stamped card.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cost">
+      <div class="wrap">
+        <div class="panel cost">
+          <div class="eyebrow">What it costs you</div>
+          <div class="nothing">Nothing.</div>
+          <ul class="points">
+            <li><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+              <span><b>Free to join.</b> No fee, nothing to buy, and nothing to install. No scanner, no account, no code to type in.</span></li>
+            <li><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              <span><b>You pick the perk.</b> In your own words: a percentage off, a free topping, whatever works for your shop. The current partners each chose something different.</span></li>
+            <li><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+              <span><b>Leave any day.</b> Ask, and your shop comes off the app that same day.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="partners">
+      <div class="wrap">
+        <div class="head">
+          <div class="eyebrow">Partner shops</div>
+          <h2>Shops on the map today</h2>
+          <p>Each perk is the shop's own offer, word for word as the student sees it in the app.</p>
+        </div>
+        <div class="plist" id="shopList" aria-live="polite">
+          <div class="pcard skeleton" aria-hidden="true"></div>
+          <div class="pcard skeleton" aria-hidden="true"></div>
+          <div class="pcard skeleton" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact">
+      <div class="wrap">
+        <div class="contact">
+          <h2>Want your shop on the map?</h2>
+          <p>Tell us what perk you would like to offer and we will set it up.</p>
+          <a class="btn" href="mailto:mrtapioca.app@gmail.com?subject=Partner%20shop">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+            mrtapioca.app@gmail.com
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="made">Made with care by Melchi &amp; Dasha. &copy; 2026 Mr. Tapioca.</div>
+      <div class="links">
+        <a href="./">Home</a>
+        <a href="app.html">Web app</a>
+        <a href="https://apps.apple.com/app/id6786023560" target="_blank" rel="noopener noreferrer">App Store</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+  // Two small jobs, no libraries.
+  (function () {
+    // 1. The sample card. Its clock ticks like the real one, which is the whole
+    //    point of showing it. It names no real shop and no real perk, and it says
+    //    Sample across the corner, so it can never stand in for a real card.
+    var card = document.getElementById("sampleCard");
+    var stamp = document.getElementById("sampleStamp");
+    var used = document.getElementById("sampleUsed");
+    var eyebrow = document.getElementById("sampleEyebrow");
+    var fmt = { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
+    function tick() {
+      if (card.classList.contains("is-used")) return;
+      stamp.textContent = new Date().toLocaleString(undefined, Object.assign({ second: "2-digit" }, fmt));
+    }
+    tick();
+    setInterval(tick, 1000);
+    document.getElementById("sampleUse").addEventListener("click", function () {
+      card.classList.add("is-used");
+      eyebrow.textContent = "Redeemed";
+      used.textContent = "Used " + new Date().toLocaleString(undefined, fmt) + ". Enjoy!";
+    });
+    document.getElementById("sampleAgain").addEventListener("click", function () {
+      card.classList.remove("is-used");
+      eyebrow.textContent = "Show this at the counter";
+      tick();
+    });
+
+    // 2. The partner list and the hour count, from partners.json: the same file
+    //    the app's Boba Map reads. A shop that joins or leaves changes this page
+    //    with no edit here. Text goes in through textContent only, and a malformed
+    //    entry is skipped rather than guessed at (matches validPartner() in app.js).
+    var list = document.getElementById("shopList");
+    var PIN = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+    var CAL = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>';
+    var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    function hours(m) {
+      if (m < 60) return m + " minutes";
+      var h = m / 60;
+      return (h % 1 ? h.toFixed(1) : h) + (h === 1 ? " hour" : " hours");
+    }
+    function since(s) {
+      var m = /^(\d{4})-(\d{2})-\d{2}$/.exec(s || "");
+      return m && MONTHS[+m[2] - 1] ? "Partner since " + MONTHS[+m[2] - 1] + " " + m[1] : "";
+    }
+    function valid(p) {
+      return p && typeof p.name === "string" && p.name.trim() &&
+        typeof p.perk === "string" && p.perk.trim() &&
+        typeof p.minMinutes === "number" && isFinite(p.minMinutes) &&
+        p.minMinutes >= 15 && p.minMinutes <= 1440;
+    }
+    function el(tag, cls, text) {
+      var d = document.createElement(tag);
+      if (cls) d.className = cls;
+      if (text != null) d.textContent = text;
+      return d;
+    }
+    function meta(icon, text) {
+      var s = el("span");
+      s.innerHTML = icon;
+      s.appendChild(document.createTextNode(text));
+      return s;
+    }
+    function fail(msg) {
+      list.innerHTML = "";
+      list.appendChild(el("p", "pempty", msg));
+    }
+    fetch("partners.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (data) {
+        var shops = (data && Array.isArray(data.shops) ? data.shops : []).filter(valid);
+        if (!shops.length) return fail("No partner shops are listed right now.");
+        var bars = shops.map(function (p) { return p.minMinutes; });
+        var same = bars.every(function (b) { return b === bars[0]; });
+        // One shared bar is the deal the shops were given. If that ever stops
+        // being true, the per-card line below says each shop's own number.
+        document.querySelectorAll("[data-bar]").forEach(function (n) {
+          n.textContent = hours(Math.min.apply(null, bars));
+        });
+        list.innerHTML = "";
+        shops.forEach(function (p) {
+          var card = el("div", "pcard");
+          card.appendChild(el("div", "name", p.name));
+          card.appendChild(el("div", "perk", p.perk));
+          var m = el("div", "meta");
+          if (p.address) m.appendChild(meta(PIN, p.address));
+          if (since(p.since)) m.appendChild(meta(CAL, since(p.since)));
+          if (!same) m.appendChild(el("span", null, "Unlocks after " + hours(p.minMinutes) + " of focus"));
+          card.appendChild(m);
+          list.appendChild(card);
+        });
+      })
+      .catch(function () {
+        fail("The partner list didn't load. It is also on the Boba Map in the app.");
+      });
+  })();
+  </script>
+</body>
+</html>

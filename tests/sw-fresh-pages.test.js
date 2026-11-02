@@ -16,7 +16,7 @@ const sw = fs.readFileSync(path.join(__dirname, "..", "sw.js"), "utf8");
 const exemption = sw.match(/if \(url\.pathname === "\/"[\s\S]*?return;/);
 assert.ok(exemption, "could not find the network-fresh exemption block in sw.js");
 
-for (const page of ["privacy.html", "support.html"]) {
+for (const page of ["privacy.html", "support.html", "chrome.html", "shops.html"]) {
   test(`${page} is served network-fresh (exempt from the cache-first handler)`, () => {
     assert.match(exemption[0], new RegExp(`endsWith\\("/${page.replace(".", "\\.")}"\\)`),
       `${page} must be in the network-fresh exemption so content edits reach returning visitors`);
@@ -28,6 +28,6 @@ test("privacy.html and support.html are NOT precached in the versioned SHELL", (
   // above is only meaningful while they stay out of the precache list.
   const shell = sw.match(/const SHELL\s*=\s*\[([\s\S]*?)\]/);
   assert.ok(shell, "could not find the SHELL precache list in sw.js");
-  assert.doesNotMatch(shell[1], /privacy\.html|support\.html/,
+  assert.doesNotMatch(shell[1], /privacy\.html|support\.html|shops\.html/,
     "privacy/support pages must not be in the versioned SHELL precache");
 });
