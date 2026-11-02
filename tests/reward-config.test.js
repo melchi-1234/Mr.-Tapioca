@@ -16,12 +16,12 @@ const shop = (over) => Object.assign({
 }, over || {});
 
 // ── The live file must survive, byte for byte in meaning ─────────────────────
-test("live partners.json parses and keeps both real shops", () => {
+test("live partners.json parses and keeps all three real shops", () => {
   const cfg = RC.parse(LIVE);
   assert.deepEqual(cfg.errors, []);
-  assert.equal(cfg.shops.length, 2);
+  assert.equal(cfg.shops.length, 3);
   assert.deepEqual(cfg.shops.map((s) => s.id).sort(),
-    ["dream-tea-poke-ithaca", "u-tea-collegetown"]);
+    ["dream-tea-poke-ithaca", "u-tea-collegetown", "uni-uni-jersey-city"]);
 });
 
 test("live shops keep their exact agreed perks and bars", () => {
@@ -34,6 +34,9 @@ test("live shops keep their exact agreed perks and bars", () => {
   assert.equal(u.minMinutes, 240);
   assert.equal(d.perk, "5% off your drink");
   assert.equal(d.minMinutes, 240);
+  const n = cfg.shops.find((s) => s.id === "uni-uni-jersey-city");
+  assert.equal(n.perk, "1 free standard topping with any regular-priced drink (1 per day, not combinable with other promotions)");
+  assert.equal(n.minMinutes, 240);
 });
 
 test("live config declares the shared 240-minute passport the shops were told about", () => {

@@ -631,12 +631,17 @@
           <button class="sheet-close" id="mapClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="sheet-body map-body">
-          <p class="map-intro"><strong>Find real boba shops near you.</strong> Starred shops are partners: finish a long drink and they will honour a real reward in person.</p>
+          <!-- The bar is filled in from the live partner list (renderPerkBanner), so
+               this sentence can never quote a number the shops did not agree to. -->
+          <p class="map-intro"><strong>Find real boba shops near you.</strong> Starred shops are partners. Every <span id="mapIntroBar">4 hrs</span> of focus, added up across your sessions, earns a reward you can use at any of them in person.</p>
           <div id="mapPerkBanner" class="map-perk-banner hidden"></div>
           <div id="map" class="map-canvas">
             <div id="mapStatus" class="map-status">Loading the map…</div>
           </div>
           <div id="mapShopList" class="map-shop-list hidden"></div>
+          <!-- Every partner the nearby list above did not show: all of them when
+               location is off, and the far ones (another city) when it is on. -->
+          <div id="mapPartnerList" class="map-shop-list map-partner-list hidden"></div>
         </div>
       </div>
 

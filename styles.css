@@ -3464,6 +3464,11 @@ button.option-row { width: 100%; font: inherit; text-align: left; cursor: pointe
   min-height: 44px;
 }
 .map-shop-redeem:active { transform: scale(0.98); }
+/* Partners outside the nearby list (another city, or location off). The info
+   half is a plain block, not a button, so it must not press like one. */
+.map-partner-list { margin-top: 16px; }
+.map-shop-item.is-static:active { transform: none; background: var(--ui-paper); }
+.map-shop-item.is-static .map-shop-dist { line-height: 1.3; }
 
 /* ── Redeem card (the screen a barista reads) ─────────────────────────────── */
 .redeem-card { text-align: center; }

@@ -1517,11 +1517,11 @@ test("a shop id the server could not store is an error, not a clean parse", () =
   const anonymous = RC.parse({ shops: [SHOP({ id: undefined })] });
   assert.match(anonymous.errors.join(" "), /has no id/);
 
-  // The two REAL shops are unaffected. This is the line that matters most.
+  // The REAL shops are unaffected. This is the line that matters most.
   const live = RC.parse(LIVE_PARTNERS);
   assert.deepEqual(live.errors, []);
   assert.deepEqual(live.shops.map((x) => x.id).sort(),
-    ["dream-tea-poke-ithaca", "u-tea-collegetown"]);
+    ["dream-tea-poke-ithaca", "u-tea-collegetown", "uni-uni-jersey-city"]);
 });
 
 test("a cap larger than the server's CHECK allows is an error", () => {
@@ -1651,7 +1651,7 @@ test("unicode and bidi text in a shop name survives parsing without throwing", (
 });
 
 test("the live partners.json parses clean and matches what the shops were told", () => {
-  // The regression rail for everything above. Whatever else changes, the two real
+  // The regression rail for everything above. Whatever else changes, the real
   // shops keep their agreed numbers and the shared 240-minute bar the managers
   // were actually given: study 4 cumulative hours, redeem at their shop.
   const LIVE = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "partners.json"), "utf8"));
@@ -1660,15 +1660,21 @@ test("the live partners.json parses clean and matches what the shops were told",
   assert.equal(cfg.policyState, "declared");
   assert.equal(cfg.policies[0].kind, "global_passport");
   assert.equal(cfg.policies[0].requiredMinutes, 240);
-  assert.equal(cfg.shops.length, 2);
+  assert.equal(cfg.shops.length, 3);
   const u = cfg.shops.find((s) => s.id === "u-tea-collegetown");
   const d = cfg.shops.find((s) => s.id === "dream-tea-poke-ithaca");
+  const n = cfg.shops.find((s) => s.id === "uni-uni-jersey-city");
   assert.equal(u.perk, "10% off your drink");
   assert.equal(d.perk, "5% off your drink");
+  assert.equal(n.perk, "1 free standard topping with any regular-priced drink (1 per day, not combinable with other promotions)");
   assert.equal(RC.barFor(u), 240);
   assert.equal(RC.barFor(d), 240);
+  assert.equal(RC.barFor(n), 240);
   assert.equal(u.perUserLimit, null, "no cap was ever agreed, so none may be invented");
   assert.equal(d.perUserLimit, null);
+  // "1 per day" is in Uni Uni's own perk words for the barista to honour. It is
+  // not a perUserLimit the app enforces, so none may be invented here either.
+  assert.equal(n.perUserLimit, null);
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

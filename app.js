@@ -524,7 +524,9 @@ const els = {
   redeemNote:           document.querySelector("#redeemNote"),
   redeemConfirmBtn:     document.querySelector("#redeemConfirmBtn"),
   mapShopList:          document.querySelector("#mapShopList"),
-  friendsBtn:           document.querySelector("#friendsBtn"),
+  mapPartnerList:       document.querySelector("#mapPartnerList"),
+  mapIntroBar:          document.querySelector("#mapIntroBar"),
+  friendsBtn:          document.querySelector("#friendsBtn"),
   friendsClose:         document.querySelector("#friendsClose"),
   questsBtn:            document.querySelector("#questsBtn"),
   questsClose:          document.querySelector("#questsClose"),
@@ -6624,7 +6626,7 @@ function mergeCurated(shops, lat, lng, radius) {
 // goes in only after it says yes, and comes straight back out the day it wants
 // to stop (the app promises them exactly that).
 //   perk       what the student actually gets, in the words shown at a counter
-//   minMinutes focus time in ONE drink that unlocks it
+//   minMinutes CUMULATIVE focus time that unlocks it, across any number of drinks
 //   since      the day they agreed
 const PARTNER_SHOPS = [
   {
@@ -6867,7 +6869,14 @@ function buildMap(lat, lng, real, why) {
         ? "Location is off for Mr. Tapioca. Allow it in Settings, then try again."
         : "Couldn't get your location. Give it another try.",
       relocateMap);
+    // No location must not mean no partners. Without this the counter card was
+    // unreachable for anyone who said no to location, reward in hand or not. The
+    // partner list is refreshed here too: loadNearbyShops is the only other place
+    // it is fetched, and that never runs without a fix.
     renderShopList([]);
+    loadPartners().then(() => {
+      if (lastFix && !lastFix.real) { renderShopList([]); renderPerkBanner([]); }
+    });
     return;
   }
   loadNearbyShops(lat, lng);
@@ -6887,22 +6896,28 @@ function loadNearbyShops(lat, lng) {
   // are independent and the partner file is tiny, so this costs no wall clock.
   // loadPartners never rejects, so a failure here still leaves the catch below
   // meaning exactly what it did (the Overpass query died).
-  Promise.all([loadPartners(), fetchRealBobaShops(lat, lng)])
+  const retry = () => loadNearbyShops(lat, lng);
+  const search = Promise.all([loadPartners(), fetchRealBobaShops(lat, lng)]);
+  // Partners are known locally (loadPartners has already seeded the cached list
+  // synchronously above), so pin them NOW rather than after the shop search.
+  // Overpass can take a minute across its mirrors, and the person waiting on it
+  // may be standing at a partner's counter with a reward to show.
+  placeShopMarkers([], lat, lng);
+  search
     .then(([, shops]) => {
       shopsLoading = false;
-      if (!shops.length) {
-        setMapStatus("No boba spots listed within ~6 km. OpenStreetMap may not have your local shops mapped yet.",
-          () => loadNearbyShops(lat, lng));
-        renderShopList([]);
-        return;
-      }
-      if (shops.partial) {
-        setMapStatus("The map service was slow, so this list may be incomplete.",
-          () => loadNearbyShops(lat, lng));
+      // Placed BEFORE the empty check, not after it. A partner in range is on
+      // the map even when OpenStreetMap lists nothing else there (withPartners
+      // adds it), and returning early on an empty OSM answer used to drop it:
+      // Uni Uni vanished from Jersey City whenever the query came back empty.
+      const placed = placeShopMarkers(shops, lat, lng);
+      if (!placed) {
+        setMapStatus("No boba spots listed within ~6 km. OpenStreetMap may not have your local shops mapped yet.", retry);
+      } else if (shops.partial) {
+        setMapStatus("The map service was slow, so this list may be incomplete.", retry);
       } else {
         setMapStatus("");
       }
-      placeShopMarkers(shops, lat, lng);
     })
     .catch(() => {
       shopsLoading = false;
@@ -6914,19 +6929,22 @@ function loadNearbyShops(lat, lng) {
       // one two blocks away. Overpass mirrors time out often enough that this
       // is a path users really see.
       fallback.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng));
-      if (fallback.length) {
-        setMapStatus("Live search is busy. Showing verified boba spots nearby.",
-          () => loadNearbyShops(lat, lng));
-        placeShopMarkers(fallback, lat, lng);
+      // Same rule as above: partners in range go on the map even when the
+      // curated fallback has nothing for this city.
+      if (placeShopMarkers(fallback, lat, lng)) {
+        setMapStatus("Live search is busy. Showing verified boba spots nearby.", retry);
       } else {
-        setMapStatus("The free map service is busy right now. Give it a minute.",
-          () => loadNearbyShops(lat, lng));
+        setMapStatus("The free map service is busy right now. Give it a minute.", retry);
       }
     });
 }
 
-// Drop pins + fill the list for a set of shops (shared by live + fallback paths)
+// Drop pins + fill the list for a set of shops (shared by live + fallback paths).
+// Returns how many rows it placed. It replaces whatever pins are already up,
+// because loadNearbyShops places partners first and then the full list.
 function placeShopMarkers(shops, lat, lng) {
+  shopMarkers.forEach(m => { try { mapObj.removeLayer(m); } catch (e) {} });
+  shopMarkers = [];
   // Partner status is stamped here, not at either call site, so the live path
   // and the Overpass-is-down fallback can never disagree about who is starred.
   const all = withPartners(shops, lat, lng, 6000)
@@ -6957,6 +6975,7 @@ function placeShopMarkers(shops, lat, lng) {
   });
   renderPerkBanner(items.filter(it => it.shop.partner).map(it => it.shop.partner));
   renderShopList(items);
+  return items.length;
 }
 
 // The banner is the honest status line for the whole partner feature: how many
@@ -6966,6 +6985,12 @@ function renderPerkBanner(nearbyPartners) {
   if (!el) return;
   const earned = rewardsInHand();
   const near = (nearbyPartners || []).length;
+  const progress = rewardProgressNow();
+  // The intro sentence quotes the bar, so it follows the same source as every
+  // other reward surface instead of a number typed into the HTML.
+  if (els.mapIntroBar) {
+    els.mapIntroBar.textContent = durationLabel(progress && progress.bar > 0 ? progress.bar : perkMinMinutes());
+  }
   let msg = "";
   const accountOff = cloudAccountRewardsOffCopy();
   if (accountOff) {
@@ -6978,18 +7003,75 @@ function renderPerkBanner(nearbyPartners) {
       : `🌟 ${earned} reward${earned !== 1 ? "s" : ""} ready at ${near} partner shops near you.`;
   } else if (earned > 0) {
     // Earned, but no partner in range. Say so plainly rather than implying a
-    // reward is waiting somewhere down the street.
-    msg = `🌟 ${earned} reward${earned !== 1 ? "s" : ""} saved. No partner shop near you yet.`;
+    // reward is waiting somewhere down the street. "Near you" is only a claim we
+    // can make with a real fix, though: with location off the map sits on a demo
+    // city, and telling someone standing in U Tea that no partner is near them
+    // is simply false.
+    msg = (lastFix && lastFix.real)
+      ? `🌟 ${earned} reward${earned !== 1 ? "s" : ""} saved. No partner shop near you yet.`
+      : `🌟 ${earned} reward${earned !== 1 ? "s" : ""} saved. Show it at any partner shop listed below.`;
   } else if (near > 0) {
     // Cumulative, so speak to how far off they actually are rather than quoting
-    // the full bar at someone who is most of the way there.
-    const progress = rewardProgressNow();
-    msg = progress
-      ? `${nearbyPartners[0].name} is a partner shop. ${durationLabel(progress.left)} more focus to earn ${nearbyPartners[0].perk.toLowerCase()}.`
-      : "Reward progress isn’t available right now. Try again in a moment.";
+    // the full bar at someone who is most of the way there. Name the one shop
+    // when there is one; with two in town, naming only the closer one read as if
+    // the other were not a partner.
+    msg = !progress
+      ? "Reward progress isn’t available right now. Try again in a moment."
+      : near === 1
+        ? `${nearbyPartners[0].name} is a partner shop. ${durationLabel(progress.left)} more focus to earn ${nearbyPartners[0].perk.toLowerCase()}.`
+        : `${durationLabel(progress.left)} more focus to earn a reward at ${near} partner shops near you.`;
+  } else if (progress && livePartners.length) {
+    msg = `${durationLabel(progress.left)} more focus to earn a reward at any partner shop.`;
   }
   el.textContent = msg;
   el.classList.toggle("hidden", !msg);
+}
+
+// Partners the nearby list did not show. With location off that is every one
+// of them; with it on, it is the ones in other cities (Uni Uni, seen from
+// Ithaca). A reward is good at any partner, so hiding a shop because it is far
+// away hid half of what the reward is worth, and with location off it hid the
+// counter card itself.
+//
+// Rows are information plus the counter button, not map buttons: a far shop is
+// not on the map the student is looking at, so a tap that pans there would
+// leave them stranded in another state.
+function renderOtherPartners(shownIds) {
+  const el = els.mapPartnerList;
+  if (!el) return;
+  // Keyed by id, falling back to name: validPartner() does not require an id.
+  const key = (p) => p.id || p.name;
+  const shown = new Set(shownIds || []);
+  const located = !!(lastFix && lastFix.real);
+  const rows = livePartners
+    .filter(p => !shown.has(key(p)))
+    .map(p => ({ p, dist: located ? haversine(lastFix.lat, lastFix.lng, p.lat, p.lng) : null }))
+    .sort((a, b) => (a.dist == null || b.dist == null) ? 0 : a.dist - b.dist);
+  if (!rows.length) { el.innerHTML = ""; el.classList.add("hidden"); return; }
+  // Whole kilometres once it is a road trip; "282.4 km" is false precision.
+  const far = (m) => m >= 100000 ? `${Math.round(m / 1000)} km away` : `${formatDistance(m)} away`;
+  el.classList.remove("hidden");
+  el.innerHTML =
+    `<div class="map-list-head">${shown.size ? "More partner shops" : "Partner shops"}</div>` +
+    rows.map(({ p, dist }, i) =>
+      `<div class="map-shop-row is-partner">` +
+        `<div class="map-shop-item is-static">` +
+          `<span class="map-shop-emoji">${ICON.star}</span>` +
+          `<span class="map-shop-text">` +
+            `<span class="map-shop-name">${escapeHtml(p.name)}</span>` +
+            `<span class="map-shop-dist">${dist != null ? far(dist) + " · " : ""}${escapeHtml(p.address || "")}</span>` +
+            `<span class="map-shop-perk">${escapeHtml(p.perk)}</span>` +
+          `</span>` +
+        `</div>` +
+        `<button type="button" class="map-shop-redeem" data-p="${i}">Show at the counter</button>` +
+      `</div>`
+    ).join("");
+  el.querySelectorAll(".map-shop-redeem").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = rows[+btn.dataset.p];
+      if (row) openRedeem(row.p);
+    });
+  });
 }
 
 // Scannable list of the nearby real shops under the map; tapping one pans the map
@@ -6997,6 +7079,9 @@ function renderPerkBanner(nearbyPartners) {
 function renderShopList(items) {
   const el = els.mapShopList;
   if (!el) return;
+  // Every path that fills (or empties) the nearby list also refreshes the list
+  // of partners it left out, so the two can never both show, or both miss, a shop.
+  renderOtherPartners((items || []).filter(it => it.shop.partner).map(it => it.shop.partner.id || it.shop.partner.name));
   if (!items || !items.length) { el.innerHTML = ""; el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
   el.innerHTML =
